@@ -1,5 +1,8 @@
+from glob import magic_check
+
 from photutils.psf import FittableImageModel
 
+from starbug2.constants import VERBOSE
 from starbug2.param import load_params, load_default_params
 from starbug2.misc import *
 from starbug2.routines import *
@@ -9,10 +12,10 @@ from starbug2.utils import collapse_header, parse_unit
 
 class StarbugBase(object):
     """
-    StarbugBase is the overall container for the photometry package. It holds the active image,
-    the parameter file and the output images/tables.
-    It is self contained enough to simply run "photometry" and everything should just take care
-    of itself from there on.
+    StarbugBase is the overall container for the photometry package. It holds
+    the active image, the parameter file and the output images/tables.
+    It is self-contained enough to simply run "photometry" and everything
+    should just take care of itself from there on.
     """
     filter=None
     stage=0
@@ -181,11 +184,11 @@ class StarbugBase(object):
         bname=""
         extension=""
         if f_name:
-            outdir,bname,extension=split_fname(f_name)
+            outdir,bname,extension=split_file_name(f_name)
             if (tmp_outname:=param_output) and tmp_outname !='.':
-                _outdir,_bname,_=split_fname(tmp_outname)
+                _outdir,_bname,_=split_file_name(tmp_outname)
                 if os.path.exists(outdir) and os.path.isdir(outdir): outdir=_outdir
-                else: perror("unable to locate output directory \"%s\"\n"%_outdir)
+                else: p_error("unable to locate output directory \"%s\"\n" % _outdir)
                 if _bname: bname=_bname
 
         return outdir,bname,extension
@@ -277,7 +280,7 @@ class StarbugBase(object):
         if not fname: fname=self.options["AP_FILE"]
         if os.path.exists(fname):
             self.detections=import_table(fname)
-            cn=set(self.detections.colnames)
+            cn=set(self.detections.col_names)
 
             self.log("loaded AP_FILE='%s'\n"%fname)
 
@@ -301,13 +304,13 @@ class StarbugBase(object):
             elif len( set(("x_init","y_init"))&cn)==2:
                 self.detections.rename_columns(("x_init","y_init"),("xcentroid","ycentroid"))
 
-            if len( set(("xcentroid","ycentroid"))&set(self.detections.colnames))==2:
+            if len( set(("xcentroid","ycentroid"))&set(self.detections.col_names))==2:
                 mask=(self.detections["xcentroid"]>=0) & (self.detections["xcentroid"]<self.image.shape[1]) & (self.detections["ycentroid"]>=0) & (self.detections["ycentroid"]<self.image.shape[0])
                 self.detections.remove_rows(~mask)
                 self.log("-> loaded %d sources from AP_FILE\n"%len(self.detections))
             else:
                 warn("Unable to determine physical coordinates from detections table\n")
-        else: perror("AP_FILE='%s' does not exists\n"%fname)
+        else: p_error("AP_FILE='%s' does not exists\n" % fname)
 
     def load_bgdfile(self,fname=None):
         """
@@ -322,7 +325,7 @@ class StarbugBase(object):
         if os.path.exists(fname):
             self.background=fits.open(fname)[1]
             self.log("loaded BGD_FILE='%s'\n"%fname)
-        else: perror("BGD_FILE='%s' does not exist\n"%fname)
+        else: p_error("BGD_FILE='%s' does not exist\n" % fname)
 
     def load_psf(self,fname=None):
         """
@@ -351,7 +354,7 @@ class StarbugBase(object):
             fp=fits.open(fname)
 
             if fp[0].data is None: 
-                perror("There is a version mismatch between starbug and webbpsf. Please reinitialise with: starbug2 --init.\n")
+                p_error("There is a version mismatch between starbug and webbpsf. Please reinitialise with: starbug2 --init.\n")
                 quit("Fatal error, quitting\n")
 
 
@@ -359,7 +362,7 @@ class StarbugBase(object):
             fp.close()
             self.log("loaded PSF_FILE='%s'\n"%(fname))
         else:
-            perror("PSF_FILE='%s' does not exist\n"%fname)
+            p_error("PSF_FILE='%s' does not exist\n" % fname)
             status=1
         return status
 
@@ -453,7 +456,7 @@ class StarbugBase(object):
             self.aperture_photometry()
 
         else:
-            perror("Something went wrong.\n")
+            p_error("Something went wrong.\n")
             status=1
         return status
 
@@ -462,14 +465,14 @@ class StarbugBase(object):
     def aperture_photometry(self):
 
         if self.detections is None:
-            perror("No detection source file loaded (-d file-ap.fits)\n")
+            p_error("No detection source file loaded (-d file-ap.fits)\n")
             return 1
-        if len(set(("x_0","y_0","x_init","y_init","xcentroid","ycentroid")) & set(self.detections.colnames))<2:
-            perror("No pixel coordinates in source file\n")
+        if len(set(("x_0","y_0","x_init","y_init","xcentroid","ycentroid")) & set(self.detections.col_names))<2:
+            p_error("No pixel coordinates in source file\n")
             return 1
 
         new_columns=("smoothness","flux","eflux","sky", "flag", self.filter,"e%s"%self.filter)
-        self.detections.remove_columns( set(new_columns)&set(self.detections.colnames) )
+        self.detections.remove_columns(set(new_columns) & set(self.detections.col_names))
 
 
         #######################
@@ -561,11 +564,11 @@ class StarbugBase(object):
             elif _f: FWHM=_f.pFWHM
             else: FWHM=2
 
-            if "x_init" in sourcelist.colnames: sourcelist.rename_column("x_init", "xcentroid")
-            if "y_init" in sourcelist.colnames: sourcelist.rename_column("y_init", "ycentroid")
-            if "x_det" in sourcelist.colnames: sourcelist.rename_column("x_det", "xcentroid")
-            if "y_det" in sourcelist.colnames: sourcelist.rename_column("y_det", "ycentroid")
-            if "flux_det" in sourcelist.colnames: sourcelist.rename_column("flux_det", "flux")
+            if "x_init" in sourcelist.col_names: sourcelist.rename_column("x_init", "xcentroid")
+            if "y_init" in sourcelist.col_names: sourcelist.rename_column("y_init", "ycentroid")
+            if "x_det" in sourcelist.col_names: sourcelist.rename_column("x_det", "xcentroid")
+            if "y_det" in sourcelist.col_names: sourcelist.rename_column("y_det", "ycentroid")
+            if "flux_det" in sourcelist.col_names: sourcelist.rename_column("flux_det", "flux")
             mask=~(np.isnan(sourcelist["xcentroid"])|np.isnan(sourcelist["ycentroid"]))
 
 
@@ -586,7 +589,7 @@ class StarbugBase(object):
                 self.background.writeto(_fname,overwrite=True)
 
         else:
-            perror("unable to estimate background, no source list loaded\n")
+            p_error("unable to estimate background, no source list loaded\n")
             status=1
         return status
 
@@ -599,7 +602,7 @@ class StarbugBase(object):
         self.log("Subtracting Background\n")
 
         if self.background is None:
-            perror("No background array loaded (-b file-bgd.fits)\n")
+            p_error("No background array loaded (-b file-bgd.fits)\n")
             return 1
         array= self.image.data - self.background.data
         self.residuals = array
@@ -631,11 +634,11 @@ class StarbugBase(object):
             #image=self.image.data.copy()
 
             if self.detections is None:
-                perror("unable to run photometry: no source list loaded\n")
+                p_error("unable to run photometry: no source list loaded\n")
                 return 1
 
             if self.psf is None and self.load_psf(os.path.expandvars(self.options["PSF_FILE"])):
-                perror("unable to run photometry: no PSF loaded\n")
+                p_error("unable to run photometry: no PSF loaded\n")
                 return 1
 
             psfmask= ~np.isfinite(self.psf)
@@ -657,10 +660,10 @@ class StarbugBase(object):
 
             init_guesses=self.detections.copy()
             #print(init_guesses, end="")
-            if "xcentroid" in init_guesses.colnames: init_guesses.rename_column("xcentroid", "x_init")
-            if "ycentroid" in init_guesses.colnames: init_guesses.rename_column("ycentroid", "y_init")
-            if "x_det" in init_guesses.colnames: init_guesses.rename_column("x_det", "x_init")
-            if "y_det" in init_guesses.colnames: init_guesses.rename_column("y_det", "y_init")
+            if "xcentroid" in init_guesses.col_names: init_guesses.rename_column("xcentroid", "x_init")
+            if "ycentroid" in init_guesses.col_names: init_guesses.rename_column("ycentroid", "y_init")
+            if "x_det" in init_guesses.col_names: init_guesses.rename_column("x_det", "x_init")
+            if "y_det" in init_guesses.col_names: init_guesses.rename_column("y_det", "y_init")
 
             init_guesses=init_guesses[ init_guesses["x_init"]>=0 ]
             init_guesses=init_guesses[ init_guesses["y_init"]>=0 ]
@@ -671,7 +674,7 @@ class StarbugBase(object):
             # Allow tables that dont have the correct columns through
             ######
             required=["x_init","y_init","flux",self.filter, "flag"]
-            for notfound in  set(required)-set(init_guesses.colnames):
+            for notfound in  set(required)-set(init_guesses.col_names):
                 dtype=np.uint16 if notfound=="flag" else float
                 init_guesses.add_column( Column( np.zeros(len(init_guesses)), name=notfound, dtype=dtype) )
 
@@ -721,7 +724,10 @@ class StarbugBase(object):
 
                 if maxydev>0:
                     self.log("-> position fit threshold: %.2gpix\n"%maxydev)
-                    phot=PSFPhot_Routine(psf_model, size, min_separation=min_separation, apphot_r=apphot_r, background=bgd, force_fit=1, verbose=self.options["VERBOSE"])
+                    phot = PSFPhot_Routine(
+                        psf_model, size, min_separation=min_separation,
+                        apphot_r=apphot_r, background=bgd, force_fit=1,
+                        verbose=self.options[VERBOSE])
                     ii=np.where( psf_cat["xydev"]>maxydev)
                     fixed_centres= psf_cat[ii][["x_init","y_init","ap_%s"%self.filter,"flag"]]
                     if len(fixed_centres):
@@ -736,22 +742,24 @@ class StarbugBase(object):
             psf_cat.add_column( Column(ra, name="RA"), index=2)
             psf_cat.add_column( Column(dec, name="DEC"), index=3)
 
-            #psf_cat.rename_column("flux_fit","flux")
-            mag,magerr=flux2mag(psf_cat["flux"],psf_cat["eflux"])
+            mag, mag_err = flux2mag(psf_cat["flux"],psf_cat["eflux"])
 
-            fltr= self.filter if self.filter else "mag"
-            psf_cat.add_column(mag+self.options.get("ZP_MAG"),name=fltr)
-            psf_cat.add_column(magerr,name="e%s"%fltr)
-            self.psfcatalogue=psf_cat
+            filter_string = self.filter if self.filter else "mag"
+            psf_cat.add_column(
+                mag+self.options.get("ZP_MAG"), name=filter_string)
+            psf_cat.add_column(mag_err, name="e%s"%filter_string)
+            self.psfcatalogue = psf_cat
             self.psfcatalogue.meta=dict(self.header.items())
             self.psfcatalogue.meta["AP_FILE"]=self.options["AP_FILE"]
             self.psfcatalogue.meta["BGD_FILE"]=self.options["BGD_FILE"]
 
             reindex(self.psfcatalogue)
             if not self.options.get("QUIETMODE"):
-                _fname="%s/%s-psf.fits"%(self.outdir, self.bname)
-                self.log("--> %s\n"%_fname)
-                fits.BinTableHDU(data=self.psfcatalogue, header=self.header).writeto(_fname,overwrite=True)
+                _file_name="%s/%s-psf.fits"%(self.outdir, self.bname)
+                self.log("--> %s\n"%_file_name)
+                fits.BinTableHDU(
+                    data=self.psfcatalogue,
+                    header=self.header).writeto(_file_name, overwrite=True)
 
             ##################
             # Residual Image #
@@ -759,14 +767,19 @@ class StarbugBase(object):
 
             if self.options["GEN_RESIDUAL"]:
                 self.log("-> generating residual\n")
-                _tmp=psf_cat["x_fit","y_fit","flux"].copy()
+                _tmp = psf_cat["x_fit","y_fit","flux"].copy()
                 _tmp.rename_columns( ("x_fit","y_fit"), ("x_0","y_0"))
-                stars=make_model_image(image.shape, psf_model, _tmp, model_shape=(size,size))
+                stars = make_model_image(
+                    image.shape, psf_model, _tmp, model_shape=(size,size))
                 residual=image-(bgd+stars)
                 self.residuals=residual/get_MJysr2Jy_scalefactor(self.image)
                 header=self.header
                 header.update(self.wcs.to_header())
-                fits.ImageHDU(data=self.residuals, name="RES", header=header).writeto("%s/%s-res.fits"%(self.outdir,self.bname), overwrite=True)
+                fits.ImageHDU(
+                    data=self.residuals, name="RES",
+                    header=header).writeto(
+                        "%s/%s-res.fits" % (self.outdir,self.bname),
+                        overwrite=True)
 
             return 0
 
@@ -852,7 +865,7 @@ class StarbugBase(object):
         """
         Calculate source geometry stats for a given image and source list
         """
-        if self.detections is None: perror("No source file loaded\n")
+        if self.detections is None: p_error("No source file loaded\n")
         else:
             self.log("Running Source Geometry\n")
             slist=self.detections[["xcentroid","ycentroid"]].copy()

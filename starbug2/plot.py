@@ -33,7 +33,7 @@ def load_style(fname):
     if os.path.exists(fname): 
         plt.style.use(fname)
     else:
-        utils.perror("Unable to load style sheet \"%s\"\n"%fname)
+        utils.p_error("Unable to load style sheet \"%s\"\n" % fname)
 
 
 def get_point_density(x,y,bins=30):

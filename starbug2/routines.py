@@ -23,7 +23,7 @@ from photutils.psf import PSFPhotometry, IntegratedGaussianPRF, SourceGrouper
 
 #from photutils.datasets import make_model_sources_image, make_random_models_table
 from photutils.datasets import make_model_image, make_random_models_table
-from starbug2.utils import loading, printf, perror, warn
+from starbug2.utils import Loading, printf, p_error, warn
 from starbug2 import *
 
 class Detection_Routine(StarFinderBase):
@@ -322,7 +322,7 @@ class APPhot_Routine():
         elif len( set(("x_init","y_init")) & set(detections.colnames))==2:
             pos=[(line["x_init"],line["y_init"]) for line in detections]
         else:
-            perror("Cannot identify position in detection catalogue (x_0/xcentroid)\n");
+            p_error("Cannot identify position in detection catalogue (x_0/xcentroid)\n");
             return None
 
         mask=np.isnan(image)
@@ -399,12 +399,12 @@ class APPhot_Routine():
         if not table_fname or not os.path.exists(table_fname): return 1
         tmp=Table.read(table_fname, format="fits")
         
-        if "filter" in tmp.colnames:
+        if "filter" in tmp.col_names:
             t_apcorr=tmp[(tmp["filter"]==filter)]
         else: t_apcorr=tmp
 
 
-        if "pupil" in t_apcorr.colnames:
+        if "pupil" in t_apcorr.col_names:
             t_apcorr=t_apcorr[ t_apcorr["pupil"]=="CLEAR"]
         
         apcorr= np.interp(radius, t_apcorr["radius"], t_apcorr["apcorr"])
@@ -423,7 +423,7 @@ class APPhot_Routine():
         if not table_fname or not os.path.exists(table_fname): return 1
         tmp=Table.read(table_fname, format="fits")
 
-        if "filter" in tmp.colnames:
+        if "filter" in tmp.col_names:
             t_apcorr=tmp[(tmp["filter"]==filter)]
         else: t_apcorr=tmp
 
@@ -440,12 +440,12 @@ class APPhot_Routine():
         if not table_fname or not os.path.exists(table_fname): return -1
         t_apcorr=Table.read(table_fname, format="fits")
 
-        if len( set(["eefraction","radius"])&set(t_apcorr.colnames))!=2: return -1
+        if len( set(["eefraction","radius"])&set(t_apcorr.col_names))!=2: return -1
 
-        if "filter" in t_apcorr.colnames: # Crop down table
+        if "filter" in t_apcorr.col_names: # Crop down table
             t_apcorr=t_apcorr[(t_apcorr["filter"]==filter)]
 
-        if "pupil" in t_apcorr.colnames: # Crop down table
+        if "pupil" in t_apcorr.col_names: # Crop down table
             t_apcorr=t_apcorr[ t_apcorr["pupil"]=="CLEAR"]
 
         return np.interp( eefrac, t_apcorr["eefraction"], t_apcorr["radius"])
@@ -545,7 +545,7 @@ class BackGround_Estimate_Routine(BackgroundBase):
                 rlist=DEFAULT_R*np.ones(len(self.sourcelist))
 
         D=50
-        load=loading(len(self.sourcelist), msg="masking sources", res=10)#len(self.sourcelist)/1000)
+        load=Loading(len(self.sourcelist), msg="masking sources", res=10)#len(self.sourcelist)/1000)
         for r,src in zip(rlist,self.sourcelist):
 
             rin=1.5*r
@@ -627,7 +627,7 @@ class _fitmodel(LevMarLSQFitter):
         super().__init__()
         self.grouper=grouper
         if verbose:
-            self.load=loading(1, msg="fitting psfs")
+            self.load=Loading(1, msg="fitting psfs")
 
     def __call__(self, *args, **kwargs):
         if self.grouper and self.load:
@@ -725,7 +725,7 @@ class PSFPhot_Routine(PSFPhotometry):
         """ 
 
         if init_params is None or len(init_params)==0:
-            perror("Must include source list\n")
+            p_error("Must include source list\n")
             return None
 
         
@@ -744,7 +744,7 @@ class PSFPhot_Routine(PSFPhotometry):
         d=np.sqrt((cat["x_init"]-cat["x_fit"])**2.0 + (cat["y_init"]-cat["y_fit"])**2.0)
         cat.add_column(Column(d,name="xydev"))
 
-        if "flux_err" not in cat.colnames:
+        if "flux_err" not in cat.col_names:
             cat.add_column(Column(np.full(len(cat),np.nan), name="eflux"))
             warn("Something went wrong with PSF error fitting\n")
         else: cat.rename_column("flux_err","eflux")
@@ -810,7 +810,7 @@ class ArtificialStar_Routine(object):
         sources.add_column(Column(np.zeros(len(sources)), name="y_det"))
         sources.add_column(Column(np.zeros(len(sources)), name="status"))
 
-        load=loading(len(sources), msg="artificial star tests")
+        load=Loading(len(sources), msg="artificial star tests")
         load.show()
         for n,src in enumerate(sources):
 
@@ -863,13 +863,13 @@ class SourceProperties:
         self.verbose=verbose
     
         if sourcelist and type(sourcelist) in (Table,QTable):
-            if len( set(("xcentroid","ycentroid")) & set(sourcelist.colnames))==2:
+            if len( set(("xcentroid","ycentroid")) & set(sourcelist.col_names))==2:
                 self.sourcelist=Table(sourcelist[["xcentroid","ycentroid"]])
-            elif len( set(("x_0","y_0")) & set(sourcelist.colnames))==2:
+            elif len( set(("x_0","y_0")) & set(sourcelist.col_names))==2:
                 self.sourcelist=Table(sourcelist[["x_0","y_0"]])
                 self.sourcelist.rename_columns( ("x_0","y_0"), ("xcentroid","ycentroid"))
-            else: perror("no posisional columns in sourcelist\n")
-        else: perror("bad sourcelist type: %s\n"%type(sourcelist))
+            else: p_error("no posisional columns in sourcelist\n")
+        else: p_error("bad sourcelist type: %s\n" % type(sourcelist))
 
 
     def __call__(self, do_crowd=1, **kwargs):
@@ -888,11 +888,11 @@ class SourceProperties:
         Crowding Index: Sum of magnitude of separation of N closest sources
         """
         if self.sourcelist is None: 
-            perror("no sourcelist\n")
+            p_error("no sourcelist\n")
             return None
 
         crowd=np.zeros(len(self.sourcelist))
-        load=loading(len(self.sourcelist),msg="calculating crowding", res=10)
+        load=Loading(len(self.sourcelist), msg="calculating crowding", res=10)
 
         for i,src in enumerate(self.sourcelist):
             dist=np.sqrt( (src["xcentroid"]-self.sourcelist["xcentroid"])**2 + (src["ycentroid"]-self.sourcelist["ycentroid"])**2 )
@@ -907,7 +907,7 @@ class SourceProperties:
 
         """
         if self.sourcelist is None:
-            perror("no sourcelist\n")
+            p_error("no sourcelist\n")
             return None
         if self.verbose: printf("-> measuring source geometry\n")
         xycoords=np.array((self.sourcelist["xcentroid"], self.sourcelist["ycentroid"])).T

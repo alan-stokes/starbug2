@@ -22,9 +22,12 @@ usage: starbug2-match [-BCGfhvX] [-e column] [-m mask] [-o output] [-p file.para
 """
 import os,sys,getopt
 import numpy as np
-from astropy.table import Table, hstack, vstack
+from astropy.table import vstack
 from starbug2 import utils
-from starbug2.matching import GenericMatch, CascadeMatch, BandMatch, ExactValueMatch, band_match, parse_mask
+from starbug2.constants import PARAM_FILE_TAG
+from starbug2.matching import (
+    GenericMatch, CascadeMatch, BandMatch, ExactValueMatch, band_match,
+    parse_mask)
 from starbug2 import param
 import starbug2.bin as scr
 import starbug2
@@ -48,15 +51,18 @@ def match_parsemargv(argv):
     options=0
     setopt={}
 
-    cmd,argv=scr.parsecmd(argv)
-    opts,args=getopt.gnu_getopt(argv, "BCfGhvXe:m:o:p:s:", ("band","cascade","dither","exact","full","generic","help","verbose",
-                                                    "error=","mask=","output=","param=","set=",
-                                                    "band-depr"))
-    for opt,optarg in opts:
+    cmd, argv = scr.parse_cmd(argv)
+    opts, args = getopt.gnu_getopt(
+        argv, "BCfGhvXe:m:o:p:s:",
+        ["band", "cascade", "dither", "exact", "full", "generic", "help",
+         "verbose", "error=", "mask=", "output=", "param=", "set=",
+         "band-depr"]
+    )
+    for opt, optarg in opts:
         if opt in ("-h", "--help"):     options|=(SHOWHELP|STOPPROC)
         if opt in ("-v", "--verbose"):  options|=VERBOSE
         if opt in ("-o", "--output"):   setopt["OUTPUT"]=optarg
-        if opt in ("-p", "--param"):    setopt["PARAMFILE"]=optarg
+        if opt in ("-p", "--param"):    setopt[PARAM_FILE_TAG]=optarg
 
         if opt in ("-e","--error"): setopt["ERRORCOLUMN"]=optarg
         if opt in ("-f","--full"): options|=EXPFULL
@@ -67,7 +73,7 @@ def match_parsemargv(argv):
                 try: val=float(val)
                 except: pass
                 setopt[key]=val
-            else: utils.perror("unable to set parameter, use syntax -s KEY=VALUE\n")
+            else: utils.p_error("unable to set parameter, use syntax -s KEY=VALUE\n")
 
 
         if opt in ("-B","--band"): options|=BANDMATCH
@@ -90,7 +96,7 @@ def match_onetimeruns(options, setopt):
     return scr.EXIT_SUCCESS
 
 def match_fullbandmatch(tables, parameters):
-    utils.perror("THIS NEEDS A TEST\n")
+    utils.p_error("THIS NEEDS A TEST\n")
     tomatch={ starbug2.NIRCAM:[], starbug2.MIRI:[] }
     _colnames=["RA","DEC","flag"]
     dthreshold=parameters.get("MATCH_THRESH")
@@ -105,7 +111,7 @@ def match_fullbandmatch(tables, parameters):
         nircam_matched=band_match(tomatch[starbug2.NIRCAM], colnames=_colnames)
         miri_matched=band_match(tomatch[starbug2.MIRI], colnames=_colnames)
 
-        load=utils.loading(len(miri_matched), msg="Combining NIRCAM-MIRI(%.2g\")"%dthreshold)
+        load=utils.Loading(len(miri_matched), msg="Combining NIRCAM-MIRI(%.2g\")" % dthreshold)
         if (bridgecol:=parameters.get("BRIDGE_COL")):
             mask= np.isnan(nircam_matched[bridgecol])
             utils.printf("-> bridging catalogues with %s\n"%bridgecol)
@@ -192,7 +198,7 @@ def match_main(argv):
                 matcher=BandMatch(threshold=dthreshold, fltr=fltr, verbose=parameters["VERBOSE"])
 
             elif options & CASCADEMATCH: matcher=CascadeMatch(threshold=dthreshold, colnames=colnames, verbose=parameters["VERBOSE"])
-            elif options & GENERICMATCH: matcher=GenericMatch(threshold=dthreshold, colnames=colnames, verbose=parameters["VERBOSE"])
+            elif options & GENERICMATCH: matcher=GenericMatch(threshold=dthreshold, col_names=colnames, verbose=parameters["VERBOSE"])
             elif options & EXACTMATCH:   matcher=ExactValueMatch(value="Catalogue_Number",colnames=None, verbose=parameters["VERBOSE"])
             else: 
                 matcher=GenericMatch(threshold=dthreshold, verbose=parameters["VERBOSE"])
@@ -204,8 +210,8 @@ def match_main(argv):
 
         output=parameters.get("OUTPUT")
         if output is None or output == '.':
-            output=utils.combine_fnames( [ name for name in args] , ntrys=100)
-        dname,fname,ext=utils.split_fname(output)
+            output=utils.combine_file_names([name for name in args], ntrys=100)
+        dname,fname,ext=utils.split_file_name(output)
 
         suffix=""
         if options&EXPFULL: 
@@ -221,7 +227,7 @@ def match_main(argv):
     elif len(tables)==1: 
         exit_code=scr.EXIT_EARLY
     else:
-        utils.perror("No tables loaded for matching.\n")
+        utils.p_error("No tables loaded for matching.\n")
         exit_code= scr.EXIT_FAIL
     return exit_code
 

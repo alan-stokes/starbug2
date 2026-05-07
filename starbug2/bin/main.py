@@ -38,55 +38,46 @@ To see more detailed information on an option, run [OPTION] --help:
 See https://starbug2.readthedocs.io for full documentation.
 
 """
-import sys, getopt
+import os, sys, getopt
 
-from astropy.wcs.docstrings import set_ps
+import numpy as np
 
-sys.stdout.write("\x1b[1mlaunching \x1b[36mstarbug\x1b[0m\n")
-from starbug2.utils import *
+from starbug2.constants import (
+    SHOWHELP, STOPPROC, VERBOSE, PARAM_FILE_TAG, DOAPPHOT, DOBGDEST, DODETECT,
+    DOGEOM, DOMATCH, DOPHOTOM, DOBGDSUB, DOARTIFL, FINDFILE, KILLPROC, INITSB,
+    GENRATPSF, UPDATEPRM, GENRATRUN, GENRATREG, REGION_TAB, DETECTION,
+    BACKGROUND, APPHOT, PSFPHOT, MATCHOUTPUTS, OUTPUT, APPLYZP, CALCINSTZP,
+    LOGO, HELP_STRINGS, NCORES)
+from starbug2.utils import (
+    p_error, printf, get_version, warn, split_file_name, export_region,
+    combine_file_names, export_table, puts)
 from starbug2 import param
 import starbug2.bin as scr
+from astropy.table import Table
 
-VERBOSE =0x01
-KILLPROC=0x02
-STOPPROC=0x04
-SHOWHELP=0x08
+sys.stdout.write("\x1b[1mlaunching \x1b[36mstarbug\x1b[0m\n")
 
-DODETECT=0x100
-DOBGDEST=0x200
-DOPHOTOM=0x400
-FINDFILE=0x800
-
-DOARTIFL=0x1000
-DOMATCH =0x2000
-DOAPPHOT=0x4000
-DOBGDSUB=0x8000
-DOGEOM  =0x10000
-
-GENRATPSF =0x100000
-GENRATRUN =0x200000
-GENRATREG =0x400000
-INITSB    =0x800000
-UPDATEPRM =0x1000000
-DODEBUG   =0x2000000
-CALCINSTZP=0x4000000
-APPLYZP   =0x8000000
-
-def starbug_parseargv(argv):
+def starbug_parse_argv(argv):
     """Organise the sys argv line into options, values and arguments"""
     options=0
     set_opt={}
 
-    cmd,argv=scr.parsecmd(argv)
-    opts,args=getopt.gnu_getopt(argv,"ABDfGhMPSvb:d:n:o:p:s:",
-            (   "apphot","background", "detect", "find", "geom", "help",
-                "match", "psf", "subbgd", "verbose", "xtest",
-                "bgdfile=", "apfile=", "ncores=", "output=", "param=", "set=",
-                "init", "generate-psf", "local-param", "generate-region=",
-                "version", "generate-run", "update-param", "debug", "dev"))
+    cmd,argv = scr.parse_cmd(argv)
+    opts,args = getopt.gnu_getopt(
+        argv,
+        "ABDfGhMPSvb:d:n:o:p:s:",
+        [
+            "apphot","background", "detect", "find", "geom", "help",
+            "match", "psf", "subbgd", "verbose", "xtest",
+            "bgdfile=", "apfile=", "ncores=", "output=", "param=", "set=",
+            "init", "generate-psf", "local-param", "generate-region=",
+            "version", "generate-run", "update-param", "debug", "dev"
+        ]
+    )
+
     for opt, opt_arg in opts:
         if opt in ("-h","--help"):   options|=(SHOWHELP|STOPPROC)
-        if opt in ("-p","--param"):  set_opt["PARAMFILE"]= opt_arg
+        if opt in ("-p","--param"):  set_opt[PARAM_FILE_TAG]= opt_arg
         if opt in ("-v","--verbose"):options|=VERBOSE
 
         if opt in ("-A","--apphot"):    options |= DOAPPHOT
@@ -101,13 +92,13 @@ def starbug_parseargv(argv):
 
         if opt in ("-d","--apfile"):
             if os.path.exists(opt_arg): set_opt["AP_FILE"]=opt_arg
-            else: perror("AP_FILE \"%s\" does not exist\n"%opt_arg)
+            else: p_error("AP_FILE \"%s\" does not exist\n" % opt_arg)
 
         if opt in ("-b","--bgdfile"):
             if os.path.exists(opt_arg): set_opt["BGD_FILE"]=opt_arg
-            else: perror("BGD_FILE \"%s\" does not exist\n"%opt_arg)
+            else: p_error("BGD_FILE \"%s\" does not exist\n" % opt_arg)
 
-        if opt in ("-f","--find"): options|=FINDFILE
+        if opt in ("-f","--find"): options|= FINDFILE
         if opt in ("-n","--ncores"): 
             set_opt["NCORES"]=max(1,int(opt_arg))
 
@@ -122,16 +113,16 @@ def starbug_parseargv(argv):
                 except: pass
                 set_opt[key]=val
             else:
-                perror("unable to set parameter, use syntax -s KEY=VALUE\n")
-                options|=KILLPROC
+                p_error("unable to set parameter, use syntax -s KEY=VALUE\n")
+                options|= KILLPROC
 
-        if opt=="--init": options|=(INITSB|STOPPROC)
-        if opt=="--generate-psf": options|=(GENRATPSF|STOPPROC)
-        if opt=="--update-param": options|=(UPDATEPRM|STOPPROC)
-        if opt=="--generate-run": options|=(GENRATRUN|STOPPROC)
+        if opt=="--init": options |= ( INITSB | STOPPROC)
+        if opt=="--generate-psf": options |= (GENRATPSF | STOPPROC)
+        if opt=="--update-param": options |= (UPDATEPRM | STOPPROC)
+        if opt=="--generate-run": options |= (GENRATRUN | STOPPROC)
         if opt=="--generate-region":
-            set_opt["REGION_TAB"]=opt_arg
-            options|=(GENRATREG|STOPPROC)
+            set_opt[REGION_TAB] = opt_arg
+            options |= (GENRATREG | STOPPROC)
 
         if opt=="--local-param":
             param.local_param()
@@ -139,39 +130,35 @@ def starbug_parseargv(argv):
             options|=STOPPROC
 
         if opt=="--version": 
-            printf(starbug2.logo%("starbug2-v%s"%get_version()))
+            printf(LOGO % ("starbug2-v%s" % get_version()))
             options|=STOPPROC
-
-        """
-        if opt=="--calc-instr-zp":
-            setopt["ZP_PSF_CAT"]=optarg
-            options|=(CALCINSTZP|APPLYZP|STOPPROC)
-        if opt=="--apply-zeropoint":
-            setopt["ZP_PSF_CAT"]=optarg
-            options|=(APPLYZP|STOPPROC)
-        """
-
     return options, set_opt, args
 
-def starbug_one_time_runs(options, setopt, args):
+def starbug_one_time_runs(options, set_opt, args):
     """
     Options set, verify/run one time functions
     """
     from starbug2.misc import init_starbug, generate_psf, generate_runscript
 
-    if options&SHOWHELP:
+    if options & SHOWHELP:
         scr.usage(__doc__,verbose=options&VERBOSE)
 
-        if options & DODETECT: perror(starbug2.helpstrings["DETECTION"])
-        if options & DOBGDEST: perror(starbug2.helpstrings["BACKGROUND"])
-        if options & DOAPPHOT: perror(starbug2.helpstrings["APPHOT"])
-        if options & DOPHOTOM: perror(starbug2.helpstrings["PSFPHOT"])
-        if options & DOMATCH:  perror(starbug2.helpstrings["MATCHOUTPUTS"])
+        if options & DODETECT:
+            p_error(HELP_STRINGS[DETECTION])
+        if options & DOBGDEST:
+            p_error(HELP_STRINGS[BACKGROUND])
+        if options & DOAPPHOT:
+            p_error(HELP_STRINGS[APPHOT])
+        if options & DOPHOTOM:
+            p_error(HELP_STRINGS[PSFPHOT])
+        if options & DOMATCH:
+            p_error(HELP_STRINGS[MATCHOUTPUTS])
         return scr.EXIT_EARLY
 
     ## Load parameter files for onetime runs
-    if (p_file:=setopt.get("PARAMFILE")) is None:
-        if os.path.exists("./starbug.param"):p_file="starbug.param"
+    if (p_file:=set_opt.get(PARAM_FILE_TAG)) is None:
+        if os.path.exists("./starbug.param"):
+            p_file="starbug.param"
         else: p_file=None
 
     init_parameters=param.load_params(p_file)
@@ -187,8 +174,8 @@ def starbug_one_time_runs(options, setopt, args):
              "Run starbug2 --update-param to update\nquitting :(\n")
         return scr.EXIT_FAIL
 
-    init_parameters.update(setopt)
-    if _output:=init_parameters.get("OUTPUT"):
+    init_parameters.update(set_opt)
+    if _output:=init_parameters.get(OUTPUT):
         output=_output
     else:
         output='.'
@@ -201,84 +188,53 @@ def starbug_one_time_runs(options, setopt, args):
         init_starbug()
 
     if options&GENRATPSF: ## Generate a single PSF
-        if (fltr:=init_parameters.get("FILTER")):
+        if filter_string:=init_parameters.get("FILTER"):
             detector=init_parameters.get("DET_NAME")
             psf_size=init_parameters.get("PSF_SIZE")
-            printf("Generating PSF: %s %s (%d)\n"%(fltr,detector,psf_size))
-            psf=generate_psf(fltr, detector=detector, fov_pixels=psf_size)
+            printf(
+                "Generating PSF: %s %s (%d)\n" %
+                (filter_string,detector,psf_size))
+            psf=generate_psf(
+                filter_string, detector=detector, fov_pixels=psf_size)
             if psf: 
-                name="%s%s.fits"%(fltr,"" if detector is None else detector)
+                name=("%s%s.fits" %
+                      (filter_string,"" if detector is None else detector))
                 printf("--> %s\n"%name)
                 psf.writeto(name, overwrite=True)
-            else: perror("PSF Generation failed :(\n")
-        else: perror(
+            else: p_error("PSF Generation failed :(\n")
+        else: p_error(
             "Unable to generate PSF. Set filter with '-s FILTER=FXXX'\n")
 
     if options&GENRATRUN: ## Generate a run script
         generate_runscript(args, "starbug2 ")
-        if not args: perror("no files included to create runscript with\n")
+        if not args: p_error("no files included to create runscript with\n")
 
     if options&GENRATREG: ## Generate a region from a table
-        fname=setopt.get("REGION_TAB")
-        if fname and os.path.exists(fname):
-            table=Table.read(fname,format="fits")
-            _,name,_=split_fname(fname)
+        file_name=set_opt.get("REGION_TAB")
+        if file_name and os.path.exists(file_name):
+            table = Table.read(file_name,format="fits")
+            _, name, _ = split_file_name(file_name)
             export_region(
                 table, colour=init_parameters["REGION_COL"],
                 scale_radius=init_parameters["REGION_SCAL"],
                 region_radius=init_parameters["REGION_RAD"],
-                xcol=init_parameters["REGION_XCOL"],
-                ycol=init_parameters["REGION_YCOL"],
+                x_col=init_parameters["REGION_XCOL"],
+                y_col=init_parameters["REGION_YCOL"],
                 wcs=init_parameters["REGION_WCS"],
-                fname="%s/%s.reg"%(output,name))
+                f_name="%s/%s.reg" % (output, name))
             printf("generating region --> %s/%s.reg\n"%(output,name))
 
     ###########################
     # instrumental zero point #
     ###########################
-    if options&(APPLYZP|CALCINSTZP):
-        perror("instrumental zero point application deprecated\n")
-
-    """
-    if options&APPLYZP:
-        _fname=setopt.get("ZP_PSF_CAT")
-        _zp=init_parameters.get("ZP_MAG")
-        _std=0
-        if _fname and os.path.exists(_fname):
-            psftable=Table.read(_fname, format="fits")
-            with fits.open(_fname) as fp: _header=fp[1].header ##thats a bit rubbish
-
-            if (fltr:=_header.get("FILTER")) is None:
-                if (fltr:=setopt.get("FILTER")) is None:
-                    perror("Unable to determine table FILTER: set manually with `-s FILTER=F000W`\n")
-                    return scr.EXIT_FAIL
-
-            if options&CALCINSTZP:
-                _aptable=None
-                _apfname=setopt.get("AP_FILE")
-                if _apfname and os.path.exists(_apfname):
-                    _aptable=Table.read(_apfname, format="fits")
-
-                    if (res:=calc_instrumental_zeropint(psftable, _aptable, fltr=fltr)) is not None:
-                        _zp,_std=res
-
-            if _zp is not None:
-                psftable.meta["%s ZEROPOINT"%fltr]=_zp
-                psftable.meta["%s eZEROPOINT"%fltr]=_std
-                psftable[fltr]=psftable[fltr]+_zp
-
-                dname,fname,_=split_fname(_fname)
-                printf("--> %s/%s-zp.fits\n"%(dname,fname))
-                export_table( psftable, fname="%s/%s-zp.fits"%(dname,fname), header=_header)
-            else: perror("Unable to set ZEROPOINT, set it with -sZP_MAG=000\n")
-        else: perror("Unable to locate table \"%s\".\n"%_fname)
-    """
+    if options&(APPLYZP | CALCINSTZP):
+        p_error("instrumental zero point application deprecated\n")
 
     if options&STOPPROC:
         return scr.EXIT_EARLY ## quiet ending the process if required
 
     if options&KILLPROC:
-        perror("..quitting :(\n\n")
+        p_error("..quitting :(\n\n")
         return scr.usage(__doc__, verbose=options&VERBOSE)
 
     return scr.EXIT_SUCCESS
@@ -289,29 +245,32 @@ def starbug_match_outputs(starbugs, options, set_opt):
     Matching output catalogues
     """
     from starbug2.matching import GenericMatch
-    if options&VERBOSE: printf("Matching outputs\n")
-    params=param.load_params(set_opt.get("PARAMFILE"))
+    if options & VERBOSE:
+        printf("Matching outputs\n")
+    params=param.load_params(set_opt.get(PARAM_FILE_TAG))
     params.update(set_opt)
 
-    if f_name := combine_fnames( [sb.fname for sb in starbugs] ):
-        _,name,_ = split_fname(os.path.basename(f_name))
+    if f_name := combine_file_names([sb.fname for sb in starbugs]):
+        _,name,_ = split_file_name(os.path.basename(f_name))
         f_name = "%s/%s"%(starbugs[0].outdir, name)
-    else: f_name = "out"
+    else:
+        f_name = "out"
 
     header=starbugs[0].header
 
     match=GenericMatch(
-        threshold= params["MATCH_THRESH"],
-        colnames=None, pfile=set_opt.get("PARAMFILE"))
+        threshold = params["MATCH_THRESH"],
+        col_names = None,
+        p_file = set_opt.get(PARAM_FILE_TAG))
 
     if options&(DODETECT|DOAPPHOT):
         full=match( [sb.detections for sb in starbugs], join_type="or")
         av =match.finish_matching(
             full, num_thresh=params["NEXP_THRESH"], zpmag=params["ZP_MAG"])
 
-        printf("-> %s-ap*...\n"%(f_name))
-        export_table(full, fname="%s-apfull.fits"%(f_name), header=header)
-        export_table(av, fname="%s-apmatch.fits"%(f_name), header=header)
+        printf("-> %s-ap*...\n" % f_name)
+        export_table(full, fname="%s-apfull.fits" % f_name, header=header)
+        export_table(av, fname="%s-apmatch.fits" % f_name, header=header)
 
     if options&DOPHOTOM:
         full=match( [sb.psfcatalogue for sb in starbugs], join_type="or")
@@ -319,37 +278,38 @@ def starbug_match_outputs(starbugs, options, set_opt):
             full, num_thresh=params["NEXP_THRESH"], zpmag=params["ZP_MAG"])
 
         printf("-> %s-psf*...\n"%(f_name))
-        export_table(full, fname="%s-psffull.fits"%(f_name), header=header)
-        export_table(av, fname="%s-psfmatch.fits"%(f_name), header=header)
+        export_table(full, fname="%s-psffull.fits" % f_name, header=header)
+        export_table(av, fname="%s-psfmatch.fits" % f_name, header=header)
 
 
 def fn(args):
-    from starbug2.starbug import StarbugBase ## Ive put this here because it takes some time
-    sb=None
-    f_name,options,set_opt=args
+    ## Ive put this here because it takes some time
+    from starbug2.starbug import StarbugBase
+    star_bug_base=None
+    f_name, options, set_opt = args
     if os.path.exists(f_name):
-        dname,bname,ext=split_fname(f_name)
+        folder, file_name, ext = split_file_name(f_name)
 
-        if options&FINDFILE:
-            ap="%s/%s-ap.fits"%(dname,bname)
-            bgd="%s/%s-bgd.fits"%(dname,bname)
+        if options & FINDFILE:
+            ap="%s/%s-ap.fits"%(folder,file_name)
+            bgd="%s/%s-bgd.fits"%(folder,file_name)
             if os.path.exists(ap)  and not set_opt.get("AP_FILE"):
                 set_opt["AP_FILE"]=ap
             if os.path.exists(bgd) and not set_opt.get("BGD_FILE"):
                 set_opt["BGD_FILE"]=bgd
 
         ## Sorting out the stdout
-        if options&VERBOSE: 
+        if options & VERBOSE:
             printf("-> showing starbug stdout for \"%s\"\n"%f_name)
-            set_opt["VERBOSE"]=1
-        elif set_opt.get("NCORES")>1:
+            set_opt[VERBOSE] = 1
+        elif set_opt.get(NCORES) > 1:
             printf("-> hiding starbug stdout for \"%s\"\n"%f_name)
         else: printf("-> %s\n"%f_name)
 
         if ext==".fits":
-            sb=StarbugBase(
-                f_name, p_file=set_opt.get("PARAMFILE"), options=set_opt)
-            if sb.verify(): 
+            star_bug_base = StarbugBase(
+                f_name, p_file=set_opt.get(PARAM_FILE_TAG), options=set_opt)
+            if star_bug_base.verify():
                 warn("System verification failed\n")
                 return None
                 #pass
@@ -357,71 +317,81 @@ def fn(args):
                 #if _input=="" or _input not in "yY":
                 #    return#quit("..quitting :(")
 
-            if options & DODETECT: sb.detect()
-            if options & DOBGDEST: sb.bgd_estimate()
-            if options & DOBGDSUB: sb.bgd_subtraction()
-            if options & DOGEOM: sb.source_geometry()
+            if options & DODETECT:
+                star_bug_base.detect()
+            if options & DOBGDEST:
+                star_bug_base.bgd_estimate()
+            if options & DOBGDSUB:
+                star_bug_base.bgd_subtraction()
+            if options & DOGEOM:
+                star_bug_base.source_geometry()
 
-            if options & DOAPPHOT: sb.aperture_photometry()
-            if options & DOPHOTOM: sb.photometry()
+            if options & DOAPPHOT:
+                star_bug_base.aperture_photometry()
+            if options & DOPHOTOM:
+                star_bug_base.photometry()
 
-            if options & DOARTIFL: sb.artificial_stars()
+            if options & DOARTIFL:
+                star_bug_base.artificial_stars()
 
-        else: perror("file must be type '.fits' not %s\n"%ext)
-    else: perror("can't access %s\n"%f_name)
-    return sb
+        else: p_error("file must be type '.fits' not %s\n" % ext)
+    else: p_error("can't access %s\n" % f_name)
+    return star_bug_base
 
 
 
 
 def starbug_main(argv):
     """Command entry"""
-    options, setopt, args= starbug_parseargv(argv)
+    options, set_opt, args= starbug_parse_argv(argv)
 
-    if options or setopt: 
+    if options or set_opt:
 
-        if exit_code:=starbug_one_time_runs(options, setopt, args):
+        if exit_code := starbug_one_time_runs(options, set_opt, args):
             return exit_code
 
     if args:
         import starbug2
         from multiprocessing import Pool
         from itertools import repeat
-        puts(starbug2.logo%starbug2.motd)
-        exit_code=scr.EXIT_SUCCESS
+        puts(LOGO % starbug2.motd)
+        exit_code = scr.EXIT_SUCCESS
 
-        if (ncores:=setopt.get("NCORES")) is None or ncores==1 or len(args)==1:
-            setopt["NCORES"]=1
-            starbugs=[fn((fname,options,setopt)) for fname in args]
+        if ((n_cores := set_opt.get(NCORES)) is None
+                or n_cores == 1 or len(args) == 1):
+            set_opt[NCORES] = 1
+            starbugs=[fn((file_name,options,set_opt)) for file_name in args]
         else:
 
             zip_options=np.full(len(args),options, dtype=int)
             for n in range(len(args)):
-                if n>0: zip_options[n]&=~VERBOSE
+                if n > 0:
+                    zip_options[n] &= ~VERBOSE
 
-            pool=Pool(processes=ncores)
-            starbugs=pool.map(fn,zip( args,zip_options,repeat(setopt))) ##
+            pool = Pool(processes=n_cores)
+            starbugs = pool.map(fn,zip( args,zip_options,repeat(set_opt)))
             pool.close()
 
         for n,sb in enumerate(starbugs): 
             if not sb: 
-                perror("FAILED: %s\n"%args[n])
+                p_error("FAILED: %s\n" % args[n])
                 starbugs.remove(sb)
                 exit_code=scr.EXIT_MIXED
 
-        if not starbug2: exit_code=EXIT_FAIL
+        if not starbug2:
+            exit_code = scr.EXIT_FAIL
 
             
-        if options&DOMATCH and len(starbugs)>1:
-            starbug_match_outputs(starbugs, options, setopt)
+        if options & DOMATCH and len(starbugs) > 1:
+            starbug_match_outputs(starbugs, options, set_opt)
         
 
     else:
-        perror("fits image file must be included\n")
-        exit_code=scr.EXIT_FAIL
+        p_error("fits image file must be included\n")
+        exit_code = scr.EXIT_FAIL
 
     return exit_code
 
-def starbug_mainentry():
+def starbug_main_entry():
     """Entry point"""
     return starbug_main(sys.argv)

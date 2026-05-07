@@ -1,7 +1,6 @@
 from starbug2 import routines
-from astropy.table import Table, hstack
+from astropy.table import Table
 from astropy.io import fits
-from astropy.wcs import WCS
 
 image=fits.open("tests/dat/image.fits")
 

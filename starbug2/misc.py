@@ -57,7 +57,7 @@ def generate_psfs():
 
         printf("Generating PSFs --> %s\n"%dname)
 
-        load=loading(145, msg="initialising")
+        load=Loading(145, msg="initialising")
         load.show()
         for fltr,_f in starbug2.filters.items():
             if _f.instr==starbug2.NIRCAM:
@@ -75,7 +75,7 @@ def generate_psfs():
                 load()
                 load.show()
 
-    else:perror("WARNING: Cannot generate PSFs, no environment variable 'WEBBPSF_PATH', please see https://webbpsf.readthedocs.io/en/latest/installation.html\n")
+    else:p_error("WARNING: Cannot generate PSFs, no environment variable 'WEBBPSF_PATH', please see https://webbpsf.readthedocs.io/en/latest/installation.html\n")
 
 
 def generate_psf(fltr, detector=None, fov_pixels=None):
@@ -107,9 +107,9 @@ def generate_psf(fltr, detector=None, fov_pixels=None):
             try: 
                 psf=model.calc_psf(fov_pixels=fov_pixels)["DET_SAMP"]
                 psf=fits.PrimaryHDU(data=psf.data,header=psf.header)
-            except: perror("\x1b[2KSomething went from with: %s %s\n"%(fltr,detector))
-        else: perror("Unable to determing instrument from fltr '%s'\n"%fltr)
-    else: perror("Unable to locate '%s' in JWST filter list\n"%fltr)
+            except: p_error("\x1b[2KSomething went from with: %s %s\n" % (fltr, detector))
+        else: p_error("Unable to determing instrument from fltr '%s'\n" % fltr)
+    else: p_error("Unable to locate '%s' in JWST filter list\n" % fltr)
     return psf
 
 
@@ -125,14 +125,14 @@ def generate_runscript(fnames, args="starbug2 "):
     fp.write("CMDS=\"-vf\"\n")
     for fname in fnames:
         if os.path.exists(fname):
-            dname,name,ext=split_fname(fname)
+            dname,name,ext=split_file_name(fname)
             if ext==".fits":
                 fitsfile=fits.open(fname)
                 fitsfile[0].header["FILENAME"]=fname
                 fitsfiles.append(fitsfile)
 
-            else: perror("file %s must be type '.fits' not '%s'\n"%(name,ext))
-        else: perror("file \x1b[1;31m%s\x1b[0m not found\n"%fname)
+            else: p_error("file %s must be type '.fits' not '%s'\n" % (name, ext))
+        else: p_error("file \x1b[1;31m%s\x1b[0m not found\n" % fname)
 
     sorted=sort_exposures(fitsfiles)
 
@@ -154,11 +154,11 @@ def calc_instrumental_zeropint(psftable, aptable, fltr=None ):
 
     """
     if fltr is None and not (fltr:=psftable.meta.get("FILTER")):
-        perror("Unable to determine filter, set with '--set FILTER=F000W'.\n")
+        p_error("Unable to determine filter, set with '--set FILTER=F000W'.\n")
         return None
     printf("Calculating instrumental zeropoint %s.\n"%fltr)
 
-    m=GenericMatch(threshold=0.1, colnames=["RA","DEC",fltr])
+    m=GenericMatch(threshold=0.1, col_names=["RA", "DEC", fltr])
     matched=m([psftable,aptable], join_type="and")
     dist=np.array((matched["%s_2"%fltr]-matched["%s_1"%fltr]).value)
     zp=np.nanmedian(dist)

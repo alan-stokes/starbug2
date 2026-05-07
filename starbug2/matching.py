@@ -1,58 +1,59 @@
 """
 Starbug matching functions
-Primarily this is the main routines for dither/band/generic matching which are at the core
-of starbug2 and starbug2-match
-
+Primarily this is the main routines for dither/band/generic matching which are
+ at the core of starbug2 and starbug2-match
 """
-import os
+
 import numpy as np
-import astropy.io.fits as fits
 import astropy.units as u
 from astropy.coordinates import SkyCoord
-from astropy.table import Column, Table, hstack, vstack
+from astropy.io import fits
+from astropy.table import Table, hstack, Column, vstack
 
 import starbug2
-from starbug2.utils import *
+from starbug2.constants import VERBOSE_TAG
 from starbug2.param import load_params
+from starbug2.utils import (
+    Loading, printf, rmduplicates, p_error, fill_nan, tab2array,
+    find_colnames, flux2mag, hcascade, warn, puts)
+
 
 class GenericMatch(object):
-    """
-    Base matching class
 
-    Parameters
-    ----------
-    threshold : float
-        Separation threshold in arcseconds
-
-    colnames : list
-        List of str column names to include in the matching.
-        Everything else will be discarded
-
-    fltr : str
-        Specifically set the filter of the catalogues 
-    
-    verbose : int
-        Include verbose outputs
-
-    pfile : str
-        Parameter filename
-
-    """
     method="Generic Matching"
-    def __init__(self, threshold=None, colnames=None, fltr=None, verbose=None, pfile=None):
-        options=load_params(pfile)
-        self.threshold  =options.get("MATCH_THRESH")
-        self.filter     =options.get("FILTER")
-        self.verbose    =options.get("VERBOSE")
+    def __init__(
+            self, threshold=None, col_names=None, filter_string=None,
+            verbose=None, p_file=None):
+        """
 
-        if threshold is not None: self.threshold=threshold
+        :param threshold: Separation threshold in arc-seconds
+        :type threshold: float or None
+        :param col_names: List of str column names to include in the matching.
+        Everything else will be discarded.
+        :type col_names: list or None
+        :param filter_string: Specifically set the filter of the catalogues
+        :type filter_string: str or None
+        :param verbose: Include verbose outputs
+        :type verbose: int or None
+        :param p_file: Parameter filename
+        :type p_file: str or None
+        """
+        options=load_params(p_file)
+        self.threshold = options.get("MATCH_THRESH")
+        self.filter = options.get("FILTER")
+        self.verbose = options.get(VERBOSE_TAG)
+
+        if threshold is not None:
+            self.threshold = threshold
         self.threshold *= u.arcsec
 
-        if fltr is not None: self.filter=fltr
-        if verbose is not None: self.verbose=verbose
+        if filter_string is not None:
+            self.filter = filter_string
+        if verbose is not None:
+            self.verbose = verbose
 
-        self.colnames=colnames 
-        self.load=loading(1)
+        self.col_names = col_names
+        self.load = Loading(1)
         
     def log(self,msg):
         if self.verbose: printf(msg)
@@ -60,7 +61,7 @@ class GenericMatch(object):
     def __str__(self):
         s=[ "%s:"%self.method,
             "Filter: %s"%self.filter,
-            "Colnames: %s"%self.colnames,
+            "Colnames: %s"%self.col_names,
             "Threshold: %s\""%self.threshold]
         return "\n".join(s)
 
@@ -89,20 +90,20 @@ class GenericMatch(object):
         """
         ## Must copy here maybe?
         if len(catalogues)>=2:
-            self.load=loading( sum( len(cat) for cat in catalogues[1:]), msg="initialising")
+            self.load=Loading(sum(len(cat) for cat in catalogues[1:]), msg="initialising")
             if self.verbose: self.load.show()
 
-        if self.colnames is None: # initialise the column names if it wasnt already set
-            self.colnames=[]
+        if self.col_names is None: # initialise the column names if it wasnt already set
+            self.col_names=[]
             for cat in catalogues:
-                self.colnames+=cat.colnames
-        self.colnames = rmduplicates(self.colnames)
+                self.col_names+=cat.col_names
+        self.col_names = rmduplicates(self.col_names)
         #if "Catalogue_Number" in self.colnames: self.colnames.remove("Catalogue_Number")
 
         # clean out the column names not included in self.colnames
         for n,catalogue in enumerate(catalogues):
-            keep=set(catalogue.colnames)&set(self.colnames)
-            keep=sorted( keep, key= lambda s:self.colnames.index(s))
+            keep= set(catalogue.col_names) & set(self.col_names)
+            keep=sorted(keep, key= lambda s:self.col_names.index(s))
             catalogues[n]=catalogue[keep]
             #self.colnames=keep  # This maybe wants to go somewhere else but it ensures that colnames doesnt contain anything not in any tables
 
@@ -154,11 +155,11 @@ class GenericMatch(object):
             Matched catalogue.
         """
         catalogues=self.init_catalogues(catalogues)
-        if "Catalogue_Number" in self.colnames: self.colnames.remove("Catalogue_Number")
+        if "Catalogue_Number" in self.col_names: self.col_names.remove("Catalogue_Number")
         masked= self.mask_catalogues(catalogues, mask)
         base=self.build_meta(catalogues)
 
-        if join_type=="and": perror("join_type 'and' not fully implemented\n")
+        if join_type=="and": p_error("join_type 'and' not fully implemented\n")
 
         for n,cat in enumerate(catalogues,1): # Bulk matching processes (column naming)
             self.load.msg="matching: %d"%n
@@ -190,30 +191,30 @@ class GenericMatch(object):
         if not len(base): return cat.copy()
 
         base=fill_nan(base.copy())
-        colnames=[n for n in self.colnames if n in cat.colnames]
+        colnames=[n for n in self.col_names if n in cat.col_names]
         cat=fill_nan(cat[colnames].copy())
 
         if not cartesian:
-            _ra_cols= list( name for name in base.colnames if "RA" in name)
-            _dec_cols= list( name for name in base.colnames if "DEC" in name)
+            _ra_cols= list(name for name in base.col_names if "RA" in name)
+            _dec_cols= list(name for name in base.col_names if "DEC" in name)
             _ra= np.nanmean( tab2array( base, colnames=_ra_cols), axis=1)
             _dec=np.nanmean( tab2array( base, colnames=_dec_cols), axis=1)
             skycoord1=SkyCoord( ra=_ra*u.deg, dec=_dec*u.deg)
 
-            _ra_cols= list( name for name in cat.colnames if "RA" in name)
-            _dec_cols= list( name for name in cat.colnames if "DEC" in name)
+            _ra_cols= list(name for name in cat.col_names if "RA" in name)
+            _dec_cols= list(name for name in cat.col_names if "DEC" in name)
             _ra= np.nanmean( tab2array( cat, colnames=_ra_cols), axis=1)
             _dec=np.nanmean( tab2array( cat, colnames=_dec_cols), axis=1)
             skycoord2=SkyCoord( ra=_ra*u.deg, dec=_dec*u.deg)
         else:
-            _x_cols= list( name for name in base.colnames if name[0]=="x")
-            _y_cols= list( name for name in base.colnames if name[0]=="y")
+            _x_cols= list(name for name in base.col_names if name[0] == "x")
+            _y_cols= list(name for name in base.col_names if name[0] == "y")
             _x= np.nanmean( tab2array( base, colnames=_x_cols), axis=1)
             _y=np.nanmean( tab2array( base, colnames=_y_cols), axis=1)
             skycoord1=SkyCoord( x=_x, y=_y, z=np.zeros(len(_x)), representation_type="cartesian")
 
-            _x_cols= list( name for name in cat.colnames if name[0]=="x")
-            _y_cols= list( name for name in cat.colnames if name[0]=="y")
+            _x_cols= list(name for name in cat.col_names if name[0] == "x")
+            _y_cols= list(name for name in cat.col_names if name[0] == "y")
             _x= np.nanmean( tab2array( cat, colnames=_x_cols), axis=1)
             _y=np.nanmean( tab2array( cat, colnames=_y_cols), axis=1)
             skycoord2=SkyCoord( x=_x, y=_y, z=np.zeros(len(_x)), representation_type="cartesian")
@@ -281,7 +282,7 @@ class GenericMatch(object):
         flags=np.full(len(tab),starbug2.SRC_GOOD, dtype=np.uint16)
         av=Table(None)#np.full((len(tab),len(self.colnames)),np.nan), names=self.colnames)
         
-        if colnames is None: colnames=self.colnames 
+        if colnames is None: colnames=self.col_names
         for ii,name in enumerate(colnames):
             #print(name,av.colnames)
             if (all_cols:=find_colnames(tab,name)):
@@ -291,7 +292,7 @@ class GenericMatch(object):
                     if name=="flux":
                         col=Column(np.nanmedian(ar,axis=1), name=name)
                         mean=np.nanmean(ar,axis=1)
-                        if "stdflux" not in self.colnames: 
+                        if "stdflux" not in self.col_names:
                             av.add_column(Column(np.nanstd(ar,axis=1),name="stdflux"),index=ii+1)
                         ## if median and mean are >5% different, flag as SRC_VAR
                         flags[ np.abs(mean-col)>(col/5.0)] |= starbug2.SRC_VAR
@@ -374,14 +375,14 @@ class CascadeMatch(GenericMatch):
             A left aligned catalogue of all the matched values
         """
         catalogues=self.init_catalogues(catalogues)
-        if "Catalogue_Number" in self.colnames: self.colnames.remove("Catalogue_Number")
+        if "Catalogue_Number" in self.col_names: self.col_names.remove("Catalogue_Number")
         base=self.build_meta(catalogues)
 
         for n,cat in enumerate(catalogues,1):
             self.load.msg="matching: %d"%n
             tmp=self._match(base,cat, join_type="or")
             tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
-            base=hcascade((base,tmp), colnames=self.colnames)
+            base=hcascade((base,tmp), colnames=self.col_names)
         base=fill_nan(base)
         return base
 
@@ -432,11 +433,11 @@ class BandMatch(GenericMatch):
 
         status=-1
         _ii=None
-        sorters = [ lambda t: list(starbug2.filters.keys()).index( t.meta.get("FILTER")),   ## META in JWST filters
-                    lambda t: list(starbug2.filters.keys()).index( (set(t.colnames)&set(starbug2.filters.keys())).pop()), ## colnames in JWST filters
-                    lambda t: self.filter.index( t.meta.get("FILTER")),                     ## META in self.filters
-                    lambda t: self.filter.index( (set(t.colnames)&set(self.filter)).pop() ) ## colnames in JWST filters
-                    ]
+        sorters = [lambda t: list(starbug2.filters.keys()).index( t.meta.get("FILTER")),  ## META in JWST filters
+                   lambda t: list(starbug2.filters.keys()).index((set(t.col_names) & set(starbug2.filters.keys())).pop()),  ## colnames in JWST filters
+                   lambda t: self.filter.index( t.meta.get("FILTER")),  ## META in self.filters
+                   lambda t: self.filter.index((set(t.col_names) & set(self.filter)).pop())  ## colnames in JWST filters
+                   ]
 
         for n,fn in enumerate(sorters):
             try:
@@ -448,11 +449,11 @@ class BandMatch(GenericMatch):
                 pass
 
         if status<0:
-            perror("Unable to reorder catalogues, leaving input order untouched.\n")
+            p_error("Unable to reorder catalogues, leaving input order untouched.\n")
         elif status<=1 and (_ii is not None): ## JWST filters
             self.filter=[list(starbug2.filters.keys())[i] for i in _ii]
 
-        self.load=loading(sum(len(c) for c in catalogues[1:]))
+        self.load=Loading(sum(len(c) for c in catalogues[1:]))
 
         return catalogues
 
@@ -499,7 +500,7 @@ class BandMatch(GenericMatch):
             self.threshold=np.full(len(catalogues)-1, self.threshold)*u.arcsec
         printf("Thresholds: %s\n"%", ".join(["%g\""%g for g in self.threshold.value]))
 
-        if self.colnames is None: self.colnames=["RA","DEC", "flag", "NUM", *self.filter, *["e%s"%f for f in self.filter]]
+        if self.col_names is None: self.colnames=["RA", "DEC", "flag", "NUM", *self.filter, *["e%s" % f for f in self.filter]]
         printf("Columns: %s\n"%", ".join(self.colnames))
 
         if method not in ("first","last","bootstrap"): method="first"
@@ -513,7 +514,7 @@ class BandMatch(GenericMatch):
         for n,tab in enumerate(catalogues):
             self.threshold=_threshold[n-1] ## Temporarily recast threshold
             self.load.msg="%s (%g\")"%(self.filter[n], self.threshold.value)
-            colnames= [ name for name in self.colnames if name in tab.colnames]
+            colnames= [name for name in self.colnames if name in tab.col_names]
 
             tmp=self._match(base,tab, join_type="or")
             """
@@ -536,7 +537,7 @@ class BandMatch(GenericMatch):
             base=fill_nan(hstack((base, tmp[colnames])))
             base.rename_columns(colnames, ["%s_%d"%(name,n+1) for name in colnames])
 
-            if "RA" not in base.colnames: base=fill_nan( hstack((tmp["RA","DEC"], base)) )
+            if "RA" not in base.col_names: base=fill_nan(hstack((tmp["RA", "DEC"], base)))
             elif method=="first":
                 _mask=np.logical_and( np.isnan(base["RA"]), tmp["RA"]!=np.nan)
                 base["RA"][_mask]=tmp["RA"][_mask]
@@ -586,12 +587,12 @@ def band_match(catalogues, colnames=("RA","DEC")):
                 ii=list(starbug2.filters.keys()).index(tab.meta["FILTER"])
                 tables[ii]=tab
                 mask[ii]=True
-            else: perror("Unknown filter '%s' (skipping)..\n"%tab.meta["FILTER"])
-        elif (_tmp:=set(starbug2.filters.keys()) & set(tab.colnames)):
+            else: p_error("Unknown filter '%s' (skipping)..\n" % tab.meta["FILTER"])
+        elif (_tmp:=set(starbug2.filters.keys()) & set(tab.col_names)):
             ii=list(starbug2.filters.keys()).index(_tmp.pop())
             tables[ii]=tab
             mask[ii]=True
-        else: perror("Cannot find 'FILTER' in table meta (skipping)..\n")
+        else: p_error("Cannot find 'FILTER' in table meta (skipping)..\n")
     s="Bands: "
     for fltr,tab in zip(starbug2.filters.keys(),tables):
         if tab: s+="%5s "%fltr
@@ -600,12 +601,12 @@ def band_match(catalogues, colnames=("RA","DEC")):
 
     ### Match in increasing wavelength order
     base=Table(None)
-    load=loading(sum( [len(t) for t in tables[mask][1:]]),"matching", res=100)
+    load=Loading(sum([len(t) for t in tables[mask][1:]]), "matching", res=100)
     for fltr,tab in zip(starbug2.filters.keys(),tables):
         if not tab: continue
         tab.remove_rows( np.isnan(tab[fltr]) ) ## removing empty magnitude rows
         load.msg="matching:%s"%fltr
-        _colnames= list( name for name in tab.colnames if name in colnames)
+        _colnames= list(name for name in tab.col_names if name in colnames)
         if not len(base): 
             tmp=tab[_colnames].copy()
         else:
@@ -641,10 +642,10 @@ def band_match(catalogues, colnames=("RA","DEC")):
 
         tmp.rename_column("flag","flag_%s"%fltr)
         base=hstack(( base,tmp[[fltr,"e%s"%fltr,"flag_%s"%fltr]] ))#.filled(np.nan)
-        base=Table(base,dtype=[float]*len(base.colnames)).filled(np.nan)
+        base=Table(base, dtype=[float]*len(base.col_names)).filled(np.nan)
 
         ### Only keep the most astromectrically correct position
-        if "RA" not in base.colnames: base=hstack(( tmp[["RA","DEC"]], base))
+        if "RA" not in base.col_names: base=hstack((tmp[["RA", "DEC"]], base))
         else:
             _mask=np.logical_and( np.isnan(base["RA"]), tmp["RA"]!=np.nan)
             base["RA"][_mask]=tmp["RA"][_mask]
@@ -678,12 +679,12 @@ class ExactValueMatch(GenericMatch):
         super().__init__(**kwargs)
 
         if "colnames" in kwargs: 
-            perror("Colnames not implemented in %s\n"%self.method)
+            p_error("Colnames not implemented in %s\n" % self.method)
 
     def __str__(self):
         s=[ "%s:"%self.method,
             "Value: \"%s\""%self.value,
-            "Colnames: %s"%self.colnames,
+            "Colnames: %s"%self.col_names,
             ]
             
         return "\n".join(s)
@@ -707,7 +708,7 @@ class ExactValueMatch(GenericMatch):
             correct sorting to be hstacked with *base*
         """
         
-        tmp=Table( np.full((len(base),len(cat.colnames)),np.nan), names=cat.colnames, dtype=cat.dtype, masked=True )
+        tmp=Table(np.full((len(base),len(cat.col_names)), np.nan), names=cat.col_names, dtype=cat.dtype, masked=True)
         for col in tmp.columns.values(): col.mask|=True
 
         if not len(base): return vstack([tmp,cat])
@@ -738,14 +739,14 @@ class ExactValueMatch(GenericMatch):
         catalogues=self.init_catalogues(catalogues)
         base=self.build_meta(catalogues)
 
-        if self.value not in self.colnames:
-            perror("Exact value '%s' not in column names.\n"%self.value)
+        if self.value not in self.col_names:
+            p_error("Exact value '%s' not in column names.\n" % self.value)
             return None
 
         for n,cat in enumerate(catalogues,1):
             self.load.msg="matching: %d"%n
             tmp=self._match(base,cat)
-            tmp.rename_columns( tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
+            tmp.rename_columns(tmp.col_names, ["%s_%d" % (name, n) for name in tmp.col_names])
             base=hstack([base,tmp])
 
             if n>1:
@@ -816,16 +817,16 @@ def parse_mask(string, table):
     """
     mask=None
     
-    for colname in table.colnames: string=string.replace(colname,"table[\"%s\"]"%colname)
+    for colname in table.col_names: string=string.replace(colname, "table[\"%s\"]" % colname)
     #string=string.replace("nan","np.nan")
     try:
         mask = eval(string)
         if not isinstance(mask,np.ndarray):
             raise Exception
     except NameError as e:
-        perror("Unable to create mask: %s\n"%repr(e))
+        p_error("Unable to create mask: %s\n" % repr(e))
     except Exception as e:
-        perror(repr(e))
+        p_error(repr(e))
 
     return mask
 
@@ -898,27 +899,27 @@ def parse_mask(string, table):
 #    print(tab)
 #    return tab 
 #
-#def exp_info(hdulist):
-#    """
-#    Get the exposure information about a hdulist 
-#    INPUT:  HDUList or ImageHDU or BinTableHDU
-#    RETURN: dictionary of relevant information:
-#            >   EXPOSURE, DETECTOR, FILTER
-#    """
-#    info={  "FILTER":None,
-#            "OBSERVTN":0,
-#            "VISIT":0,
-#            "EXPOSURE":0,
-#            "DETECTOR":None
-#            }
-#
-#    if type(hdulist) in (fits.ImageHDU, fits.BinTableHDU):
-#        hdulist=fits.HDUList(hdulist)
-#
-#    for hdu in hdulist:
-#        for key in info:
-#            if key in hdu.header: info[key]=hdu.header[key]
-#    return info
+def exp_info(hdu_list):
+    """
+    Get the exposure information about a hdu list
+    INPUT:  HDUList or ImageHDU or BinTableHDU
+    RETURN: dictionary of relevant information:
+            >   EXPOSURE, DETECTOR, FILTER
+    """
+    info={  "FILTER":None,
+            "OBSERVTN":0,
+            "VISIT":0,
+            "EXPOSURE":0,
+            "DETECTOR":None
+            }
+
+    if type(hdu_list) in (fits.ImageHDU, fits.BinTableHDU):
+        hdu_list=fits.HDUList(hdu_list)
+
+    for hdu in hdu_list:
+        for key in info:
+            if key in hdu.header: info[key]=hdu.header[key]
+    return info
 #
 #
 #def bootstrap_match(catalogues):

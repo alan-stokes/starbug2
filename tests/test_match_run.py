@@ -1,9 +1,9 @@
 import os,glob
 import pytest
-from starbug2.utils import wget
-from starbug2.bin import EXIT_SUCCESS, EXIT_EARLY, EXIT_FAIL
 from starbug2.bin.main import starbug_main
 from starbug2.bin.match import match_main
+from starbug2.constants import EXIT_FAIL, EXIT_EARLY, EXIT_SUCCESS
+
 run = lambda s:match_main(s.split())
 
 def test_match_start():
@@ -11,7 +11,7 @@ def test_match_start():
     assert run("starbug2-match -h")==EXIT_EARLY
     assert run("starbug2-match -vh")==EXIT_EARLY
 
-def test_match_badinput():
+def test_match_bad_input():
     #clean()
     assert run("starbug2-match ")==EXIT_FAIL
     assert run("starbug2-match tests/dat/image.fits")==EXIT_EARLY
@@ -23,7 +23,7 @@ def test_match_badinput():
     
     #clean()
 
-def test_match_basicrunthrough():
+def test_match_basic_run_through():
     #clean()
     starbug_main("starbug2 -Do tests/dat/out1.fits tests/dat/image.fits".split())
     starbug_main("starbug2 -Do tests/dat/out2.fits tests/dat/image.fits".split())
@@ -50,7 +50,7 @@ def init():
     files=glob.glob("tests/dat/*")
     files.remove("tests/dat/image.fits")
     files.remove("tests/dat/psf.fits")
-    for fname in files: os.remove(fname)
+    for file_name in files: os.remove(file_name)
     if os.path.exists("starbug.param"): os.remove("starbug.param")
 
 

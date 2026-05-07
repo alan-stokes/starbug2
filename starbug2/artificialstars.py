@@ -10,7 +10,7 @@ except:
     import matplotlib; matplotlib.use("TkAgg")
     import matplotlib.pyplot as plt
 
-from starbug2.utils import printf,perror, cropHDU, get_MJysr2Jy_scalefactor, warn
+from starbug2.utils import printf,p_error, cropHDU, get_MJysr2Jy_scalefactor, warn
 from starbug2.matching import GenericMatch
 
 class Artificial_StarsIII():
@@ -85,7 +85,7 @@ class Artificial_StarsIII():
 
         if any(base_shape < subimage_size):
             subimage_size=min(base_shape)
-            perror("subimage size greater than image size, setting to 'safe' value %d.\n"%subimage_size)
+            p_error("subimage size greater than image size, setting to 'safe' value %d.\n" % subimage_size)
             
         for test in range(1,int(ntests)+1):
             centre=0
@@ -187,7 +187,7 @@ class Artificial_StarsIII():
         y_edge=0
         if any(imshape < size):
             size=min(imshape)
-            perror("subimage size greater than image size, setting to 'safe' value %d.\n"%size)
+            p_error("subimage size greater than image size, setting to 'safe' value %d.\n" % size)
 
         x_edge = int(max( position[0]-(size/2), buffer ))
         y_edge = int(max( position[1]-(size/2), buffer ))
@@ -289,13 +289,13 @@ def estim_completeness_mag(ast):
     compl=[None,None,None]
     fn_i=lambda y,l,k,xo: xo-(np.log((l/y)-1)/k)
 
-    if len(set(ast.colnames) & set(("mag","rec")))==2:
+    if len(set(ast.col_names) & set(("mag", "rec")))==2:
         try:
             fit,_=curve_fit(scurve, ast["mag"], ast["rec"], [1, -1,np.median(ast["mag"])])
             compl=(fn_i(0.9,*fit),fn_i(0.7,*fit),fn_i(0.5,*fit))
         except:
             warn("Unable to fit completeness fractions\n")
-    else: perror("Input table must have columns 'mag' and 'rec'\n")
+    else: p_error("Input table must have columns 'mag' and 'rec'\n")
     return fit,compl
 
 def scurve(x,l,k,xo):

@@ -21,13 +21,12 @@ import glob
 from multiprocessing import Pool, Process, shared_memory
 from itertools import repeat
 from time import sleep
-from astropy.io import fits
 from astropy.table import Table
 
 import starbug2.bin as scr
 from starbug2.starbug import StarbugBase
 from starbug2.artificialstars import Artificial_StarsIII, compile_results
-from starbug2.utils import printf,perror,warn,export_table,tabppend,fill_nan
+from starbug2.utils import printf, p_error, combine_tables, fill_nan
 from starbug2.param import load_params
 
 VERBOSE =0x01
@@ -63,7 +62,7 @@ def ast_parseargv(argv):
     options=0
     #setopt={"NTESTS":100, "NSTARS":10, "QUIETMODE":1, "AUTOSAVE":100}
     setopt={"QUIETMODE":1, "AUTOSAVE":100}
-    cmd,argv = scr.parsecmd(argv)
+    cmd,argv = scr.parse_cmd(argv)
     opts,args = getopt.gnu_getopt(argv, "hvN:n:p:R:S:s:o:", ("help","verbose","ncores=","param=", "set=", "output=",
                                                             "ntests=", "nstars=", "autosave=",
                                                             "no-background","no-psfphot","recover"))
@@ -89,7 +88,7 @@ def ast_parseargv(argv):
                 except: pass
                 setopt[key]=val
             else:
-                perror("unable to set parameter, use syntax -s KEY=VALUE\n")
+                p_error("unable to set parameter, use syntax -s KEY=VALUE\n")
                 options|=KILLPROC
 
     return options, setopt, args
@@ -110,18 +109,18 @@ def ast_onetimeruns(options, setopt, args):
             printf("Recovery Mode:\n-> %s\n"%("\n-> ".join(fnames)))
             raw=Table()
             for fname in fnames:
-                raw=tabppend(raw,Table.read(fname))
+                raw=combine_tables(raw, Table.read(fname))
             if (results:=compile_results(fill_nan(raw), plotast="recovered.pdf")):
                 printf("-> successful recovery!\n--> %s\n"%(fname:="recovered.fits"))
                 results.writeto(fname,overwrite=True)
-            else: perror("something went wrong\n")
-        else: perror("No files found to recover\n")
+            else: p_error("something went wrong\n")
+        else: p_error("No files found to recover\n")
 
 
 
     if options & STOPPROC: return scr.EXIT_EARLY
     if options & KILLPROC: 
-        perror("..killing process\n")
+        p_error("..killing process\n")
         return scr.EXIT_FAIL
 
     return scr.EXIT_SUCCESS
@@ -150,7 +149,7 @@ def ast_main(argv):
     if (params:=load_params(setopt.get("PARAMFILE"))):
         params.update(setopt)
     else: 
-        perror("Failed to load parameters from file\n")
+        p_error("Failed to load parameters from file\n")
         return scr.EXIT_FAIL
 
     if args:
@@ -194,7 +193,7 @@ def ast_main(argv):
         #############################
 
         raw=outs[0]
-        for res in outs[1:]: raw=tabppend(raw,res)
+        for res in outs[1:]: raw=combine_tables(raw, res)
         sb=StarbugBase(fname, setopt.get("PARAMFILE"), options=setopt)
         if options & VERBOSE:
             printf("-> compiling results\n")
@@ -208,10 +207,10 @@ def ast_main(argv):
             ## autosave cleanup
             for _fname in glob.glob("sbast-autosave*.tmp"): os.remove(_fname) 
 
-        else: perror("results compilation failed\n")
+        else: p_error("results compilation failed\n")
 
     else:
-        perror("must include a fits image to work on\n")
+        p_error("must include a fits image to work on\n")
         exit_code=scr.EXIT_FAIL
 
     _share.unlink()

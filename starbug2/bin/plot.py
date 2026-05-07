@@ -10,7 +10,9 @@ usage: starbug2-plot [-vhX] [-I CN000] [-o outfile] images.fits ..
         --style    fname : load a custom pyplot style sheet
         --dark           : plot in dark mode
 """
-import os,sys,getopt
+import os, sys, getopt
+from collections.abc import set_iterator
+
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
@@ -18,8 +20,9 @@ from astropy.table import Table
 
 import starbug2.bin as scr
 import starbug2
+from starbug2.constants import EXIT_EARLY, EXIT_FAIL, EXIT_SUCCESS
 from starbug2.plot import load_style, plot_test, plot_inspectsource
-from starbug2.utils import printf, perror, warn
+from starbug2.utils import p_error, warn
 
 VERBOSE =0x01
 SHOWHELP=0x02
@@ -32,54 +35,55 @@ PTEST=   0x1000
 PINSPECT=0x2000
 
 
-def plot_parseargv(argv):
+def plot_parse_argv(argv):
     options=0
-    setopt={}
-    cmd,argv = scr.parsecmd(argv)
-    opts,args = getopt.gnu_getopt(argv, "hvXI:d:o:",("help","verbose","test",
-                                                "inspect=",
-                                                "output=", "style=", "dark"))
+    set_opt={}
+    cmd, argv = scr.parse_cmd(argv)
+    opts, args = getopt.gnu_getopt(
+        argv, "hvXI:d:o:",
+        ["help", "verbose", "test", "inspect=", "output=", "style=", "dark"]
+    )
 
-    for opt,optarg in opts:
+    for opt, optarg in opts:
         match(opt):
             case "-h"|"--help":     options|=(SHOWHELP|STOPPROC)
             case "-v"|"--verbose":  options|=VERBOSE
-            case "-o"|"--output":   setopt["OUTPUT"]=optarg
-            case "-d"|"--apfile":   setopt["APFILE"]=optarg
+            case "-o"|"--output":   set_opt["OUTPUT"]=optarg
+            case "-d"|"--apfile":   set_opt["APFILE"]=optarg
 
             case "-I"|"--inspect":
                 options|=PINSPECT
-                setopt["INSPECT"]=optarg
+                set_opt["INSPECT"]=optarg
             case "-X"|"--test": options|=PTEST
 
-            case "--style": setopt["STYLESHEET"]=optarg
+            case "--style": set_opt["STYLESHEET"]=optarg
             case "--dark":  options|=DARKMODE
 
-    return options, setopt, args
+    return options, set_opt, args
 
 
-def plot_onetimeruns(options, setopt, args):
-    if options&SHOWHELP:
+def plot_one_time_runs(options, set_opt, args):
+    if options & SHOWHELP:
         scr.usage(__doc__,verbose=options&VERBOSE)
 
-        if options & PINSPECT: perror(fn_pinspect.__doc__)
+        if options & PINSPECT: p_error(fn_pinspect.__doc__)
 
-        return scr.EXIT_EARLY
+        return EXIT_EARLY
 
-    if (_fname:=setopt.get("STYLESHEET")):
-        load_style(_fname)
+    if _file_name := set_opt.get("STYLESHEET"):
+        load_style(_file_name)
 
-    if options&DARKMODE: 
+    if options & DARKMODE:
         load_style("%s/extras/dark.style"%starbug2.__path__[0])
     
-    if options & STOPPROC: return scr.EXIT_EARLY
+    if options & STOPPROC: return EXIT_EARLY
     if options & KILLPROC:
-        perror("..killing process\n")
-        return scr.EXIT_FAIL
+        p_error("..killing process\n")
+        return EXIT_FAIL
 
-    return scr.EXIT_SUCCESS
+    return EXIT_SUCCESS
 
-def fn_pinspect(options, setopt, images=None, tables=None):
+def fn_pinspect(options, set_opt, images=None, tables=None):
     """
     Inspect Source
     --------------
@@ -113,40 +117,42 @@ def fn_pinspect(options, setopt, images=None, tables=None):
         The output figure
     """
     fig=None
-    if (cn:=setopt.get("INSPECT")) and images and tables:
-        if "Catalogue_Number" in tables[0].colnames and cn in tables[0]["Catalogue_Number"]:
-            i=np.where(tables[0]["Catalogue_Number"]==cn)[0]
-            fig=plot_inspectsource(tables[0][i], images)
+    if (cn:=set_opt.get("INSPECT")) and images and tables:
+        if ("Catalogue_Number" in tables[0].col_names
+                and cn in tables[0]["Catalogue_Number"]):
+            i = np.where(tables[0]["Catalogue_Number"]==cn)[0]
+            fig = plot_inspectsource(tables[0][i], images)
 
-    else: perror("Must include the source Catalogue_Number, a list of images and a sourcelist \n")
+    else: p_error(
+        "Must include the source Catalogue_Number,"
+        " a list of images and a source list \n")
     return fig
 
 def plot_main(argv):
     warn("Still in development\n\n")
-    options,setopt,args=plot_parseargv(argv)
+    options,setopt,args=plot_parse_argv(argv)
     load_style("%s/extras/starbug.style"%starbug2.__path__[0])
-    exit_code=0
 
     if options or setopt:
-        if (exit_code:=plot_onetimeruns(options, setopt, args)):
+        if exit_code := plot_one_time_runs(options, setopt, args):
             return exit_code
 
     images=[]
     tables=[]
     for arg in args:
-        if (_fname:=os.path.exists(arg)):
+        if _file_name:=os.path.exists(arg):
             fp=fits.open(arg)
             _filter=fp[0].header.get("FILTER") # THIS IS A HACK
             for hdu in fp:
-                if hdu.header.get("XTENSION")=="IMAGE":
+                if hdu.header.get("XTENSION") == "IMAGE":
                     images.append(hdu)
                     break
-                if hdu.header.get("XTENSION")=="BINTABLE":
+                if hdu.header.get("XTENSION") == "BINTABLE":
                     tables.append(Table(hdu.data))
                     break
             hdu.header["FILTER"]=_filter
 
-    fig=None
+    fig = None
     if options& PTEST:
         fig,ax=plt.subplots(1,figsize=(3,2.5))
         ax=plot_test(ax)
@@ -155,11 +161,11 @@ def plot_main(argv):
 
     if fig is not None:
         fig.tight_layout()
-        if (output:=setopt.get("OUTPUT")):
+        if output:=setopt.get("OUTPUT"):
             fig.savefig(output, dpi=300)
         else:
             plt.show()
 
-def plot_mainentry():
+def plot_main_entry():
     """Command Line entry point"""
     return plot_main(sys.argv)

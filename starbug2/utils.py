@@ -1,32 +1,55 @@
 import time
 import os, sys, numpy as np
-from parse import parse
 from importlib import metadata
-from astropy.table import Table,hstack,Column,MaskedColumn,vstack
+from astropy.table import Table, hstack, Column, MaskedColumn, vstack
 from astropy.io import fits
 from astropy.wcs import WCS
 import starbug2
 import requests
 
 printf=sys.stdout.write
-perror=sys.stderr.write
+p_error=sys.stderr.write
 puts=lambda s:printf("%s\n"%s)
-sbold=lambda s:"\x1b[1m%s\x1b[0m"%s
-warn=lambda s:perror("%s%s"%(sbold("Warning: "), s))
+s_bold=lambda s: "\x1b[1m%s\x1b[0m" % s
+warn=lambda s:p_error("%s%s" % (s_bold("Warning: "), s))
 
-def strnktn(s,n,c):
-    for _ in range(n): s+=c
+def append_chars(s, n, c):
+    """
+    append n characters to s.
+    :param s: the base string
+    :param n: the number of times to add the character
+    :param c: the characters to add.
+    :return: the adjusted string.
+    """
+    for _ in range(n):
+        s+=c
     return s
 
-def nputch(n,c): printf(strnktn("",n,c))
+def repeat_print(n, c):
+    """
+    prints out a repeated string.
+    NOTE: this seems unused.
 
-def split_fname(fname):
-    dname,bname=os.path.split(fname)
-    base,ext=os.path.splitext(bname)
-    if(not dname): dname='.'
-    return dname,base,ext
+    :param n: the number of times to repeat
+    :param c: the string to repeat.
+    :return: None
+    """
+    printf(append_chars("", n, c))
 
-class loading(object):
+def split_file_name(path):
+    """
+    breaks apart a path into folder, filename and extension.
+    :param path: the path to split
+    :return: (folder, file name, extension)
+    :rtype: tuple of (str, str, str)
+    """
+    folder, file = os.path.split(path)
+    file_name, ext = os.path.splitext(file)
+    if not folder:
+        folder='.'
+    return folder, file_name, ext
+
+class Loading(object):
     bar=40
     n=0
     N=1
@@ -47,7 +70,8 @@ class loading(object):
 
     def show(self):
         dec=self.n/self.N
-        if (dec==1) or (not self.n%self.res): ## only show once per self.res loads
+        ## only show once per self.res loads
+        if (dec==1) or (not self.n%self.res):
             out="%s|"%self.msg
             for i in range(self.bar+0):
                 out+= ('=' if (i<(self.bar*dec)) else ' ')
@@ -59,64 +83,67 @@ class loading(object):
                 nmins= (etc-(nhrs*3600))//60
                 nsecs= (etc-(nhrs*3600)-(nmins*60))
                 stime=""
-                if nhrs: stime+="%dh"%int(nhrs)
-                if nmins: stime+="%dm"%int(nmins)
+                if nhrs:
+                    stime+="%dh"%int(nhrs)
+                if nmins:
+                    stime+="%dm"%int(nmins)
 
                 stime+="%ds"%int(nsecs)
                 out+= " ETC:%s"%stime
 
             printf("\x1b[2K%s\r"%out)
             sys.stdout.flush()
-        if(dec==1): printf("\n")
+        if dec == 1:
+            printf("\n")
 
-def tabppend(base, tab):
+def combine_tables(base, tab):
     """
     Is this the same as vstack?
     """
-    if(not base): return tab#base=tab
+    if not base:
+        #base=tab
+        return tab
     else:
         #for line in tab: base.add_row(line)
         return vstack([base,tab])
 
-def export_region(tab, colour="green", scale_radius=1, region_radius=3, xcol="RA", ycol="DEC", wcs=1, fname="/tmp/out.reg"):
+def export_region(
+        tab, colour="green", scale_radius=1, region_radius=3, x_col="RA",
+        y_col="DEC", wcs=1, f_name="/tmp/out.reg"):
     """
     A handy function to convert the detections in a DS9 region file
 
-    Parameters
-    ----------
-    tab : table 
-        Source list table with some kind of positional columns
-
-    colour : str
-        Region colour
-
-    scale_region : int
-        Scale region radius with flux ? true/false
-
-    region_radius : int
-        Otherwise, use this region radius in pixels
-
-    xcol/ycol : str
-        XY column names to use
-
-    wcs : int
-        Boolean if the xycols use WCS system
-
-    fname : str
-        Filename to output to
+    :param tab: Source list table with some kind of positional columns
+    :type tab: Table
+    :param colour: Region Colour
+    :type colour: str
+    :param scale_radius: Scale region radius with flux ? true/false
+    :type scale_radius: int
+    :param region_radius: Otherwise, use this region radius in pixels
+    :type region_radius: int
+    :param x_col: X column name to use
+    :type x_col: str
+    :param y_col: Y column name to use
+    :type y_col: str
+    :param wcs: Boolean if the xycols use WCS system
+    :type wcs: int.
+    :param f_name: Filename to output to
+    :type f_name: str
+    :return:
     """
-    if xcol not in tab.colnames:
-        xcols= list(filter(lambda s: 'x'==s[0],tab.colnames))
-        if xcols:
-            xcol=xcols[0]
-            printf("Using '%s' as x position column\n"%sbold(xcol))
+
+    if x_col not in tab.colnames:
+        x_cols= list(filter(lambda s: 'x'==s[0],tab.colnames))
+        if x_cols:
+            x_col=x_cols[0]
+            printf("Using '%s' as x position column\n" % s_bold(x_col))
             wcs=0
 
-    if ycol not in tab.colnames:
-        ycols= list(filter(lambda s: 'y'==s[0],tab.colnames))
-        if ycols:
-            ycol=ycols[0]
-            printf("Using '%s' as y position column\n"%sbold(ycol))
+    if y_col not in tab.colnames:
+        y_cols= list(filter(lambda s: 'y'==s[0],tab.colnames))
+        if y_cols:
+            y_col=y_cols[0]
+            printf("Using '%s' as y position column\n" % s_bold(y_col))
             wcs=0
 
     if "flux" in tab.colnames and scale_radius: 
@@ -127,14 +154,14 @@ def export_region(tab, colour="green", scale_radius=1, region_radius=3, xcol="RA
 
     prefix="fk5;" if wcs else ""
 
-    with open(fname, 'w') as fp:
-        fp.write("global color=%s width=2\n"%(colour))
+    with open(f_name, 'w') as fp:
+        fp.write("global color=%s width=2\n"%colour)
         if tab:
             for src, ri in zip(tab,r[r>0]):
-                #fp.write("circle %f %f %f;"%(1+src[xcol], 1+src[ycol], ri))
-                fp.write("%scircle %f %f %fi\n"%(prefix,src[xcol], src[ycol], ri))
+                fp.write("%scircle %f %f %fi\n" % (
+                    prefix, src[x_col], src[y_col], ri))
         else:
-            perror("unable to open %f\n"%fname)
+            p_error("unable to open %f\n" % f_name)
 
 def parse_unit(raw):
     """
@@ -160,7 +187,11 @@ def parse_unit(raw):
     unit : int
         Unit type (p,s,m,d)
     """
-    recognised={'p':starbug2.PIX, 's':starbug2.ARCSEC, 'm':starbug2.ARCMIN, 'd':starbug2.DEG}
+    recognised={
+        'p':starbug2.PIX,
+        's':starbug2.ARCSEC,
+        'm':starbug2.ARCMIN,
+        'd':starbug2.DEG}
     value=None
     unit=None
     if raw:
@@ -172,7 +203,7 @@ def parse_unit(raw):
                 value=float(raw[:-1])
                 unit=recognised.get(raw[-1])
             except:
-                perror("unable to parse '%s'\n"%raw)
+                p_error("unable to parse '%s'\n" % raw)
     return value,unit
 
 def tab2array(tab,colnames=None):
@@ -195,8 +226,10 @@ def tab2array(tab,colnames=None):
     array : numpy.ndarray
         Array from the table
     """
-    if not colnames: colnames=tab.colnames
-    else: colnames=rmduplicates(colnames)#list( set(colnames)&set(tab.colnames) ) ####BBAAAAD
+    if not colnames:
+        colnames=tab.col_names
+    else:
+        colnames=rmduplicates(colnames)
     return np.array( tab[colnames].as_array().tolist() )
 
 def collapse_header(header):
@@ -240,7 +273,7 @@ def export_table(table, fname=None, header=None):
         Optional header file to include in fits table
     """
     dtypes=[]
-    if "Catalogue_Number" not in table.colnames: table=reindex(table)
+    if "Catalogue_Number" not in table.col_names: table=reindex(table)
     for name in table.colnames:
         if name=="Catalogue_Number": dtypes.append(str)
         elif name=="flag": dtypes.append(np.uint16)
@@ -277,8 +310,8 @@ def import_table(fname, verbose=0):
                     tab.meta["FILTER"]=fltr
             if verbose: printf("-> loaded %s (%s:%d)\n"%(fname,tab.meta.get("FILTER"), len(tab)))
                 
-        else: perror("Table must fits format\n")
-    else: perror("Unable to locate \"%s\"\n"%fname)
+        else: p_error("Table must fits format\n")
+    else: p_error("Unable to locate \"%s\"\n" % fname)
     return tab
 
 def fill_nan(table):
@@ -297,7 +330,7 @@ def fill_nan(table):
     table : 
         Input table will masked vales filled in as nan
     """
-    for i,name in enumerate(table.colnames):
+    for i,name in enumerate(table.col_names):
         match(table.dtype[i].kind):
             case 'f': fill_val=np.nan
             case 'i'|'u': fill_val=0
@@ -326,9 +359,9 @@ def find_colnames(tab, basename):
     result : list
         List of all matching column names
     """
-    return [colname for colname in tab.colnames if colname[:len(basename)]==basename]
+    return [colname for colname in tab.col_names if colname[:len(basename)] == basename]
 
-def combine_fnames(fnames, ntrys=10):
+def combine_file_names(fnames, ntrys=10):
     """
     when matching catalogues, combines the file names into an appropriate combination
     of all the inputs
@@ -347,8 +380,8 @@ def combine_fnames(fnames, ntrys=10):
     """
     trys=0
     fname=""
-    dname,_,ext=split_fname(fnames[0])
-    fnames= [split_fname(name)[1] for name in fnames]
+    dname,_,ext=split_file_name(fnames[0])
+    fnames= [split_file_name(name)[1] for name in fnames]
     
     for i in range(len(fnames[0])):
         chars= [name[i] for name in fnames if len(name)>i]
@@ -383,7 +416,7 @@ def hcascade(tables, colnames=None):
     """
     tab=fill_nan(hstack(tables))
 
-    if not colnames: colnames=tables[0].colnames
+    if not colnames: colnames=tables[0].col_names
     for name in colnames:
         cols=find_colnames(tab,name)
         if not cols: continue
@@ -418,7 +451,7 @@ def hcascade(tables, colnames=None):
         cols=find_colnames(tab,name)#[ colname for colname in tab.colnames if name in colname]
         if cols: tab.rename_columns(cols, ["%s_%d"%(name,i+1) for i in range(len(cols))])
 
-    for name in tab.colnames:
+    for name in tab.col_names:
         col=tab[name]
         try:
             if col.info.n_bad==col.info.length:
@@ -534,7 +567,7 @@ def wget(address, fname=None):
                 fp.write(chunk)
         return 0
     else:
-        perror("Unable to download \"%s\"\n"%address)
+        p_error("Unable to download \"%s\"\n" % address)
         return 1
 
 
@@ -542,7 +575,7 @@ def reindex(table):
     """
     Add indexes into a table
     """
-    if "Catalogue_Number" in table.colnames: table.remove_column("Catalogue_Number")
+    if "Catalogue_Number" in table.col_names: table.remove_column("Catalogue_Number")
     column=Column(["CN%d"%i for i in range(len(table))], name="Catalogue_Number")
     table.add_column(column,index=0)
     return table
@@ -553,7 +586,7 @@ def colour_index(table,keys):
     """
     out=Table()
     for key in keys:
-        if key in table.colnames: out.add_column(table[key])
+        if key in table.col_names: out.add_column(table[key])
         elif '-' in key:
             a,b=key.split('-')
             out.add_column(table[a]-table[b],name=key)

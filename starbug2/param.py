@@ -1,6 +1,6 @@
 import os
 from parse import parse
-from starbug2.utils import printf,perror,get_version
+from starbug2.utils import printf,p_error,get_version
 
 default="""## STARBUG CONFIG FILE
 # Generated with starbug2-v%s
@@ -126,7 +126,7 @@ def load_params(fname):
             for line in fp.readlines():
                 config.update(parse_param(line))
     else:
-        perror("config file \"%s\" does not exist\n"%fname)
+        p_error("config file \"%s\" does not exist\n" % fname)
     return config
 
 def local_param():
@@ -171,5 +171,5 @@ def update_paramfile(fname):
         fpi.close()
         fpo.close()
         os.system("mv /tmp/starbug.param %s"%fname)
-    else: perror("local parameter file '%s' does not exist\n"%fname)
+    else: p_error("local parameter file '%s' does not exist\n" % fname)
 

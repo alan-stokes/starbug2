@@ -5,25 +5,25 @@ from astropy.table import Table, MaskedColumn
 from astropy.io import fits
 
 def test_strnktn():
-    assert utils.strnktn( "", 3, 'a') == "aaa"
-    assert utils.strnktn( "a", 3, 'a') == "aaaa"
-    assert utils.strnktn( "a", 0, 'a') == "a"
+    assert utils.append_chars("", 3, 'a') == "aaa"
+    assert utils.append_chars("a", 3, 'a') == "aaaa"
+    assert utils.append_chars("a", 0, 'a') == "a"
 
 def test_split_fname():
     fname="/path/to/file.fits"
-    d,f,e = utils.split_fname(fname)
+    d,f,e = utils.split_file_name(fname)
     assert d=="/path/to"
     assert f=="file"
     assert e==".fits"
 
     fname="file.fits"
-    d,f,e = utils.split_fname(fname)
+    d,f,e = utils.split_file_name(fname)
     assert d=="."
     assert f=="file"
     assert e==".fits"
 
     fname="file"
-    d,f,e = utils.split_fname(fname)
+    d,f,e = utils.split_file_name(fname)
     assert d=="."
     assert f=="file"
     assert e==""
@@ -84,11 +84,11 @@ def test_tabppend():
     base=Table( [[0,0], [0,0]], names=('a','b'))
     tab =Table( [[1,1], [1,1]], names=('a', 'b'))
     exp =Table( [[0,0,1,1],[0,0,1,1]], names=('a','b'))
-    out=utils.tabppend(base,tab)
+    out=utils.combine_tables(base, tab)
     assert np.all(out==exp)
 
     tab1=tab.copy()
-    out=utils.tabppend(None, tab1)
+    out=utils.combine_tables(None, tab1)
     assert np.all( out==tab) ## tab is not a typo
 
 

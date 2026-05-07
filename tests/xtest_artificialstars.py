@@ -1,8 +1,7 @@
-from starbug2.bin.afs import afs_main
-from starbug2.bin import EXIT_SUCCESS, EXIT_FAIL
-from starbug2.artificialstars import Artificial_StarsIII
+from starbug2.bin.ast import ast_main
+from starbug2.constants import EXIT_SUCCESS, EXIT_FAIL
 
-run = lambda s : afs_main(["starbug2-afs"]+s.split())
+run = lambda s : ast_main(["starbug2-afs"]+s.split())
 
 def _test_run():
     assert run("tests/dat/image.fits")==EXIT_SUCCESS

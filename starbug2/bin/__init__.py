@@ -1,17 +1,27 @@
 import os
-from starbug2.utils import printf,perror
+from starbug2.utils import p_error
 
-EXIT_SUCCESS=0
-EXIT_FAIL   =1
-EXIT_EARLY  =2
-EXIT_MIXED  =3
 
-def usage(docstring,verbose=0):
-    if verbose: perror(docstring)
-    else: perror("%s\n"%docstring.split('\n')[1])
+def usage(docstring, verbose=0):
+    """
+    outputs the usage.
+    :param docstring: the doc string to output
+    :param verbose: if to do so in verbose mode
+    :return: 1 when complete.
+    """
+    if verbose:
+        p_error(docstring)
+    else:
+        p_error("%s\n" % docstring.split('\n')[1])
     return 1
 
-def parsecmd(args):
-    cmd=os.path.basename(args[0])
-    return cmd,args[1:]
+def parse_cmd(args):
+    """
+    parses an args command.
+    :param args: the args array.
+    :return: tuple of the command and the rest of the args array.
+    :rtype: (str, array[str])
+    """
+    cmd = os.path.basename(args[0])
+    return cmd, args[1:]
 

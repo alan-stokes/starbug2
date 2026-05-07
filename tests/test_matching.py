@@ -1,6 +1,7 @@
 import os,numpy as np
 import pytest
-from starbug2.matching import GenericMatch, CascadeMatch, BandMatch, parse_mask, ExactValueMatch
+from starbug2.matching import (
+    GenericMatch, CascadeMatch, BandMatch, ExactValueMatch)
 from starbug2.utils import import_table, fill_nan
 from starbug2.param import load_default_params
 from starbug2.bin.main import starbug_main
@@ -47,13 +48,13 @@ class Test_GenericMatch():
         options = load_default_params()
 
         m=GenericMatch( )
-        assert m.colnames is None
+        assert m.col_names is None
         assert not m.filter 
         assert m.threshold.value == float(options.get("MATCH_THRESH"))
         assert m.verbose == options.get("VERBOSE")
 
-        m=GenericMatch(fltr="MAG", colnames=["RA"], threshold=0.5, verbose=True)
-        assert m.colnames == ["RA"]
+        m=GenericMatch(filter_string="MAG", col_names=["RA"], threshold=0.5, verbose=True)
+        assert m.col_names == ["RA"]
         assert m.filter == "MAG"
         assert m.threshold.value == 0.5
         assert m.verbose == True
@@ -66,7 +67,7 @@ class Test_GenericMatch():
 
         out=m(cats)
         assert isinstance(out, Table)
-        for name in cats[0].colnames:
+        for name in cats[0].col_names:
             if name != "Catalogue_Number":
                 assert "%s_1"%name in out.colnames
                 assert "%s_2"%name in out.colnames
@@ -81,10 +82,10 @@ class Test_GenericMatch():
 
     def test_generic_match2(self):
         cats = [ import_table(f) for f in ("tests/dat/image-ap.fits", "tests/dat/image2-ap.fits")]
-        m=GenericMatch( colnames=["RA"])
+        m=GenericMatch(col_names=["RA"])
         out=m(cats)
 
-        assert out.colnames == ["RA_1","RA_2"]
+        assert out.col_names == ["RA_1", "RA_2"]
 
     def test_finishmatching(self):
         cats = [ import_table(f) for f in ("tests/dat/image-ap.fits", "tests/dat/image2-ap.fits")]
@@ -93,14 +94,14 @@ class Test_GenericMatch():
         av=m.finish_matching(out)
         
 
-        m=GenericMatch(colnames=["RA","DEC","flux"], fltr="F444W")
+        m=GenericMatch(col_names=["RA", "DEC", "flux"], filter_string="F444W")
         av=m.finish_matching(m.match(cats))
-        assert av.colnames==["RA","DEC","flux","stdflux","flag","F444W","eF444W","NUM"]
+        assert av.col_names == ["RA", "DEC", "flux", "stdflux", "flag", "F444W", "eF444W", "NUM"]
 
-        m=GenericMatch(colnames=["RA","DEC","flux"])
+        m=GenericMatch(col_names=["RA", "DEC", "flux"])
         for c in cats: del c.meta["FILTER"]
         av=m.finish_matching(m.match(cats))
-        assert av.colnames==["RA","DEC","flux","stdflux","flag","MAG","eMAG","NUM"]
+        assert av.col_names == ["RA", "DEC", "flux", "stdflux", "flag", "MAG", "eMAG", "NUM"]
 
 
 
@@ -222,7 +223,7 @@ class Test_BandMatch:
         bm=BandMatch(fltr=["A","B","C"], threshold=[0.1,0.2])
         res=bm(cats)
         print(res)
-        assert res.colnames==[ "RA","DEC","NUM","flag", "A","B","C"]
+        assert res.col_names == ["RA", "DEC", "NUM", "flag", "A", "B", "C"]
         #res=bm(cats, method="last")
         #print(res)
         res=bm(cats, method="bootstrap")

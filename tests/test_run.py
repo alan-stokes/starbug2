@@ -1,8 +1,6 @@
 import os,glob
-import pytest
-from starbug2.utils import wget
-from starbug2.bin import EXIT_SUCCESS, EXIT_EARLY, EXIT_FAIL, EXIT_MIXED
 from starbug2.bin.main import starbug_main
+from starbug2.constants import EXIT_EARLY, EXIT_FAIL, EXIT_SUCCESS, EXIT_MIXED
 
 run = lambda s:starbug_main(s.split())
 
@@ -98,7 +96,9 @@ def clean():
     files=glob.glob("tests/dat/*")
     files.remove("tests/dat/image.fits")
     files.remove("tests/dat/psf.fits")
-    for fname in files: os.remove(fname)
-    if os.path.exists("starbug.param"): os.remove("starbug.param")
+    for file_name in files:
+        os.remove(file_name)
+    if os.path.exists("starbug.param"):
+        os.remove("starbug.param")
 
 
