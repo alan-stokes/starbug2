@@ -29,6 +29,20 @@
 $~ pip install starbug2
 $~ starbug2 --init
 ```
+
+### From source
+
+If installing starbugII from source. the following commands are used to ensure current
+dependencies are required.
+
+- ```python3 -m venv star_bug_env```
+- ```./star_bug_env/bin/pip install --upgrade stpsf```
+- ```./star_bug_env/bin/pip install numpy==2.3.5 photutils==2.0.1 --force```
+- ```./star_bug_env/bin/pip install parse```
+- ```./star_bug_env/bin/pip install setuptools```
+- ```/star_bug_env/bin/pip install scikit-image```
+
+
 </br>
 
 > [!IMPORTANT]
