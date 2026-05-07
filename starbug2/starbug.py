@@ -1,13 +1,9 @@
-from astropy.wcs import WCS
-from astropy.table import hstack, vstack
 from photutils.psf import FittableImageModel
-from photutils.datasets import make_model_image
 
-import starbug2
 from starbug2.param import load_params, load_default_params
-from starbug2.utils import *
 from starbug2.misc import *
 from starbug2.routines import *
+from starbug2.utils import collapse_header, parse_unit
 
 
 
@@ -35,40 +31,49 @@ class StarbugBase(object):
     _nHDU=-1
     _unit=None
     wcs=None
-    def __init__(self, fname, pfile=None, options={}):
+
+    def __init__(self, f_name, p_file=None, options=None):
         """
-        fname : FITS image file name
-        pfile : parameter file name
-        options : extra options to load into starbug
+
+        :param f_name: FITS image file name
+        :param p_file: parameter file name
+        :param options: extra options to load into starbug
         """
-        if not pfile:
-            if os.path.exists("starbug.param"): pfile="starbug.param"
-            else: pfile=None
-        self.options=load_params(pfile)
+        if options is None:
+            options = {}
+
+        if not p_file:
+            if os.path.exists("starbug.param"): p_file= "starbug.param"
+            else: p_file=None
+        self.options=load_params(p_file)
         self.options.update(options)
-        self.load_image(fname)   ## Load the fits image
 
-        if self.options["AP_FILE"]: self.load_apfile() ## Load the source list if given
-        if self.options["BGD_FILE"]: self.load_bgdfile()
+        ## Load the fits image
+        self.load_image(f_name)
 
-        #_=self.image ## Force self._nHDU
+        if self.options["AP_FILE"]:
+            ## Load the source list if given
+            self.load_apfile()
+        if self.options["BGD_FILE"]:
+            self.load_bgdfile()
 
     @property
     def header(self):
         """
         Construct relevant base header information for routine products
 
-        Returns
-        -------
-        `fits.Header` : Header file containing a series of relevvant information
+        :return:  Header file containing a series of relevant information
+        :rtype: fits.Header
         """
-        head={}
-        head["STARBUG"]=get_version()
-        head["CALIBLEVEL"]=self.stage
-        if self.filter: head["FILTER"]=self.filter
+        head = {
+            "STARBUG": get_version(),
+            "CALIBLEVEL": self.stage
+        }
+        if self.filter:
+            head["FILTER"]=self.filter
         head.update(self.options)
         head.update(self.info)
-        return utils.collapse_header(head)
+        return collapse_header(head)
 
 
     @property
@@ -81,7 +86,9 @@ class StarbugBase(object):
               "BUNIT","PIXAR_A2", "PIXAR_SR")
         if self._image:
             for hdu in self._image:
-                out.update( { (key,hdu.header[key]) for key in keys if key in hdu.header})
+                out.update(
+                    { (key,hdu.header[key]) for key in keys
+                      if key in hdu.header})
 
         return out
 
@@ -95,7 +102,11 @@ class StarbugBase(object):
         > SCI, BGD, RES
         > first ImageHDU
         > image[0]
+
+        :return: the main image array.
+        :rtype: HDUList
         """
+
         if self._nHDU >=0: return self._image[self._nHDU]
         enames=extnames(self._image)
 
@@ -127,12 +138,11 @@ class StarbugBase(object):
 
     def log(self, msg):
         """
-        Print message if in verbose mode 
+        Print message if in verbose mode
 
-        Parameters:
-        -----------
-        msg : str
-            Message to print out
+        :param msg: Message to print out
+        :type msg: str
+        :return: None
         """
         if self.options["VERBOSE"]:
             printf(msg)
@@ -140,7 +150,7 @@ class StarbugBase(object):
 
 
     @staticmethod
-    def sort_output_names(fname, param_output=None):
+    def sort_output_names(f_name, param_output=None):
         """
         This is a useful function that looks at both an input file and a set output
         and figures out how to name output files. If param_output looks like a directory
@@ -149,7 +159,7 @@ class StarbugBase(object):
 
         Parameters
         ----------
-        fname : str
+        f_name : str
             Filename to use as the core of the output
 
         param_output : str
@@ -170,8 +180,8 @@ class StarbugBase(object):
         outdir=""
         bname=""
         extension=""
-        if fname:
-            outdir,bname,extension=split_fname(fname)
+        if f_name:
+            outdir,bname,extension=split_fname(f_name)
             if (tmp_outname:=param_output) and tmp_outname !='.':
                 _outdir,_bname,_=split_fname(tmp_outname)
                 if os.path.exists(outdir) and os.path.isdir(outdir): outdir=_outdir
@@ -696,7 +706,7 @@ class StarbugBase(object):
                 ##################################
                 # Setting position max variation #
                 ##################################
-                maxydev,unit=utils.parse_unit(self.options["MAX_XYDEV"])
+                maxydev,unit=parse_unit(self.options["MAX_XYDEV"])
                 if unit is not None:
                     if unit==starbug2.DEG: 
                         maxydev*=60
