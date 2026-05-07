@@ -32,8 +32,8 @@ $~ starbug2 --init
 
 ### From source
 
-If installing starbugII from source. the following commands are used to ensure current
-dependencies are required.
+If installing starbugII from source, the following commands are used to ensure
+current dependencies are required.
 
 - ```python3 -m venv star_bug_env```
 - ```./star_bug_env/bin/pip install --upgrade stpsf```
@@ -41,7 +41,7 @@ dependencies are required.
 - ```./star_bug_env/bin/pip install parse```
 - ```./star_bug_env/bin/pip install setuptools```
 - ```/star_bug_env/bin/pip install scikit-image```
-
+- ```./star_bug_env/bin/pip install webbpsf```
 
 </br>
 
