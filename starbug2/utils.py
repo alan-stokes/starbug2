@@ -1,7 +1,7 @@
 import time
 import os, sys, numpy as np
 from parse import parse
-import pkg_resources
+from importlib import metadata
 from astropy.table import Table,hstack,Column,MaskedColumn,vstack
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -609,7 +609,7 @@ def get_version():
     version : str
         Starbug2 installed version
     """
-    try: version=pkg_resources.get_distribution("starbug2").version 
+    try: version = metadata.version("starbug2")
     except: version="UNKNOWN" ## Github pytest work around for now
     return version
 
