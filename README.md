@@ -44,6 +44,12 @@ but was set up for consistency.
 - ```/star_bug_env/bin/pip install scikit-image==0.26.0```
 - ```./star_bug_env/bin/pip install webbpsf==2.0.0```
 - ```./star_bug_env/bin/pip install pytest==9.0.3```
+- ```./star_bug_env/bin/python -m pip install build```
+
+instead of:
+- ```pip install .```
+I used the following command to ensure live development.
+- ```./star_bug_env/bin/python -m pip install -e . --no-deps```
 
 </br>
 

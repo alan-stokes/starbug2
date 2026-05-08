@@ -1,5 +1,7 @@
 import os,numpy as np
 import pytest
+
+from starbug2.constants import CAT_NUM
 from starbug2.matching import (
     GenericMatch, CascadeMatch, BandMatch, ExactValueMatch)
 from starbug2.utils import import_table, fill_nan
@@ -68,7 +70,7 @@ class Test_GenericMatch():
         out=m(cats)
         assert isinstance(out, Table)
         for name in cats[0].col_names:
-            if name != "Catalogue_Number":
+            if name != CAT_NUM:
                 assert "%s_1"%name in out.colnames
                 assert "%s_2"%name in out.colnames
         assert len(out)>=len(cats[0])

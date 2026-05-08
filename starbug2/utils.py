@@ -7,11 +7,15 @@ from astropy.wcs import WCS
 import starbug2
 import requests
 
-printf=sys.stdout.write
-p_error=sys.stderr.write
-puts=lambda s:printf("%s\n"%s)
-s_bold=lambda s: "\x1b[1m%s\x1b[0m" % s
-warn=lambda s:p_error("%s%s" % (s_bold("Warning: "), s))
+from starbug2.constants import CAT_NUM, DEFAULT_COLOUR, RA, DEC, TMP_OUT, FLUX, TMP_FITS, FITS_EXTENSION, FILTER, \
+    N_MIS_MATCHES
+
+# different print methods (why are we not using loggers?)
+printf = sys.stdout.write
+p_error = sys.stderr.write
+puts = lambda s:printf("%s\n"%s)
+s_bold = lambda s: "\x1b[1m%s\x1b[0m" % s
+warn = lambda s:p_error("%s%s" % (s_bold("Warning: "), s))
 
 def append_chars(s, n, c):
     """
@@ -22,7 +26,7 @@ def append_chars(s, n, c):
     :return: the adjusted string.
     """
     for _ in range(n):
-        s+=c
+        s += c
     return s
 
 def repeat_print(n, c):
@@ -46,52 +50,61 @@ def split_file_name(path):
     folder, file = os.path.split(path)
     file_name, ext = os.path.splitext(file)
     if not folder:
-        folder='.'
+        folder = '.'
     return folder, file_name, ext
 
 class Loading(object):
-    bar=40
-    n=0
-    N=1
+    # how long the bar is
+    bar = 40
+
+    # current length
+    n = 0
+
+    # no idea
+    length = 1
+
+    # loading bar message
     msg=""
 
-    def __init__(self, N, msg="", res=1):
-        self.setlen(N)
-        self.msg=msg
-        self.startime=time.time()
-        self.res=int(res)
+    def __init__(self, length, msg="", res=1):
+        self.set_len(length)
+        self.msg = msg
+        self.start_time = time.time()
+        self.res = int(res)
 
-    def setlen(self,n): 
-        self.N=abs(n)
+    def set_len(self, length):
+        self.length = abs(length)
 
     def __call__(self):
-        self.n+=1
-        return self.n<=self.N
+        self.n += 1
+        return self.n <= self.length
 
     def show(self):
-        dec=self.n/self.N
+        dec= self.n / self.length
         ## only show once per self.res loads
-        if (dec==1) or (not self.n%self.res):
-            out="%s|"%self.msg
-            for i in range(self.bar+0):
-                out+= ('=' if (i<(self.bar*dec)) else ' ')
-            out+="|%.0f%%"%(100*dec)
+        if (dec == 1) or (not self.n % self.res):
+            out = "%s|" % self.msg
+            for i in range(self.bar + 0):
+                out += ('=' if (i < (self.bar*dec)) else ' ')
+            out += "|%.0f%%" % (100 * dec)
             
             if self.n:
-                etc=(time.time()-self.startime)*(self.N-self.n)/self.n
-                nhrs=etc//3600
-                nmins= (etc-(nhrs*3600))//60
-                nsecs= (etc-(nhrs*3600)-(nmins*60))
-                stime=""
-                if nhrs:
-                    stime+="%dh"%int(nhrs)
-                if nmins:
-                    stime+="%dm"%int(nmins)
+                etc = (
+                    (time.time() - self.start_time) *
+                    (self.length - self.n) / self.n)
+                n_hrs = etc // 3600
+                n_minutes = (etc - (n_hrs * 3600)) // 60
+                n_secs = (etc - (n_hrs * 3600) - (n_minutes * 60))
+                stime = ""
+                if n_hrs:
+                    stime += "%dh" % int(n_hrs)
+                if n_minutes:
+                    stime += "%dm" % int(n_minutes)
 
-                stime+="%ds"%int(nsecs)
-                out+= " ETC:%s"%stime
+                stime += "%ds" % int(n_secs)
+                out += " ETC:%s" % stime
 
-            printf("\x1b[2K%s\r"%out)
+            printf("\x1b[2K%s\r" % out)
             sys.stdout.flush()
         if dec == 1:
             printf("\n")
@@ -101,15 +114,13 @@ def combine_tables(base, tab):
     Is this the same as vstack?
     """
     if not base:
-        #base=tab
         return tab
     else:
-        #for line in tab: base.add_row(line)
         return vstack([base,tab])
 
 def export_region(
-        tab, colour="green", scale_radius=1, region_radius=3, x_col="RA",
-        y_col="DEC", wcs=1, f_name="/tmp/out.reg"):
+        tab, colour=DEFAULT_COLOUR, scale_radius=1, region_radius=3, x_col=RA,
+        y_col=DEC, wcs=1, f_name=TMP_OUT):
     """
     A handy function to convert the detections in a DS9 region file
 
@@ -147,17 +158,18 @@ def export_region(
             wcs=0
 
     if "flux" in tab.colnames and scale_radius: 
-        r= (-40.0/np.log10(tab["flux"]))
-        r[r<region_radius]=region_radius
-        r[np.isnan(r)]=region_radius
-    else: r=np.ones(len(tab))*region_radius
+        r = (-40.0 / np.log10(tab[FLUX]))
+        r[r < region_radius] = region_radius
+        r[np.isnan(r)] = region_radius
+    else:
+        r = np.ones(len(tab)) * region_radius
 
-    prefix="fk5;" if wcs else ""
+    prefix = "fk5;" if wcs else ""
 
     with open(f_name, 'w') as fp:
-        fp.write("global color=%s width=2\n"%colour)
+        fp.write("global color=%s width=2\n" % colour)
         if tab:
-            for src, ri in zip(tab,r[r>0]):
+            for src, ri in zip(tab, r[r>0]):
                 fp.write("%scircle %f %f %fi\n" % (
                     prefix, src[x_col], src[y_col], ri))
         else:
@@ -174,375 +186,321 @@ def parse_unit(raw):
     m : arcmin
     d : degree
 
-    Parameters
-    ----------
-    raw : str
-        Raw input string to operate on
-
-    Returns
-    -------
-    value : float
-        Numerical value of unit
-
-    unit : int
-        Unit type (p,s,m,d)
+    :param raw: Raw input string to operate on
+    :type raw: str
+    :return: Numerical value of unit
+    :rtype float
     """
-    recognised={
-        'p':starbug2.PIX,
-        's':starbug2.ARCSEC,
-        'm':starbug2.ARCMIN,
-        'd':starbug2.DEG}
-    value=None
-    unit=None
+
+    recognised = {
+        'p': starbug2.PIX,
+        's': starbug2.ARCSEC,
+        'm': starbug2.ARCMIN,
+        'd': starbug2.DEG}
+    value = None
+    unit = None
     if raw:
         try: 
-            value=float(raw)
-            unit=None
-        except:
+            value = float(raw)
+            unit = None
+        except ValueError:
             try:
-                value=float(raw[:-1])
-                unit=recognised.get(raw[-1])
-            except:
+                value = float(raw[:-1])
+                unit = recognised.get(raw[-1])
+            except ValueError:
                 p_error("unable to parse '%s'\n" % raw)
-    return value,unit
+    return value, unit
 
-def tab2array(tab,colnames=None):
+def tab2array(tab, col_names=None):
     """
-    Returns the contents of the table as a notmal 2D numpy array
-    NB: this is different from Table.asarray(), which returns an array of numpy.voids
+    Returns the contents of the table as a normal 2D numpy array
+    NB: this is different from Table.asarray(), which returns an array of
+    numpy.voids
 
-    if colnames not None, return the subset of the table corresponding to this list
+    if col_names not None, return the subset of the table corresponding to
+    this list
 
-    Parameters
-    ----------
-    tab : table
-        Table to operate on
-
-    colnames : list
-        Column names in table to include in the array
-
-    Returns
-    -------
-    array : numpy.ndarray
-        Array from the table
+    :param tab: Table to operate on
+    :type tab: astropy.Table
+    :param col_names: Column names in table to include in the array
+    :type col_names: list of str
+    :return: Array from the table
+    :rtype: numpy.ndarray
     """
-    if not colnames:
-        colnames=tab.col_names
+    if not col_names:
+        col_names=tab.col_names
     else:
-        colnames=rmduplicates(colnames)
-    return np.array( tab[colnames].as_array().tolist() )
+        col_names=rmduplicates(col_names)
+    return np.array(tab[col_names].as_array().tolist())
 
 def collapse_header(header):
     """
-    Convert a dictionary to a Header. 
+    Convert a dictionary to a Header.
     Parameters in PARAMFILES have keys longer than 8 chars
     which can cause issues in the fits format. This function turns
     those to comment cards.
 
-    Parameters
-    ----------
-    header : dict , `fits.Header`
-        Header or dictionary to convert to collapse header
-
-    Returns
-    -------
-    result : `fits.Header`
-        Collapsed Header
+    :param header: Header or dictionary to convert to collapse header
+    :type header: dict, fits.Header
+    :return: Collapsed Header
+    :rtype fits.Header
     """
-    out=fits.Header()
+    out = fits.Header()
     for key,value in header.items():
-        if len(key)>8: 
-            out["comment"]=":".join([key,str(value)])
-        else: out[key]=value
+        if len(key) > 8:
+            out["comment"] = ":".join([key, str(value)])
+        else: out[key] = value
     return out
 
 
-def export_table(table, fname=None, header=None):
-    """ 
+def export_table(table, f_name=None, header=None):
+    """
     Export table with correct dtypes
 
-    Parameters
-    ----------
-    table : 
-        Table to export
-
-    fname : str
-        Filename to export to
-
-    header : dict,Header
-        Optional header file to include in fits table
+    :param table: Table to export.
+    :type table: astropy.Table
+    :param f_name: Filename to export to.
+    :type f_name: str
+    :param header: Optional header file to include in fits table
+    :type header: dict, fits.Header
+    :return: None
     """
-    dtypes=[]
-    if "Catalogue_Number" not in table.col_names: table=reindex(table)
+    dtypes = []
+    if CAT_NUM not in table.col_names:
+        table = reindex(table)
     for name in table.colnames:
-        if name=="Catalogue_Number": dtypes.append(str)
-        elif name=="flag": dtypes.append(np.uint16)
-        else: dtypes.append(table[name].dtype)
-    table=fill_nan(Table(table,dtype=dtypes))
+        if name == CAT_NUM:
+            dtypes.append(str)
+        elif name == "flag":
+            dtypes.append(np.uint16)
+        else:
+            dtypes.append(table[name].dtype)
+    table = fill_nan(Table(table, dtype=dtypes))
 
-    if not fname: fname="/tmp/starbug.fits"
-    btab=fits.BinTableHDU(data=table, header=header).writeto(fname, overwrite=True, output_verify="fix")
+    if not f_name:
+        f_name = TMP_FITS
+    fits.BinTableHDU(data=table, header=header).writeto(
+        f_name, overwrite=True, output_verify="fix")
 
-def import_table(fname, verbose=0):
+def import_table(f_name, verbose=0):
     """
-    Slight tweak to `astropy.table.Table.read`. This makes sure that the 
+    Slight tweak to `astropy.table.Table.read`. This makes sure that the
     proper column dtypes are maintained
 
-    Parameters
-    ----------
-    fname : str
-        Path to binary fits table file
-
-    verbose : bool
-        Display verbose information
-
-    Returns
-    -------
-    table :
-        Loading table
+    :param f_name: Path to binary fits table file
+    :type f_name: str
+    :param verbose: Display verbose information
+    :type verbose: boolean
+    :return: Loading table
+    :rtype: atrophy.Table
     """
-    tab=None
-    if os.path.exists(fname):
-        if os.path.splitext(fname)[1]==".fits":
-            tab=fill_nan(Table.read(fname,format="fits"))
-            if not tab.meta.get("FILTER"):
-                if (fltr:=find_filter(tab)): 
-                    tab.meta["FILTER"]=fltr
-            if verbose: printf("-> loaded %s (%s:%d)\n"%(fname,tab.meta.get("FILTER"), len(tab)))
-                
-        else: p_error("Table must fits format\n")
-    else: p_error("Unable to locate \"%s\"\n" % fname)
+
+    tab = None
+    if os.path.exists(f_name):
+        if os.path.splitext(f_name)[1] == FITS_EXTENSION:
+            tab = fill_nan(Table.read(f_name, format="fits"))
+            if not tab.meta.get(FILTER):
+                if filter_string := find_filter(tab):
+                    tab.meta[FILTER] = filter_string
+            if verbose:
+                printf("-> loaded %s (%s:%d)\n" % (
+                    f_name, tab.meta.get(FILTER), len(tab)))
+        else:
+            p_error("Table must fits format\n")
+    else:
+        p_error("Unable to locate \"%s\"\n" % f_name)
     return tab
 
 def fill_nan(table):
     """
-    Fill empty values in table with nans
-    This is useful for tables that have columns that
-    dont support nans (e.g. starbug flag). These will be set to zero instead
+    Fill empty values in table with nans. This is useful for tables that
+    have columns that don't support nans (e.g. starbug flag). These will be
+    set to zero instead
 
-    Parameters
-    ----------
-    table :
-        table to operate on
-
-    Returns
-    -------
-    table : 
-        Input table will masked vales filled in as nan
+    :param table: table to operate on
+    :type table: atrophy.table
+    :return: Input table with masked vales filled in as nan
+    :rtype: atrophy.table
     """
-    for i,name in enumerate(table.col_names):
-        match(table.dtype[i].kind):
+    for i, name in enumerate(table.col_names):
+        match table.dtype[i].kind:
             case 'f': fill_val=np.nan
-            case 'i'|'u': fill_val=0
+            case 'i' | 'u': fill_val=0
             case _: fill_val=np.nan
-        if type(table[name])==MaskedColumn: table[name]=table[name].filled(fill_val)
-
+        if type(table[name]) == MaskedColumn:
+            table[name]=table[name].filled(fill_val)
     return table
 
-def find_colnames(tab, basename):
+def find_col_names(tab, basename):
     """
-    Find substring (basename) within the table colnames.
-    Searches for substring at the beginning of the word
-    I.E search for "flux" in ("flux_out","flux_err","dflux")
-    returns as ("flux_out","flux_err")
+    Find substring (basename) within the table colnames. Searches for
+    substring at the beginning of the word I.E search for "flux" in
+    ("flux_out","flux_err","dflux") returns as ("flux_out","flux_err")
 
-    Parameters
-    ----------
-    tab : table
-        Table to operate on
-
-    basename : str
-        String basename to search
-
-    Returns
-    -------
-    result : list
-        List of all matching column names
+    :param tab: Table to operate on
+    :type tab: atrophy.table
+    :param basename: String basename to search
+    :type basename: str
+    :return: List of all matching column names
+    :rtype: list of str
     """
-    return [colname for colname in tab.col_names if colname[:len(basename)] == basename]
+    return [
+        col_name for col_name in tab.col_names
+            if col_name[:len(basename)] == basename]
 
-def combine_file_names(fnames, ntrys=10):
+def combine_file_names(f_names, n_mismatch=N_MIS_MATCHES):
     """
-    when matching catalogues, combines the file names into an appropriate combination
-    of all the inputs
+    when matching catalogues, combines the file names into an appropriate
+    combination of all the inputs.
 
-    Parameters
-    ----------
-    fnames : list of file names
+    :param f_names: list of file names
+    :type f_names: list of str
+    :param n_mismatch: The number of mismatched characters it will allow
+    :type n_mismatch: int
+    :return: Combined filenames
+    :rtype: str
+    """
+
+    trys = 0
+    f_name = ""
+    d_name, _, ext = split_file_name(f_names[0])
+    f_names = [split_file_name(name)[1] for name in f_names]
     
-    ntrys : int
-        The number of mismatched characters it will allow
-
-    Returns
-    -------
-    fname : str
-        Combined filenames
-    """
-    trys=0
-    fname=""
-    dname,_,ext=split_file_name(fnames[0])
-    fnames= [split_file_name(name)[1] for name in fnames]
-    
-    for i in range(len(fnames[0])):
-        chars= [name[i] for name in fnames if len(name)>i]
-        if len(set(chars))==1: fname+=chars[0]
+    for i in range(len(f_names[0])):
+        chars = [name[i] for name in f_names if len(name) > i]
+        if len(set(chars)) == 1:
+            f_name += chars[0]
         else: 
-            fname+="(%s)"%"".join(sorted(set(chars)))
-            trys+=1
-        if trys>ntrys: return None
-    while ")(" in fname: fname=fname.replace(")(","")
-    return "%s/%s%s"%(dname,fname,ext)
+            f_name += "(%s)" % "".join(sorted(set(chars)))
+            trys += 1
+        if trys > n_mismatch:
+            return None
+    while ")(" in f_name:
+        f_name = f_name.replace(")(","")
+    return "%s/%s%s" % (d_name, f_name, ext)
 
 
-def hcascade(tables, colnames=None):
+def h_cascade(tables, col_names=None):
     """
-    Similar use as hstack
-    Except rather than adding a full new column, the inserted value
-    is placed into the leftmost empty column
+    Similar use as hstack Except rather than adding a full new column,
+    the inserted value is placed into the leftmost empty column
 
-    Parameters
-    ----------
-    tables: list of Tables 
-        Table to hcascade
-
-    colnames: list of str
-        List of column names to include in the stacking.
+    :param tables: Table to h_cascade.
+    :type tables: list of atrophy.Table
+    :param col_names: List of column names to include in the stacking.
         If colnames=None, use all possible columns
-
-    Returns
-    -------
-    result : table
-        Single combined table
+    :type col_names: list of str
+    :return: Single combined table
+    :rtype: atrophy.Table
     """
-    tab=fill_nan(hstack(tables))
+    tab = fill_nan(hstack(tables))
 
-    if not colnames: colnames=tables[0].col_names
-    for name in colnames:
-        cols=find_colnames(tab,name)
-        if not cols: continue
-        move=1
+    if not col_names:
+        col_names = tables[0].colnames
+    for name in col_names:
+        cols = find_col_names(tab, name)
+        if not cols:
+            continue
+        move = 1
         while move:
-            move=0
-            for n in range(len(cols)-1,0,-1):
-                currmask= np.invert( np.isnan( tab[cols[n]] ) ) ##everything that has a value
-                leftmask= np.isnan(tab[cols[n-1]])              ##everything empty in left neighbouring column
-                mask=np.logical_and(currmask,leftmask)          ##cur has value and left is empty
+            move = 0
+            for n in range(len(cols) - 1, 0, -1):
+                ##everything that has a value
+                curr_mask = np.invert(np.isnan(tab[cols[n]]))
 
-                tab[cols[n]]=MaskedColumn(tab[cols[n]])
-                tab[cols[n-1]][mask] = tab[cols[n]][mask]
-                tab[cols[n]][mask]=tab[cols[n]].info.mask_val
-                        #try: tab[cols[n]][mask]*=np.nan
-                        #except: tab[cols[n]][mask]*=0
-                if sum(mask): move=1
-                #tab[cols[n]]=MaskedColumn(np.ma.array(tab[cols[n]], mask=mask), mask=mask)
+                ##everything empty in left neighbouring column
+                left_mask = np.isnan(tab[cols[n - 1]])
 
-                #print(tab[cols[n]].info)
+                ##cur has value and left is empty
+                mask = np.logical_and(curr_mask, left_mask)
 
-        #if name != "flag": ## this is a bodge because it was removing the column if all the stars were good
-        #if tab[cols].dtype.kind=='f': # I suspect this could be done with masked bad_vals
+                tab[cols[n]] = MaskedColumn(tab[cols[n]])
+                tab[cols[n - 1]][mask] = tab[cols[n]][mask]
+                tab[cols[n]][mask] = tab[cols[n]].info.mask_val
+                if sum(mask):
+                    move = 1
+        cols = find_col_names(tab, name)
+        if cols:
+            tab.rename_columns(
+                cols, ["%s_%d" % (name, i + 1) for i in range(len(cols))])
 
-            #empty= ( np.nansum( tab2array( tab[cols] ),axis=0 ) ==0)
-            #if any(empty): tab.remove_columns(np.array(cols)[empty])
+    for name in tab.colnames:
+        col = tab[name]
 
-            #for col in cols:
-            #    if sum(np.isnan(tab[col]))==len(col):
-            #        tab.remove_columns(col)
+        # Use getattr to safely check for n_bad without crashing
+        n_bad = getattr(col.info, 'n_bad', 0)
 
-        cols=find_colnames(tab,name)#[ colname for colname in tab.colnames if name in colname]
-        if cols: tab.rename_columns(cols, ["%s_%d"%(name,i+1) for i in range(len(cols))])
-
-    for name in tab.col_names:
-        col=tab[name]
-        try:
-            if col.info.n_bad==col.info.length:
-                tab.remove_column(col)
-        except: pass
+        if n_bad == len(col):
+            tab.remove_column(name)
     return tab
 
-def extnames(hdulist):
+def ext_names(hdu_list):
     """
     Return list of HDU extension names
 
-    Parameters
-    ----------
-    hdulist : HDUList
-        fits hdulist to operate on
-
-    Returns
-    -------
-    result : list
-        List of extension names
+    :param hdu_list: fits hdu_list to operate on
+    :type hdu_list: HDUList
+    :return: List of extension names
+    :rtype: list of str
     """
-    return list(ext.name for ext in hdulist)
+    return list(ext.name for ext in hdu_list)
 
-def flux2mag(flux,fluxerr=None, zp=1):
+def flux2mag(flux, flux_err=None, zp=1):
     """
     Convert flux to magnitude in an arbitrary system
 
-    Parameters
-    ----------
-    flux : list (float)
-        List of source flux values
-
-    fluxerr : list (flost)
-        List of known flux uncertainties
-
-    zp : float
-        Zero point flux value
-
-    Returns
-    -------
-    mag : float
-        Source magnitudes
-
-    magerr : float
-        Magnitude errors 
+    :param flux: List of source flux values
+    :type flux: list of floats or float
+    :param flux_err: List of known flux uncertainties
+    :type flux_err: list of floats or float
+    :param zp: Zero point flux value
+    :type zp: float
+    :return: tuple of (Source magnitudes, Magnitude errors )
+    :rtype: tuple (float, float)
     """
 
-
     ## sort any type issues in FLUX
-    if type(flux)!=np.array: flux=np.array(flux)
-    if not flux.shape: flux=np.array([flux])
+    if type(flux) != np.array:
+        flux = np.array(flux)
+    if not flux.shape:
+        flux = np.array([flux])
 
     # sort type issues in FLUXERR
-    if fluxerr is None: fluxerr=np.zeros(len(flux))
-    if type(fluxerr)!=np.array: fluxerr=np.array(fluxerr)
-    if not fluxerr.shape: fluxerr=np.array([fluxerr])
+    if flux_err is None:
+        flux_err = np.zeros(len(flux))
+    if type(flux_err) != np.array:
+        flux_err = np.array(flux_err)
+    if not flux_err.shape:
+        flux_err = np.array([flux_err])
 
-    mag=np.full( len(flux), np.nan )
-    magerr=np.full( len(flux), np.nan )
+    mag = np.full(len(flux), np.nan)
+    mag_err = np.full(len(flux), np.nan)
 
-    maskflux = (flux>0)
-    maskferr = (fluxerr>=0)
-    mask= np.logical_and( maskflux, maskferr)
+    mask_flux = (flux > 0)
+    mask_f_err = (flux_err >= 0)
+    mask= np.logical_and(mask_flux, mask_f_err)
 
-    mag[maskflux]= -2.5*np.log10(flux[maskflux]/zp)
-    magerr[mask] = 2.5*np.log10( 1.0+( fluxerr[mask]/flux[mask]) )
+    mag[mask_flux]= -2.5 * np.log10(flux[mask_flux] / zp)
+    mag_err[mask] = 2.5 * np.log10(1.0 + (flux_err[mask] / flux[mask]))
 
-    return mag,magerr
+    return mag, mag_err
 
 
-def flux2ABmag(flux,fluxerr=None):
+def flux_2_ab_mag(flux, flux_err=None):
     """
     Convert flux to AB magnitudes
 
-    Parameters
-    ----------
-    flux : float
-        Source flux values
-
-    fluxerr : float
-        Soure flux error values if known
-
-    Returns
-    -------
-    result : float
-        Magnitude in AB system
+    :param flux: Source flux values.
+    :type flux: float
+    :param flux_err: Source flux error values if known.
+    :type flux_err: float
+    :return: Magnitude in AB system
+    :rtype: float
     """
-    return flux2mag( flux, fluxerr, zp=3631.0)
+    return flux2mag(flux, flux_err, zp=3631.0)
 
 
-def wget(address, fname=None):
+def wget(address, f_name=None):
     """
     A really simple "implementation" of wget
 
@@ -551,7 +509,7 @@ def wget(address, fname=None):
     address : str
         URL to download
 
-    fname : str
+    f_name : str
         Filename to save output to
 
     Returns
@@ -561,8 +519,8 @@ def wget(address, fname=None):
     """
     r=requests.get(address)
     if r.status_code==200:
-        fname=fname if fname else os.path.basename(address)
-        with open(fname,"wb") as fp:
+        f_name=f_name if f_name else os.path.basename(address)
+        with open(f_name, "wb") as fp:
             for chunk in r.iter_content(chunk_size=128):
                 fp.write(chunk)
         return 0
@@ -575,9 +533,11 @@ def reindex(table):
     """
     Add indexes into a table
     """
-    if "Catalogue_Number" in table.col_names: table.remove_column("Catalogue_Number")
-    column=Column(["CN%d"%i for i in range(len(table))], name="Catalogue_Number")
-    table.add_column(column,index=0)
+    if CAT_NUM in table.col_names:
+        table.remove_column(CAT_NUM)
+    column = Column(
+        ["CN%d" % i for i in range(len(table))], name=CAT_NUM)
+    table.add_column(column, index=0)
     return table
 
 def colour_index(table,keys):
@@ -642,8 +602,10 @@ def get_version():
     version : str
         Starbug2 installed version
     """
-    try: version = metadata.version("starbug2")
-    except: version="UNKNOWN" ## Github pytest work around for now
+    try:
+        version = metadata.version("starbug2")
+    except:
+        version="UNKNOWN" ## Github pytest work around for now
     return version
 
 def rmduplicates(seq):

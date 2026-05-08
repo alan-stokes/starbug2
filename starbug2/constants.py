@@ -1,5 +1,20 @@
 STARBUG_DATA_DIR = "STARBUG_DATDIR"
 
+# url to docs
+URL_DOCS = (
+    "https://raw.githubusercontent.com/conornally/starbug2/"
+    "refs/heads/main/docs/source/_static/images/starbug.png")
+PLOT_MAIN_TABLE_PATH = (
+    "/home/conor/sci/proj/ngc6822/overview/dat/ngc6822.fits")
+TMP_OUT = "/tmp/out.reg"
+TMP_FITS = "/tmp/starbug.fits"
+
+# the fits file extension
+FITS_EXTENSION = ".fits"
+
+# colours
+DEFAULT_COLOUR = "green"
+
 # some binary values.
 VERBOSE = 0x01
 KILLPROC = 0x02
@@ -32,21 +47,38 @@ EXIT_FAIL = 1
 EXIT_EARLY = 2
 EXIT_MIXED = 3
 
+# tag used table col names
+CAT_NUM = "Catalogue_Number"
+RA = "RA"
+DEC = "DEC"
+FLUX = "flux"
+
+# tag for header
+FILTER = "FILTER"
+EXT = "XTENSION"
+IMAGE = "IMAGE"
+BIN_TABLE = "BINTABLE"
+OUTPUT = "OUTPUT"
+
 # tag used for param file.
 PARAM_FILE_TAG = "PARAMFILE"
 REGION_TAB = "REGION_TAB"
+VERBOSE_TAG = "VERBOSE"
 
 # mode labels.
 DETECTION = "DETECTION"
 BACKGROUND = "BACKGROUND"
-APPHOT = "APPHOT"
-PSFPHOT = "PSFPHOT"
-MATCHOUTPUTS = "MATCHOUTPUTS"
+APP_HOT = "APPHOT"
+PSFP_HOT = "PSFPHOT"
+MATCH_OUTPUTS = "MATCHOUTPUTS"
 
 # ?????
 OUTPUT = "OUTPUT"
 VERBOSE_TAG = "VERBOSE"
-NCORES = "NCORES"
+N_CORES = "NCORES"
+
+# how many characters we will allow by default.
+N_MIS_MATCHES = 10
 
 # text based logo (using raw string to bypass escape characters)
 LOGO = r"""
@@ -57,7 +89,7 @@ LOGO = r"""
  complex crowded fields   | (O)  |  |     |           *
                            \._._/ ./    _(\)   *   
  conor.nally@ed.ac.uk     /   ~--\ ----~   \      *
-                        ---      ___       ---      
+ alan.stokes@stfc.ac.uk  ---      ___       ---      
  > %s
 """
 
@@ -71,10 +103,10 @@ HELP_STRINGS = {
         
             This routine locates point sources in an image. The input is a
             FITS image and the output is a FITS table, containing a list of
-            point source locations, their geometric properties and flux/magnitude
-            measurements as calculated by aperture photometry. The output file
-            will have the suffix "-ap", note this is the same as the output
-            for the aperture photometry routine.
+            point source locations, their geometric properties and 
+            flux/magnitude measurements as calculated by aperture photometry. 
+            The output file will have the suffix "-ap", note this is the same 
+            as the output for the aperture photometry routine.
         
             To run this routine, use the core command:
         
@@ -95,13 +127,15 @@ HELP_STRINGS = {
         
             This routine estimates the "dusty" emissions in an image, given
             a source list. It is used to subtract from the image, thus removing
-            the flux contribution on a source brightness from the dusty environment.
+            the flux contribution on a source brightness from the dusty 
+            environment.
             
             The routine requires a list of sources to be generated (by source 
             detection) or loaded with [-d sourcelist.fits] and requires a FITS
-            image to work on. The routine will ouput a FITS image, with the same
-            dimensions and spatial coverage as the input image, with the suffix
-            "-bgd". This background image can be used in the photometry later.
+            image to work on. The routine will ouput a FITS image, with the 
+            same dimensions and spatial coverage as the input image, with the 
+            suffix "-bgd". This background image can be used in the photometry
+             later.
         
             To run the routine, use the core command:
         
@@ -110,30 +144,33 @@ HELP_STRINGS = {
             Alter the parameter file options under "BACKGROUND ESTIMATION" 
             to tune the performance of starbug2. Two key parameters are:
         
-                - BGD_R    : Set a fixed aperture mask radius around each source
-                - BOX_SIZE : Set the estimation resolution (larger will be more blurred)
+                - BGD_R    : Set a fixed aperture mask radius around each 
+                             source
+                - BOX_SIZE : Set the estimation resolution (larger will be 
+                             more blurred)
         
             Full documentation is at https://starbug2.readthedocs.io
         """,
-    APPHOT:
+    APP_HOT:
         """
             Aperture Photometry
             -------------------
         
             This routine conducts aperture photometry on an image given a list
-            of sources. It requires a FITS image to run on and a FITS table source
-            list with either RA/DEC columns, or x/y_centroid or x/y_0 columns. 
-            The routine outputs a table with the suffix "-ap". Note this filename
-            is the same as the source detection routine because aperture photometry 
-            is automatically run at the end of the source detection step. The output
-            table contains 2flux/magnitude information on every source
+            of sources. It requires a FITS image to run on and a FITS table 
+            source list with either RA/DEC columns, or x/y_centroid or x/y_0
+            columns. The routine outputs a table with the suffix "-ap". Note
+            this filename is the same as the source detection routine because 
+            aperture photometry is automatically run at the end of the source 
+            detection step. The output table contains 2flux/magnitude 
+            information on every source
         
             To run this routine, use the core command:
         
                 $~ starbug2 -A -d sourcelist.fits image.fits
         
-            Alter the parameter file options under "APERTURE PHOTOMETRY" to tune
-            the performance of starbug2. Three key parameters are:
+            Alter the parameter file options under "APERTURE PHOTOMETRY" to 
+            tune the performance of starbug2. Three key parameters are:
         
                 - APPHOT_R : Set the aperture radius for photometry (in pixels)
                 - SKY_RIN  : Set the inner sky annulus radius (in pixels)
@@ -141,16 +178,17 @@ HELP_STRINGS = {
         
             Full documentation is at https://starbug2.readthedocs.io
         """,
-    PSFPHOT:
+    PSFP_HOT:
         """
             PSF Photometry
             --------------
         
             This routine conducts PSF fitting photometry on an image given
-            a list of sources. Its requires a FITS image to run on and a FITS table
-            sourcelist with either RA/DEC columns, or x/y_centroid or x/y_0 columns.
-            The routine outputs a table with the suffix "-psf". The output table 
-            contains 2flux/magnitude information on every source
+            a list of sources. Its requires a FITS image to run on and a FITS
+            table sourcelist with either RA/DEC columns, or x/y_centroid or 
+            x/y_0 columns. The routine outputs a table with the suffix "-psf". 
+            The output table contains 2flux/magnitude information on every 
+            source.
             
             To run this routine, use the core command:
                 
@@ -159,33 +197,37 @@ HELP_STRINGS = {
             Alter the parameter file options under "PHOTOMETRY" to tune the
             performance of starbug2. Two key parameters are:
         
-                - FORCE_POS    : Hold the cetroid positions of source fixed (forced photometry)
-                - GEN_RESIDUAL : Generate a residual image from all the fit source
+                - FORCE_POS    : Hold the cetroid positions of source fixed 
+                                 (forced photometry)
+                - GEN_RESIDUAL : Generate a residual image from all the fit 
+                                 source
         
             Full documentation is at https://starbug2.readthedocs.io
         """,
-    MATCHOUTPUTS:
+    MATCH_OUTPUTS:
         """
             Match Outputs
             -------------
         
-            This option is set if the user wishes to combine all the output catalogues
-            from starbug together. It would be used in the case that a routine is
-            being ran on a list of images (either in series or parallel) and the
-            final catalogues should all be combined into a single source list.
-            It outputs two files, one with the suffix "full" and another with "match".
-            The first is all columns from all table preserved into a single large
-            catalogue, the second averages all the similar columns into a reduced
-            table.
+            This option is set if the user wishes to combine all the output
+            catalogues from starbug together. It would be used in the case 
+            that a routine is being ran on a list of images (either in series 
+            or parallel) and the final catalogues should all be combined into 
+            a single source list. It outputs two files, one with the suffix 
+            "full" and another with "match". The first is all columns from all 
+            table preserved into a single large catalogue, the second averages 
+            all the similar columns into a reduced table.
         
             To run this routine, use the core code:
                 
                 $~ starbug2 -DM image1.fits image2.fits image3.fits ...
         
-            Alter the parameter file options under "CATALOGUE MATCHING" to tune the
-            performance of starbug2. Two key parameters are:
+            Alter the parameter file options under "CATALOGUE MATCHING" to 
+            tune the performance of starbug2. Two key parameters are:
         
-                - MATCH_THRESH : Set the separation threshold (arcsec) to match two sources
-                - NEXP_THRESH  : Set the minimum number of catalogues a source must be present in
+                - MATCH_THRESH : Set the separation threshold (arcsec) to match 
+                                 two sources
+                - NEXP_THRESH  : Set the minimum number of catalogues a source 
+                                 must be present in
         """,
 }

@@ -73,11 +73,11 @@ def test_flux2mag():
 
 def test_find_colnames():
     tab=Table(None, names=["A", "word", "word1", "word2", "notword", "_word"])
-    res=utils.find_colnames(tab, "word")
+    res=utils.find_col_names(tab, "word")
 
     assert res is not None
     assert res == ["word", "word1", "word2"]
-    assert utils.find_colnames(tab, "badmatch")==[]
+    assert utils.find_col_names(tab, "badmatch") == []
 
 
 def test_tabppend():
@@ -131,7 +131,7 @@ def test_hcascade():
     nan=MaskedColumn(None,dtype=float).info.mask_val
     nan=np.ma.masked
     nan=np.nan
-    res=utils.hcascade(tables)
+    res=utils.h_cascade(tables)
     test=Table( np.ma.array([ [1,1,0,1,1,0],
                             [2,2,0,2,2,0],
                             [3,3,0,3,3,1],

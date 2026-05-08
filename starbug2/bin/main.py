@@ -46,8 +46,8 @@ from starbug2.constants import (
     SHOWHELP, STOPPROC, VERBOSE, PARAM_FILE_TAG, DOAPPHOT, DOBGDEST, DODETECT,
     DOGEOM, DOMATCH, DOPHOTOM, DOBGDSUB, DOARTIFL, FINDFILE, KILLPROC, INITSB,
     GENRATPSF, UPDATEPRM, GENRATRUN, GENRATREG, REGION_TAB, DETECTION,
-    BACKGROUND, APPHOT, PSFPHOT, MATCHOUTPUTS, OUTPUT, APPLYZP, CALCINSTZP,
-    LOGO, HELP_STRINGS, NCORES)
+    BACKGROUND, APP_HOT, PSFP_HOT, MATCH_OUTPUTS, OUTPUT, APPLYZP, CALCINSTZP,
+    LOGO, HELP_STRINGS, N_CORES, EXIT_EARLY, EXIT_SUCCESS, EXIT_FAIL, EXIT_MIXED)
 from starbug2.utils import (
     p_error, printf, get_version, warn, split_file_name, export_region,
     combine_file_names, export_table, puts)
@@ -148,12 +148,12 @@ def starbug_one_time_runs(options, set_opt, args):
         if options & DOBGDEST:
             p_error(HELP_STRINGS[BACKGROUND])
         if options & DOAPPHOT:
-            p_error(HELP_STRINGS[APPHOT])
+            p_error(HELP_STRINGS[APP_HOT])
         if options & DOPHOTOM:
-            p_error(HELP_STRINGS[PSFPHOT])
+            p_error(HELP_STRINGS[PSFP_HOT])
         if options & DOMATCH:
-            p_error(HELP_STRINGS[MATCHOUTPUTS])
-        return scr.EXIT_EARLY
+            p_error(HELP_STRINGS[MATCH_OUTPUTS])
+        return EXIT_EARLY
 
     ## Load parameter files for onetime runs
     if (p_file:=set_opt.get(PARAM_FILE_TAG)) is None:
@@ -164,15 +164,15 @@ def starbug_one_time_runs(options, set_opt, args):
     init_parameters=param.load_params(p_file)
 
     if options&UPDATEPRM:
-        param.update_paramfile(p_file)
-        return scr.EXIT_EARLY
+        param.update_param_file(p_file)
+        return EXIT_EARLY
 
     tmp=param.load_default_params()
     if (set(tmp.keys())-set(init_parameters.keys()) |
             set(init_parameters.keys())-set(tmp.keys())):
         warn("Parameter file version mismatch. "
              "Run starbug2 --update-param to update\nquitting :(\n")
-        return scr.EXIT_FAIL
+        return EXIT_FAIL
 
     init_parameters.update(set_opt)
     if _output:=init_parameters.get(OUTPUT):
@@ -231,13 +231,13 @@ def starbug_one_time_runs(options, set_opt, args):
         p_error("instrumental zero point application deprecated\n")
 
     if options&STOPPROC:
-        return scr.EXIT_EARLY ## quiet ending the process if required
+        return EXIT_EARLY ## quiet ending the process if required
 
     if options&KILLPROC:
         p_error("..quitting :(\n\n")
         return scr.usage(__doc__, verbose=options&VERBOSE)
 
-    return scr.EXIT_SUCCESS
+    return EXIT_SUCCESS
 
 
 def starbug_match_outputs(starbugs, options, set_opt):
@@ -269,8 +269,8 @@ def starbug_match_outputs(starbugs, options, set_opt):
             full, num_thresh=params["NEXP_THRESH"], zpmag=params["ZP_MAG"])
 
         printf("-> %s-ap*...\n" % f_name)
-        export_table(full, fname="%s-apfull.fits" % f_name, header=header)
-        export_table(av, fname="%s-apmatch.fits" % f_name, header=header)
+        export_table(full, f_name="%s-apfull.fits" % f_name, header=header)
+        export_table(av, f_name="%s-apmatch.fits" % f_name, header=header)
 
     if options&DOPHOTOM:
         full=match( [sb.psfcatalogue for sb in starbugs], join_type="or")
@@ -278,8 +278,8 @@ def starbug_match_outputs(starbugs, options, set_opt):
             full, num_thresh=params["NEXP_THRESH"], zpmag=params["ZP_MAG"])
 
         printf("-> %s-psf*...\n"%(f_name))
-        export_table(full, fname="%s-psffull.fits" % f_name, header=header)
-        export_table(av, fname="%s-psfmatch.fits" % f_name, header=header)
+        export_table(full, f_name="%s-psffull.fits" % f_name, header=header)
+        export_table(av, f_name="%s-psfmatch.fits" % f_name, header=header)
 
 
 def fn(args):
@@ -302,7 +302,7 @@ def fn(args):
         if options & VERBOSE:
             printf("-> showing starbug stdout for \"%s\"\n"%f_name)
             set_opt[VERBOSE] = 1
-        elif set_opt.get(NCORES) > 1:
+        elif set_opt.get(N_CORES) > 1:
             printf("-> hiding starbug stdout for \"%s\"\n"%f_name)
         else: printf("-> %s\n"%f_name)
 
@@ -355,11 +355,11 @@ def starbug_main(argv):
         from multiprocessing import Pool
         from itertools import repeat
         puts(LOGO % starbug2.motd)
-        exit_code = scr.EXIT_SUCCESS
+        exit_code = EXIT_SUCCESS
 
-        if ((n_cores := set_opt.get(NCORES)) is None
+        if ((n_cores := set_opt.get(N_CORES)) is None
                 or n_cores == 1 or len(args) == 1):
-            set_opt[NCORES] = 1
+            set_opt[N_CORES] = 1
             starbugs=[fn((file_name,options,set_opt)) for file_name in args]
         else:
 
@@ -376,10 +376,10 @@ def starbug_main(argv):
             if not sb: 
                 p_error("FAILED: %s\n" % args[n])
                 starbugs.remove(sb)
-                exit_code=scr.EXIT_MIXED
+                exit_code=EXIT_MIXED
 
         if not starbug2:
-            exit_code = scr.EXIT_FAIL
+            exit_code = EXIT_FAIL
 
             
         if options & DOMATCH and len(starbugs) > 1:
@@ -388,7 +388,7 @@ def starbug_main(argv):
 
     else:
         p_error("fits image file must be included\n")
-        exit_code = scr.EXIT_FAIL
+        exit_code = EXIT_FAIL
 
     return exit_code
 

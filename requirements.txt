@@ -1,9 +1,9 @@
-numpy
+numpy==2.3.5
 photutils==2.0.1
-astropy
-parse
-scipy
-webbpsf
-scikit-image
-matplotlib
-pytest
+astropy==7.2.0
+parse==1.22.0
+scipy==1.17.1
+webbpsf==2.0.0
+scikit-image==0.26.0
+matplotlib==3.10.9
+pytest==9.0.3

@@ -89,68 +89,85 @@ def parse_param(line):
     """
     param={}
     if line and line[0] not in "# \t\n":
-        if "//" in line: key,value,_=parse("{}={}//{}",line)
-        else: key,value=parse("{}={}",line)
-        key=key.strip().rstrip()
-        value=value.strip().rstrip()
+        if "//" in line:
+            key, value, _ = parse("{}={}//{}", line)
+        else:
+            key, value = parse("{}={}",line)
+        key = key.strip().rstrip()
+        value = value.strip().rstrip()
         try:
-            if '.' in value: value=float(value)
-            else: value=int(value)
-        except:
+            if '.' in value:
+                value = float(value)
+            else:
+                value = int(value)
+        except (ValueError, AttributeError, TypeError):
             pass
 
         ## Special case values
-        if key in ("OUTPUT", "AP_FILE","BGD_FILE","PSF_FILE"): value=os.path.expandvars(value)
-        param[key]=value
+        if key in ("OUTPUT", "AP_FILE", "BGD_FILE", "PSF_FILE"):
+            value = os.path.expandvars(value)
+        param[key] = value
     return param
 
 
 
 def load_default_params():
-    config={}
+    config = {}
     for line in default.split('\n'):
         config.update(parse_param(line))
     return config
 
-def load_params(fname):
+def load_params(f_name):
     """
     Convert a parameter file into a dictionary of options
-    INPUT:  fname=path/to/file.param
-    RETURN: dictionary of options
+
+    :param f_name: path/to/file.param
+    :type f_name: str
+    :return: dictionary of options
+    :rtype: dict of string, string
     """
-    config={}
-    if fname is None:
-        config=load_default_params()
-    elif os.path.exists(fname):
-        with open(fname, "r") as fp:
+    config = {}
+    if f_name is None:
+        config = load_default_params()
+    elif os.path.exists(f_name):
+        with open(f_name, "r") as fp:
             for line in fp.readlines():
                 config.update(parse_param(line))
     else:
-        p_error("config file \"%s\" does not exist\n" % fname)
+        p_error("config file \"%s\" does not exist\n" % f_name)
     return config
 
 def local_param():
+    """
+    reads a local param file.
+    :return: None
+    """
     with open("starbug.param", "w") as fp:
         fp.write(default)
 
-def update_paramfile(fname):
+def update_param_file(f_name):
     """
     When the local parameter file is from an older version, add or remove the
-    new or obselete keys
-    INPUT: fname=local file to update
+    new or obsolete keys
+
+    :param f_name: local file to update
+    :type f_name: str
+    :return: None
     """
-    default_param=load_default_params()
-    current_param=load_params(fname)
+    default_param = load_default_params()
+    current_param = load_params(f_name)
 
-    if os.path.exists(fname):
-        printf("Updating \"%s\"\n"%fname)
-        fpi=open(fname, 'r')
-        fpo=open("/tmp/starbug.param",'w')
+    if os.path.exists(f_name):
+        printf("Updating \"%s\"\n" % f_name)
+        fpi = open(f_name, 'r')
+        fpo = open("/tmp/starbug.param",'w')
 
-        add_keys=set(default_param.keys())-set(current_param.keys())
-        del_keys=set(current_param.keys())-set(default_param.keys())
-        if add_keys: printf("-> adding: %s  \n"%(', '.join(add_keys)))
-        if del_keys: printf("-> removing: %s\n"%(', '.join(del_keys)))
+        add_keys = set(default_param.keys()) - set(current_param.keys())
+        del_keys = set(current_param.keys()) - set(default_param.keys())
+        if add_keys:
+            printf("-> adding: %s  \n"%(', '.join(add_keys)))
+        if del_keys:
+            printf("-> removing: %s\n"%(', '.join(del_keys)))
         
         if not len(add_keys|del_keys): 
             printf("-> No updates needed\n")
@@ -159,17 +176,20 @@ def update_paramfile(fname):
         for inline in default.split("\n"):
             if inline and inline[0] not in "# \t\n":
 
-                key,value,comment=parse("{}={}//{}",inline)
-                key=key.strip().rstrip()
+                key, value, comment = parse("{}={}//{}", inline)
+                key = key.strip().rstrip()
 
                 if key not in add_keys:
-                    value=current_param[key]
-                outline="%-24s"%("%-12s"%key+"= "+str(value))+" //"+comment
-            else: outline=inline
+                    value = current_param[key]
+                outline = (
+                    "%-24s" % ("%-12s" % key + "= " +str(value)) +
+                    " //" + comment)
+            else: outline = inline
 
-            fpo.write("%s\n"%outline)
+            fpo.write("%s\n" % outline)
         fpi.close()
         fpo.close()
-        os.system("mv /tmp/starbug.param %s"%fname)
-    else: p_error("local parameter file '%s' does not exist\n" % fname)
+        os.system("mv /tmp/starbug.param %s" % f_name)
+    else:
+        p_error("local parameter file '%s' does not exist\n" % f_name)
 

@@ -1,13 +1,16 @@
-from glob import magic_check
+import os
+import sys
 
+import numpy as np
+from astropy.io import fits
 from photutils.psf import FittableImageModel
 
+from starbug2 import filters, SHORT, LONG, NIRCAM, MIRI, DATDIR, DQ_DO_NOT_USE, DQ_SATURATED
 from starbug2.constants import VERBOSE
 from starbug2.param import load_params, load_default_params
-from starbug2.misc import *
-from starbug2.routines import *
-from starbug2.utils import collapse_header, parse_unit
-
+from starbug2.routines import Detection_Routine, APPhotRoutine
+from starbug2.utils import collapse_header, parse_unit, get_version, ext_names, printf, split_file_name, p_error, warn, \
+    import_table, get_MJysr2Jy_scalefactor
 
 
 class StarbugBase(object):
@@ -111,7 +114,7 @@ class StarbugBase(object):
         """
 
         if self._nHDU >=0: return self._image[self._nHDU]
-        enames=extnames(self._image)
+        enames=ext_names(self._image)
 
         ## HDUNAME in param file
         n=self.options["HDUNAME"]
@@ -230,9 +233,9 @@ class StarbugBase(object):
                         warn("Telescope not JWST, there may be undefined behaviour.\n")
 
                     self.filter=self.options.get("FILTER")
-                    if ("FILTER" in self.header) and (self.header["FILTER"] in starbug2.filters.keys()):
+                    if ("FILTER" in self.header) and (self.header["FILTER"] in filters.keys()):
                         self.filter=self.header["FILTER"]
-                        if self.options["FWHM"]<0: self.options["FWHM"]=starbug2.filters[self.filter].pFWHM
+                        if self.options["FWHM"]<0: self.options["FWHM"]= filters[self.filter].pFWHM
                     if self.filter:
                         self.log("-> photometric band: %s\n"%self.filter)
                     else:
@@ -249,7 +252,7 @@ class StarbugBase(object):
                     self.wcs=WCS(self.image.header)
 
                     ## I NEED TO DETERMINE BETTER WHAT STAGE IT IS IN
-                    exts=extnames(self._image)
+                    exts=ext_names(self._image)
                     if "DQ" in exts:
                         if "AREA" in exts: self.stage=2
                         else: self.stage=2.5
@@ -338,17 +341,17 @@ class StarbugBase(object):
         """
         status=0
         if not fname:
-            fltr=starbug2.filters.get(self.filter)
+            fltr=filters.get(self.filter)
             if fltr:
                 dtname=self.info["DETECTOR"]
                 if dtname=="NRCALONG": dtname="NRCA5"
                 if dtname=="NRCBLONG": dtname="NRCB5"
                 if dtname=="MULTIPLE":
-                    if   fltr.instr==starbug2.NIRCAM and fltr.length==starbug2.SHORT: dtname="NRCA1"
-                    elif fltr.instr==starbug2.NIRCAM and fltr.length==starbug2.LONG:  dtname="NRCA5"
-                    elif fltr.instr==starbug2.MIRI:  dtname=""
+                    if   fltr.instr==NIRCAM and fltr.length==SHORT: dtname="NRCA1"
+                    elif fltr.instr==NIRCAM and fltr.length==LONG:  dtname="NRCA5"
+                    elif fltr.instr==MIRI:  dtname=""
                 if dtname=="MIRIMAGE": dtname=""
-                fname="%s/%s%s.fits"%(starbug2.DATDIR,self.filter,dtname)
+                fname="%s/%s%s.fits"%(DATDIR,self.filter,dtname)
             else: status=1
         if os.path.exists(fname):
             fp=fits.open(fname)
@@ -393,20 +396,20 @@ class StarbugBase(object):
         image=self.image.data.copy() * scalefactor
 
         # scale by area
-        if "AREA" in extnames(self._image):
-            image*= self._image["AREA"].data ## AREA distortion correction
+        if "AREA" in ext_names(self._image):
+            ## AREA distortion correction
+            image*= self._image["AREA"].data
 
         # collect and scale error
-        if "ERR" in extnames(self._image) and np.shape(self._image["ERR"]):
+        if "ERR" in ext_names(self._image) and np.shape(self._image["ERR"]):
             error=self._image["ERR"].data.copy() * scalefactor
         else: error=np.sqrt(np.abs(image))
         
         # create mask
-        if "DQ" in extnames(self._image):
-            mask=self._image["DQ"].data & (DQ_DO_NOT_USE|DQ_SATURATED) #|DQ_JUMP_DET)
+        if "DQ" in ext_names(self._image):
+            mask = self._image["DQ"].data & (DQ_DO_NOT_USE | DQ_SATURATED)
             mask=mask.astype(bool)
         else:mask=(np.isnan(image) | np.isnan(error))
-        #fits.PrimaryHDU(data=mask.astype(int)).writeto("/tmp/out.fits",overwrite=True)
 
         # collect and scale background array
         if self.background is not None:
@@ -423,32 +426,35 @@ class StarbugBase(object):
         self.log("Detecting Sources\n")
         status=0
         if self.image:# and self.filter:
-            _f=starbug2.filters.get(self.filter)
+            _f=filters.get(self.filter)
             if self.options["FWHM"]>0: FWHM=self.options["FWHM"]
             elif _f: FWHM=_f.pFWHM
             else: FWHM=2
             #FWHM=_f.pFWHM if _f else self.options["FWHM"]
             #FWHM=starbug2.filters.get(self.filter).pFWHM
 
-            detector=Detection_Routine( sig_src=self.options["SIGSRC"],
-                                        sig_sky=self.options["SIGSKY"],
-                                        fwhm=FWHM,
-                                        sharplo=self.options["SHARP_LO"],
-                                        sharphi=self.options["SHARP_HI"],
-                                        round1hi=self.options["ROUND1_HI"],
-                                        round2hi=self.options["ROUND2_HI"],
-                                        smoothlo=self.options["SMOOTH_LO"], 
-                                        smoothhi=self.options["SMOOTH_HI"],
-                                        ricker_r=self.options["RICKER_R"],
-                                        dobgd2d=self.options["DOBGD2D"],
-                                        doconvl=self.options["DOCONVL"],
-                                        boxsize=int(self.options["BOX_SIZE"]),
-                                        cleansrc=self.options["CLEANSRC"],
-                                        verbose=self.options["VERBOSE"])
+            detector=Detection_Routine(
+                sig_src=self.options["SIGSRC"],
+                sig_sky=self.options["SIGSKY"],
+                fwhm=FWHM,
+                sharplo=self.options["SHARP_LO"],
+                sharphi=self.options["SHARP_HI"],
+                round1hi=self.options["ROUND1_HI"],
+                round2hi=self.options["ROUND2_HI"],
+                smoothlo=self.options["SMOOTH_LO"],
+                smoothhi=self.options["SMOOTH_HI"],
+                ricker_r=self.options["RICKER_R"],
+                dobgd2d=self.options["DOBGD2D"],
+                doconvl=self.options["DOCONVL"],
+                boxsize=int(self.options["BOX_SIZE"]),
+                cleansrc=self.options["CLEANSRC"],
+                verbose=self.options["VERBOSE"])
 
-            self.detections=detector(self.image.data.copy())["xcentroid","ycentroid","sharpness","roundness1","roundness2"]
+            self.detections = detector(self.image.data.copy())[
+                 "xcentroid","ycentroid","sharpness","roundness1","roundness2"]
 
-            ra,dec=self.wcs.all_pix2world(self.detections["xcentroid"], self.detections["ycentroid"],0)
+            ra, dec = self.wcs.all_pix2world(
+                self.detections["xcentroid"], self.detections["ycentroid"], 0)
             self.detections.add_column( Column(ra, name="RA"), index=2)
             self.detections.add_column( Column(dec, name="DEC"), index=3)
             self.detections.meta=dict(self.header.items())
@@ -487,11 +493,15 @@ class StarbugBase(object):
         #######################
         apcorr=1
         apcorr_fname=None
-        if (_apcorr_fname:=self.options.get("APCORR_FILE")): apcorr_fname=_apcorr_fname
-        elif   self.info.get("INSTRUME")=="NIRCAM": apcorr_fname="%s/apcorr_nircam.fits"%starbug2.DATDIR
-        elif self.info.get("INSTRUME")=="MIRI":   apcorr_fname="%s/apcorr_miri.fits"%starbug2.DATDIR
+        if (_apcorr_fname := self.options.get("APCORR_FILE")):
+            apcorr_fname = _apcorr_fname
+        elif   self.info.get("INSTRUME") == "NIRCAM":
+            apcorr_fname = "%s/apcorr_nircam.fits" % DATDIR
+        elif self.info.get("INSTRUME") == "MIRI":
+            apcorr_fname = "%s/apcorr_miri.fits" % DATDIR
 
-        if apcorr_fname: self.log("-> apcorr file: %s\n"%apcorr_fname)
+        if apcorr_fname:
+            self.log("-> apcorr file: %s\n" % apcorr_fname)
         else: 
             warn("No apcorr file available for instrument\n")
 
@@ -501,26 +511,35 @@ class StarbugBase(object):
         skyout=self.options["SKY_ROUT"]
 
         if eefrac >=0:
-            radius=APPhot_Routine.radius_from_encenrgy(self.filter, eefrac, apcorr_fname)
-            if radius >0: self.log("-> calculating aperture radius from encirlced energy\n")
+            radius = APPhotRoutine.radius_from_encenrgy(
+                self.filter, eefrac, apcorr_fname)
+            if radius > 0:
+                self.log(
+                    "-> calculating aperture radius from encircled energy\n")
 
-        if radius <=0: 
-            if (radius:=self.options["FWHM"])>0:
-                self.log("-> using FWHM as aprture radius\n")
+        if radius <= 0:
+            if (radius := self.options["FWHM"]) > 0:
+                self.log("-> using FWHM as aperture radius\n")
             else:
-                radius=2
+                radius = 2
 
-        apcorr=APPhot_Routine.calc_apcorr(self.filter, radius, table_fname=apcorr_fname, verbose=self.options["VERBOSE"])
+        apcorr = APPhotRoutine.calc_apcorr(
+            self.filter, radius, table_fname=apcorr_fname,
+            verbose=self.options["VERBOSE"])
 
         ##################
         # Run Photometry #
         ##################
-        apphot=APPhot_Routine( radius, skyin, skyout, verbose=self.options["VERBOSE"])
+        app_hot = APPhotRoutine(
+            radius, skyin, skyout, verbose=self.options["VERBOSE"])
 
-        if "DQ" in extnames(self._image):
-            dqflags=self._image["DQ"].data.copy()
-        else: dqflags=None
-        ap_cat=apphot(image, self.detections, error=error, dqflags=dqflags, apcorr=apcorr, sig_sky=self.options["SIGSKY"])
+        if "DQ" in ext_names(self._image):
+            dq_flags = self._image["DQ"].data.copy()
+        else:
+            dq_flags = None
+        ap_cat = app_hot(
+            image, self.detections, error=error, dqflags=dq_flags,
+            apcorr=apcorr, sig_sky=self.options["SIGSKY"])
 
 
         fltr=self.filter if self.filter else "mag"

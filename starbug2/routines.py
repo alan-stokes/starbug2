@@ -5,8 +5,6 @@ import os
 import sys
 import time
 import numpy as np
-from scipy.stats import norm
-from scipy.optimize import curve_fit
 from scipy.ndimage import convolve
 from skimage.feature import match_template
 
@@ -19,11 +17,10 @@ from astropy.convolution import RickerWavelet2DKernel
 from photutils.background import Background2D, BackgroundBase
 from photutils.aperture import CircularAperture, CircularAnnulus, aperture_photometry
 from photutils.detection import StarFinderBase, DAOStarFinder, find_peaks
-from photutils.psf import PSFPhotometry, IntegratedGaussianPRF, SourceGrouper
+from photutils.psf import PSFPhotometry, SourceGrouper
 
-#from photutils.datasets import make_model_sources_image, make_random_models_table
 from photutils.datasets import make_model_image, make_random_models_table
-from starbug2.utils import Loading, printf, p_error, warn
+from starbug2.utils import Loading, printf, p_error, warn, export_table
 from starbug2 import *
 
 class Detection_Routine(StarFinderBase):
@@ -249,7 +246,7 @@ class Detection_Routine(StarFinderBase):
 
         return self.catalogue
 
-class APPhot_Routine():
+class APPhotRoutine:
     """
     Aperture photometry called by starbug
 
@@ -285,7 +282,8 @@ class APPhot_Routine():
     def __call__(self, image, detections, **kwargs):
         return self.run(image, detections, **kwargs)
 
-    def run(self, image, detections, error=None, dqflags=None, apcorr=1.0, sig_sky=3):
+    def run(self, image, detections, error=None, dq_flags=None, ap_corr=1.0,
+            sig_sky=3):
         """
         Forced aperture photometry on a list of detections
         detections are a astropy.table.Table with columns xcentroid ycentroid or x_0 y_0
@@ -302,10 +300,10 @@ class APPhot_Routine():
         error : `numpy.ndarray`
             2D Image array containing photometric error per pixel
 
-        dqflags : `numpy.ndarray`
+        dq_flags : `numpy.ndarray`
             2D Image array containing JWST data quality flags per pixel
 
-        apcorr : float
+        ap_corr : float
             Aperture correction to be applied to the flux
 
         sig_sky : float
@@ -367,7 +365,7 @@ class APPhot_Routine():
         esky_mean=  (std**2 * apertures.area**2) / annulus_aperture.area
 
         self.catalogue["eflux"]=np.sqrt( epoisson**2 +esky_scatter**2 +esky_mean**2)
-        self.catalogue["flux"]=apcorr*(phot["aperture_sum_0"] - (self.catalogue["sky"]*apertures.area))
+        self.catalogue["flux"]= ap_corr * (phot["aperture_sum_0"] - (self.catalogue["sky"] * apertures.area))
 
         self.catalogue["flux"][ self.catalogue["flux"]==0]=np.nan
         
@@ -377,10 +375,10 @@ class APPhot_Routine():
         self.catalogue["smoothness"] = (phot["aperture_sum_1"]/smooth_apertures.area) / (phot["aperture_sum_0"]/apertures.area)
 
         col=Column(np.full(len(apertures),SRC_GOOD), dtype=np.uint16, name="flag")
-        if dqflags is not None:
+        if dq_flags is not None:
             self.log("-> flagging unlikely sources\n")
             for i, mask in enumerate(apertures.to_mask(method="center")):
-                _tmp=mask.multiply(dqflags)
+                _tmp=mask.multiply(dq_flags)
                 if _tmp is not None:
                     dat=np.array(_tmp,dtype=np.uint32)
                     if np.sum( dat & (DQ_DO_NOT_USE|DQ_SATURATED)): col[i]|=SRC_BAD
@@ -631,7 +629,7 @@ class _fitmodel(LevMarLSQFitter):
 
     def __call__(self, *args, **kwargs):
         if self.grouper and self.load:
-            self.load.setlen(self.grouper.ngroups)
+            self.load.set_len(self.grouper.ngroups)
             if self.load is not None:
                 self.load()
                 self.load.show()
@@ -801,9 +799,12 @@ class ArtificialStar_Routine(object):
         subimage_size=int(subimage_size)
 
         if not sources:
-            x_range=[ 2.0*fwhm, shape[0]-(2.0*fwhm)]
-            y_range=[ 2.0*fwhm, shape[1]-(2.0*fwhm)]
-            sources=make_random_models_table(int(ntests), {"x_0":x_range, "y_0":y_range, "flux":flux_range}, seed=int(time.time()))
+            x_range = [ 2.0 * fwhm, shape[0]-(2.0 * fwhm)]
+            y_range = [ 2.0 * fwhm, shape[1]-(2.0 * fwhm)]
+            sources = make_random_models_table(
+                int(ntests),
+                {"x_0": x_range, "y_0": y_range, "flux": flux_range},
+                seed=int(time.time()))
         
         sources.add_column(Column(np.zeros(len(sources)), name="outflux"))
         sources.add_column(Column(np.zeros(len(sources)), name="x_det"))
@@ -818,17 +819,22 @@ class ArtificialStar_Routine(object):
             suby=0
             if subimage_size>0:
                 ## !! I might change this to be PSFSIZE not 2FWHM
-                subx = np.random.randint( max(0, src['x_0']+(2*fwhm)-subimage_size), min(shape[0]-subimage_size, src['x_0']-(2*fwhm)))
-                suby = np.random.randint( max(0, src['y_0']+(2*fwhm)-subimage_size), min(shape[1]-subimage_size, src['y_0']-(2*fwhm)))
-                #subx = np.random.randint( max(0, src['x_0']+(psfsize[0]/2)-subimage_size), min(shape[0]-subimage_size, src['x_0']-(psfsize[0]/2)))
-                #suby = np.random.randint( max(0, src['y_0']+(psfsize[1]/2)-subimage_size), min(shape[1]-subimage_size, src['y_0']-(psfsize[1]/2)))
+                subx = np.random.randint(
+                    max(0, src['x_0'] + (2 * fwhm) - subimage_size),
+                    min(shape[0] - subimage_size, src['x_0'] - (2 * fwhm)))
+                suby = np.random.randint(
+                    max(0, src['y_0'] + (2 * fwhm) - subimage_size),
+                    min(shape[1]-subimage_size, src['y_0'] - (2 * fwhm)))
 
-            src_mod=Table(src)# src mod translates the position within the subimage
-            src_mod["x_0"]-=subx
-            src_mod["y_0"]-=suby
-            sky=image[subx:subx+subimage_size,suby:suby+subimage_size]
-            base=np.copy(sky)+ make_model_sources_image(2*[subimage_size], self.psf, src_mod)
-            #base=np.copy(image)+make_model_sources_image(shape, self.psf, Table(src))
+            # src mod translates the position within the sub-image
+            src_mod = Table(src)
+            src_mod["x_0"] -= subx
+            src_mod["y_0"] -= suby
+            sky = image[
+                  subx : subx + subimage_size,
+                  suby : suby + subimage_size]
+            base = np.copy(sky) + make_model_image(
+                2 * [subimage_size], self.psf, src_mod)
 
             detections=self.detector(base)
             detections.rename_column("xcentroid", "x_0")
@@ -850,7 +856,7 @@ class ArtificialStar_Routine(object):
             load.show()
 
             if save_progress and not n%10:
-                export_table(sources[0:n], fname="/tmp/artificial_stars.save")
+                export_table(sources[0:n], f_name="/tmp/artificial_stars.save")
 
         return sources
 

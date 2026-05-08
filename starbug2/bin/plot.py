@@ -11,7 +11,6 @@ usage: starbug2-plot [-vhX] [-I CN000] [-o outfile] images.fits ..
         --dark           : plot in dark mode
 """
 import os, sys, getopt
-from collections.abc import set_iterator
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -20,8 +19,8 @@ from astropy.table import Table
 
 import starbug2.bin as scr
 import starbug2
-from starbug2.constants import EXIT_EARLY, EXIT_FAIL, EXIT_SUCCESS
-from starbug2.plot import load_style, plot_test, plot_inspectsource
+from starbug2.constants import EXIT_EARLY, EXIT_FAIL, EXIT_SUCCESS, CAT_NUM, FILTER, EXT, IMAGE, BIN_TABLE, OUTPUT
+from starbug2.plot import load_style, plot_test, plot_inspect_source
 from starbug2.utils import p_error, warn
 
 VERBOSE =0x01
@@ -63,6 +62,15 @@ def plot_parse_argv(argv):
 
 
 def plot_one_time_runs(options, set_opt, args):
+    """
+    runs plot one time
+
+    :param options: the plot options
+    :param set_opt: the options
+    :param args: the args
+    :return: end state
+    """
+
     if options & SHOWHELP:
         scr.usage(__doc__,verbose=options&VERBOSE)
 
@@ -85,83 +93,79 @@ def plot_one_time_runs(options, set_opt, args):
 
 def fn_pinspect(options, set_opt, images=None, tables=None):
     """
-    Inspect Source
-    --------------
-
-    Plot at a source position cutouts in a range of images. 
-    This requires a source list to be loaded, a list of image 
-    file and the source catalogue number to be given. This will 
+    Plot at a source position cutouts in a range of images.
+    This requires a source list to be loaded, a list of image
+    file and the source catalogue number to be given. This will
     take the form::
 
         $~ starbug2-plot -I CN123 sourcelist.fits image*.fits
-    """
-    """
-    Parameters
-    ----------
-    options : int
-        The starbug2.bin.plot options integar
 
-    setopt : dict
-        The starbug2.bin.plot setopt dictionary
-
-    images : list
-        The list of fits image HDUs to cut out from 
-
-    tables : list
-        The source list to pull the source from. Must have a column
+    :param options: The starbug2.bin.plot options integer
+    :type options: int
+    :param set_opt: The starbug2.bin.plot set opt dictionary
+    :type set_opt: dict
+    :param images: The list of fits image HDUs to cut out from
+    :type images: list [HDU]
+    :param tables: The source list to pull the source from. Must have a column
         with the name "Catalogue_Number"
-
-    Returns
-    -------
-    fig : plt.figure
-        The output figure
+    :type tables: list of astropy.Table
+    :return: The output figure
+    :rtype: plt.figure
     """
-    fig=None
-    if (cn:=set_opt.get("INSPECT")) and images and tables:
-        if ("Catalogue_Number" in tables[0].col_names
-                and cn in tables[0]["Catalogue_Number"]):
-            i = np.where(tables[0]["Catalogue_Number"]==cn)[0]
-            fig = plot_inspectsource(tables[0][i], images)
 
+    fig = None
+    if (cn := set_opt.get("INSPECT")) and images and tables:
+        if (CAT_NUM in tables[0].col_names
+                and cn in tables[0][CAT_NUM]):
+            i = np.where(tables[0][CAT_NUM] == cn)[0]
+            fig = plot_inspect_source(tables[0][i], images)
     else: p_error(
-        "Must include the source Catalogue_Number,"
-        " a list of images and a source list \n")
+        "Must include the source {}, "
+        "a list of images and a source list \n".format(CAT_NUM))
     return fig
 
 def plot_main(argv):
-    warn("Still in development\n\n")
-    options,setopt,args=plot_parse_argv(argv)
-    load_style("%s/extras/starbug.style"%starbug2.__path__[0])
+    """
+    plot main
 
-    if options or setopt:
-        if exit_code := plot_one_time_runs(options, setopt, args):
+    :param argv: the arguments for the plot.
+    :return: None
+    """
+    warn("Still in development\n\n")
+    options, set_opt, args = plot_parse_argv(argv)
+    load_style("%s/extras/starbug.style" % starbug2.__path__[0])
+
+    if options or set_opt:
+        if exit_code := plot_one_time_runs(options, set_opt, args):
             return exit_code
 
-    images=[]
-    tables=[]
+    images = []
+    tables = []
     for arg in args:
-        if _file_name:=os.path.exists(arg):
-            fp=fits.open(arg)
-            _filter=fp[0].header.get("FILTER") # THIS IS A HACK
+        if _file_name := os.path.exists(arg):
+            fp = fits.open(arg)
+            _filter = fp[0].header.get(FILTER) # THIS IS A HACK
+            hdu = None
             for hdu in fp:
-                if hdu.header.get("XTENSION") == "IMAGE":
+                if hdu.header.get(EXT) == IMAGE:
                     images.append(hdu)
                     break
-                if hdu.header.get("XTENSION") == "BINTABLE":
+                if hdu.header.get(EXT) == BIN_TABLE:
                     tables.append(Table(hdu.data))
                     break
-            hdu.header["FILTER"]=_filter
+            hdu.header[FILTER] = _filter
 
     fig = None
-    if options& PTEST:
-        fig,ax=plt.subplots(1,figsize=(3,2.5))
-        ax=plot_test(ax)
+    if options & PTEST:
+        fig, ax = plt.subplots(1,figsize=(3,2.5))
+        plot_test(ax)
 
-    if options& PINSPECT: fig=fn_pinspect(options, setopt, images=images, tables=tables)
+    if options & PINSPECT:
+        fig = fn_pinspect(options, set_opt, images=images, tables=tables)
 
     if fig is not None:
         fig.tight_layout()
-        if output:=setopt.get("OUTPUT"):
+        if output := set_opt.get(OUTPUT):
             fig.savefig(output, dpi=300)
         else:
             plt.show()

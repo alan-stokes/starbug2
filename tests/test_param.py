@@ -43,7 +43,7 @@ def test_update_params():
     os.system("sed -i s/PARAM/PARAM1/g starbug.param")
 
     assert "PARAM" not in param.load_params("starbug.param").keys()
-    assert param.update_paramfile("starbug.param") is None
-    assert param.update_paramfile("starbug.param") is None
+    assert param.update_param_file("starbug.param") is None
+    assert param.update_param_file("starbug.param") is None
     os.remove("starbug.param")
 
