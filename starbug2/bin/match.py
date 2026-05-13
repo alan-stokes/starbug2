@@ -227,7 +227,7 @@ def match_main(argv):
                 if parameters[FILTER] != "":
                     filter_string = parameters[FILTER].split(',')
                 else:
-                    filter_string = utils.rmduplicates(
+                    filter_string = utils.remove_duplicates(
                         [utils.find_filter(t) for t in tables])
                 matcher = BandMatch(
                     threshold=d_threshold, fltr=filter_string,

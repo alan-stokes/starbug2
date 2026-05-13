@@ -1,16 +1,34 @@
 import os
 import sys
 
+from astropy.wcs import WCS, NoConvergence
 import numpy as np
 from astropy.io import fits
+from astropy.table import hstack, Column, vstack
+from astropy.stats import sigma_clipped_stats
+from photutils.datasets import make_model_image
 from photutils.psf import FittableImageModel
 
-from starbug2 import filters, SHORT, LONG, NIRCAM, MIRI, DATDIR, DQ_DO_NOT_USE, DQ_SATURATED
-from starbug2.constants import VERBOSE
+from starbug2 import DATDIR
+from starbug2.constants import (
+    VERBOSE, FILTER, STAR_BUG, CALIBRATION_LV, DETECTOR, TELESCOPE,
+    INSTRUMENT, BUN_IT, PIXAR_A2, PIXAR_SR, HDU_NAME, SCI, BGD, RES,
+    VERBOSE_TAG, AP_FILE, BGD_FILE, OUTPUT, FITS_EXTENSION, JWST, FWHM, DQ,
+    AREA, WHT, USE_WCS, RA, DEC, X_CENTROID, Y_CENTROID, SHORT, LONG, NIRCAM,
+    MIRI, SRC_FIX, CRIT_SEP, FORCE_POS, DEG, ARCMIN, ARCSEC, MAX_XY_DEV,
+    DQ_DO_NOT_USE, DQ_SATURATED, NAXIS1, NAXIS2, CALC_CROWD, ERR,
+    EXIT_SUCCESS, EXIT_FAIL, APCORR_FILE, APPHOT_R, ENCENERGY, SKY_RIN,
+    SKY_ROUT, SIGSKY, ZP_MAG, CLEANSRC, QUIETMODE, BOX_SIZE, BGD_R,
+    PROF_SCALE, PROF_SLOPE, BGD_CHECKFILE, PSF_FILE, PSF_SIZE, GEN_RESIDUAL)
+from starbug2.filters import filters
 from starbug2.param import load_params, load_default_params
-from starbug2.routines import Detection_Routine, APPhotRoutine
-from starbug2.utils import collapse_header, parse_unit, get_version, ext_names, printf, split_file_name, p_error, warn, \
-    import_table, get_MJysr2Jy_scalefactor
+from starbug2.routines import (
+    Detection_Routine, APPhotRoutine, BackGround_Estimate_Routine,
+    PSFPhot_Routine, SourceProperties)
+from starbug2.utils import (
+    collapse_header, parse_unit, get_version, ext_names, printf,
+    split_file_name, p_error, warn, import_table, get_mj_ysr2jy_scale_factor,
+    flux2mag, reindex, export_table)
 
 
 class StarbugBase(object):
@@ -20,48 +38,93 @@ class StarbugBase(object):
     It is self-contained enough to simply run "photometry" and everything
     should just take care of itself from there on.
     """
-    filter=None
-    stage=0
-    outdir=""
-    fname=None
-    bname=""
 
-    detections=None
-    psfcatalogue=None
-    residuals=None
-    background=None
-    source_stats=None
-    psf=None
+    @staticmethod
+    def sort_output_names(f_name, param_output=None):
+        """
+        This is a useful function that looks at both an input file and a set
+        output and figures out how to name output files. If param_output looks
+        like a directory then the output will be set to that directory with
+        the basename of f_name. If param_output looks like a file, then the
+        output basename will take that form
 
-    _image=None
-    _nHDU=-1
-    _unit=None
-    wcs=None
+        :param f_name: Filename to use as the core of the output
+        :type f_name: str
+        :param param_output: This is the OUTPUT parameter in the parameter
+        file. It can be an output directory or output filename. If None
+        (default) then it will be ignored
+        :type param_output: str
+        :return: a tuple of (
+             The output directory,
+             The output file basename (e.g. path/to/output.txt -> "output"),
+             The file extension split from the inputs)
+        :rtype tuple of (str, str, str)
+        """
+
+        out_dir = ""
+        b_name = ""
+        extension = ""
+        if f_name:
+            out_dir, b_name, extension = split_file_name(f_name)
+            if (tmp_out_name := param_output) and tmp_out_name != '.':
+                inner_out_dir, inner_b_name, _= split_file_name(tmp_out_name)
+                if os.path.exists(out_dir) and os.path.isdir(out_dir):
+                    out_dir = inner_out_dir
+                else:
+                    p_error("unable to locate output directory \"%s\"\n" %
+                            inner_out_dir)
+                if inner_b_name:
+                    b_name = inner_b_name
+
+        return out_dir, b_name, extension
 
     def __init__(self, f_name, p_file=None, options=None):
         """
+         Star bug init.
 
         :param f_name: FITS image file name
         :param p_file: parameter file name
         :param options: extra options to load into starbug
         """
+        # defaults.
+        self._f_name = None
+        self._out_dir = None
+        self._b_name = None
+        self._image = None
+        self._filter = None
+        self._header = None
+        self._info = None
+        self._wcs = None
+        self._stage = 0
+        self._detections = None
+        self._n_hdu = -1
+        self._unit = None
+        self._background = None
+        self._residuals = None
+        self._psf_catalogue = None
+        self._source_stats = None
+        self._psf = None
+
+        # process options.
         if options is None:
             options = {}
 
         if not p_file:
-            if os.path.exists("starbug.param"): p_file= "starbug.param"
-            else: p_file=None
-        self.options=load_params(p_file)
-        self.options.update(options)
+            if os.path.exists("starbug.param"):
+                p_file = "starbug.param"
+            else:
+                p_file = None
+        self._options = load_params(p_file)
+        self._options.update(options)
 
         ## Load the fits image
         self.load_image(f_name)
 
-        if self.options["AP_FILE"]:
+        if self._options[AP_FILE]:
             ## Load the source list if given
-            self.load_apfile()
-        if self.options["BGD_FILE"]:
-            self.load_bgdfile()
+            self.load_ap_file()
+        if self._options[BGD_FILE]:
+            self.load_bgd_file()
 
     @property
     def header(self):
@@ -72,30 +135,33 @@ class StarbugBase(object):
         :rtype: fits.Header
         """
         head = {
-            "STARBUG": get_version(),
-            "CALIBLEVEL": self.stage
+            STAR_BUG: get_version(),
+            CALIBRATION_LV: self._stage
         }
-        if self.filter:
-            head["FILTER"]=self.filter
-        head.update(self.options)
-        head.update(self.info)
+
+        if self._filter:
+            head[FILTER] = self._filter
+        head.update(self._options)
+        head.update(self._info)
         return collapse_header(head)
 
 
     @property
     def info(self):
         """
-        Get some useful information from the image header file
+        Get some useful information from the image header file.
+
+        :return: extracted keys and elements from the image header.
+        :rtype: dict of str, to str.
         """
-        out={}
-        keys=("FILTER","DETECTOR","TELESCOP","INSTRUME",
-              "BUNIT","PIXAR_A2", "PIXAR_SR")
+        out = {}
+        keys = (FILTER, DETECTOR, TELESCOPE, INSTRUMENT,
+                BUN_IT, PIXAR_A2, PIXAR_SR)
         if self._image:
             for hdu in self._image:
                 out.update(
                     { (key,hdu.header[key]) for key in keys
                       if key in hdu.header})
-
         return out
 
     @property
@@ -107,39 +173,42 @@ class StarbugBase(object):
         > param[ HDUNAME ]
         > SCI, BGD, RES
         > first ImageHDU
+        > first ImageHDU
         > image[0]
 
         :return: the main image array.
         :rtype: HDUList
         """
 
-        if self._nHDU >=0: return self._image[self._nHDU]
-        enames=ext_names(self._image)
+        if self._n_hdu >= 0:
+            return self._image[self._n_hdu]
+        e_names = ext_names(self._image)
 
         ## HDUNAME in param file
-        n=self.options["HDUNAME"]
-        if n and n in enames:
-            self._nHDU=enames.index(n)
+        n = self._options[HDU_NAME]
+        if n and n in e_names:
+            self._n_hdu = e_names.index(n)
             return self._image[n]
 
         ##index?
-        if type(n) in (int,float):
-            self._nHDU=int(n)
-            return self._image[self._nHDU]
+        if isinstance(n, (int, float, np.number)):
+            self._n_hdu = int(n)
+            return self._image[self._n_hdu]
 
         ## SCI, BGD, RES (common names)
-        for n in ("SCI","BGD","RES"):
-            if n in enames:
-                self._nHDU=enames.index(n)
-                return self._image[n]
+        for name in (SCI, BGD, RES):
+            if name in e_names:
+                self._n_hdu = e_names.index(name)
+                return self._image[name]
 
         ## First ImageHDU
-        for n,hdu in enumerate(self._image):
-            if type[hdu]==fits.ImageHDU:
-                self._nHDU=enames.index(n)
+        #ABS ARE WE SURE WE WANT TO LOOK FOR A INDEX WITH A ENUMERATE INDEX?
+        for index, hdu in enumerate(self._image):
+            if isinstance(hdu, fits.ImageHDU):
+                self._n_hdu = e_names.index(index)
                 return hdu
 
-        self._nHDU=0
+        self._n_hdu = 0
         return self._image[0]
 
     def log(self, msg):
@@ -150,315 +219,319 @@ class StarbugBase(object):
         :type msg: str
         :return: None
         """
-        if self.options["VERBOSE"]:
+        if self._options[VERBOSE_TAG]:
             printf(msg)
             sys.stdout.flush()
 
 
-    @staticmethod
-    def sort_output_names(f_name, param_output=None):
+    def load_image(self, f_name):
         """
-        This is a useful function that looks at both an input file and a set output
-        and figures out how to name output files. If param_output looks like a directory
-        then the output will be set to that directory with the basename of fname. If
-        param_output looks like a file, then the output basename will take that form
+        Given f_name, load the image into starbug to be worked on.
 
-        Parameters
-        ----------
-        f_name : str
-            Filename to use as the core of the output
-
-        param_output : str
-            This is the OUTPUT parameter in the parameter file. It can be an output
-            directory or output filename. If None (default) then it will be ignored
-
-        Returns
-        -------
-        outdir : str
-            The output directory
-
-        bname : str
-            The output file basename (e.g. path/to/output.txt -> "output")
-
-        extension : str
-            The file extension split from the inputs
+        :param f_name: Filename of fits image (with any number of extensions).
+            If using a non-standard HDU index, set the name or index of the
+            extension with "HDUNAME=XXX" in the parameter file.
+        :type f_name: str
+        :return: None
         """
-        outdir=""
-        bname=""
-        extension=""
+        self._f_name = f_name
         if f_name:
-            outdir,bname,extension=split_file_name(f_name)
-            if (tmp_outname:=param_output) and tmp_outname !='.':
-                _outdir,_bname,_=split_file_name(tmp_outname)
-                if os.path.exists(outdir) and os.path.isdir(outdir): outdir=_outdir
-                else: p_error("unable to locate output directory \"%s\"\n" % _outdir)
-                if _bname: bname=_bname
-
-        return outdir,bname,extension
-
-    def load_image(self, fname):
-        """
-        Given fname, load the image into starbug to be worked on.
-
-        Parameters
-        ----------
-        fname : str
-            Filename of fits image (with any number of extensions. If using
-            a non standard HDU index, set the name or index of the extension
-            with "HDUNAME=XXX" in the parameter file
-        """
-        self.fname=fname
-        if fname:
             #########################################
             # Sorting out the file names and what not
             #########################################
-            self.outdir,self.bname, extension = self.sort_output_names(fname,self.options.get("OUTPUT"))
-            #self.outdir,self.bname,extension=split_fname(fname)
-            #if (tmp_outname:=self.options.get("OUTPUT")) and tmp_outname !='.':
-            #    outdir,bname,_=split_fname(tmp_outname)
-            #    if os.path.exists(outdir) and os.path.isdir(outdir): self.outdir=outdir
-            #    else: perror("unable to locate output directory \"%s\"\n"%outdir)
-            #    if bname: self.bname=bname
+            self._out_dir, self._b_name, extension = self.sort_output_names(
+                f_name, self._options.get(OUTPUT))
 
-            if extension==".fits":
-                if os.path.exists(fname):
-                    self.log("loaded: \"%s\"\n"%fname)
-                    self._image=fits.open(fname)
-                    _=self.image ## Force assigning _nHDU
-                    self.log("-> using image HDU: %d (%s)\n"%(self._nHDU,self.image.name))
-                    if self.image.data is None:
+            if extension == FITS_EXTENSION:
+                if os.path.exists(f_name):
+                    self.log("loaded: \"%s\"\n" % f_name)
+                    self._image = fits.open(f_name)
+
+                    # ABS WTF
+                    _ = self.image ## Force assigning _nHDU
+
+                    self.log(
+                        "-> using image HDU: %d (%s)\n" % (
+                            self._n_hdu, self._image.name))
+
+                    if self._image.data is None:
                         warn("Image seems to be empty.\n")
 
-                    if (val:=self.header.get("TELESCOP")) is None or (val.find("JWST")<0):
-                        warn("Telescope not JWST, there may be undefined behaviour.\n")
+                    if ((val := self._header.get(TELESCOPE)) is None
+                            or (val.find(JWST)<0)):
+                        warn("Telescope not JWST, "
+                             "there may be undefined behaviour.\n")
 
-                    self.filter=self.options.get("FILTER")
-                    if ("FILTER" in self.header) and (self.header["FILTER"] in filters.keys()):
-                        self.filter=self.header["FILTER"]
-                        if self.options["FWHM"]<0: self.options["FWHM"]= filters[self.filter].pFWHM
-                    if self.filter:
-                        self.log("-> photometric band: %s\n"%self.filter)
+                    self._filter = self._options.get(FILTER)
+                    if ((FILTER in self._header) and
+                            (self._header[FILTER] in filters.keys())):
+                        self._filter = self._header[FILTER]
+                        if self._options[FWHM] < 0:
+                            self._options[FWHM ] = filters[self._filter].pFWHM
+                    if self._filter:
+                        self.log("-> photometric band: %s\n" % self._filter)
                     else:
                         warn("Unable to determine image filter\n")
 
-                    if "DETECTOR" in self.info.keys():
-                        self.log("-> detector module: %s\n"%self.info["DETECTOR"])
-                    else: warn("Unable to determine Telescope DETECTOR.\n")
+                    if DETECTOR in self._info.keys():
+                        self.log(
+                            "-> detector module: %s\n" % self._info[DETECTOR])
+                    else:
+                        warn("Unable to determine Telescope DETECTOR.\n")
 
-                    if "BUNIT" in self.image.header:
-                        self._unit=self.image.header["BUNIT"]
-                    else: warn("Unable to determine image BUNIT.\n")
+                    if BUN_IT in self._image.header:
+                        self._unit = self._image.header[BUN_IT]
+                    else:
+                        warn("Unable to determine image BUNIT.\n")
 
-                    self.wcs=WCS(self.image.header)
+                    self._wcs = WCS(self.image.header)
 
                     ## I NEED TO DETERMINE BETTER WHAT STAGE IT IS IN
-                    exts=ext_names(self._image)
-                    if "DQ" in exts:
-                        if "AREA" in exts: self.stage=2
-                        else: self.stage=2.5
-                    elif "WHT" in exts: self.stage=3
-                    elif "CALIBLEVEL" in self.image.header: self.stage=self.image.header["CALIBLEVEL"]
+                    extension_names = ext_names(self._image)
+                    if DQ in extension_names:
+                        if AREA in extension_names:
+                            self._stage = 2
+                        else:
+                            self._stage = 2.5
+                    elif WHT in extension_names:
+                        self._stage = 3
+                    elif CALIBRATION_LV in self.image.header:
+                        self._stage = self.image.header[CALIBRATION_LV]
                     else:
-                        warn("Unable to determine calibration level, assuming stage 3\n")
-                        self.stage=3
+                        warn("Unable to determine calibration level, "
+                             "assuming stage 3\n")
+                        self._stage = 3
+                    self.log("-> pipeline stage: %d\n" % self._stage)
 
+                else:
+                    warn("fits file \"%s\" does not exist\n" % f_name)
+            else:
+                warn("included file must be FITS format\n")
 
-                    #self.log("loaded: \"%s\"\n"%fname)
-                    self.log("-> pipeline stage: %d\n"%self.stage)
-
-                else: warn("fits file \"%s\" does not exist\n"%fname)
-            else: warn("included file must be FITS format\n")
-
-    def load_apfile(self,fname=None):
+    def load_ap_file(self, f_name=None):
         """
-        Load a AP_FILE to be used during photometry
-
-        Parameters
-        ----------
-        fname : str
-            Filename for fits table containg source coordinates. These coorindates can be
-            xcentroid/ycentroid, x_init/y_init, x_0,y_0 or RA/DEC. The latter is used if 
-            starbug gets "USE_WCS=1" in the parameter file.
+        Load an AP_FILE to be used during photometry
+        
+        :param f_name: Filename for fits table containing source coordinates.
+         These coordinates can be x-centroid / y-centroid, x_init / y_init,
+          x_0, y_0 or RA/DEC. The latter is used if starbug gets "USE_WCS=1" 
+          in the parameter file.
+        :type f_name: str
+        :return: None
         """
-        if not fname: fname=self.options["AP_FILE"]
-        if os.path.exists(fname):
-            self.detections=import_table(fname)
-            cn=set(self.detections.col_names)
+        if not f_name: 
+            f_name = self._options[AP_FILE]
+        if os.path.exists(f_name):
+            self._detections = import_table(f_name)
+            column_names = set(self._detections.col_names)
 
-            self.log("loaded AP_FILE='%s'\n"%fname)
+            self.log("loaded AP_FILE='%s'\n" % f_name)
 
-            if self.options.get("USE_WCS"):
-                if len(cn & set(("RA","DEC")))==2:
+            if self._options.get(USE_WCS):
+                if len(column_names & {RA, DEC}) == 2:
                     self.log("-> using RADEC coordinates\n")
                     try:
-                        xy=self.wcs.all_world2pix(self.detections["RA"], self.detections["DEC"],0)
-                    except:
-                        warn("Something went wrong converting WCS to pixels, trying wcs_world2pix next.\n")
-                        xy=self.wcs.wcs_world2pix(self.detections["RA"], self.detections["DEC"],0)
-                    if "xcentroid" in cn: self.detections.remove_column("xcentroid")
-                    if "ycentroid" in cn: self.detections.remove_column("ycentroid")
-                    self.detections.add_columns(xy,names=("xcentroid","ycentroid"),indexes=[0,0])
+                        xy = self._wcs.all_world2pix(
+                            self._detections[RA], self._detections[DEC], 0)
+                    except (NoConvergence, Exception) as e:
+                        warn(f"Something went wrong converting WCS to pixels "
+                             f"({e}), trying wcs_world2pix next.\n")
+                        xy = self._wcs.wcs_world2pix(
+                            self._detections[RA], self._detections[DEC], 0)
+                    if X_CENTROID in column_names: 
+                        self._detections.remove_column(X_CENTROID)
+                    if Y_CENTROID in column_names: 
+                        self._detections.remove_column(Y_CENTROID)
+                    self._detections.add_columns(
+                        xy, names=(X_CENTROID, Y_CENTROID), indexes=[0, 0])
                 else:
                     warn("No 'RA' or 'DEC' found in AP_FILE\n")
-                    #self.options["USE_WCS"]=0
 
-            elif len( set(("x_0","y_0"))&cn)==2:
-                self.detections.rename_columns(("x_0","y_0"),("xcentroid","ycentroid"))
-            elif len( set(("x_init","y_init"))&cn)==2:
-                self.detections.rename_columns(("x_init","y_init"),("xcentroid","ycentroid"))
+            elif len({"x_0", "y_0"} & column_names) == 2:
+                self._detections.rename_columns(
+                    ("x_0", "y_0"), (X_CENTROID, Y_CENTROID))
+            elif len({"x_init", "y_init"} & column_names) == 2:
+                self._detections.rename_columns(
+                    ("x_init", "y_init"), (X_CENTROID, Y_CENTROID))
 
-            if len( set(("xcentroid","ycentroid"))&set(self.detections.col_names))==2:
-                mask=(self.detections["xcentroid"]>=0) & (self.detections["xcentroid"]<self.image.shape[1]) & (self.detections["ycentroid"]>=0) & (self.detections["ycentroid"]<self.image.shape[0])
-                self.detections.remove_rows(~mask)
-                self.log("-> loaded %d sources from AP_FILE\n"%len(self.detections))
+            if len({X_CENTROID, Y_CENTROID} & 
+                   set(self._detections.col_names)) == 2:
+                mask = (
+                    (self._detections[X_CENTROID] >= 0)
+                    & (self._detections[X_CENTROID] < self._image.shape[1])
+                    & (self._detections[Y_CENTROID] >= 0)
+                    & (self._detections[Y_CENTROID] < self._image.shape[0])
+                )
+                self._detections.remove_rows(~mask)
+                self.log(
+                    "-> loaded %d sources from AP_FILE\n" % 
+                    len(self._detections))
             else:
-                warn("Unable to determine physical coordinates from detections table\n")
-        else: p_error("AP_FILE='%s' does not exists\n" % fname)
+                warn("Unable to determine physical coordinates"
+                     " from detections table\n")
+        else: p_error("AP_FILE='%s' does not exists\n" % f_name)
 
-    def load_bgdfile(self,fname=None):
+    def load_bgd_file(self, f_name=None):
         """
         Load a BGD_FILE to be used during photometry
-        
-        Parameters
-        ----------
-        fname : str
-            Filename of fits image the same dimensions as the main image
-        """
-        if not fname: fname=self.options["BGD_FILE"]
-        if os.path.exists(fname):
-            self.background=fits.open(fname)[1]
-            self.log("loaded BGD_FILE='%s'\n"%fname)
-        else: p_error("BGD_FILE='%s' does not exist\n" % fname)
 
-    def load_psf(self,fname=None):
+        :param f_name: Filename of fits image the same dimensions as the
+                       main image
+        :type f_name: str
+        :return:
+        """
+        if not f_name: 
+            f_name = self._options[BGD_FILE]
+        if os.path.exists(f_name):
+            self._background = fits.open(f_name)[1]
+            self.log("loaded BGD_FILE='%s'\n" % f_name)
+        else: p_error("BGD_FILE='%s' does not exist\n" % f_name)
+
+    # noinspection SpellCheckingInspection
+    def load_psf(self, f_name=None):
         """
         Load a PSF_FILE to be used during photometry
 
-        Parameters
-        ----------
-        fname : str
-            Filename of a PSF fits image
+        :param f_name: Filename of a PSF fits image
+        :type f_name: str
+        :return: the status
+        :rtype int
         """
-        status=0
-        if not fname:
-            fltr=filters.get(self.filter)
-            if fltr:
-                dtname=self.info["DETECTOR"]
-                if dtname=="NRCALONG": dtname="NRCA5"
-                if dtname=="NRCBLONG": dtname="NRCB5"
-                if dtname=="MULTIPLE":
-                    if   fltr.instr==NIRCAM and fltr.length==SHORT: dtname="NRCA1"
-                    elif fltr.instr==NIRCAM and fltr.length==LONG:  dtname="NRCA5"
-                    elif fltr.instr==MIRI:  dtname=""
-                if dtname=="MIRIMAGE": dtname=""
-                fname="%s/%s%s.fits"%(DATDIR,self.filter,dtname)
-            else: status=1
-        if os.path.exists(fname):
-            fp=fits.open(fname)
+        status = 0
+        if not f_name:
+            filter_string = filters.get(self._filter)
+            if filter_string:
+                dt_name = self._info[DETECTOR]
+                if dt_name == "NRCALONG":
+                    dt_name = "NRCA5"
+                if dt_name == "NRCBLONG":
+                    dt_name = "NRCB5"
+                if dt_name == "MULTIPLE":
+                    if (filter_string.instr == NIRCAM
+                            and filter_string.length == SHORT):
+                        dt_name = "NRCA1"
+                    elif (filter_string.instr == NIRCAM and
+                          filter_string.length == LONG):
+                        dt_name = "NRCA5"
+                    elif filter_string.instr == MIRI:
+                        dt_name = ""
+                if dt_name == "MIRIMAGE":
+                    dt_name = ""
+                f_name= "%s/%s%s.fits" % (DATDIR, self._filter, dt_name)
+            else:
+                status = 1
+        if os.path.exists(f_name):
+            fp = fits.open(f_name)
 
             if fp[0].data is None: 
-                p_error("There is a version mismatch between starbug and webbpsf. Please reinitialise with: starbug2 --init.\n")
+                p_error(
+                    "There is a version mismatch between starbug and "
+                    "webbpsf. Please reinitialise with: starbug2 --init.\n")
                 quit("Fatal error, quitting\n")
 
-
-            self.psf=fp[0].data ####hmm
+            ####hmm
+            self._psf = fp[0].data
             fp.close()
-            self.log("loaded PSF_FILE='%s'\n"%(fname))
+            self.log("loaded PSF_FILE='%s'\n" % f_name)
         else:
-            p_error("PSF_FILE='%s' does not exist\n" % fname)
-            status=1
+            p_error("PSF_FILE='%s' does not exist\n" % f_name)
+            status = 1
         return status
 
     def prepare_image_arrays(self):
         """
         Make a copy of the original image, and prepare the other image arrays
 
-        Returns
-        -------
-        image : 
-            A copy of the image array, scale into Jy if appropriate
-
-        error : np.array
-            An error array in the same unit as image
-
-        bgd : np.array or None
-            A copy of the loaded background image in the same units as the image
-            
-        mask : ?
+        :return: tuple of image, error, bgd, mask
+        :rtype: tuple of int /float, np.array, np.array or None, int
         """
 
         # Collect scale factor
-        if self.header.get("BUNIT")=="MJy/sr":
-            scalefactor=get_MJysr2Jy_scalefactor(self.image)
-            self.log("-> converting unit from MJy/sr to Jr with factor: %e\n"%scalefactor)
-        else: scalefactor=1
+        if self.header.get(BUN_IT) == "MJy/sr":
+            scale_factor = get_mj_ysr2jy_scale_factor(self.image)
+            self.log(
+                "-> converting unit from MJy/sr to Jr with factor: %e\n"
+                % scale_factor)
+        else:
+            scale_factor = 1
 
-        image=self.image.data.copy() * scalefactor
+        image = self.image.data.copy() * scale_factor
 
         # scale by area
-        if "AREA" in ext_names(self._image):
+        extension_names = ext_names(self._image)
+        if AREA in extension_names:
             ## AREA distortion correction
-            image*= self._image["AREA"].data
+            image *= self._image[AREA].data
 
         # collect and scale error
-        if "ERR" in ext_names(self._image) and np.shape(self._image["ERR"]):
-            error=self._image["ERR"].data.copy() * scalefactor
-        else: error=np.sqrt(np.abs(image))
+        if ERR in extension_names and np.shape(self._image[ERR]):
+            error = self._image[ERR].data.copy() * scale_factor
+        else:
+            error = np.sqrt(np.abs(image))
         
         # create mask
-        if "DQ" in ext_names(self._image):
-            mask = self._image["DQ"].data & (DQ_DO_NOT_USE | DQ_SATURATED)
-            mask=mask.astype(bool)
-        else:mask=(np.isnan(image) | np.isnan(error))
+        if DQ in extension_names:
+            mask = self._image[DQ].data & (DQ_DO_NOT_USE | DQ_SATURATED)
+            mask = mask.astype(bool)
+        else:
+            mask = (np.isnan(image) | np.isnan(error))
 
         # collect and scale background array
-        if self.background is not None:
-            bgd=self.background.data.copy() * scalefactor
-        else: bgd=None
+        if self._background is not None:
+            bgd = self._background.data.copy() * scale_factor
+        else:
+            bgd = None
 
         return image, error, bgd, mask
 
     def detect(self):
         """
-        Full source detection routine
-        Saves the result as a table self.detections
+        Full source detection routine. Saves the result as a table
+        self._detections
+        :return: status
+        :rtype: int
         """
         self.log("Detecting Sources\n")
-        status=0
-        if self.image:# and self.filter:
-            _f=filters.get(self.filter)
-            if self.options["FWHM"]>0: FWHM=self.options["FWHM"]
-            elif _f: FWHM=_f.pFWHM
-            else: FWHM=2
-            #FWHM=_f.pFWHM if _f else self.options["FWHM"]
-            #FWHM=starbug2.filters.get(self.filter).pFWHM
+        status = 0
+        if self.image:
+            filter_map = filters.get(self._filter)
+            if self._options[FWHM] > 0:
+                full_width_half_max = self._options[FWHM]
+            elif filter_map:
+                full_width_half_max = filter_map.pFWHM
+            else:
+                full_width_half_max = 2
 
+            # noinspection SpellCheckingInspection
             detector=Detection_Routine(
-                sig_src=self.options["SIGSRC"],
-                sig_sky=self.options["SIGSKY"],
-                fwhm=FWHM,
-                sharplo=self.options["SHARP_LO"],
-                sharphi=self.options["SHARP_HI"],
-                round1hi=self.options["ROUND1_HI"],
-                round2hi=self.options["ROUND2_HI"],
-                smoothlo=self.options["SMOOTH_LO"],
-                smoothhi=self.options["SMOOTH_HI"],
-                ricker_r=self.options["RICKER_R"],
-                dobgd2d=self.options["DOBGD2D"],
-                doconvl=self.options["DOCONVL"],
-                boxsize=int(self.options["BOX_SIZE"]),
-                cleansrc=self.options["CLEANSRC"],
-                verbose=self.options["VERBOSE"])
+                sig_src=self._options["SIGSRC"],
+                sig_sky=self._options["SIGSKY"],
+                fwhm=full_width_half_max,
+                sharplo=self._options["SHARP_LO"],
+                sharphi=self._options["SHARP_HI"],
+                round1hi=self._options["ROUND1_HI"],
+                round2hi=self._options["ROUND2_HI"],
+                smoothlo=self._options["SMOOTH_LO"],
+                smoothhi=self._options["SMOOTH_HI"],
+                ricker_r=self._options["RICKER_R"],
+                dobgd2d=self._options["DOBGD2D"],
+                doconvl=self._options["DOCONVL"],
+                boxsize=int(self._options["BOX_SIZE"]),
+                cleansrc=self._options["CLEANSRC"],
+                verbose=self._options["VERBOSE"])
 
-            self.detections = detector(self.image.data.copy())[
-                 "xcentroid","ycentroid","sharpness","roundness1","roundness2"]
+            self._detections = detector(self.image.data.copy())[
+                 X_CENTROID, Y_CENTROID, "sharpness", "roundness1",
+                 "roundness2"]
 
-            ra, dec = self.wcs.all_pix2world(
-                self.detections["xcentroid"], self.detections["ycentroid"], 0)
-            self.detections.add_column( Column(ra, name="RA"), index=2)
-            self.detections.add_column( Column(dec, name="DEC"), index=3)
-            self.detections.meta=dict(self.header.items())
-            self.detections.meta.update({"ROUNTINE":"DETECT"})
+            ra, dec = self._wcs.all_pix2world(
+                self._detections[X_CENTROID], self._detections[Y_CENTROID], 0)
+            self._detections.add_column( Column(ra, name=RA), index=2)
+            self._detections.add_column( Column(dec, name=DEC), index=3)
+            self._detections.meta=dict(self.header.items())
+
+            # noinspection SpellCheckingInspection
+            self._detections.meta.update({"ROUNTINE": "DETECT"})
             self.aperture_photometry()
 
         else:
@@ -469,16 +542,24 @@ class StarbugBase(object):
 
 
     def aperture_photometry(self):
-
-        if self.detections is None:
+        """
+        executes aperture photometry
+        :return: 0 for success 1 for failure
+        :rtype int
+        """
+        if self._detections is None:
             p_error("No detection source file loaded (-d file-ap.fits)\n")
-            return 1
-        if len(set(("x_0","y_0","x_init","y_init","xcentroid","ycentroid")) & set(self.detections.col_names))<2:
+            return EXIT_FAIL
+        if len({"x_0", "y_0", "x_init", "y_init", X_CENTROID, Y_CENTROID} &
+               set(self._detections.col_names)) < 2:
             p_error("No pixel coordinates in source file\n")
-            return 1
+            return EXIT_FAIL
 
-        new_columns=("smoothness","flux","eflux","sky", "flag", self.filter,"e%s"%self.filter)
-        self.detections.remove_columns(set(new_columns) & set(self.detections.col_names))
+        new_columns = (
+            "smoothness","flux","eflux","sky", "flag",
+            self._filter, "e%s" % self._filter)
+        self._detections.remove_columns(
+            set(new_columns) & set(self._detections.col_names))
 
 
         #######################
@@ -491,125 +572,144 @@ class StarbugBase(object):
         #######################
         # Aperture Correction #
         #######################
-        apcorr=1
-        apcorr_fname=None
-        if (_apcorr_fname := self.options.get("APCORR_FILE")):
-            apcorr_fname = _apcorr_fname
-        elif   self.info.get("INSTRUME") == "NIRCAM":
-            apcorr_fname = "%s/apcorr_nircam.fits" % DATDIR
-        elif self.info.get("INSTRUME") == "MIRI":
-            apcorr_fname = "%s/apcorr_miri.fits" % DATDIR
+        ap_corr_f_name=None
+        if _ap_corr_f_name := self._options.get(APCORR_FILE):
+            ap_corr_f_name = _ap_corr_f_name
+        elif   self._info.get(INSTRUMENT) == "NIRCAM":
+            ap_corr_f_name = "%s/apcorr_nircam.fits" % DATDIR
+        elif self._info.get(INSTRUMENT) == "MIRI":
+            ap_corr_f_name = "%s/apcorr_miri.fits" % DATDIR
 
-        if apcorr_fname:
-            self.log("-> apcorr file: %s\n" % apcorr_fname)
+        if ap_corr_f_name:
+            self.log("-> apcorr file: %s\n" % ap_corr_f_name)
         else: 
             warn("No apcorr file available for instrument\n")
 
-        radius=self.options["APPHOT_R"]
-        eefrac=self.options["ENCENERGY"]
-        skyin= self.options["SKY_RIN"]
-        skyout=self.options["SKY_ROUT"]
+        radius = self._options[APPHOT_R]
+        ee_frac = self._options[ENCENERGY]
+        sky_in = self._options[SKY_RIN]
+        sky_out = self._options[SKY_ROUT]
 
-        if eefrac >=0:
+        if ee_frac >= 0:
             radius = APPhotRoutine.radius_from_encenrgy(
-                self.filter, eefrac, apcorr_fname)
+                self._filter, ee_frac, ap_corr_f_name)
             if radius > 0:
                 self.log(
                     "-> calculating aperture radius from encircled energy\n")
 
         if radius <= 0:
-            if (radius := self.options["FWHM"]) > 0:
+            if (radius := self._options[FWHM]) > 0:
                 self.log("-> using FWHM as aperture radius\n")
             else:
                 radius = 2
 
-        apcorr = APPhotRoutine.calc_apcorr(
-            self.filter, radius, table_fname=apcorr_fname,
-            verbose=self.options["VERBOSE"])
+        ap_corr = APPhotRoutine.calc_apcorr(
+            self._filter, radius, table_fname=ap_corr_f_name,
+            verbose=self._options[VERBOSE])
 
         ##################
         # Run Photometry #
         ##################
         app_hot = APPhotRoutine(
-            radius, skyin, skyout, verbose=self.options["VERBOSE"])
+            radius, sky_in, sky_out, verbose=self._options[VERBOSE])
 
-        if "DQ" in ext_names(self._image):
-            dq_flags = self._image["DQ"].data.copy()
+        if DQ in ext_names(self._image):
+            dq_flags = self._image[DQ].data.copy()
         else:
             dq_flags = None
         ap_cat = app_hot(
-            image, self.detections, error=error, dqflags=dq_flags,
-            apcorr=apcorr, sig_sky=self.options["SIGSKY"])
+            image, self._detections, error=error, dqflags=dq_flags,
+            apcorr=ap_corr, sig_sky=self._options[SIGSKY])
 
 
-        fltr=self.filter if self.filter else "mag"
-        mag,magerr=flux2mag( ap_cat["flux"], ap_cat["eflux"])
-        ap_cat.add_column(Column(mag+self.options.get("ZP_MAG"),fltr))
-        ap_cat.add_column(Column(magerr,"e%s"%fltr))
-        self.detections=hstack((self.detections,ap_cat))
+        filter_string = self._filter if self._filter else "mag"
+        mag, mag_err = flux2mag(ap_cat["flux"], ap_cat["eflux"])
+        ap_cat.add_column(Column(
+            mag + self._options.get(ZP_MAG), filter_string))
+        ap_cat.add_column(Column(
+            mag_err, "e%s" % filter_string))
+        self._detections = hstack((self._detections,ap_cat))
 
-        if self.options.get("CLEANSRC"):
-            N=len(self.detections)
-            if (smoothlo:=self.options.get("SMOOTH_LO")) != "": 
-                self.detections.remove_rows( self.detections["smoothness"]<smoothlo)
-            if (smoothhi:=self.options.get("SMOOTH_HI")) != "": 
-                self.detections.remove_rows( self.detections["smoothness"]>smoothhi)
-            if len(self.detections)!=N:
-                self.log("-> removing %d sources outside SMOOTH range\n"%(N-len(self.detections)))
+        if self._options.get(CLEANSRC):
+            detections_length = len(self._detections)
+            if (smooth_lo := self._options.get("SMOOTH_LO")) != "":
+                self._detections.remove_rows(
+                    self._detections["smoothness"] < smooth_lo)
+            if (smooth_hi := self._options.get("SMOOTH_HI")) != "":
+                self._detections.remove_rows(
+                    self._detections["smoothness"] > smooth_hi)
+            if len(self._detections) != detections_length:
+                self.log("-> removing %d sources outside SMOOTH range\n"
+                         % (detections_length - len(self._detections)))
 
-        reindex(self.detections)
-        self.detections.meta["FILTER"]=self.filter
+        reindex(self._detections)
+        self._detections.meta[FILTER] = self._filter
 
-        if not self.options.get("QUIETMODE"):
-            _fname="%s/%s-ap.fits"%(self.outdir, self.bname)
-            self.log("--> %s\n"%_fname)
-            export_table(self.detections, _fname, header=self.header)
+        if not self._options.get(QUIETMODE):
+            f_name = "%s/%s-ap.fits" % (self._out_dir, self._b_name)
+            self.log("--> %s\n" % f_name)
+            export_table(self._detections, f_name, header=self.header)
 
-        return 0
+        return EXIT_SUCCESS
 
 
     def bgd_estimate(self):
         """
         Estimate the background of the active image
-        Saves the result as an ImageHDU self.background
+        Saves the result as an ImageHDU self._background
+
+        ABS: do we need to return this if its always 1? should it not be 0?
+        :return: the status. which seems to always be 1.
         """
         self.log("\nEstimating Diffuse Background\n")
-        status=1
-        if self.detections:
-            sourcelist=self.detections.copy()
+        status = 1
+        if self._detections:
+            source_list = self._detections.copy()
 
-            _f=starbug2.filters.get(self.filter)
-            if self.options["FWHM"]>0: FWHM=self.options["FWHM"]
-            elif _f: FWHM=_f.pFWHM
-            else: FWHM=2
+            _f = filters.get(self._filter)
+            if self._options[FWHM] > 0:
+                full_width_half_max = self._options[FWHM]
+            elif _f:
+                full_width_half_max = _f.pFWHM
+            else:
+                full_width_half_max = 2
 
-            if "x_init" in sourcelist.col_names: sourcelist.rename_column("x_init", "xcentroid")
-            if "y_init" in sourcelist.col_names: sourcelist.rename_column("y_init", "ycentroid")
-            if "x_det" in sourcelist.col_names: sourcelist.rename_column("x_det", "xcentroid")
-            if "y_det" in sourcelist.col_names: sourcelist.rename_column("y_det", "ycentroid")
-            if "flux_det" in sourcelist.col_names: sourcelist.rename_column("flux_det", "flux")
-            mask=~(np.isnan(sourcelist["xcentroid"])|np.isnan(sourcelist["ycentroid"]))
+            if "x_init" in source_list.col_names:
+                source_list.rename_column("x_init", X_CENTROID)
+            if "y_init" in source_list.col_names:
+                source_list.rename_column("y_init", Y_CENTROID)
+            if "x_det" in source_list.col_names:
+                source_list.rename_column("x_det", X_CENTROID)
+            if "y_det" in source_list.col_names:
+                source_list.rename_column("y_det", Y_CENTROID)
+            if "flux_det" in source_list.col_names:
+                source_list.rename_column("flux_det", "flux")
+            mask = ~(np.isnan(source_list[X_CENTROID])
+                     | np.isnan(source_list[Y_CENTROID]))
 
 
-            bgd=BackGround_Estimate_Routine(sourcelist[mask],
-                                            boxsize=int(self.options["BOX_SIZE"]),
-                                            fwhm=FWHM,
-                                            sigsky=self.options["SIGSKY"],
-                                            bgd_r=self.options["BGD_R"],
-                                            profile_scale=self.options["PROF_SCALE"],
-                                            profile_slope=self.options["PROF_SLOPE"],
-                                            verbose=self.options["VERBOSE"])
-            header=self.header
-            header.update(self.wcs.to_header())
-            self.background=fits.ImageHDU(data=bgd(self.image.data.copy(), output=self.options.get("BGD_CHECKFILE")), header=header)
-            if not self.options.get("QUIETMODE"):
-                _fname="%s/%s-bgd.fits"%(self.outdir, self.bname)
-                self.log("--> %s\n"%_fname)
-                self.background.writeto(_fname,overwrite=True)
+            bgd=BackGround_Estimate_Routine(
+                source_list[mask], boxsize=int(self._options[BOX_SIZE]),
+                fwhm=full_width_half_max, sigsky=self._options[SIGSKY],
+                bgd_r=self._options[BGD_R],
+                profile_scale=self._options[PROF_SCALE],
+                profile_slope=self._options[PROF_SLOPE],
+                verbose=self._options[VERBOSE])
+            header = self.header
+            header.update(self._wcs.to_header())
+            self._background = fits.ImageHDU(
+                data=bgd(
+                    self.image.data.copy(),
+                    output=self._options.get(BGD_CHECKFILE)),
+                header=header)
+            if not self._options.get(QUIETMODE):
+                f_name = "%s/%s-bgd.fits"%(self._out_dir, self._b_name)
+                self.log("--> %s\n" % f_name)
+                self._background.writeto(f_name, overwrite=True)
 
         else:
             p_error("unable to estimate background, no source list loaded\n")
-            status=1
+            status = 1
         return status
 
 
@@ -617,25 +717,34 @@ class StarbugBase(object):
     def bgd_subtraction(self):
         """
         Internally subtract a background array from an image array
+        :return: 0 for success, 1 otherwise
+        :rtype int.
         """
         self.log("Subtracting Background\n")
 
-        if self.background is None:
+        if self._background is None:
             p_error("No background array loaded (-b file-bgd.fits)\n")
-            return 1
-        array= self.image.data - self.background.data
-        self.residuals = array
-        self._image[self._nHDU].data=array
-        header=self.header
-        header.update(self.wcs.to_header())
-        fits.ImageHDU(data=self.residuals, name="RES", header=header).writeto("%s/%s-res.fits"%(self.outdir,self.bname), overwrite=True)
-        return 0
+            return EXIT_FAIL
+        array = self.image.data - self._background.data
+        self._residuals = array
+        self._image[self._n_hdu].data = array
+        header = self.header
+        header.update(self._wcs.to_header())
+        fits.ImageHDU(
+            data=self._residuals, name="RES", header=header).writeto(
+                "%s/%s-res.fits" % (self._out_dir, self._b_name),
+            overwrite=True)
+        return EXIT_SUCCESS
 
     def photometry(self):
         """
         Full photometry routine
-        Saves the result as a table self.psfcatalogue
-        // Additionally it appends a residual Image onto the self.residuals HDUList
+        Saves the result as a table self._psfcatalogue,
+        Additionally it appends a residual Image onto the
+        self._residuals HDUList
+
+        :return: 0 for success, 1 otherwise
+        :rtype int
         """
         if self.image:
             self.log("\nRunning PSF Photometry\n")
@@ -643,335 +752,296 @@ class StarbugBase(object):
             image, error, bgd, mask = self.prepare_image_arrays()
 
             if bgd is None:
-                _,median,_=sigma_clipped_stats(image,sigma=self.options["SIGSKY"])
-                bgd=np.ones(self.image.shape)*median
-                self.log("-> no background file loaded, measuring sigma clipped median\n")
+                _, median, _ = (
+                    sigma_clipped_stats(image, sigma=self._options[SIGSKY]))
+                bgd = np.ones(self.image.shape) * median
+                self.log(
+                    "-> no background file loaded, measuring sigma "
+                    "clipped median\n")
 
             ###################################
-            # Collect relevent files and data #
+            # Collect relevant files and data #
             ###################################
-            #image=self.image.data.copy()
 
-            if self.detections is None:
+            if self._detections is None:
                 p_error("unable to run photometry: no source list loaded\n")
-                return 1
+                return EXIT_FAIL
 
-            if self.psf is None and self.load_psf(os.path.expandvars(self.options["PSF_FILE"])):
+            if (self._psf is None
+                and self.load_psf(
+                    os.path.expandvars(self._options[PSF_FILE]))):
                 p_error("unable to run photometry: no PSF loaded\n")
-                return 1
+                return EXIT_FAIL
 
-            psfmask= ~np.isfinite(self.psf)
-            if psfmask.sum():
-                self.psf[psfmask]=0
+            psf_mask = ~np.isfinite(self._psf)
+            if psf_mask.sum():
+                self._psf[psf_mask] = 0
                 self.log("-> masking INF pixels in PSF_FILE\n")
 
-            psf_model=FittableImageModel(self.psf)
-            if self.options["PSF_SIZE"]>0: size=int(self.options["PSF_SIZE"])
-            else: size=psf_model.shape[0]
-            if not size%2: size-=1
-            self.log("-> psf size: %d\n"%size)
+            psf_model = FittableImageModel(self._psf)
+            if self._options[PSF_SIZE] > 0:
+                size = int(self._options[PSF_SIZE])
+            else:
+                size = psf_model.shape[0]
+            if not size % 2:
+                size -= 1
+            self.log("-> psf size: %d\n" % size)
 
             #########################
             # Sort out Init guesses #
             #########################
-            apphot_r=self.options.get("APPHOT_R")
-            if not apphot_r or apphot_r <=0: apphot_r=3
+            app_hot_r = self._options.get(APPHOT_R)
+            if not app_hot_r or app_hot_r <= 0:
+                app_hot_r = 3
 
-            init_guesses=self.detections.copy()
-            #print(init_guesses, end="")
-            if "xcentroid" in init_guesses.col_names: init_guesses.rename_column("xcentroid", "x_init")
-            if "ycentroid" in init_guesses.col_names: init_guesses.rename_column("ycentroid", "y_init")
-            if "x_det" in init_guesses.col_names: init_guesses.rename_column("x_det", "x_init")
-            if "y_det" in init_guesses.col_names: init_guesses.rename_column("y_det", "y_init")
+            init_guesses = self._detections.copy()
+            if X_CENTROID in init_guesses.col_names:
+                init_guesses.rename_column(X_CENTROID, "x_init")
+            if Y_CENTROID in init_guesses.col_names:
+                init_guesses.rename_column(Y_CENTROID, "y_init")
+            if "x_det" in init_guesses.col_names:
+                init_guesses.rename_column("x_det", "x_init")
+            if "y_det" in init_guesses.col_names:
+                init_guesses.rename_column("y_det", "y_init")
 
-            init_guesses=init_guesses[ init_guesses["x_init"]>=0 ]
-            init_guesses=init_guesses[ init_guesses["y_init"]>=0 ]
-            init_guesses=init_guesses[ init_guesses["x_init"]<self.image.header["NAXIS1"]]
-            init_guesses=init_guesses[ init_guesses["y_init"]<self.image.header["NAXIS2"]]
+            init_guesses = init_guesses[ init_guesses["x_init"] >=0 ]
+            init_guesses = init_guesses[ init_guesses["y_init"] >=0 ]
+            init_guesses = init_guesses[
+                init_guesses["x_init"] < self.image.header[NAXIS1]]
+            init_guesses=init_guesses[
+                init_guesses["y_init"] < self.image.header[NAXIS2]]
 
             ######
-            # Allow tables that dont have the correct columns through
+            # Allow tables that don't have the correct columns through
             ######
-            required=["x_init","y_init","flux",self.filter, "flag"]
-            for notfound in  set(required)-set(init_guesses.col_names):
-                dtype=np.uint16 if notfound=="flag" else float
-                init_guesses.add_column( Column( np.zeros(len(init_guesses)), name=notfound, dtype=dtype) )
+            required = ["x_init","y_init","flux",self._filter, "flag"]
+            for notfound in  set(required) - set(init_guesses.col_names):
+                dtype = np.uint16 if notfound == "flag" else float
+                init_guesses.add_column(
+                    Column(np.zeros(len(init_guesses)),
+                           name=notfound, dtype=dtype))
 
-            init_guesses=init_guesses[required]
+            init_guesses = init_guesses[required]
             init_guesses.remove_column("flux")
-            init_guesses.rename_column(self.filter,"ap_%s"%self.filter)
-            #init_guesses.rename_column("flux","flux_0")
-            #init_guesses=init_guesses[init_guesses["flux_0"]>0]
-            #init_guesses.remove_column("flux_0")
-
+            init_guesses.rename_column(self._filter, "ap_%s" % self._filter)
             
             ###########
             # Run Fit #
             ###########
 
-            min_separation=self.options.get("CRIT_SEP")
+            min_separation = self._options.get(CRIT_SEP)
             if not min_separation:
-                min_separation = min(5, 2.5*self.options.get("FWHM"))
+                min_separation = min(5, 2.5 * self._options.get(FWHM))
 
-            if self.options["FORCE_POS"]:
-                phot=PSFPhot_Routine(psf_model, size, min_separation=min_separation, apphot_r=apphot_r, background=bgd, force_fit=1, verbose=self.options["VERBOSE"])
-                psf_cat=phot(image,init_params=init_guesses, error=error, mask=mask)
-                psf_cat["flag"] |= starbug2.SRC_FIX
+            if self._options[FORCE_POS]:
+                phot = PSFPhot_Routine(
+                    psf_model, size, min_separation=min_separation,
+                    apphot_r=app_hot_r, background=bgd, force_fit=1,
+                    verbose=self._options[VERBOSE])
+                psf_cat = phot(
+                    image,init_params=init_guesses, error=error, mask=mask)
+                psf_cat["flag"] |= SRC_FIX
 
             else:
-                phot=PSFPhot_Routine(psf_model, size, min_separation=min_separation, apphot_r=apphot_r, background=bgd, force_fit=0, verbose=self.options["VERBOSE"])
-                psf_cat=phot(image,init_params=init_guesses, error=error, mask=mask)
+                phot = PSFPhot_Routine(
+                    psf_model, size, min_separation=min_separation,
+                    apphot_r=app_hot_r, background=bgd, force_fit=0,
+                    verbose=self._options[VERBOSE])
+                psf_cat = phot(
+                    image,init_params=init_guesses, error=error, mask=mask)
 
-                if not psf_cat: return 1
-
+                if not psf_cat:
+                    return EXIT_FAIL
 
                 ##################################
                 # Setting position max variation #
                 ##################################
-                maxydev,unit=parse_unit(self.options["MAX_XYDEV"])
+                max_y_dev, unit = parse_unit(self._options[MAX_XY_DEV])
                 if unit is not None:
-                    if unit==starbug2.DEG: 
-                        maxydev*=60
-                        unit=starbug2.ARCMIN
-                    if unit==starbug2.ARCMIN:
-                        maxydev*=60
-                        unit=starbug2.ARCSEC
-                    if unit==starbug2.ARCSEC:
-                        if not self.header.get("PIXAR_A2"):
-                            warn("MAX_XYDEV is units arcseconds, but starbug cannot locate a pixel scale in the header. Please use syntax MAX_XYDEV=%sp to set change to pixels\n"%maxydev)
-                        else: maxydev /= np.sqrt(self.header.get("PIXAR_A2"))
+                    if unit == DEG:
+                        max_y_dev *= 60
+                        unit = ARCMIN
+                    if unit == ARCMIN:
+                        max_y_dev *= 60
+                        unit = ARCSEC
+                    if unit == ARCSEC:
+                        if not self.header.get(PIXAR_A2):
+                            warn(
+                                "MAX_XYDEV is units arcseconds, but starbug "
+                                "cannot locate a pixel scale in the header."
+                                " Please use syntax MAX_XYDEV=%sp to set "
+                                "change to pixels\n" % max_y_dev)
+                        else:
+                            max_y_dev /= np.sqrt(self.header.get(PIXAR_A2))
 
-                if maxydev>0:
-                    self.log("-> position fit threshold: %.2gpix\n"%maxydev)
+                if max_y_dev > 0:
+                    self.log(
+                        "-> position fit threshold: %.2gpix\n" % max_y_dev)
                     phot = PSFPhot_Routine(
                         psf_model, size, min_separation=min_separation,
-                        apphot_r=apphot_r, background=bgd, force_fit=1,
-                        verbose=self.options[VERBOSE])
-                    ii=np.where( psf_cat["xydev"]>maxydev)
-                    fixed_centres= psf_cat[ii][["x_init","y_init","ap_%s"%self.filter,"flag"]]
+                        apphot_r=app_hot_r, background=bgd, force_fit=1,
+                        verbose=self._options[VERBOSE])
+                    ii = np.where(psf_cat["xydev"] > max_y_dev)
+                    fixed_centres = psf_cat[ii][
+                        ["x_init", "y_init", "ap_%s" % self._filter, "flag"]]
                     if len(fixed_centres):
                         self.log("-> forcing positions for deviant sources\n")
-                        fixed_cat=phot(image, init_params=fixed_centres, error=error, mask=mask)
-                        fixed_cat["flag"]|=starbug2.SRC_FIX
+                        fixed_cat = phot(
+                            image, init_params=fixed_centres, error=error,
+                            mask=mask)
+                        fixed_cat["flag"] |= SRC_FIX
                         psf_cat.remove_rows(ii)
-                        psf_cat=vstack((psf_cat, fixed_cat))
-                    else: self.log("-> no deviant sources\n")
+                        psf_cat = vstack((psf_cat, fixed_cat))
+                    else:
+                        self.log("-> no deviant sources\n")
 
-            ra,dec=self.wcs.all_pix2world(psf_cat["x_fit"], psf_cat["y_fit"],0)
-            psf_cat.add_column( Column(ra, name="RA"), index=2)
-            psf_cat.add_column( Column(dec, name="DEC"), index=3)
+            ra, dec = self._wcs.all_pix2world(
+                psf_cat["x_fit"], psf_cat["y_fit"], 0)
+            psf_cat.add_column(Column(ra, name=RA), index=2)
+            psf_cat.add_column(Column(dec, name=DEC), index=3)
 
             mag, mag_err = flux2mag(psf_cat["flux"],psf_cat["eflux"])
 
-            filter_string = self.filter if self.filter else "mag"
+            filter_string = self._filter if self._filter else "mag"
             psf_cat.add_column(
-                mag+self.options.get("ZP_MAG"), name=filter_string)
-            psf_cat.add_column(mag_err, name="e%s"%filter_string)
-            self.psfcatalogue = psf_cat
-            self.psfcatalogue.meta=dict(self.header.items())
-            self.psfcatalogue.meta["AP_FILE"]=self.options["AP_FILE"]
-            self.psfcatalogue.meta["BGD_FILE"]=self.options["BGD_FILE"]
+                mag + self._options.get(ZP_MAG), name=filter_string)
+            psf_cat.add_column(mag_err, name="e%s" % filter_string)
+            self._psf_catalogue = psf_cat
+            self._psf_catalogue.meta = dict(self.header.items())
+            self._psf_catalogue.meta[AP_FILE]=self._options[AP_FILE]
+            self._psf_catalogue.meta[BGD_FILE]=self._options[BGD_FILE]
 
-            reindex(self.psfcatalogue)
-            if not self.options.get("QUIETMODE"):
-                _file_name="%s/%s-psf.fits"%(self.outdir, self.bname)
-                self.log("--> %s\n"%_file_name)
+            reindex(self._psf_catalogue)
+            if not self._options.get(QUIETMODE):
+                file_name = "%s/%s-psf.fits" % (self._out_dir, self._b_name)
+                self.log("--> %s\n" % file_name)
                 fits.BinTableHDU(
-                    data=self.psfcatalogue,
-                    header=self.header).writeto(_file_name, overwrite=True)
+                    data=self._psf_catalogue,
+                    header=self.header).writeto(file_name, overwrite=True)
 
             ##################
             # Residual Image #
             ##################
 
-            if self.options["GEN_RESIDUAL"]:
+            if self._options[GEN_RESIDUAL]:
                 self.log("-> generating residual\n")
-                _tmp = psf_cat["x_fit","y_fit","flux"].copy()
-                _tmp.rename_columns( ("x_fit","y_fit"), ("x_0","y_0"))
+                _tmp = psf_cat["x_fit", "y_fit", "flux"].copy()
+                _tmp.rename_columns( ("x_fit", "y_fit"), ("x_0","y_0"))
                 stars = make_model_image(
                     image.shape, psf_model, _tmp, model_shape=(size,size))
-                residual=image-(bgd+stars)
-                self.residuals=residual/get_MJysr2Jy_scalefactor(self.image)
-                header=self.header
-                header.update(self.wcs.to_header())
+                residual = image - (bgd + stars)
+                self._residuals = (
+                    residual / get_mj_ysr2jy_scale_factor(self.image))
+                header = self.header
+                header.update(self._wcs.to_header())
                 fits.ImageHDU(
-                    data=self.residuals, name="RES",
-                    header=header).writeto(
-                        "%s/%s-res.fits" % (self.outdir,self.bname),
+                    data=self._residuals, name="RES", header=header).writeto(
+                        "%s/%s-res.fits" % (self._out_dir, self._b_name),
                         overwrite=True)
-
-            return 0
-
-    #def artificial_stars(self):
-    #    """
-    #    #Run artificial star testing
-
-    #    #>>> This needs to get the background loaded into it somewhere!!
-    #    #>>> Need to make sure all the appropriate parameters are being passed into the functions
-    #    """
-    #    status=0
-    #    self.log("\nArtificial Star Testing (n=%d)\n"%(self.options["NTESTS"]))
-    #    
-    #    ################################
-    #    # Collect files and sort units #
-    #    ################################
-    #    image=self.image.data.copy()
-    #    bgd=None
-
-    #    if self.background is not None:
-    #        bgd=self.background.data.copy()
-
-    #    if self.header.get("BUNIT")=="MJy/sr-1":
-    #        scalefactor=get_MJysr2Jy_scalefactor(self.image)
-    #        image/=scalefactor
-    #        if bgd is not None: bgd/=scalefactor
-
-    #    self.load_psf(self.options.get("PSF_FILE"))
-    #    psf_model=FittableImageModel(self.psf)
-
-    #    #############################
-    #    # Build the Routine Classes #
-    #    #############################
-
-    #    detector=Detection_Routine( sig_src=self.options["SIGSRC"],
-    #                                sig_sky=self.options["SIGSKY"],
-    #                                fwhm=starbug2.filters[self.filter].pFWHM,
-    #                                sharplo=self.options["SHARP_LO"],
-    #                                sharphi=self.options["SHARP_HI"],
-    #                                round1hi=self.options["ROUND1_HI"],
-    #                                verbose=0)
-    #    phot=APPhot_Routine ( self.options["APPHOT_R"],
-    #                          self.options["SKY_RIN"],
-    #                          self.options["SKY_ROUT"])
-    #    
-    #    phot=PSFPhot_Routine( psf_model, psf_model.shape,
-    #            apphot_r=self.options["APPHOT_R"], force_fit=False, 
-    #            background=bgd, verbose=0)
-    #    export_table(phot(image,detector(image)),fname="/tmp/out.fits")
-
-
-
-    #    art=Artificial_Stars(detector=detector, photometry=phot, psf=psf_model)
-
-    #    ###########
-    #    # Execute #
-    #    ###########
-
-    #    MINMAG=27
-    #    MAXMAG=18
-
-    #    ZP = self.options.get("ZP_MAG") if self.options.get("ZP_MAG") else 0
-    #    min_flux=np.exp( (np.log(10)/2.5)*(ZP-MINMAG) )
-    #    max_flux=np.exp( (np.log(10)/2.5)*(ZP-MAXMAG) )
-
-    #    #print("calc", min_flux, max_flux, MINMAG, MAXMAG)
-    #    #print("cat", np.nanmin( self.detections["flux"]), np.nanmax( self.detections["flux"]), np.nanmax(self.detections["F444W"]), np.nanmin(self.detections["F444W"]))
-
-
-    #    result= art.run_auto( image, background=bgd, ntests=self.options.get("NTESTS"), stars_per_test=self.options.get("NSTARS"), 
-    #                        subimage_size=self.options.get("SUBIMAGE"), flux_range=( min_flux, max_flux))
-
-    #    _fname="%s/%s-afs.fits"%(self.outdir, self.bname)
-    #    export_table(result, fname=_fname)
-
-    #    return status
-
-
-
-
+            return EXIT_SUCCESS
 
     def source_geometry(self):
         """
         Calculate source geometry stats for a given image and source list
+        :return: None
         """
-        if self.detections is None: p_error("No source file loaded\n")
+        if self._detections is None:
+            p_error("No source file loaded\n")
         else:
             self.log("Running Source Geometry\n")
-            slist=self.detections[["xcentroid","ycentroid"]].copy()
-            slist=slist[ slist["xcentroid"]>=0 ]
-            slist=slist[ slist["ycentroid"]>=0 ]
-            slist=slist[ slist["xcentroid"]<self.image.header["NAXIS1"]]
-            slist=slist[ slist["ycentroid"]<self.image.header["NAXIS2"]]
+            slist = self._filter_detections()
 
-            sp=SourceProperties(self.image.data, slist, verbose=self.options["VERBOSE"])
-            stat=sp(fwhm=starbug2.filters[self.filter].pFWHM, do_crowd=self.options["CALC_CROWD"])
-            #geom=sp.calculate_geometry(fwhm=starbug2.filters[self.filter].pFWHM)
+            sp = SourceProperties(
+                self.image.data, slist, verbose=self._options[VERBOSE])
+            stat = sp(
+                fwhm=filters[self._filter].pFWHM,
+                do_crowd=self._options[CALC_CROWD])
             
-            self.source_stats=hstack((slist,stat))
-            _fname="%s/%s-stat.fits"%(self.outdir, self.bname)
-            self.log("--> %s\n"%_fname)
-            reindex(self.source_stats)
-            fits.BinTableHDU(data=self.source_stats,header=self.header).writeto(_fname, overwrite=True)
-    
-    def calculate_psf(self):
-        """
-        """
-        pass
-
+            self._source_stats = hstack((slist, stat))
+            f_name = "%s/%s-stat.fits"%(self._out_dir, self._b_name)
+            self.log("--> %s\n" % f_name)
+            reindex(self._source_stats)
+            fits.BinTableHDU(
+                data=self._source_stats, header=self.header).writeto(
+                    f_name, overwrite=True)
 
 
     def verify(self):
         """
-        This simple function verifies that everything necessary has been loaded properly
+        This simple function verifies that everything necessary has been
+        loaded properly
 
-        RETURN 
-        ------
-        0 : on success
-        1 : on fail
+        :return: int where 0 on success, 1 on fail
+        :rtype int
         """
-        status=0
-        #warn=lambda :perror(sbold("WARNING: "))
+
+        status = 0
         
         self.log("Checking internal systems..\n")
 
-        if not self.filter:
-            warn("No FILTER set, please set in parameter file or use \"-s FILTER=XXX\"\n")
-            status=1
+        if not self._filter:
+            warn("No FILTER set, please set in parameter file or "
+                 "use \"-s FILTER=XXX\"\n")
+            status = 1
 
-        dname = os.path.expandvars(starbug2.DATDIR)
-        if not os.path.exists(dname):
-            warn("Unable to locate STARBUG_DATDIR='%s'\n"%dname)
-            #status=1
+        d_name = os.path.expandvars(DATDIR)
+        if not os.path.exists(d_name):
+            warn("Unable to locate STARBUG_DATDIR='%s'\n" % d_name)
 
-        if not os.path.exists(self.outdir):
-            warn("Unable to locate OUTPUT='%s'\n"%self.outdir)
-            status=1
+        if not os.path.exists(self._out_dir):
+            warn("Unable to locate OUTPUT='%s'\n" % self._out_dir)
+            status = 1
 
         tmp=load_default_params()
-        if set(tmp.keys()) - set(self.options.keys()):
-            warn("Parameter file version mismatch. Run starbug2 --update-param to update\n")
-            status=1
+        if set(tmp.keys()) - set(self._options.keys()):
+            warn("Parameter file version mismatch. "
+                 "Run starbug2 --update-param to update\n")
+            status = 1
         
         if self._image is None or self.image.data is None:
             warn("Image did not load correctly\n")
-            status=1
+            status = 1
 
-        if self.options["AP_FILE"] and self.detections is not None:
-            test=self.detections[["xcentroid","ycentroid"]]
-            test=test[ test["xcentroid"]>=0 ]
-            test=test[ test["ycentroid"]>=0 ]
-            test=test[ test["xcentroid"]<self.image.header["NAXIS1"]]
-            test=test[ test["ycentroid"]<self.image.header["NAXIS2"]]
+        if self._options[AP_FILE] and self._detections is not None:
+            test = self._filter_detections()
             if not len(test):
                 warn("Detection file empty or no sources overlap the image.\n")
-                status=1
+                status = 1
 
         return status
 
+    def _filter_detections(self):
+        """
+        filters the detections based on some fixed constraints.
+        :return: the filtered detections
+        """
+        detections = self._detections[[X_CENTROID,Y_CENTROID]].copy()
+        detections = detections[ detections[X_CENTROID]>=0 ]
+        detections = detections[ detections[Y_CENTROID]>=0 ]
+        detections = detections[
+            detections[X_CENTROID] < self.image.header[NAXIS1]]
+        return detections[ detections[Y_CENTROID] < self.image.header[NAXIS2]]
+
     def __getstate__(self):
+        """
+        extracts the inner state of this class. deleting image or/and
+         background if it's there.
+        :return: the internal state with those bits filtered away
+        """
         self._image.close()
-        #if self.background: self.background.close()
-        state=self.__dict__.copy()
+        state = self.__dict__.copy()
         if "_image" in state:
-            del state["_image"] ##Sorry but we cant have that
-        if "background" in state: ## This currently doesnt get reloaded
-            del state["background"]
+            ##Sorry but we cant have that
+            del state["_image"]
+            ## This currently doesnt get reloaded
+        if "_background" in state:
+            del state["_background"]
             
         return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        v=self.options["VERBOSE"]
-        self.options["VERBOSE"]=0
-        self.load_image(self.fname)
-        self.options["VERBOSE"]=v
+        v = self._options[VERBOSE]
+        self._options[VERBOSE] = 0
+        self.load_image(self._f_name)
+        self._options[VERBOSE] = v

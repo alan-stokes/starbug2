@@ -14,7 +14,7 @@ import starbug2
 from starbug2.constants import VERBOSE_TAG, CAT_NUM
 from starbug2.param import load_params
 from starbug2.utils import (
-    Loading, printf, rmduplicates, p_error, fill_nan, tab2array,
+    Loading, printf, remove_duplicates, p_error, fill_nan, tab2array,
     find_col_names, flux2mag, h_cascade, warn, puts)
 
 # keys for catalogue fields.
@@ -151,7 +151,7 @@ class GenericMatch(object):
             self.col_names = []
             for cat in catalogues:
                 self.col_names += cat.col_names
-        self.col_names = rmduplicates(self.col_names)
+        self.col_names = remove_duplicates(self.col_names)
 
         # clean out the column names not included in self.col_names
         for n,catalogue in enumerate(catalogues):

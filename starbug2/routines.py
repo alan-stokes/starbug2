@@ -15,11 +15,14 @@ from astropy.modeling.fitting import LevMarLSQFitter
 from astropy.convolution import RickerWavelet2DKernel
 
 from photutils.background import Background2D, BackgroundBase
-from photutils.aperture import CircularAperture, CircularAnnulus, aperture_photometry
+from photutils.aperture import (
+    CircularAperture, CircularAnnulus, aperture_photometry)
 from photutils.detection import StarFinderBase, DAOStarFinder, find_peaks
 from photutils.psf import PSFPhotometry, SourceGrouper
 
 from photutils.datasets import make_model_image, make_random_models_table
+
+from starbug2.constants import SRC_GOOD, DQ_DO_NOT_USE, DQ_SATURATED, SRC_BAD, DQ_JUMP_DET, SRC_JMP
 from starbug2.utils import Loading, printf, p_error, warn, export_table
 from starbug2 import *
 
@@ -374,7 +377,7 @@ class APPhotRoutine:
         ######################
         self.catalogue["smoothness"] = (phot["aperture_sum_1"]/smooth_apertures.area) / (phot["aperture_sum_0"]/apertures.area)
 
-        col=Column(np.full(len(apertures),SRC_GOOD), dtype=np.uint16, name="flag")
+        col=Column(np.full(len(apertures), SRC_GOOD), dtype=np.uint16, name="flag")
         if dq_flags is not None:
             self.log("-> flagging unlikely sources\n")
             for i, mask in enumerate(apertures.to_mask(method="center")):

@@ -2,86 +2,191 @@ import os
 from parse import parse
 from starbug2.utils import printf,p_error,get_version
 
-default="""## STARBUG CONFIG FILE
+# noinspection SpellCheckingInspection
+default = """## STARBUG CONFIG FILE
 # Generated with starbug2-v%s
-PARAM       =  STARBUGII PARAMETERS     //COMMENT
-
+PARAM       =  STARBUGII PARAMETERS     // COMMENT
 
 ## GENERIC
-VERBOSE     = 0          //(0:false 1:true)
-OUTPUT      = .          //Directory or filename to output to 
-HDUNAME     =            //If using a non standard HDU name, name it here (str or int)
-FILTER      =            //Set a custom filter for the image
+// (0:false 1:true)
+VERBOSE     = 0
 
-## DETECTETION 
-FWHM        = -1         //Custom FWHM for image (-1 to use WEBBPSF)
-SIGSKY      = 2.0        //Number of sigma above the median to clip out as background
-SIGSRC      = 5.0        //Source value mininmum N sigma above background
-DOBGD2D     = 1          //Run background2D step (usually finds more sources but takes time)
-DOCONVL     = 1          //Run convolution step (usually finds more sources)
-CLEANSRC    = 1          //Run source cleaning after detection (removes likely contaminants)
-SHARP_LO    = 0.4        //Lower limit of source sharpness (0 is not sharp)
-SHARP_HI    = 0.9        //Upper limit of source sharpness (1 is sharp)
-ROUND1_HI   = 1.0        //Limit of source roundness1 (|roundness|>>0 is less round)
-ROUND2_HI   = 1.0        //Limit of source roundness2 (|roundness|>>0 is less round)
-SMOOTH_LO   =            //Lower limit on source smoothness (0 is not smooth)
-SMOOTH_HI   =            //Upper limit on source smoothness (1 is smooth)
-RICKER_R    = 1.0        //Radius (pix) of ricker wavelet 
+// Directory or filename to output to 
+OUTPUT      = 
 
-## APERTURE PHOTOMOETRY
-APPHOT_R    = 1.5        //Radius in number of pixels
-ENCENERGY   = -1         //Fraction encircled energy (mutually exclusive with APPHOT_R)
-SKY_RIN     = 3          //Sky annulus inner radius
-SKY_ROUT    = 4.5        //Sky annulus outer radius
-APCORR_FILE =            //Aperture correction file. See full manual for details
+// If using a non standard HDU name, name it here (str or int)
+HDUNAME     = SCI
+
+// Set a custom filter for the image
+FILTER      = 
+
+## DETECTION 
+// Custom FWHM for image (-1 to use WEBBPSF)
+FWHM        = -1
+
+// Number of sigma above the median to clip out as background
+SIGSKY      = 2.0
+
+// Source value minimum N sigma above background
+SIGSRC      = 5.0
+
+// Run background2D step (usually finds more sources but takes time)
+DOBGD2D     = 1
+
+// Run convolution step (usually finds more sources)
+DOCONVL     = 1
+
+// Run source cleaning after detection (removes likely contaminants)
+CLEANSRC    = 1
+
+// Lower limit of source sharpness (0 is not sharp)
+SHARP_LO    = 0.4
+
+// Upper limit of source sharpness (1 is sharp)
+SHARP_HI    = 0.9
+
+// Limit of source roundness1 (|roundness|>>0 is less round)
+ROUND1_HI   = 1.0 
+
+// Limit of source roundness2 (|roundness|>>0 is less round)
+ROUND2_HI   = 1.0
+
+// Lower limit on source smoothness (0 is not smooth)
+SMOOTH_LO   = 0.0
+
+// Upper limit on source smoothness (1 is smooth)
+SMOOTH_HI   = 1.0
+
+// Radius (pix) of ricker wavelet 
+RICKER_R    = 1.0
+
+## APERTURE PHOTOMETRY
+// Radius in number of pixels
+APPHOT_R    = 1.5
+
+// Fraction encircled energy (mutually exclusive with APPHOT_R)
+ENCENERGY   = -1 
+
+// Sky annulus inner radius
+SKY_RIN     = 3.0 
+
+// Sky annulus outer radius
+SKY_ROUT    = 4.5  
+
+// Aperture correction file. See full manual for details
+APCORR_FILE = 
 
 ## BACKGROUND ESTIMATION
-BGD_R       = 0          //Aperture masking fixed radius (if zero, starbug will scale radii)
-PROF_SCALE  = 1          //Aperture mask radius profile scaling factor
-PROF_SLOPE  = 0.5        //Aperture mask radius profile slope
-BOX_SIZE    = 2          //Background estimation kernal size (pix)
-BGD_CHECKFILE=           //Output region file to check the aperture mask radii
+// Aperture masking fixed radius (if zero, starbug will scale radii)
+BGD_R       = 0 
+
+// Aperture mask radius profile scaling factor
+PROF_SCALE  = 1.0
+
+// Aperture mask radius profile slope
+PROF_SLOPE  = 0.5 
+
+// Background estimation kernel size (pix)
+BOX_SIZE    = 2
+
+// Output region file to check the aperture mask radii
+BGD_CHECKFILE = 
 
 ## PHOTOMETRY
-AP_FILE     =            //Detection file to use instead of detecting
-BGD_FILE    =            //Background estimation file
-PSF_FILE    =            //Non default PSF file
-USE_WCS     = 1          //When loading an AP_FILE, do you want to use WCS or xy values (if available)
-ZP_MAG      = 8.9        //Zero point (mag) to add to the magnitude columns 
+// Detection file to use instead of detecting
+AP_FILE     = 
 
-CRIT_SEP    =            //minimum distance for grouping (pixels) between two sources
-FORCE_POS   = 0          //Force centroid position (1) or allow psf fitting to fit position too (0)
-DPOS_THRESH = -1         //If allowed to fit position, max separation (arcsec) from source list centroid
-MAX_XYDEV   = 3p         //Maximum deviation from initial guess centroid position
-PSF_SIZE    = -1         //Set fit size of psf (>0) or -1 to take PSF file dimensions
-GEN_RESIDUAL= 0          //Generate a residual image
+// Background estimation file
+BGD_FILE    = 
+
+// Non default PSF file
+PSF_FILE    = 
+
+// When loading an AP_FILE, do you want to use WCS or xy values (if available)
+USE_WCS     = 1
+
+// Zero point (mag) to add to the magnitude columns 
+ZP_MAG      = 8.9 
+
+// Minimum distance for grouping (pixels) between two sources
+CRIT_SEP    = 1.0
+
+// Force centroid position (1) or allow psf fitting to fit position too (0)
+FORCE_POS   = 0
+
+// If allowed to fit position, max separation (arcsec) from source list 
+centroid
+DPOS_THRESH = -1
+
+// Maximum deviation from initial guess centroid position
+MAX_XYDEV   = 3.0
+
+// Set fit size of psf (>0) or -1 to take PSF file dimensions
+PSF_SIZE    = -1
+
+// Generate a residual image
+GEN_RESIDUAL = 0
 
 ## SOURCE STATS
-CALC_CROWD  = 1          //Run crowding metric calculation (execution time scales N^2)
+// Run crowding metric calculation (execution time scales N^2)
+CALC_CROWD  = 1
 
 ## CATALOGUE MATCHING
-MATCH_THRESH= 0.1        // matching separation threshold in units arcsec
-MATCH_COLS  =            // EXTRA columns to include in output matched table i.e sharpness
-NEXP_THRESH = -1         // Keep sources that appear in NUM >= NEXP_THRESH (if -1 keep everything)
-SN_THRESH   = -1         // Remove sources with SN ratio < SN_THRESH before matching (default -1 to not apply this cut)
-BRIDGE_COL  =            // Bridge --band matching NIRCam and MIRI catalogues by ensuring NIRCam catalogue has a match in BRIDGE_COL
+// Matching separation threshold in units arcsec
+MATCH_THRESH = 0.1
 
-## ARTIFICAL STAR TESTS
-NTESTS      = 100        //Number of artificial star tests
-NSTARS      = 10         //Number of stars per artifical test
-SUBIMAGE    = 500        //number of pixels ? to crop around artificial star
-MAX_MAG     = 18.0       //Bright limit of test magnitude
-MIN_MAG     = 28.0       //Faint limit of test magnitude
-PLOTAST     =            //Output AST result as image with this filename
+// EXTRA columns to include in output matched table i.e sharpness
+MATCH_COLS   = 
+
+// Keep sources that appear in NUM >= NEXP_THRESH (if -1 keep everything)
+NEXP_THRESH  = -1
+
+// Remove sources with SN ratio < SN_THRESH before matching 
+(default -1 to not apply this cut)
+SN_THRESH    = -1
+
+// Bridge --band matching NIRCam and MIRI catalogues by ensuring NIRCam 
+catalogue has a match in BRIDGE_COL
+BRIDGE_COL   = 
+
+## ARTIFICIAL STAR TESTS
+// Number of artificial star tests
+NTESTS      = 100
+
+// Number of stars per artificial test
+NSTARS      = 10
+
+// Number of pixels to crop around artificial star
+SUBIMAGE    = 500
+
+// Bright limit of test magnitude
+MAX_MAG     = 18.0
+
+// Faint limit of test magnitude
+MIN_MAG     = 28.0
+
+// Output AST result as image with this filename
+PLOTAST     = 
 
 ## MISC EXTRAS
-REGION_COL  = green      //DS9 region colour
-REGION_SCAL = 1          //Scale region to flux if possible
-REGION_RAD  = 3          //Region radius default
-REGION_XCOL = RA         //X column name to use for region
-REGION_YCOL = DEC        //Y column name to use for region
-REGION_WCS  = 1          //If X/Y column names correspind to WCS values
-"""%get_version()
+// DS9 region colour
+REGION_COL  = green
+
+// Scale region to flux if possible
+REGION_SCAL = 1
+
+// Region radius default
+REGION_RAD  = 3
+
+// X column name to use for region
+REGION_XCOL = RA
+
+// Y column name to use for region
+REGION_YCOL = DEC
+
+// If X/Y column names correspond to WCS values
+REGION_WCS  = 1
+""" % get_version()
 
 def parse_param(line):
     """

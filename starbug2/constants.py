@@ -1,19 +1,62 @@
+# noinspection SpellCheckingInspection
+
 STARBUG_DATA_DIR = "STARBUG_DATDIR"
 
 # url to docs
 URL_DOCS = (
     "https://raw.githubusercontent.com/conornally/starbug2/"
     "refs/heads/main/docs/source/_static/images/starbug.png")
+READ_THE_DOCS_URL = "https://starbug2.readthedocs.io/en/latest/"
+
+# problematic paths
 PLOT_MAIN_TABLE_PATH = (
     "/home/conor/sci/proj/ngc6822/overview/dat/ngc6822.fits")
+MASK_MAIN_TABLE_PATH = (
+    "/home/conor/sci/proj/ngc6822/paper1/dat/ngc6822.fits")
+
+# paths to temp files.
 TMP_OUT = "/tmp/out.reg"
 TMP_FITS = "/tmp/starbug.fits"
 
 # the fits file extension
 FITS_EXTENSION = ".fits"
 
+# HDU extension names
+DQ = "DQ"
+AREA = "AREA"
+WHT = "WHT"
+ERR = "ERR"
+
+# file types
+AP_FILE = "AP_FILE"
+BGD_FILE = "BGD_FILE"
+
+# init parameters
+DET_NAME = "DET_NAME"
+PSF_SIZE = "PSF_SIZE"
+REGION_COL = "REGION_COL"
+REGION_SCAL = "REGION_SCAL"
+REGION_RAD = "REGION_RAD"
+REGION_X_COL = "REGION_XCOL"
+REGION_Y_COL = "REGION_YCOL"
+REGION_WCS = "REGION_WCS"
+
 # colours
 DEFAULT_COLOUR = "green"
+
+## SOURCE FLAGS
+SRC_GOOD = 0
+SRC_BAD = 0x01
+SRC_JMP = 0x02
+SRC_VAR = 0x04 ##source frame mean >5% different from median
+SRC_FIX = 0x08 ##psf fit with fixed centroid
+SRC_UKN = 0x10 ##source unknown
+
+##DQ FLAGS
+DQ_DO_NOT_USE = 0x01
+DQ_SATURATED = 0x02
+DQ_JUMP_DET = 0x04
+
 
 # some binary values.
 VERBOSE = 0x01
@@ -41,17 +84,33 @@ DODEBUG = 0x2000000
 CALCINSTZP = 0x4000000
 APPLYZP = 0x8000000
 
+# option names
+HDU_NAME = "HDUNAME"
+
+# e name common names
+SCI = "SCI"
+BGD = "BGD"
+RES = "RES"
+
 # test states
 EXIT_SUCCESS = 0
 EXIT_FAIL = 1
 EXIT_EARLY = 2
 EXIT_MIXED = 3
 
+# rest success
+REST_SUCCESS_CODE = 200
+
 # tag used table col names
 CAT_NUM = "Catalogue_Number"
 RA = "RA"
 DEC = "DEC"
 FLUX = "flux"
+X_CENTROID = "xcentroid"
+Y_CENTROID = "ycentroid"
+
+## DEFAULT MATCHING COLS
+match_cols = [RA, DEC, "flag", FLUX, "eflux", "NUM"]
 
 # tag for header
 FILTER = "FILTER"
@@ -59,6 +118,19 @@ EXT = "XTENSION"
 IMAGE = "IMAGE"
 BIN_TABLE = "BINTABLE"
 OUTPUT = "OUTPUT"
+STAR_BUG = "STARBUG"
+CALIBRATION_LV = "CALIBLEVEL"
+NAXIS1 = "NAXIS1"
+NAXIS2 = "NAXIS2"
+
+# tags for image header
+DETECTOR = "DETECTOR"
+TELESCOPE = "TELESCOP"
+INSTRUMENT = "INSTRUME"
+BUN_IT = "BUNIT"
+PIXAR_A2 = "PIXAR_A2"
+PIXAR_SR = "PIXAR_SR"
+JWST ="JWST"
 
 # tag used for param file.
 PARAM_FILE_TAG = "PARAMFILE"
@@ -72,10 +144,53 @@ APP_HOT = "APPHOT"
 PSFP_HOT = "PSFPHOT"
 MATCH_OUTPUTS = "MATCHOUTPUTS"
 
-# ?????
-OUTPUT = "OUTPUT"
-VERBOSE_TAG = "VERBOSE"
+# options
 N_CORES = "NCORES"
+FWHM = "FWHM"
+USE_WCS = "USE_WCS"
+CRIT_SEP = "CRIT_SEP"
+FORCE_POS = "FORCE_POS"
+MAX_XY_DEV = "MAX_XYDEV"
+CALC_CROWD = "CALC_CROWD"
+APCORR_FILE = "APCORR_FILE"
+APPHOT_R = "APPHOT_R"
+ENCENERGY = "ENCENERGY"
+SKY_RIN = "SKY_RIN"
+SKY_ROUT = "SKY_ROUT"
+SIGSKY = "SIGSKY"
+ZP_MAG = "ZP_MAG"
+CLEANSRC = "CLEANSRC"
+QUIETMODE = "QUIETMODE"
+BOX_SIZE = "BOX_SIZE"
+BGD_R = "BGD_R"
+PROF_SCALE = "PROF_SCALE"
+PROF_SLOPE = "PROF_SLOPE"
+BGD_CHECKFILE = "BGD_CHECKFILE"
+PSF_FILE = "PSF_FILE"
+GEN_RESIDUAL = "GEN_RESIDUAL"
+
+# match options
+MATCH_THRESH = "MATCH_THRESH"
+
+# match params
+NEXP_THRESH = "NEXP_THRESH"
+ZP_MAG = "ZP_MAG"
+
+
+## HASHDEFS
+MIRI = 1
+NIRCAM = 2
+
+NULL = 0
+LONG = 1
+SHORT = 2
+
+# enum unit
+PIX = 0
+ARCSEC = 1
+ARCMIN = 2
+DEG = 3
+
 
 # how many characters we will allow by default.
 N_MIS_MATCHES = 10

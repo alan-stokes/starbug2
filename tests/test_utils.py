@@ -108,11 +108,11 @@ def test_parse_unit():
 
 def test_rmduplicates():
     lst=["a","b","b","c","b","c"]
-    lst2=utils.rmduplicates(lst)
+    lst2=utils.remove_duplicates(lst)
     assert lst2==["a","b","c"]
 
-    assert utils.rmduplicates([]) == []
-    assert utils.rmduplicates(["a"]) == ["a"]
+    assert utils.remove_duplicates([]) == []
+    assert utils.remove_duplicates(["a"]) == ["a"]
 
 def test_hcascade():
     t1=[[1,1,0],

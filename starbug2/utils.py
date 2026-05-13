@@ -6,9 +6,12 @@ from astropy.io import fits
 from astropy.wcs import WCS
 import starbug2
 import requests
+from importlib.metadata import PackageNotFoundError
 
-from starbug2.constants import CAT_NUM, DEFAULT_COLOUR, RA, DEC, TMP_OUT, FLUX, TMP_FITS, FITS_EXTENSION, FILTER, \
-    N_MIS_MATCHES
+from starbug2.constants import (
+    CAT_NUM, DEFAULT_COLOUR, RA, DEC, TMP_OUT, FLUX, TMP_FITS,
+    FITS_EXTENSION, FILTER, N_MIS_MATCHES, EXIT_SUCCESS, EXIT_FAIL,
+    REST_SUCCESS_CODE)
 
 # different print methods (why are we not using loggers?)
 printf = sys.stdout.write
@@ -45,7 +48,7 @@ def split_file_name(path):
     breaks apart a path into folder, filename and extension.
     :param path: the path to split
     :return: (folder, file name, extension)
-    :rtype: tuple of (str, str, str)
+    :rtype: tuple of str, str, str
     """
     folder, file = os.path.split(path)
     file_name, ext = os.path.splitext(file)
@@ -144,18 +147,18 @@ def export_region(
     """
 
     if x_col not in tab.colnames:
-        x_cols= list(filter(lambda s: 'x'==s[0],tab.colnames))
+        x_cols= list(filter(lambda s: 'x' == s[0], tab.colnames))
         if x_cols:
-            x_col=x_cols[0]
+            x_col = x_cols[0]
             printf("Using '%s' as x position column\n" % s_bold(x_col))
-            wcs=0
+            wcs = 0
 
     if y_col not in tab.colnames:
-        y_cols= list(filter(lambda s: 'y'==s[0],tab.colnames))
+        y_cols = list(filter(lambda s: 'y' == s[0], tab.colnames))
         if y_cols:
-            y_col=y_cols[0]
+            y_col = y_cols[0]
             printf("Using '%s' as y position column\n" % s_bold(y_col))
-            wcs=0
+            wcs = 0
 
     if "flux" in tab.colnames and scale_radius: 
         r = (-40.0 / np.log10(tab[FLUX]))
@@ -230,7 +233,7 @@ def tab2array(tab, col_names=None):
     if not col_names:
         col_names=tab.col_names
     else:
-        col_names=rmduplicates(col_names)
+        col_names=remove_duplicates(col_names)
     return np.array(tab[col_names].as_array().tolist())
 
 def collapse_header(header):
@@ -502,37 +505,37 @@ def flux_2_ab_mag(flux, flux_err=None):
 
 def wget(address, f_name=None):
     """
-    A really simple "implementation" of wget
+    A really simple "implementation" of wget.
 
-    Parameters
-    ----------
-    address : str
-        URL to download
-
-    f_name : str
-        Filename to save output to
-
-    Returns
-    -------
-    status : int
-        0 on success, 1 on failure
+    :param address: URL to download
+    :type address: str
+    :param f_name: Filename to save output to
+    :type f_name: str
+    :return: 0 on success, 1 on failure
+    :rtype int
     """
-    r=requests.get(address)
-    if r.status_code==200:
-        f_name=f_name if f_name else os.path.basename(address)
+    r = requests.get(address)
+    if r.status_code == REST_SUCCESS_CODE:
+        f_name = f_name if f_name else os.path.basename(address)
         with open(f_name, "wb") as fp:
             for chunk in r.iter_content(chunk_size=128):
                 fp.write(chunk)
-        return 0
+        return EXIT_SUCCESS
     else:
         p_error("Unable to download \"%s\"\n" % address)
-        return 1
+        return EXIT_FAIL
 
 
 def reindex(table):
     """
     Add indexes into a table
+
+    :param table: the table to reindex
+    :type table: atrophy.Table
+    :return: the reindex-ed table
+    :rtype: atrophy.Table
     """
+
     if CAT_NUM in table.col_names:
         table.remove_column(CAT_NUM)
     column = Column(
@@ -540,128 +543,115 @@ def reindex(table):
     table.add_column(column, index=0)
     return table
 
-def colour_index(table,keys):
+def colour_index(table, keys):
     """
     Allow table indexing with A-B
+
+    :param table: table to colour index.
+    :type table: atrophy.Table
+    :param keys: column names to index.
+    :return: A table which has only columns defined in keys.
+    :rtype: atrophy.Table
     """
-    out=Table()
+
+    out = Table()
     for key in keys:
-        if key in table.col_names: out.add_column(table[key])
+        if key in table.col_names:
+            out.add_column(table[key])
         elif '-' in key:
-            a,b=key.split('-')
-            out.add_column(table[a]-table[b],name=key)
+            a, b = key.split('-')
+            out.add_column(table[a] - table[b], name=key)
     return out
 
-def get_MJysr2Jy_scalefactor(ext):
+def get_mj_ysr2jy_scale_factor(ext):
     """
     Find the unit scale factor to convert an image from MJy/sr to Jy
     Header file must contain the keyword "PIXAR_SR"
-    
-    Parameters
-    ----------
-    ext : PrimaryHDU,ImageHDU,BinaryTableHDU
-        Fits extension with header file
 
-    Returns
-    -------
-    scalefactor : float
-        Value of scaling factor from the header
+    :param ext: Fits extension with header file
+    :type ext: PrimaryHDU, ImageHDU, BinaryTableHDU
+    :return: Value of scaling factor from the header
+    :rtype float
     """
-    scalefactor=1
-    if ext.header.get("BUNIT")=="MJy/sr":
+    scale_factor = 1
+    if ext.header.get("BUNIT") == "MJy/sr":
         if "PIXAR_SR" in ext.header:
-            scalefactor=1e6*float(ext.header["PIXAR_SR"])
-    return scalefactor
+            scale_factor = 1e6 * float(ext.header["PIXAR_SR"])
+    return scale_factor
 
 def find_filter(table):
     """
-    Attempt to identify filter for a table from the meta data or column names
+    Attempt to identify filter for a table from the metadata or column names
 
-    Parameters
-    ----------
-    table : `astropy.table.Table`
-        Table to work on
-
-    Returns
-    -------
-    filter : str
-        Identified filter value, otherwise None
+    :param table: Table to work on.
+    :type table: astropy.table.Table
+    :return: Identified filter value, otherwise None.
+    :rtype str
     """
-    fltr=None
-    if not (fltr:=table.meta.get("FILTER")):
-        lst=(set(table.colnames)&set(starbug2.filters.keys()))
-        if lst: fltr= lst.pop()
-    return fltr
+    if not (filter_string := table.meta.get(FILTER)):
+        lst = (set(table.colnames) & set(starbug2.filters.keys()))
+        if lst:
+            filter_string = lst.pop()
+            return filter_string
+    return None
 
 def get_version():
     """
     Try to determine the installed starbug version on the system
 
-    Returns
-    -------
-    version : str
-        Starbug2 installed version
+    :return: the StarBugII version string
+    :rtype str
     """
+
     try:
         version = metadata.version("starbug2")
-    except:
-        version="UNKNOWN" ## Github pytest work around for now
+    except (AttributeError, TypeError, PackageNotFoundError):
+        ## GitHub pytest work around for now
+        version = "UNKNOWN"
     return version
 
-def rmduplicates(seq):
+def remove_duplicates(seq):
     """
-    Take a sequence and rm its duplicates while preserving the order
+     Take a sequence and rm its duplicates while preserving the order
     of the input
 
-    Parameters
-    ----------
-    seq : list
-        Input list to work on
-
-    Returns
-    -------
-    result : list
-        A copy of the list with the duplicate elements removed
+    :param seq: Input list to work on
+    :type seq: list of <T>
+    :return: A copy of the list with the duplicate elements removed
+    :rtype list of <T>
     """
     seen = set()
     return [x for x in seq if not (x in seen or seen.add(x))]
 
-def cropHDU(hdu, xlim=None, ylim=None):
+def crop_hdu(hdu, x_limit=None, y_limit=None):
     """
     Crop an image with multiple extensions. Retaining the extensions
 
-    Parameters
-    ----------
-    hdu : fits.HDUList
-        A multi frame fits HDUList
-
-    xlim : list
-        Pixel X bounds to crop image between
-
-    ylim : list
-        Pixel Y bounds to crop image between
-
-    Returns
-    -------
-    hdu : fits.HDUList
-        The full HDUList that has been spatially cropped
+    :param hdu: A multi frame fits HDUList
+    :type hdu: fits.HDUList
+    :param x_limit: Pixel X bounds to crop image between
+    :type x_limit: list of ?????
+    :param y_limit: Pixel Y bounds to crop image
+    :type y_limit: list of ????
+    :return: The full HDUList that has been spatially cropped
+    :rtype fits.HDUList
     """
-    if xlim is None or ylim is None: return None
+    if x_limit is None or y_limit is None: return None
 
     for ext in hdu:
-        if type(ext) not in (fits.PrimaryHDU, fits.ImageHDU): continue
-        if not ext.header["NAXIS"]: continue
+        if type(ext) not in (fits.PrimaryHDU, fits.ImageHDU):
+            continue
+        if not ext.header["NAXIS"]:
+            continue
         
-        ctype=ext.header.get("CTYPE") 
-        #if ctype and "-SIP" in ctype:
-        ext.header["CTYPE"]="%s-SIP"%ctype
-            #ext.header["CTYPE"]=ctype.replace("-SIP","")
+        ctype = ext.header.get("CTYPE")
+        ext.header["CTYPE"] = "%s-SIP" % ctype
 
-        w=WCS(ext.header,relax=False)
-        ext.data=ext.data[ xlim[0]:xlim[1], ylim[0]:ylim[1] ]
-        ext.header.update( w[ xlim[0]:xlim[1], ylim[0]:ylim[1]].to_header())
+        w = WCS(ext.header, relax=False)
+        ext.data = ext.data[x_limit[0]:x_limit[1], y_limit[0]:y_limit[1]]
+        ext.header.update(
+            w[x_limit[0]:x_limit[1], y_limit[0]:y_limit[1]].to_header())
     return hdu
-        
 
 
 if __name__ == "__main__":

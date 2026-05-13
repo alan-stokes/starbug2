@@ -10,7 +10,7 @@ except:
     import matplotlib; matplotlib.use("TkAgg")
     import matplotlib.pyplot as plt
 
-from starbug2.utils import printf,p_error, cropHDU, get_MJysr2Jy_scalefactor, warn
+from starbug2.utils import printf,p_error, crop_hdu, get_mj_ysr2jy_scale_factor, warn
 from starbug2.matching import GenericMatch
 
 class Artificial_StarsIII():
@@ -70,7 +70,7 @@ class Artificial_StarsIII():
         """
 
         test_result=Table(np.full((ntests*stars_per_test,8),np.nan), names=["x_0","y_0","mag","flux","x_det","y_det","flux_det", "status"])
-        scalefactor= get_MJysr2Jy_scalefactor(self.starbug.image)
+        scalefactor= get_mj_ysr2jy_scale_factor(self.starbug.image)
         base_image=self.starbug._image.copy()
         base_shape=np.copy(self.starbug.image.shape)
         stars_per_test=int(stars_per_test)
@@ -95,7 +95,7 @@ class Artificial_StarsIII():
             image=base_image.__deepcopy__()
             #image=self.create_subimage( base_image.__deepcopy__(), subimage_size, position=centre, hdu=self.st
 
-            shape=image[self.starbug._nHDU].shape
+            shape=image[self.starbug._n_hdu].shape
 
             sourcelist= make_random_models_table( stars_per_test, { "x_0":[buffer,shape[0]-buffer],
                                                                     "y_0":[buffer,shape[1]-buffer],
@@ -105,7 +105,7 @@ class Artificial_StarsIII():
 
             #image[self.starbug._nHDU].data*=0
             star_overlay=make_model_image( shape, self.psf, sourcelist,model_shape=self.psf.shape)/scalefactor
-            image[self.starbug._nHDU].data+=star_overlay
+            image[self.starbug._n_hdu].data+=star_overlay
             self.starbug._image=image
             
             n=len(sourcelist)
@@ -194,7 +194,7 @@ class Artificial_StarsIII():
         x_end =  int(min( position[0]+(size/2), imshape[0]-buffer))
         y_end =  int(min( position[1]+(size/2), imshape[1]-buffer))
 
-        return cropHDU(image,xlim=(x_edge,x_end),ylim=(y_edge,y_end)), x_edge, y_edge
+        return crop_hdu(image, x_limit=(x_edge, x_end), y_limit=(y_edge, y_end)), x_edge, y_edge
 
 def get_completeness(test_result):
     """
