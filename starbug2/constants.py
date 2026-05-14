@@ -1,12 +1,34 @@
 # noinspection SpellCheckingInspection
 
 STARBUG_DATA_DIR = "STARBUG_DATDIR"
+WEBBPSF_PATH_ENV_VAR = "WEBBPSF_PATH"
 
 # url to docs
 URL_DOCS = (
     "https://raw.githubusercontent.com/conornally/starbug2/"
     "refs/heads/main/docs/source/_static/images/starbug.png")
 READ_THE_DOCS_URL = "https://starbug2.readthedocs.io/en/latest/"
+
+# fit urls
+JWST_MIRI_APCORR_0010_FITS_URL = (
+    "https://jwst-crds.stsci.edu/unchecked_get/references/jwst/"
+    "jwst_miri_apcorr_0010.fits"
+)
+JWST_NIRCAM_APCORR_0004_FITS_URL = (
+    "https://jwst-crds.stsci.edu/unchecked_get/references/jwst/"
+    "jwst_nircam_apcorr_0004.fits"
+)
+
+# abvega offset urls
+JWST_MIRI_ABVEGA_OFFSET_URL = (
+    "https://jwst-crds.stsci.edu/unchecked_get/references/jwst/"
+    "jwst_miri_abvegaoffset_0001.asdf"
+)
+JWST_NIRCAM_ABVEGA_OFFSET_URL = (
+    "https://jwst-crds.stsci.edu/unchecked_get/references/jwst/"
+    "jwst_nircam_abvegaoffset_0002.asdf"
+)
+
 
 # problematic paths
 PLOT_MAIN_TABLE_PATH = (
@@ -20,6 +42,7 @@ TMP_FITS = "/tmp/starbug.fits"
 
 # the fits file extension
 FITS_EXTENSION = ".fits"
+FILE_NAME = "FILENAME"
 
 # HDU extension names
 DQ = "DQ"
@@ -106,13 +129,20 @@ CAT_NUM = "Catalogue_Number"
 RA = "RA"
 DEC = "DEC"
 FLUX = "flux"
+E_FLUX = "eflux"
 X_CENTROID = "xcentroid"
 Y_CENTROID = "ycentroid"
+X_PEAK = "x_peak"
+Y_PEAK = "y_peak"
+EE_FRACTION = "eefraction"
+RADIUS = "radius"
+AP_CORR = "apcorr"
 
 ## DEFAULT MATCHING COLS
 match_cols = [RA, DEC, "flag", FLUX, "eflux", "NUM"]
 
 # tag for header
+FILTER_LOWER = "filter"
 FILTER = "FILTER"
 EXT = "XTENSION"
 IMAGE = "IMAGE"
@@ -120,8 +150,10 @@ BIN_TABLE = "BINTABLE"
 OUTPUT = "OUTPUT"
 STAR_BUG = "STARBUG"
 CALIBRATION_LV = "CALIBLEVEL"
+NAXIS = "NAXIS"
 NAXIS1 = "NAXIS1"
 NAXIS2 = "NAXIS2"
+C_TYPE = "CTYPE"
 
 # tags for image header
 DETECTOR = "DETECTOR"
@@ -180,6 +212,7 @@ ZP_MAG = "ZP_MAG"
 ## HASHDEFS
 MIRI = 1
 NIRCAM = 2
+NIRCAM_STRING = "NIRCAM"
 
 NULL = 0
 LONG = 1

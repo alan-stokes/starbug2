@@ -10,16 +10,16 @@ class Test_Detection():
     b=Table([[20,10,50],[20,10,0]],names=["xcentroid","ycentroid"])
 
     def test_Detection_Routine_none(self):
-        dt=routines.Detection_Routine()
+        dt=routines.DetectionRoutine()
         assert dt.find_stars(None) is None
 
     def test_Detection_Routine_crashes(self):
-        dt=routines.Detection_Routine()
+        dt=routines.DetectionRoutine()
         out=dt.find_stars(self.im.copy())
         assert out is not None
 
     def test_Detection_match(self):
-        dt=routines.Detection_Routine()
+        dt=routines.DetectionRoutine()
         _a=self.a.copy()
         _b=self.b.copy()
         c=dt.match(_a,_b)
@@ -29,7 +29,7 @@ class Test_Detection():
         assert len(c)==4
 
     def test_bkg2d(self):
-        b=routines.Detection_Routine()._bkg2d(self.im.copy())
+        b=routines.DetectionRoutine()._bkg2d(self.im.copy())
         assert type(b)==type(self.im)
         assert b.shape==self.im.shape
 

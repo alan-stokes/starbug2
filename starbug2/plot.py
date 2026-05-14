@@ -12,9 +12,8 @@ import matplotlib.image as mpimg
 from matplotlib.colors import LinearSegmentedColormap
 
 from astropy.wcs import WCS
-
-import starbug2
 from starbug2 import utils
+from starbug2.filters import filters as filter_data
 
 # try to import pyplot as plt.
 try: import matplotlib.pyplot as plt
@@ -131,7 +130,7 @@ def plot_cmd(
     if hess:
         bins = 100
         f = _generate_regular_grid_interpolator(cc, mm, bins)
-        col = [f([X,Y]) for X,Y in zip(cc,mm)]
+        col = [f([X,Y]) for X,Y in zip(cc, mm)]
     pyplot_kw = {"lw":0,"s":3}
     pyplot_kw.update(kwargs)
     ax.scatter(cc, mm, c=col, cmap=cmap, **pyplot_kw)
@@ -161,7 +160,7 @@ def plot_inspect_source(src, images):
         axs=[axs]
     images = sorted(
         images, key=lambda a:
-            list(starbug2.filters.keys()).index(a.header[FILTER]))
+            list(filter_data.keys()).index(a.header[FILTER]))
 
     #arcsec?
     size = 0.1

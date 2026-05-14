@@ -2,6 +2,7 @@ from starbug2.constants import NIRCAM, SHORT, LONG, NULL, MIRI
 
 
 class _F: #(struct) containing JWST filter info
+    # noinspection SpellCheckingInspection, PyPep8Naming
     def __init__(self, wavelength, aFWHM, pFWHM, instr, length):
         self.wavelength = wavelength
         self.aFWHM = aFWHM

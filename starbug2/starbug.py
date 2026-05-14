@@ -1,5 +1,6 @@
 import os
 import sys
+from os import getenv
 
 from astropy.wcs import WCS, NoConvergence
 import numpy as np
@@ -9,7 +10,6 @@ from astropy.stats import sigma_clipped_stats
 from photutils.datasets import make_model_image
 from photutils.psf import FittableImageModel
 
-from starbug2 import DATDIR
 from starbug2.constants import (
     VERBOSE, FILTER, STAR_BUG, CALIBRATION_LV, DETECTOR, TELESCOPE,
     INSTRUMENT, BUN_IT, PIXAR_A2, PIXAR_SR, HDU_NAME, SCI, BGD, RES,
@@ -19,12 +19,16 @@ from starbug2.constants import (
     DQ_DO_NOT_USE, DQ_SATURATED, NAXIS1, NAXIS2, CALC_CROWD, ERR,
     EXIT_SUCCESS, EXIT_FAIL, APCORR_FILE, APPHOT_R, ENCENERGY, SKY_RIN,
     SKY_ROUT, SIGSKY, ZP_MAG, CLEANSRC, QUIETMODE, BOX_SIZE, BGD_R,
-    PROF_SCALE, PROF_SLOPE, BGD_CHECKFILE, PSF_FILE, PSF_SIZE, GEN_RESIDUAL)
+    PROF_SCALE, PROF_SLOPE, BGD_CHECKFILE, PSF_FILE, PSF_SIZE, GEN_RESIDUAL,
+    NIRCAM_STRING, STARBUG_DATA_DIR)
 from starbug2.filters import filters
 from starbug2.param import load_params, load_default_params
-from starbug2.routines import (
-    Detection_Routine, APPhotRoutine, BackGround_Estimate_Routine,
-    PSFPhot_Routine, SourceProperties)
+from starbug2.routines.app_hot_routine import APPhotRoutine
+from starbug2.routines.background_estimate_routine import (
+    BackGroundEstimateRoutine)
+from starbug2.routines.detection_routines import DetectionRoutine
+from starbug2.routines.psf_phot_routine import PSFPhotRoutine
+from starbug2.routines.source_properties import SourceProperties
 from starbug2.utils import (
     collapse_header, parse_unit, get_version, ext_names, printf,
     split_file_name, p_error, warn, import_table, get_mj_ysr2jy_scale_factor,
@@ -38,6 +42,16 @@ class StarbugBase(object):
     It is self-contained enough to simply run "photometry" and everything
     should just take care of itself from there on.
     """
+
+    @staticmethod
+    def get_data_path():
+        """
+        returns the data path.
+        :return: the data path
+        """
+        env_path = getenv(STARBUG_DATA_DIR)
+        return (env_path if env_path else
+                "%s/.local/share/starbug" % (getenv("HOME")))
 
     @staticmethod
     def sort_output_names(f_name, param_output=None):
@@ -166,6 +180,7 @@ class StarbugBase(object):
 
     @property
     def image(self):
+        # noinspection SpellCheckingInspection
         """
         automagically find the main image array to use
         Order of importance is:
@@ -184,7 +199,7 @@ class StarbugBase(object):
             return self._image[self._n_hdu]
         e_names = ext_names(self._image)
 
-        ## HDUNAME in param file
+        ## HDU_NAME in param file
         n = self._options[HDU_NAME]
         if n and n in e_names:
             self._n_hdu = e_names.index(n)
@@ -230,7 +245,7 @@ class StarbugBase(object):
 
         :param f_name: Filename of fits image (with any number of extensions).
             If using a non-standard HDU index, set the name or index of the
-            extension with "HDUNAME=XXX" in the parameter file.
+            extension with "HDU_NAME=XXX" in the parameter file.
         :type f_name: str
         :return: None
         """
@@ -329,7 +344,7 @@ class StarbugBase(object):
 
             if self._options.get(USE_WCS):
                 if len(column_names & {RA, DEC}) == 2:
-                    self.log("-> using RADEC coordinates\n")
+                    self.log("-> using RA-DEC coordinates\n")
                     try:
                         xy = self._wcs.all_world2pix(
                             self._detections[RA], self._detections[DEC], 0)
@@ -417,7 +432,8 @@ class StarbugBase(object):
                         dt_name = ""
                 if dt_name == "MIRIMAGE":
                     dt_name = ""
-                f_name= "%s/%s%s.fits" % (DATDIR, self._filter, dt_name)
+                f_name = "%s/%s%s.fits" % (
+                    StarbugBase.get_data_path(), self._filter, dt_name)
             else:
                 status = 1
         if os.path.exists(f_name):
@@ -503,21 +519,21 @@ class StarbugBase(object):
                 full_width_half_max = 2
 
             # noinspection SpellCheckingInspection
-            detector=Detection_Routine(
+            detector=DetectionRoutine(
                 sig_src=self._options["SIGSRC"],
                 sig_sky=self._options["SIGSKY"],
-                fwhm=full_width_half_max,
-                sharplo=self._options["SHARP_LO"],
-                sharphi=self._options["SHARP_HI"],
-                round1hi=self._options["ROUND1_HI"],
-                round2hi=self._options["ROUND2_HI"],
-                smoothlo=self._options["SMOOTH_LO"],
-                smoothhi=self._options["SMOOTH_HI"],
+                full_width_half_max=full_width_half_max,
+                sharp_lo=self._options["SHARP_LO"],
+                sharp_hi=self._options["SHARP_HI"],
+                round_1_hi=self._options["ROUND1_HI"],
+                round_2_hi=self._options["ROUND2_HI"],
+                smooth_lo=self._options["SMOOTH_LO"],
+                smooth_hi=self._options["SMOOTH_HI"],
                 ricker_r=self._options["RICKER_R"],
-                dobgd2d=self._options["DOBGD2D"],
-                doconvl=self._options["DOCONVL"],
-                boxsize=int(self._options["BOX_SIZE"]),
-                cleansrc=self._options["CLEANSRC"],
+                do_bgd_2d=self._options["DOBGD2D"],
+                do_con_vl=self._options["DOCONVL"],
+                box_size=int(self._options["BOX_SIZE"]),
+                clean_src=self._options["CLEANSRC"],
                 verbose=self._options["VERBOSE"])
 
             self._detections = detector(self.image.data.copy())[
@@ -540,7 +556,7 @@ class StarbugBase(object):
         return status
 
 
-
+    # noinspection SpellCheckingInspection
     def aperture_photometry(self):
         """
         executes aperture photometry
@@ -575,14 +591,16 @@ class StarbugBase(object):
         ap_corr_f_name=None
         if _ap_corr_f_name := self._options.get(APCORR_FILE):
             ap_corr_f_name = _ap_corr_f_name
-        elif   self._info.get(INSTRUMENT) == "NIRCAM":
-            ap_corr_f_name = "%s/apcorr_nircam.fits" % DATDIR
+        elif   self._info.get(INSTRUMENT) == NIRCAM_STRING:
+            ap_corr_f_name = (
+                "%s/apcorr_nircam.fits" % StarbugBase.get_data_path())
         elif self._info.get(INSTRUMENT) == "MIRI":
-            ap_corr_f_name = "%s/apcorr_miri.fits" % DATDIR
+            ap_corr_f_name = (
+                "%s/apcorr_miri.fits" % StarbugBase.get_data_path())
 
         if ap_corr_f_name:
             self.log("-> apcorr file: %s\n" % ap_corr_f_name)
-        else: 
+        else:
             warn("No apcorr file available for instrument\n")
 
         radius = self._options[APPHOT_R]
@@ -591,7 +609,7 @@ class StarbugBase(object):
         sky_out = self._options[SKY_ROUT]
 
         if ee_frac >= 0:
-            radius = APPhotRoutine.radius_from_encenrgy(
+            radius = APPhotRoutine.radius_from_enc_energy(
                 self._filter, ee_frac, ap_corr_f_name)
             if radius > 0:
                 self.log(
@@ -603,8 +621,8 @@ class StarbugBase(object):
             else:
                 radius = 2
 
-        ap_corr = APPhotRoutine.calc_apcorr(
-            self._filter, radius, table_fname=ap_corr_f_name,
+        ap_corr = APPhotRoutine.calc_ap_corr(
+            self._filter, radius, table_f_name=ap_corr_f_name,
             verbose=self._options[VERBOSE])
 
         ##################
@@ -688,9 +706,10 @@ class StarbugBase(object):
                      | np.isnan(source_list[Y_CENTROID]))
 
 
-            bgd=BackGround_Estimate_Routine(
-                source_list[mask], boxsize=int(self._options[BOX_SIZE]),
-                fwhm=full_width_half_max, sigsky=self._options[SIGSKY],
+            bgd = BackGroundEstimateRoutine(
+                source_list[mask], box_size=int(self._options[BOX_SIZE]),
+                full_width_half_max=full_width_half_max,
+                sig_sky=self._options[SIGSKY],
                 bgd_r=self._options[BGD_R],
                 profile_scale=self._options[PROF_SCALE],
                 profile_slope=self._options[PROF_SLOPE],
@@ -736,10 +755,11 @@ class StarbugBase(object):
             overwrite=True)
         return EXIT_SUCCESS
 
+    # noinspection SpellCheckingInspection
     def photometry(self):
         """
         Full photometry routine
-        Saves the result as a table self._psfcatalogue,
+        Saves the result as a table self._psf_catalogue,
         Additionally it appends a residual Image onto the
         self._residuals HDUList
 
@@ -834,18 +854,18 @@ class StarbugBase(object):
                 min_separation = min(5, 2.5 * self._options.get(FWHM))
 
             if self._options[FORCE_POS]:
-                phot = PSFPhot_Routine(
+                phot = PSFPhotRoutine(
                     psf_model, size, min_separation=min_separation,
-                    apphot_r=app_hot_r, background=bgd, force_fit=1,
+                    app_hot_r=app_hot_r, background=bgd, force_fit=1,
                     verbose=self._options[VERBOSE])
                 psf_cat = phot(
                     image,init_params=init_guesses, error=error, mask=mask)
                 psf_cat["flag"] |= SRC_FIX
 
             else:
-                phot = PSFPhot_Routine(
+                phot = PSFPhotRoutine(
                     psf_model, size, min_separation=min_separation,
-                    apphot_r=app_hot_r, background=bgd, force_fit=0,
+                    app_hot_r=app_hot_r, background=bgd, force_fit=0,
                     verbose=self._options[VERBOSE])
                 psf_cat = phot(
                     image,init_params=init_guesses, error=error, mask=mask)
@@ -877,9 +897,9 @@ class StarbugBase(object):
                 if max_y_dev > 0:
                     self.log(
                         "-> position fit threshold: %.2gpix\n" % max_y_dev)
-                    phot = PSFPhot_Routine(
+                    phot = PSFPhotRoutine(
                         psf_model, size, min_separation=min_separation,
-                        apphot_r=app_hot_r, background=bgd, force_fit=1,
+                        app_hot_r=app_hot_r, background=bgd, force_fit=1,
                         verbose=self._options[VERBOSE])
                     ii = np.where(psf_cat["xydev"] > max_y_dev)
                     fixed_centres = psf_cat[ii][
@@ -965,7 +985,7 @@ class StarbugBase(object):
                 data=self._source_stats, header=self.header).writeto(
                     f_name, overwrite=True)
 
-
+    # noinspection SpellCheckingInspection
     def verify(self):
         """
         This simple function verifies that everything necessary has been
@@ -984,7 +1004,7 @@ class StarbugBase(object):
                  "use \"-s FILTER=XXX\"\n")
             status = 1
 
-        d_name = os.path.expandvars(DATDIR)
+        d_name = os.path.expandvars(StarbugBase.get_data_path())
         if not os.path.exists(d_name):
             warn("Unable to locate STARBUG_DATDIR='%s'\n" % d_name)
 

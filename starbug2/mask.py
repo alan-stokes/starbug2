@@ -26,6 +26,7 @@ class Mask(object):
 
     @staticmethod
     def from_string(string):
+        # noinspection SpellCheckingInspection
         """
         method to create a mask object from a string. the string should be
         in the following format:

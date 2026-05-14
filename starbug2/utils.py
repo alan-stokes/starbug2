@@ -4,14 +4,14 @@ from importlib import metadata
 from astropy.table import Table, hstack, Column, MaskedColumn, vstack
 from astropy.io import fits
 from astropy.wcs import WCS
-import starbug2
 import requests
 from importlib.metadata import PackageNotFoundError
 
 from starbug2.constants import (
     CAT_NUM, DEFAULT_COLOUR, RA, DEC, TMP_OUT, FLUX, TMP_FITS,
     FITS_EXTENSION, FILTER, N_MIS_MATCHES, EXIT_SUCCESS, EXIT_FAIL,
-    REST_SUCCESS_CODE)
+    REST_SUCCESS_CODE, DEG, ARCMIN, ARCSEC, PIX, NAXIS, C_TYPE)
+from starbug2.filters import filters
 
 # different print methods (why are we not using loggers?)
 printf = sys.stdout.write
@@ -139,7 +139,7 @@ def export_region(
     :type x_col: str
     :param y_col: Y column name to use
     :type y_col: str
-    :param wcs: Boolean if the xycols use WCS system
+    :param wcs: Boolean if the x/y_cols use WCS system
     :type wcs: int.
     :param f_name: Filename to output to
     :type f_name: str
@@ -179,6 +179,7 @@ def export_region(
             p_error("unable to open %f\n" % f_name)
 
 def parse_unit(raw):
+    # noinspection SpellCheckingInspection
     """
     Take a value with the ability to be cast into several units and parse it
     i.e. 123p -> 123 'pixels'
@@ -196,10 +197,10 @@ def parse_unit(raw):
     """
 
     recognised = {
-        'p': starbug2.PIX,
-        's': starbug2.ARCSEC,
-        'm': starbug2.ARCMIN,
-        'd': starbug2.DEG}
+        'p': PIX,
+        's': ARCSEC,
+        'm': ARCMIN,
+        'd': DEG}
     value = None
     unit = None
     if raw:
@@ -215,6 +216,7 @@ def parse_unit(raw):
     return value, unit
 
 def tab2array(tab, col_names=None):
+    # noinspection SpellCheckingInspection
     """
     Returns the contents of the table as a normal 2D numpy array
     NB: this is different from Table.asarray(), which returns an array of
@@ -237,6 +239,7 @@ def tab2array(tab, col_names=None):
     return np.array(tab[col_names].as_array().tolist())
 
 def collapse_header(header):
+    # noinspection SpellCheckingInspection
     """
     Convert a dictionary to a Header.
     Parameters in PARAMFILES have keys longer than 8 chars
@@ -336,9 +339,9 @@ def fill_nan(table):
 
 def find_col_names(tab, basename):
     """
-    Find substring (basename) within the table colnames. Searches for
+    Find substring (basename) within the table col_names. Searches for
     substring at the beginning of the word I.E search for "flux" in
-    ("flux_out","flux_err","dflux") returns as ("flux_out","flux_err")
+    ("flux_out","flux_err","d_flux") returns as ("flux_out","flux_err")
 
     :param tab: Table to operate on
     :type tab: atrophy.table
@@ -384,6 +387,7 @@ def combine_file_names(f_names, n_mismatch=N_MIS_MATCHES):
 
 
 def h_cascade(tables, col_names=None):
+    # noinspection SpellCheckingInspection
     """
     Similar use as hstack Except rather than adding a full new column,
     the inserted value is placed into the leftmost empty column
@@ -391,7 +395,7 @@ def h_cascade(tables, col_names=None):
     :param tables: Table to h_cascade.
     :type tables: list of atrophy.Table
     :param col_names: List of column names to include in the stacking.
-        If colnames=None, use all possible columns
+        If col_names=None, use all possible columns
     :type col_names: list of str
     :return: Single combined table
     :rtype: atrophy.Table
@@ -468,7 +472,7 @@ def flux2mag(flux, flux_err=None, zp=1):
     if not flux.shape:
         flux = np.array([flux])
 
-    # sort type issues in FLUXERR
+    # sort type issues in flux_err
     if flux_err is None:
         flux_err = np.zeros(len(flux))
     if type(flux_err) != np.array:
@@ -586,10 +590,10 @@ def find_filter(table):
     :param table: Table to work on.
     :type table: astropy.table.Table
     :return: Identified filter value, otherwise None.
-    :rtype str
+    :rtype: str
     """
     if not (filter_string := table.meta.get(FILTER)):
-        lst = (set(table.colnames) & set(starbug2.filters.keys()))
+        lst = (set(table.colnames) & set(filters.keys()))
         if lst:
             filter_string = lst.pop()
             return filter_string
@@ -641,11 +645,11 @@ def crop_hdu(hdu, x_limit=None, y_limit=None):
     for ext in hdu:
         if type(ext) not in (fits.PrimaryHDU, fits.ImageHDU):
             continue
-        if not ext.header["NAXIS"]:
+        if not ext.header[NAXIS]:
             continue
         
-        ctype = ext.header.get("CTYPE")
-        ext.header["CTYPE"] = "%s-SIP" % ctype
+        ctype = ext.header.get(C_TYPE)
+        ext.header[C_TYPE] = "%s-SIP" % ctype
 
         w = WCS(ext.header, relax=False)
         ext.data = ext.data[x_limit[0]:x_limit[1], y_limit[0]:y_limit[1]]

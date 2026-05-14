@@ -47,8 +47,16 @@ To see more detailed information on an option, run [OPTION] --help:
 See https://starbug2.readthedocs.io for full documentation.
 
 """
-import os, sys, getopt
 
+# quietens astropy so that it doesn't flood the terminal with warnings.
+# ABS this seems concerning, if they're producing warnings we should be
+# exploring those.
+import warnings
+from astropy.utils.exceptions import AstropyWarning
+warnings.simplefilter("ignore", category=AstropyWarning)
+warnings.simplefilter("ignore", category=RuntimeWarning) ## bit dodge that
+
+import os, sys, getopt
 import numpy as np
 
 from starbug2.constants import (
@@ -57,8 +65,9 @@ from starbug2.constants import (
     GENRATPSF, UPDATEPRM, GENRATRUN, GENRATREG, REGION_TAB, DETECTION,
     BACKGROUND, APP_HOT, PSFP_HOT, MATCH_OUTPUTS, OUTPUT, APPLYZP, CALCINSTZP,
     LOGO, HELP_STRINGS, N_CORES, EXIT_EARLY, EXIT_SUCCESS, EXIT_FAIL,
-    EXIT_MIXED, READ_THE_DOCS_URL, FILTER, DET_NAME, PSF_SIZE, MATCH_THRESH, NEXP_THRESH, ZP_MAG, AP_FILE, BGD_FILE,
-    FITS_EXTENSION, REGION_COL, REGION_SCAL, REGION_RAD, REGION_X_COL, REGION_Y_COL, REGION_WCS)
+    EXIT_MIXED, READ_THE_DOCS_URL, FILTER, DET_NAME, PSF_SIZE, MATCH_THRESH,
+    NEXP_THRESH, ZP_MAG, AP_FILE, BGD_FILE, FITS_EXTENSION, REGION_COL,
+    REGION_SCAL, REGION_RAD, REGION_X_COL, REGION_Y_COL, REGION_WCS)
 from starbug2.utils import (
     p_error, printf, get_version, warn, split_file_name, export_region,
     combine_file_names, export_table, puts)
@@ -324,7 +333,7 @@ def starbug_match_outputs(starbugs, options, set_opt):
     if options & (DODETECT | DOAPPHOT):
         full = match( [sb.detections for sb in starbugs], join_type="or")
         av = match.finish_matching(
-            full, num_thresh=params[NEXP_THRESH], zpmag=params[ZP_MAG])
+            full, num_thresh=params[NEXP_THRESH], zp_mag=params[ZP_MAG])
 
         printf("-> %s-ap*...\n" % f_name)
 
@@ -337,7 +346,7 @@ def starbug_match_outputs(starbugs, options, set_opt):
     if options & DOPHOTOM:
         full = match( [sb.psfcatalogue for sb in starbugs], join_type="or")
         av = match.finish_matching(
-            full, num_thresh=params[NEXP_THRESH], zpmag=params[ZP_MAG])
+            full, num_thresh=params[NEXP_THRESH], zp_mag=params[ZP_MAG])
 
         printf("-> %s-psf*...\n" % f_name)
 
@@ -400,7 +409,8 @@ def fn(args):
                 star_bug_base.photometry()
 
             if options & DOARTIFL:
-                star_bug_base.artificial_stars()
+                p_error("Artificial stars has no functional implementation\n")
+
         else:
             p_error("file must be type '.fits' not %s\n" % ext)
     else:

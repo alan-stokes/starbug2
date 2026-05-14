@@ -1,5 +1,5 @@
 """StarbugII Plotting Scripts
-usage: starbug2-plot [-vhX] [-I CN000] [-o outfile] images.fits ..
+usage: starbug2-plot [-vhX] [-I CN000] [-o outfile] images.fits
     -h  --help           : show help screen
     -o  --output   fname : output filename
     -v  --verbose        : verbose mode
@@ -19,44 +19,51 @@ from astropy.table import Table
 
 import starbug2.bin as scr
 import starbug2
-from starbug2.constants import EXIT_EARLY, EXIT_FAIL, EXIT_SUCCESS, CAT_NUM, FILTER, EXT, IMAGE, BIN_TABLE, OUTPUT
+from starbug2.constants import (
+    EXIT_EARLY, EXIT_FAIL, EXIT_SUCCESS, CAT_NUM, FILTER, EXT, IMAGE,
+    BIN_TABLE, OUTPUT)
 from starbug2.plot import load_style, plot_test, plot_inspect_source
 from starbug2.utils import p_error, warn
 
-VERBOSE =0x01
-SHOWHELP=0x02
-STOPPROC=0x04
-KILLPROC=0x08
+VERBOSE = 0x01
+SHOW_HELP = 0x02
+STOP_PROC = 0x04
+KILL_PROC = 0x08
+DARK_MODE = 0x10
 
-DARKMODE=0x10
-
-PTEST=   0x1000
-PINSPECT=0x2000
+PTEST = 0x1000
+PINSPECT = 0x2000
 
 
 def plot_parse_argv(argv):
-    options=0
-    set_opt={}
+    options = 0
+    set_opt = {}
     cmd, argv = scr.parse_cmd(argv)
     opts, args = getopt.gnu_getopt(
         argv, "hvXI:d:o:",
         ["help", "verbose", "test", "inspect=", "output=", "style=", "dark"]
     )
 
-    for opt, optarg in opts:
-        match(opt):
-            case "-h"|"--help":     options|=(SHOWHELP|STOPPROC)
-            case "-v"|"--verbose":  options|=VERBOSE
-            case "-o"|"--output":   set_opt["OUTPUT"]=optarg
-            case "-d"|"--apfile":   set_opt["APFILE"]=optarg
+    for opt, opt_arg in opts:
+        match opt:
+            case "-h" | "--help":
+                options |= (SHOW_HELP | STOP_PROC)
+            case "-v" | "--verbose":
+                options |= VERBOSE
+            case "-o" | "--output":
+                set_opt[OUTPUT] = opt_arg
+            case "-d" | "--apfile":
+                set_opt["APFILE"] = opt_arg
 
             case "-I"|"--inspect":
-                options|=PINSPECT
-                set_opt["INSPECT"]=optarg
-            case "-X"|"--test": options|=PTEST
-
-            case "--style": set_opt["STYLESHEET"]=optarg
-            case "--dark":  options|=DARKMODE
+                options |= PINSPECT
+                set_opt["INSPECT"] = opt_arg
+            case "-X" | "--test":
+                options |= PTEST
+            case "--style":
+                set_opt["STYLESHEET"] = opt_arg
+            case "--dark":
+                options |= DARK_MODE
 
     return options, set_opt, args
 
@@ -67,25 +74,27 @@ def plot_one_time_runs(options, set_opt, args):
 
     :param options: the plot options
     :param set_opt: the options
-    :param args: the args
+    :param args: args
     :return: end state
     """
 
-    if options & SHOWHELP:
-        scr.usage(__doc__,verbose=options&VERBOSE)
+    if options & SHOW_HELP:
+        scr.usage(__doc__, verbose=options&VERBOSE)
 
-        if options & PINSPECT: p_error(fn_pinspect.__doc__)
+        if options & PINSPECT:
+            p_error(fn_pinspect.__doc__)
 
         return EXIT_EARLY
 
     if _file_name := set_opt.get("STYLESHEET"):
         load_style(_file_name)
 
-    if options & DARKMODE:
-        load_style("%s/extras/dark.style"%starbug2.__path__[0])
+    if options & DARK_MODE:
+        load_style("%s/extras/dark.style" % starbug2.__path__[0])
     
-    if options & STOPPROC: return EXIT_EARLY
-    if options & KILLPROC:
+    if options & STOP_PROC:
+        return EXIT_EARLY
+    if options & KILL_PROC:
         p_error("..killing process\n")
         return EXIT_FAIL
 
@@ -98,7 +107,7 @@ def fn_pinspect(options, set_opt, images=None, tables=None):
     file and the source catalogue number to be given. This will
     take the form::
 
-        $~ starbug2-plot -I CN123 sourcelist.fits image*.fits
+        $~ starbug2-plot -I CN123 source list.fits image*.fits
 
     :param options: The starbug2.bin.plot options integer
     :type options: int
@@ -144,7 +153,9 @@ def plot_main(argv):
     for arg in args:
         if _file_name := os.path.exists(arg):
             fp = fits.open(arg)
-            _filter = fp[0].header.get(FILTER) # THIS IS A HACK
+
+            # THIS IS A HACK
+            _filter = fp[0].header.get(FILTER)
             hdu = None
             for hdu in fp:
                 if hdu.header.get(EXT) == IMAGE:
@@ -157,7 +168,7 @@ def plot_main(argv):
 
     fig = None
     if options & PTEST:
-        fig, ax = plt.subplots(1,figsize=(3,2.5))
+        fig, ax = plt.subplots(1, figsize=(3,2.5))
         plot_test(ax)
 
     if options & PINSPECT:
