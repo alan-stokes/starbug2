@@ -1,4 +1,5 @@
-"""StarbugII Matching 
+# noinspection SpellCheckingInspection
+"""StarbugII Matching
 usage: starbug2-match [-BCGfhvX] [-e column] [-m mask] [-o output]
                       [-p file.param] [-s KEY=VAL] table.fits ...
     -B  --band               : match in "BAND" mode (does not preserve a
@@ -28,17 +29,18 @@ usage: starbug2-match [-BCGfhvX] [-e column] [-m mask] [-o output]
 import os, sys, getopt
 import numpy as np
 from astropy.table import vstack
-from starbug2 import utils
+from starbug2 import (utils, param)
 from starbug2.constants import (
     PARAM_FILE_TAG, EXIT_EARLY, EXIT_SUCCESS, EXIT_FAIL, VERBOSE_TAG,
     CAT_NUM, MATCH_THRESH, FILTER, NEXP_THRESH, OUTPUT, MIRI, NIRCAM,
     match_cols)
-from starbug2.filters import filters
-from starbug2.matching import (
-    GenericMatch, CascadeMatch, BandMatch, ExactValueMatch, band_match,
-    parse_mask)
-from starbug2 import param
-import starbug2.bin as scr
+from starbug2.filters import STAR_BUG_FILTERS
+from starbug2.matching.band_match import BandMatch
+from starbug2.matching.cascade_match import CascadeMatch
+from starbug2.matching.exact_value_match import ExactValueMatch
+from starbug2.matching.generic_match import GenericMatch
+from starbug2.misc import parse_mask
+from starbug2.utils import parse_cmd, usage
 
 # random bit trackers.
 VERBOSE = 0x01
@@ -55,7 +57,9 @@ EXACT_MATCH = 0x100
 EXP_FULL = 0x1000
 
 # unique param tags
+# noinspection SpellCheckingInspection
 ERR_COL = "ERRORCOLUMN"
+# noinspection SpellCheckingInspection
 MASK_EVAL = "MASKEVAL"
 MATCH_COLS = "MATCH_COLS"
 
@@ -70,32 +74,32 @@ def match_parse_m_argv(argv):
     options = 0
     set_opt = {}
 
-    cmd, argv = scr.parse_cmd(argv)
+    cmd, argv = parse_cmd(argv)
     opts, args = getopt.gnu_getopt(
         argv, "BCfGhvXe:m:o:p:s:",
         ["band", "cascade", "dither", "exact", "full", "generic", "help",
          VERBOSE_TAG.lower(), "error=", "mask=", "output=", "param=", "set=",
          "band-depr"]
     )
-    for opt, optarg in opts:
+    for opt, opt_arg in opts:
         if opt in ("-h", "--help"):
             options |= (SHOW_HELP | STOP_PROC)
         if opt in ("-v", "--verbose"):
             options |= VERBOSE
         if opt in ("-o", "--output"):
-            set_opt[OUTPUT] = optarg
+            set_opt[OUTPUT] = opt_arg
         if opt in ("-p", "--param"):
-            set_opt[PARAM_FILE_TAG] = optarg
+            set_opt[PARAM_FILE_TAG] = opt_arg
 
         if opt in ("-e", "--error"):
-            set_opt[ERR_COL] = optarg
+            set_opt[ERR_COL] = opt_arg
         if opt in ("-f", "--full"):
             options |= EXP_FULL
         if opt in ("-m", "--mask"):
-            set_opt[MASK_EVAL] = optarg
+            set_opt[MASK_EVAL] = opt_arg
         if opt in ("-s", "--set"):
-            if '=' in optarg:
-                key, val = optarg.split('=')
+            if '=' in opt_arg:
+                key, val = opt_arg.split('=')
                 try:
                     val = float(val)
                 except (ValueError, AttributeError, NameError):
@@ -123,7 +127,7 @@ def match_one_time_runs(options, set_opt):
     if options & VERBOSE:
         set_opt[VERBOSE_TAG] = 1
     if options & SHOW_HELP:
-        scr.usage(__doc__, verbose=options&VERBOSE)
+        usage(__doc__, verbose=options&VERBOSE)
         return EXIT_EARLY
     return EXIT_SUCCESS
 
@@ -133,35 +137,37 @@ def match_full_band_match(tables, parameters):
                  MIRI: [] }
     _col_names = ["RA","DEC","flag"]
     d_threshold = parameters.get(MATCH_THRESH)
+    band_matcher = BandMatch(threshold=d_threshold)
 
     for i,tab in enumerate(tables):
         filter_string = tab.meta.get(FILTER)
-        to_match[filters[filter_string].instr].append(tab)
+        to_match[STAR_BUG_FILTERS[filter_string].instr].append(tab)
         _col_names += ([filter_string, "e%s" % filter_string])
     
     if to_match[NIRCAM] and to_match[MIRI]:
         utils.printf("Detected NIRCam to MIRI matching\n")
-        nircam_matched = band_match(
+        nir_cam_matched = band_matcher.band_match(
             to_match[NIRCAM], col_names=_col_names)
-        miri_matched = band_match(
+        miri_matched = band_matcher.band_match(
             to_match[MIRI], col_names=_col_names)
 
+        # noinspection SpellCheckingInspection
         load = utils.Loading(
             len(miri_matched),
             msg="Combining NIRCAM-MIRI(%.2g\")" % d_threshold)
         if bridge_col := parameters.get("BRIDGE_COL"):
-            mask = np.isnan(nircam_matched[bridge_col])
+            mask = np.isnan(nir_cam_matched[bridge_col])
             utils.printf("-> bridging catalogues with %s\n" % bridge_col)
         else:
-            mask = np.full(len(nircam_matched), False)
+            mask = np.full(len(nir_cam_matched), False)
 
         m = GenericMatch(threshold=d_threshold, load=load)
-        full = m((nircam_matched[~mask], miri_matched))
+        full = m((nir_cam_matched[~mask], miri_matched))
         matched = m.finish_matching(full)
         matched.remove_column("NUM")
-        matched = vstack((matched, nircam_matched[mask]))
+        matched = vstack((matched, nir_cam_matched[mask]))
     else:
-        matched = band_match(tables, col_names=_col_names)
+        matched = band_matcher.band_match(tables, col_names=_col_names)
     return matched
 
 
@@ -194,7 +200,7 @@ def match_main(argv):
         if t is not None:
             tables.append(t)
     if raw := parameters.get(MASK_EVAL):
-        masks = [ parse_mask(raw,t) for t in tables ]
+        masks = [ parse_mask(raw, t) for t in tables ]
         for m in masks:
             try:
                 print(m, sum(m), len(m))

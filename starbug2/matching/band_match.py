@@ -9,7 +9,7 @@ import numpy as np
 import astropy.units as u
 from astropy.table import Table, hstack
 from starbug2.constants import FILTER, RA, DEC
-from starbug2.filters import filters
+from starbug2.filters import STAR_BUG_FILTERS
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.utils import (
     Loading, printf, p_error, fill_nan, find_col_names, warn, puts)
@@ -23,6 +23,7 @@ _EXPOSURE = "EXPOSURE"
 
 class BandMatch(GenericMatch):
     # filter flag for kwargs.
+    # noinspection SpellCheckingInspection
     FILTER = "fltr"
     THRESHOLD = "threshold"
 
@@ -67,11 +68,11 @@ class BandMatch(GenericMatch):
         _ii = None
         sorters = [
             ## META in JWST filters
-            lambda t: list(filters.keys()).index(t.meta.get(FILTER)),
+            lambda t: list(STAR_BUG_FILTERS.keys()).index(t.meta.get(FILTER)),
 
             ## col_names in JWST filters
-            lambda t: list(filters.keys()).index(
-                (set(t.col_names) & set(filters.keys())).pop()),
+            lambda t: list(STAR_BUG_FILTERS.keys()).index(
+                (set(t.col_names) & set(STAR_BUG_FILTERS.keys())).pop()),
 
             ## META in self.filters
             lambda t: self.FILTER.index( t.meta.get(FILTER)),
@@ -96,7 +97,7 @@ class BandMatch(GenericMatch):
                 " untouched.\n")
         ## JWST filters
         elif status <= 1 and (_ii is not None):
-            self._filter = [list(filters.keys())[i] for i in _ii]
+            self._filter = [list(STAR_BUG_FILTERS.keys())[i] for i in _ii]
 
         self._load = Loading(sum(len(c) for c in catalogues[1:]))
 
@@ -107,13 +108,14 @@ class BandMatch(GenericMatch):
 
     @override
     def match(self, catalogues, method="first", **kwargs):
+        # noinspection SpellCheckingInspection
         """
         Given a list of catalogues, it will reorder them into increasing
         wavelength or to match the fltr= keyword in the initializer.
         The matching then uses the shortest wavelength available position.
-        I.e If F115W, F444W, F770W are input, the F115W centroid positions will
-        be taken as "correct". If a source is not resolved in this band, the
-        next most astrometric ally accurate position is taken, i.e. F444W
+        I.e. If F115W, F444W, F770W are input, the F115W centroid positions
+        will be taken as "correct". If a source is not resolved in this band,
+        the next most astrometric ally accurate position is taken, i.e. F444W
 
         :param catalogues: List of `astropy.table.Table` objects containing
         the meta item "FILTER=XXX"
@@ -123,8 +125,8 @@ class BandMatch(GenericMatch):
                         appearance of the source
             "last"  -   Use the position corresponding to the latest
                         appearance of the source
-            "bootsrap"- ..
-            "average" - ..
+            "bootsrap"- ???
+            "average" - ???
         :type method: str
         :param kwargs:
         :return: Matched catalogue
@@ -168,8 +170,7 @@ class BandMatch(GenericMatch):
         for n, tab in enumerate(catalogues):
             ## Temporarily recast threshold
             self._threshold = _threshold[n - 1]
-            self._load.msg = "%s (%g\")" % (
-                self._filter[n], self._threshold.value)
+            self._load.msg = f"{self._filter[n]} ({float(self._threshold)}\")"
             col_names = [
                 name for name in self._col_names if name in tab.colnames]
 
@@ -217,33 +218,35 @@ class BandMatch(GenericMatch):
         return base
 
 
-    def band_match(self, catalogues, col_names=(RA,DEC)):
+    def band_match(self, catalogues, col_names=(RA, DEC)):
         """
         Given a list of catalogues (with filter names in the metadata), match
-        them in order of decreasing astrometric accuracy. If F115W, F444W, F770W
-        are input, the F115W centroid positions will be taken as "correct". If a
-        source is not resolved in this band, the next most astrometric ally
-        accurate position is taken, i.e. F444W
+        them in order of decreasing astrometric accuracy. If F115W, F444W,
+        F770W are input, the F115W centroid positions will be taken as
+        "correct". If a source is not resolved in this band, the next most
+        astrometric ally accurate position is taken, i.e. F444W
 
-        :param catalogues:
-        :param col_names:
-        :return:
+        :param catalogues: list of tables
+        :param col_names: the col names to match against.
+        :return: Matched catalogue
+        :rtype: astropy.Table
         """
 
         ### ORDER the tables into the correct order (increasing wavelength)
-        tables = np.full(len(filters), None)
-        mask = np.full(len(filters), False)
+        tables = np.full(len(STAR_BUG_FILTERS), None)
+        mask = np.full(len(STAR_BUG_FILTERS), False)
         for tab in catalogues:
             if FILTER in tab.meta.keys():
-                if tab.meta[FILTER] in filters:
-                    ii = list(filters.keys()).index(tab.meta[FILTER])
+                if tab.meta[FILTER] in STAR_BUG_FILTERS:
+                    ii = list(STAR_BUG_FILTERS.keys()).index(tab.meta[FILTER])
                     tables[ii] = tab
                     mask[ii] = True
                 else:
                     p_error(
-                        "Unknown filter '%s' (skipping)..\n" % tab.meta[FILTER])
-            elif _tmp := set(filters.keys()) & set(tab.col_names):
-                ii = list(filters.keys()).index(_tmp.pop())
+                        "Unknown filter '%s' (skipping)..\n" %
+                        tab.meta[FILTER])
+            elif _tmp := set(STAR_BUG_FILTERS.keys()) & set(tab.col_names):
+                ii = list(STAR_BUG_FILTERS.keys()).index(_tmp.pop())
                 tables[ii] = tab
                 mask[ii] = True
             else:
@@ -251,7 +254,7 @@ class BandMatch(GenericMatch):
 
         # document bands
         s = "Bands: "
-        for filter_string, tab in zip(filters.keys(),tables):
+        for filter_string, tab in zip(STAR_BUG_FILTERS.keys(), tables):
             if tab: s += "%5s "% filter_string
         puts(s)
 
@@ -259,7 +262,7 @@ class BandMatch(GenericMatch):
         base = Table(None)
         load = Loading(
             sum([len(t) for t in tables[mask][1:]]), "matching", res=100)
-        for filter_string, tab in zip(filters.keys(), tables):
+        for filter_string, tab in zip(STAR_BUG_FILTERS.keys(), tables):
             if not tab:
                 continue
 
@@ -279,14 +282,14 @@ class BandMatch(GenericMatch):
                 ###################################
                 # Hard coding separations for now #
                 separation = 0.06
-                f_id = list(filters.keys()).index(filter_string)
-                if f_id >= list(filters.keys()).index("F277W"):
+                f_id = list(STAR_BUG_FILTERS.keys()).index(filter_string)
+                if f_id >= list(STAR_BUG_FILTERS.keys()).index("F277W"):
                     separation = 0.10
-                if f_id >= list(filters.keys()).index("F560W"):
+                if f_id >= list(STAR_BUG_FILTERS.keys()).index("F560W"):
                     separation = 0.15
-                if f_id >= list(filters.keys()).index("F1000W"):
+                if f_id >= list(STAR_BUG_FILTERS.keys()).index("F1000W"):
                     separation = 0.20
-                if f_id >= list(filters.keys()).index("F1500W"):
+                if f_id >= list(STAR_BUG_FILTERS.keys()).index("F1500W"):
                     separation = 0.25
 
                 for ii, (src, IDX, sep) in enumerate(zip(tab, idx, d2d)):
@@ -306,8 +309,10 @@ class BandMatch(GenericMatch):
                 base, tmp[[filter_string, "e%s" % filter_string,
                            "flag_%s" % filter_string]]
             ))
-            base = Table(
-                base, dtype=[float] * len(base.col_names)).filled(np.nan)
+
+            base = (Table(
+                base, dtype=[float] * len(base.col_names))
+                    .filled(np.nan)) # type: ignore
 
             ### Only keep the most astronomically correct position
             if RA not in base.col_names:
@@ -324,4 +329,4 @@ class BandMatch(GenericMatch):
             base.remove_column(f_col)
         base.add_column(flag,name="flag")
 
-        return base.filled(np.nan)
+        return base.filled(np.nan) # type: ignore

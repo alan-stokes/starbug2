@@ -11,7 +11,7 @@ class _F: #(struct) containing JWST filter info
         self.length = length
 
 # as of 08/06/2023
-filters = {
+STAR_BUG_FILTERS = {
     "F070W": _F(0.704   , 0.023, 0.742, NIRCAM, SHORT), 
     "F090W": _F(0.901   , 0.030, 0.968, NIRCAM, SHORT), 
     "F115W": _F(1.154   , 0.037, 1.194, NIRCAM, SHORT), 

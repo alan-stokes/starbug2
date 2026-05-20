@@ -21,7 +21,7 @@ from starbug2.constants import (
     SKY_ROUT, SIGSKY, ZP_MAG, CLEANSRC, QUIETMODE, BOX_SIZE, BGD_R,
     PROF_SCALE, PROF_SLOPE, BGD_CHECKFILE, PSF_FILE, PSF_SIZE, GEN_RESIDUAL,
     NIRCAM_STRING, STARBUG_DATA_DIR)
-from starbug2.filters import filters
+from starbug2.filters import STAR_BUG_FILTERS
 from starbug2.param import load_params, load_default_params
 from starbug2.routines.app_hot_routine import APPhotRoutine
 from starbug2.routines.background_estimate_routine import (
@@ -140,91 +140,6 @@ class StarbugBase(object):
         if self._options[BGD_FILE]:
             self.load_bgd_file()
 
-    @property
-    def header(self):
-        """
-        Construct relevant base header information for routine products
-
-        :return:  Header file containing a series of relevant information
-        :rtype: fits.Header
-        """
-        head = {
-            STAR_BUG: get_version(),
-            CALIBRATION_LV: self._stage
-        }
-
-        if self._filter:
-            head[FILTER] = self._filter
-        head.update(self._options)
-        head.update(self._info)
-        return collapse_header(head)
-
-
-    @property
-    def info(self):
-        """
-        Get some useful information from the image header file.
-
-        :return: extracted keys and elements from the image header.
-        :rtype: dict of str, to str.
-        """
-        out = {}
-        keys = (FILTER, DETECTOR, TELESCOPE, INSTRUMENT,
-                BUN_IT, PIXAR_A2, PIXAR_SR)
-        if self._image:
-            for hdu in self._image:
-                out.update(
-                    { (key,hdu.header[key]) for key in keys
-                      if key in hdu.header})
-        return out
-
-    @property
-    def image(self):
-        # noinspection SpellCheckingInspection
-        """
-        automagically find the main image array to use
-        Order of importance is:
-        > self._nHDU (if set)
-        > param[ HDUNAME ]
-        > SCI, BGD, RES
-        > first ImageHDU
-        > first ImageHDU
-        > image[0]
-
-        :return: the main image array.
-        :rtype: HDUList
-        """
-
-        if self._n_hdu >= 0:
-            return self._image[self._n_hdu]
-        e_names = ext_names(self._image)
-
-        ## HDU_NAME in param file
-        n = self._options[HDU_NAME]
-        if n and n in e_names:
-            self._n_hdu = e_names.index(n)
-            return self._image[n]
-
-        ##index?
-        if isinstance(n, (int, float, np.number)):
-            self._n_hdu = int(n)
-            return self._image[self._n_hdu]
-
-        ## SCI, BGD, RES (common names)
-        for name in (SCI, BGD, RES):
-            if name in e_names:
-                self._n_hdu = e_names.index(name)
-                return self._image[name]
-
-        ## First ImageHDU
-        #ABS ARE WE SURE WE WANT TO LOOK FOR A INDEX WITH A ENUMERATE INDEX?
-        for index, hdu in enumerate(self._image):
-            if isinstance(hdu, fits.ImageHDU):
-                self._n_hdu = e_names.index(index)
-                return hdu
-
-        self._n_hdu = 0
-        return self._image[0]
 
     def log(self, msg):
         """
@@ -263,7 +178,8 @@ class StarbugBase(object):
                     self._image = fits.open(f_name)
 
                     # ABS WTF
-                    _ = self.image ## Force assigning _nHDU
+                    ## Force assigning _nHDU
+                    self._image = self.main_image
 
                     self.log(
                         "-> using image HDU: %d (%s)\n" % (
@@ -279,10 +195,11 @@ class StarbugBase(object):
 
                     self._filter = self._options.get(FILTER)
                     if ((FILTER in self._header) and
-                            (self._header[FILTER] in filters.keys())):
+                            (self._header[FILTER] in STAR_BUG_FILTERS.keys())):
                         self._filter = self._header[FILTER]
                         if self._options[FWHM] < 0:
-                            self._options[FWHM ] = filters[self._filter].pFWHM
+                            self._options[FWHM ] = (
+                                STAR_BUG_FILTERS[self._filter].pFWHM)
                     if self._filter:
                         self.log("-> photometric band: %s\n" % self._filter)
                     else:
@@ -299,7 +216,7 @@ class StarbugBase(object):
                     else:
                         warn("Unable to determine image BUNIT.\n")
 
-                    self._wcs = WCS(self.image.header)
+                    self._wcs = WCS(self.main_image.header)
 
                     ## I NEED TO DETERMINE BETTER WHAT STAGE IT IS IN
                     extension_names = ext_names(self._image)
@@ -310,8 +227,8 @@ class StarbugBase(object):
                             self._stage = 2.5
                     elif WHT in extension_names:
                         self._stage = 3
-                    elif CALIBRATION_LV in self.image.header:
-                        self._stage = self.image.header[CALIBRATION_LV]
+                    elif CALIBRATION_LV in self.main_image.header:
+                        self._stage = self.main_image.header[CALIBRATION_LV]
                     else:
                         warn("Unable to determine calibration level, "
                              "assuming stage 3\n")
@@ -414,7 +331,7 @@ class StarbugBase(object):
         """
         status = 0
         if not f_name:
-            filter_string = filters.get(self._filter)
+            filter_string = STAR_BUG_FILTERS.get(self._filter)
             if filter_string:
                 dt_name = self._info[DETECTOR]
                 if dt_name == "NRCALONG":
@@ -464,14 +381,14 @@ class StarbugBase(object):
 
         # Collect scale factor
         if self.header.get(BUN_IT) == "MJy/sr":
-            scale_factor = get_mj_ysr2jy_scale_factor(self.image)
+            scale_factor = get_mj_ysr2jy_scale_factor(self.main_image)
             self.log(
                 "-> converting unit from MJy/sr to Jr with factor: %e\n"
                 % scale_factor)
         else:
             scale_factor = 1
 
-        image = self.image.data.copy() * scale_factor
+        image = self.main_image.data.copy() * scale_factor
 
         # scale by area
         extension_names = ext_names(self._image)
@@ -509,8 +426,8 @@ class StarbugBase(object):
         """
         self.log("Detecting Sources\n")
         status = 0
-        if self.image:
-            filter_map = filters.get(self._filter)
+        if self.main_image:
+            filter_map = STAR_BUG_FILTERS.get(self._filter)
             if self._options[FWHM] > 0:
                 full_width_half_max = self._options[FWHM]
             elif filter_map:
@@ -536,7 +453,7 @@ class StarbugBase(object):
                 clean_src=self._options["CLEANSRC"],
                 verbose=self._options["VERBOSE"])
 
-            self._detections = detector(self.image.data.copy())[
+            self._detections = detector(self.main_image.data.copy())[
                  X_CENTROID, Y_CENTROID, "sharpness", "roundness1",
                  "roundness2"]
 
@@ -684,7 +601,7 @@ class StarbugBase(object):
         if self._detections:
             source_list = self._detections.copy()
 
-            _f = filters.get(self._filter)
+            _f = STAR_BUG_FILTERS.get(self._filter)
             if self._options[FWHM] > 0:
                 full_width_half_max = self._options[FWHM]
             elif _f:
@@ -718,8 +635,8 @@ class StarbugBase(object):
             header.update(self._wcs.to_header())
             self._background = fits.ImageHDU(
                 data=bgd(
-                    self.image.data.copy(),
-                    output=self._options.get(BGD_CHECKFILE)),
+                    self.main_image.data.copy(),
+                    output=self._options.get(BGD_CHECKFILE)).background,
                 header=header)
             if not self._options.get(QUIETMODE):
                 f_name = "%s/%s-bgd.fits"%(self._out_dir, self._b_name)
@@ -744,7 +661,7 @@ class StarbugBase(object):
         if self._background is None:
             p_error("No background array loaded (-b file-bgd.fits)\n")
             return EXIT_FAIL
-        array = self.image.data - self._background.data
+        array = self.main_image.data - self._background.data
         self._residuals = array
         self._image[self._n_hdu].data = array
         header = self.header
@@ -756,7 +673,7 @@ class StarbugBase(object):
         return EXIT_SUCCESS
 
     # noinspection SpellCheckingInspection
-    def photometry(self):
+    def photometry_routine(self):
         """
         Full photometry routine
         Saves the result as a table self._psf_catalogue,
@@ -766,7 +683,7 @@ class StarbugBase(object):
         :return: 0 for success, 1 otherwise
         :rtype int
         """
-        if self.image:
+        if self.main_image:
             self.log("\nRunning PSF Photometry\n")
 
             image, error, bgd, mask = self.prepare_image_arrays()
@@ -774,7 +691,7 @@ class StarbugBase(object):
             if bgd is None:
                 _, median, _ = (
                     sigma_clipped_stats(image, sigma=self._options[SIGSKY]))
-                bgd = np.ones(self.image.shape) * median
+                bgd = np.ones(self.main_image.shape) * median
                 self.log(
                     "-> no background file loaded, measuring sigma "
                     "clipped median\n")
@@ -827,9 +744,9 @@ class StarbugBase(object):
             init_guesses = init_guesses[ init_guesses["x_init"] >=0 ]
             init_guesses = init_guesses[ init_guesses["y_init"] >=0 ]
             init_guesses = init_guesses[
-                init_guesses["x_init"] < self.image.header[NAXIS1]]
+                init_guesses["x_init"] < self.main_image.header[NAXIS1]]
             init_guesses=init_guesses[
-                init_guesses["y_init"] < self.image.header[NAXIS2]]
+                init_guesses["y_init"] < self.main_image.header[NAXIS2]]
 
             ######
             # Allow tables that don't have the correct columns through
@@ -901,7 +818,7 @@ class StarbugBase(object):
                         psf_model, size, min_separation=min_separation,
                         app_hot_r=app_hot_r, background=bgd, force_fit=1,
                         verbose=self._options[VERBOSE])
-                    ii = np.where(psf_cat["xydev"] > max_y_dev)
+                    ii = psf_cat["xydev"] > max_y_dev
                     fixed_centres = psf_cat[ii][
                         ["x_init", "y_init", "ap_%s" % self._filter, "flag"]]
                     if len(fixed_centres):
@@ -951,7 +868,7 @@ class StarbugBase(object):
                     image.shape, psf_model, _tmp, model_shape=(size,size))
                 residual = image - (bgd + stars)
                 self._residuals = (
-                    residual / get_mj_ysr2jy_scale_factor(self.image))
+                    residual / get_mj_ysr2jy_scale_factor(self.main_image))
                 header = self.header
                 header.update(self._wcs.to_header())
                 fits.ImageHDU(
@@ -972,9 +889,9 @@ class StarbugBase(object):
             slist = self._filter_detections()
 
             sp = SourceProperties(
-                self.image.data, slist, verbose=self._options[VERBOSE])
+                self.main_image.data, slist, verbose=self._options[VERBOSE])
             stat = sp(
-                fwhm=filters[self._filter].pFWHM,
+                fwhm=STAR_BUG_FILTERS[self._filter].pFWHM,
                 do_crowd=self._options[CALC_CROWD])
             
             self._source_stats = hstack((slist, stat))
@@ -1012,13 +929,13 @@ class StarbugBase(object):
             warn("Unable to locate OUTPUT='%s'\n" % self._out_dir)
             status = 1
 
-        tmp=load_default_params()
+        tmp = load_default_params()
         if set(tmp.keys()) - set(self._options.keys()):
             warn("Parameter file version mismatch. "
                  "Run starbug2 --update-param to update\n")
             status = 1
         
-        if self._image is None or self.image.data is None:
+        if self._image is None or self.main_image.data is None:
             warn("Image did not load correctly\n")
             status = 1
 
@@ -1039,8 +956,8 @@ class StarbugBase(object):
         detections = detections[ detections[X_CENTROID]>=0 ]
         detections = detections[ detections[Y_CENTROID]>=0 ]
         detections = detections[
-            detections[X_CENTROID] < self.image.header[NAXIS1]]
-        return detections[ detections[Y_CENTROID] < self.image.header[NAXIS2]]
+            detections[X_CENTROID] < self.main_image.header[NAXIS1]]
+        return detections[detections[Y_CENTROID] < self.main_image.header[NAXIS2]]
 
     def __getstate__(self):
         """
@@ -1065,3 +982,109 @@ class StarbugBase(object):
         self._options[VERBOSE] = 0
         self.load_image(self._f_name)
         self._options[VERBOSE] = v
+
+    @property
+    def header(self):
+        """
+        Construct relevant base header information for routine products
+
+        :return:  Header file containing a series of relevant information
+        :rtype: fits.Header
+        """
+        head = {
+            STAR_BUG: get_version(),
+            CALIBRATION_LV: self._stage
+        }
+
+        if self._filter:
+            head[FILTER] = self._filter
+        head.update(self._options)
+        head.update(self._info)
+        return collapse_header(head)
+
+
+    @property
+    def info(self):
+        """
+        Get some useful information from the image header file.
+
+        :return: extracted keys and elements from the image header.
+        :rtype: dict of str, to str.
+        """
+        out = {}
+        keys = (FILTER, DETECTOR, TELESCOPE, INSTRUMENT,
+                BUN_IT, PIXAR_A2, PIXAR_SR)
+        if self._image:
+            for hdu in self._image:
+                out.update(
+                    { (key,hdu.header[key]) for key in keys
+                      if key in hdu.header})
+        return out
+
+    @property
+    def main_image(self):
+        # noinspection SpellCheckingInspection
+        """
+        automagically find the main image array to use
+        Order of importance is:
+        > self._nHDU (if set)
+        > param[ HDUNAME ]
+        > SCI, BGD, RES
+        > first ImageHDU
+        > first ImageHDU
+        > image[0]
+
+        :return: the main image array.
+        :rtype: HDUList
+        """
+
+        if self._n_hdu >= 0:
+            return self._image[self._n_hdu]
+        e_names = ext_names(self._image)
+
+        ## HDU_NAME in param file
+        n = self._options[HDU_NAME]
+        if n and n in e_names:
+            self._n_hdu = e_names.index(n)
+            return self._image[n]
+
+        ##index?
+        if isinstance(n, (int, float, np.number)):
+            self._n_hdu = int(n)
+            return self._image[self._n_hdu]
+
+        ## SCI, BGD, RES (common names)
+        for name in (SCI, BGD, RES):
+            if name in e_names:
+                self._n_hdu = e_names.index(name)
+                return self._image[name]
+
+        ## First ImageHDU
+        #ABS ARE WE SURE WE WANT TO LOOK FOR A INDEX WITH A ENUMERATE INDEX?
+        for index, hdu in enumerate(self._image):
+            if isinstance(hdu, fits.ImageHDU):
+                self._n_hdu = index
+                return hdu
+
+        self._n_hdu = 0
+        return self._image[0]
+
+    @property
+    def options(self):
+        return self._options
+
+    @property
+    def filter(self):
+        return self._filter
+
+    @property
+    def n_hdu(self):
+        return self._n_hdu
+
+    @property
+    def image(self):
+        return self._image
+
+    @property
+    def psf_catalogue(self):
+        return self._psf_catalogue

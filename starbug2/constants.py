@@ -64,6 +64,17 @@ REGION_X_COL = "REGION_XCOL"
 REGION_Y_COL = "REGION_YCOL"
 REGION_WCS = "REGION_WCS"
 
+# set opt param
+INSPECT = "INSPECT"
+STYLESHEET = "STYLESHEET"
+AP_FILE_SET_OPT = "APFILE"
+N_TESTS = "NTESTS"
+N_STARS = "NSTARS"
+AUTO_SAVE = "AUTOSAVE"
+MAX_MAG = "MAX_MAG"
+MIN_MAG = "MIN_MAG"
+PLOTAST = "PLOTAST"
+
 # colours
 DEFAULT_COLOUR = "green"
 
@@ -71,9 +82,12 @@ DEFAULT_COLOUR = "green"
 SRC_GOOD = 0
 SRC_BAD = 0x01
 SRC_JMP = 0x02
-SRC_VAR = 0x04 ##source frame mean >5% different from median
-SRC_FIX = 0x08 ##psf fit with fixed centroid
-SRC_UKN = 0x10 ##source unknown
+##source frame mean >5% different from median
+SRC_VAR = 0x04
+##psf fit with fixed centroid
+SRC_FIX = 0x08
+##source unknown
+SRC_UKN = 0x10
 
 ##DQ FLAGS
 DQ_DO_NOT_USE = 0x01
@@ -137,9 +151,24 @@ Y_PEAK = "y_peak"
 EE_FRACTION = "eefraction"
 RADIUS = "radius"
 AP_CORR = "apcorr"
+STD_FLUX = "stdflux"
+NUM = "NUM"
+FLAG = "flag"
+FLUX_DET = "flux_det"
+FLUX_FIT = "flux_fit"
+OUT_FLUX = "outflux"
+X_0 = "x_0"
+Y_0 = "y_0"
+X_DET = "x_det"
+Y_DET = "y_det"
+ID = "id"
+MAG = "mag"
+STATUS = "status"
+REC = "rec"
+
 
 ## DEFAULT MATCHING COLS
-match_cols = [RA, DEC, "flag", FLUX, "eflux", "NUM"]
+match_cols = [RA, DEC, FLAG, FLUX, E_FLUX, NUM]
 
 # tag for header
 FILTER_LOWER = "filter"
@@ -206,7 +235,11 @@ MATCH_THRESH = "MATCH_THRESH"
 
 # match params
 NEXP_THRESH = "NEXP_THRESH"
-ZP_MAG = "ZP_MAG"
+
+#info tags / keys for catalogue fields.
+OBS = "OBSERVTN"
+VISIT = "VISIT"
+EXPOSURE = "EXPOSURE"
 
 
 ## HASHDEFS

@@ -6,7 +6,9 @@ import numpy as np
 from astropy.table import Column, Table
 from photutils.datasets import make_model_image, make_random_models_table
 
-from starbug2.constants import X_CENTROID, Y_CENTROID
+from starbug2.constants import (
+    X_CENTROID, Y_CENTROID, OUT_FLUX, FLUX, X_0, Y_0, X_DET, Y_DET, FLUX_FIT,
+    ID)
 from starbug2.utils import Loading, warn, export_table
 
 
@@ -36,7 +38,7 @@ class ArtificialStarRoutine(object):
         Run artificial star testing on an image
 
         :param image: the image to run artifical star routine one.
-        :type image: ?????????
+        :type image: numpy.ndarray
         :param n_tests: Number of tests to conduct
         :type n_tests: int
         :param sub_image_size: Size of the cropped sub_image
@@ -70,7 +72,7 @@ class ArtificialStarRoutine(object):
                 - (2.0 * full_width_half_max)]
             sources = make_random_models_table(
                 int(n_tests),
-                {"x_0": x_range, "y_0": y_range, "flux": flux_range},
+                {X_0: x_range, Y_0: y_range, FLUX: flux_range},
                 seed=int(time.time()))
 
         # noinspection SpellCheckingInspection
@@ -86,24 +88,25 @@ class ArtificialStarRoutine(object):
             subx = 0
             suby = 0
             if sub_image_size > 0:
-                ## !! I might change this to be PSFSIZE not 2FWHM
+                ## !! I might change this to be PSF_SIZE not
+                # 2_Full_width_1/2_max
                 subx = np.random.randint(
                     max(0,
-                        src['x_0'] + (2 * full_width_half_max)
+                        src[X_0] + (2 * full_width_half_max)
                         - sub_image_size),
-                    min(shape[0] - sub_image_size,
-                        src['x_0'] - (2 * full_width_half_max)))
+                    np.min(shape[0] - sub_image_size,
+                        src[X_0] - (2 * full_width_half_max)))
                 suby = np.random.randint(
                     max(0,
-                        src['y_0'] + (2 * full_width_half_max)
+                        src[Y_0] + (2 * full_width_half_max)
                         - sub_image_size),
-                    min(shape[1] - sub_image_size,
-                        src['y_0'] - (2 * full_width_half_max)))
+                    np.min(shape[1] - sub_image_size,
+                        src[Y_0] - (2 * full_width_half_max)))
 
             # src mod translates the position within the sub-image
             src_mod = Table(src)
-            src_mod["x_0"] -= subx
-            src_mod["y_0"] -= suby
+            src_mod[X_0] -= subx
+            src_mod[Y_0] -= suby
             sky = image[
                   subx : subx + sub_image_size,
                   suby : suby + sub_image_size]
@@ -111,29 +114,30 @@ class ArtificialStarRoutine(object):
                 2 * [sub_image_size], self._psf, src_mod)
 
             detections = self._detector(base)
-            detections.rename_column(X_CENTROID, "x_0")
-            detections.rename_column(Y_CENTROID, "y_0")
+            detections.rename_column(X_CENTROID, X_0)
+            detections.rename_column(Y_CENTROID, Y_0)
 
             separations = (
-                (src_mod["x_0"] - detections["x_0"]) ** 2
-                + (src_mod["y_0"] - detections["y_0"]) ** 2)
+                (src_mod[X_0] - detections[X_0]) ** 2
+                + (src_mod[Y_0] - detections[Y_0]) ** 2)
             best_match = np.argmin(separations)
             if np.sqrt(separations[best_match]) <= separation_thresh:
                 psf_tab = self._psf_fitter(base, init_guesses=detections)
-                index = np.where(psf_tab["id"] == detections[best_match]["id"])
+                index = np.where(psf_tab[ID] == detections[best_match][ID])
 
-                sources[n]["outflux"] = psf_tab[index]["flux_fit"]
-                sources[n]["x_det"] = psf_tab[index]["x_0"] + subx
-                sources[n]["y_det"] = psf_tab[index]["y_0"] + suby
+                sources[n][OUT_FLUX] = psf_tab[index][FLUX_FIT]
+                sources[n][X_DET] = psf_tab[index][X_0] + subx
+                sources[n][Y_DET] = psf_tab[index][Y_0] + suby
 
-                if (abs(sources[n]["outflux"] - sources[n]["flux"])
-                        < (sources[n]["flux"] / 100.0)):
+                if (abs(sources[n][OUT_FLUX] - sources[n][FLUX])
+                        < (sources[n][FLUX] / 100.0)):
                     # star matched
                     sources[n]["status"] = 1
             load()
             load.show()
 
             if save_progress and not n % 10:
-                export_table(sources[0:n], f_name="/tmp/artificial_stars.save")
+                export_table(
+                    sources[0:n], f_name="/tmp/artificial_stars.save")
 
         return sources

@@ -3,28 +3,20 @@ Starbug matching functions
 Primarily this is the main routines for dither/band/generic matching which are
  at the core of starbug2 and starbug2-match
 """
-from abc import ABC
 import numpy as np
 import astropy.units as u
 from astropy.coordinates import SkyCoord
 from astropy.table import Table, hstack, Column, vstack
-
-import starbug2
 from starbug2.constants import (
-    VERBOSE_TAG, CAT_NUM, FILTER, MATCH_THRESH, RA, DEC, SRC_GOOD, SRC_VAR)
+    VERBOSE_TAG, CAT_NUM, FILTER, MATCH_THRESH, RA, DEC, SRC_GOOD, SRC_VAR,
+    STD_FLUX, E_FLUX, FLUX, FLAG, NUM)
 from starbug2.param import load_params
 from starbug2.utils import (
     Loading, printf, remove_duplicates, p_error, fill_nan, tab2array,
     find_col_names, flux2mag)
 
-# keys for catalogue fields.
-# noinspection SpellCheckingInspection
-_OBS = "OBSERVTN"
-_VISIT = "VISIT"
-_EXPOSURE = "EXPOSURE"
 
-
-class GenericMatch(ABC):
+class GenericMatch(object):
 
     @staticmethod
     def build_meta(catalogues):
@@ -44,7 +36,7 @@ class GenericMatch(ABC):
         :type catalogues: list (astropy.Tables)
         :param mask: the mask to apply.
         :return: an astro table with masked catalogues.
-        :rtype astropy.Table
+        :rtype: astropy.Table
         """
         masked = Table(None)
 
@@ -300,7 +292,7 @@ class GenericMatch(ABC):
 
         if cartesian:
             dist = d3d
-            threshold = self._threshold.value
+            threshold = self._threshold
         else:
             dist = d2d
             threshold = self._threshold
@@ -321,8 +313,9 @@ class GenericMatch(ABC):
 
 
     def finish_matching(
-        self, tab, error_column="eflux", num_thresh=-1, zp_mag=0,
-        col_names=None):
+            self, tab, error_column=E_FLUX, num_thresh=-1, zp_mag=0,
+            col_names=None):
+        # noinspection SpellCheckingInspection
         """
         Averaging all the values. Combining source flags and building a NUM
         column
@@ -330,7 +323,7 @@ class GenericMatch(ABC):
         :param tab: Table to work on
         :type tab: astropy.table.Table
         :param error_column: Column containing resultant photometric errors
-                             ("eflux" or "stdflux")
+                             (E_FLUX or STD_FLUX)
         :type error_column: str
         :param num_thresh: Minimum number of matches a source must have
                            (no cropping if <= 0)
@@ -353,26 +346,26 @@ class GenericMatch(ABC):
             if all_cols := find_col_names(tab, name):
                 ar = tab2array(tab, col_names=all_cols)
                 if ar.shape[1] > 1:
-                    if name == "flux":
+                    if name == FLUX:
                         col = Column(np.nanmedian(ar, axis=1), name=name)
                         mean = np.nanmean(ar, axis=1)
-                        if "stdflux" not in self._col_names:
+                        
+                        if STD_FLUX not in self._col_names:
                             av.add_column(
-                                Column(np.nanstd(ar, axis=1),
-                                       name="stdflux"),
+                                Column(np.nanstd(ar, axis=1), name=STD_FLUX),
                                 index=ii + 1)
                         ## if median and mean are >5% different, flag as SRC_VAR
                         flags[np.abs(mean-col)>(col/5.0)] |= SRC_VAR
-                    elif name == "eflux":
+                    elif name == E_FLUX:
                         col = Column(np.sqrt(np.nansum(ar * ar, axis=1)),
                                      name=name)
-                    elif name == "stdflux":
+                    elif name == STD_FLUX:
                         col = Column(np.nanmedian(ar, axis=1), name=name)
-                    elif name == "flag":
+                    elif name == FLAG:
                         col = Column(flags, name=name)
                         for f_col in ar.T:
                             flags |= f_col.astype(np.uint16)
-                    elif name == "NUM":
+                    elif name == NUM:
                         col = Column(np.nansum(ar, axis=1), name=name)
                     elif name == CAT_NUM:
                         col = Column(all_cols[0], name=name)
@@ -383,10 +376,10 @@ class GenericMatch(ABC):
                     col.name = name
                 av.add_column(col,index=ii)
 
-        av["flag"] = Column(flags, name="flag")
-        if "flux" in av.colnames:
+        av[FLAG] = Column(flags, name=FLAG)
+        if FLUX in av.colnames:
             ecol = av[error_column] if error_column in av.colnames else None
-            mag, mag_err = flux2mag(av["flux"], flux_err=ecol)
+            mag, mag_err = flux2mag(av[FLUX], flux_err=ecol)
             mag += zp_mag
 
             if self._filter in av.colnames:
@@ -396,11 +389,11 @@ class GenericMatch(ABC):
             av.add_column(mag, name=self._filter)
             av.add_column(mag_err, name="e%s" % self._filter)
 
-        if "NUM" not in av.colnames:
+        if NUM not in av.colnames:
             narr = np.nansum(np.invert(
                 np.isnan(tab2array(tab, find_col_names(tab, RA)))), axis=1)
-            av.add_column(Column(narr, name="NUM"))
+            av.add_column(Column(narr, name=NUM))
 
             if num_thresh > 0:
-                av.remove_rows( av["NUM"] < num_thresh)
+                av.remove_rows( av[NUM] < num_thresh)
         return av

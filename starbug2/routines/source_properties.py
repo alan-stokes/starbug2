@@ -61,14 +61,12 @@ class SourceProperties:
         out = hstack((out, self.calculate_geometry(**kwargs)))
         return out
 
-    def calculate_crowding(self, n_closest_sources=10, **kwargs):
+    def calculate_crowding(self, n_closest_sources=10, **_):
         """
         Crowding Index: Sum of magnitude of separation of n closest sources
 
         :param n_closest_sources: the number of closest sources.
         :type n_closest_sources: int
-        :param kwargs: extra arguments.
-        :type kwargs: extra args.
         """
         if self.source_list is None:
             p_error("no source list\n")
@@ -89,14 +87,12 @@ class SourceProperties:
                 load.show()
         return crowd
 
-    def calculate_geometry(self, full_width_half_max=2.0, **kwargs):
+    def calculate_geometry(self, full_width_half_max=2.0, **_):
         """
         calculate geometry
 
         :param full_width_half_max: the full width half max.
         :type full_width_half_max: float
-        :param kwargs: extra args
-        :type kwargs: dict.
         """
         if self.source_list is None:
             p_error("no source list\n")

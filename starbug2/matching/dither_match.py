@@ -5,7 +5,6 @@ from starbug2.matching.generic_match import GenericMatch
 class DitherMatch(GenericMatch):
     """
     The same as Generic Matching
-
     """
 
     def __init__(self, catalogues, p_file=None):

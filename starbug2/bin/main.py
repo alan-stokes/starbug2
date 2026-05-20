@@ -53,6 +53,9 @@ See https://starbug2.readthedocs.io for full documentation.
 # exploring those.
 import warnings
 from astropy.utils.exceptions import AstropyWarning
+
+from starbug2.matching.generic_match import GenericMatch
+
 warnings.simplefilter("ignore", category=AstropyWarning)
 warnings.simplefilter("ignore", category=RuntimeWarning) ## bit dodge that
 
@@ -70,9 +73,8 @@ from starbug2.constants import (
     REGION_SCAL, REGION_RAD, REGION_X_COL, REGION_Y_COL, REGION_WCS)
 from starbug2.utils import (
     p_error, printf, get_version, warn, split_file_name, export_region,
-    combine_file_names, export_table, puts)
+    combine_file_names, export_table, puts, translate_param_float, parse_cmd, usage)
 from starbug2 import param
-import starbug2.bin as scr
 from astropy.table import Table
 
 # noinspection SpellCheckingInspection
@@ -90,7 +92,7 @@ def starbug_parse_argv(argv):
     options = 0
     set_opt = {}
 
-    cmd, argv = scr.parse_cmd(argv)
+    cmd, argv = parse_cmd(argv)
 
     opts, args = getopt.gnu_getopt(
         argv,
@@ -150,17 +152,8 @@ def starbug_parse_argv(argv):
         if opt in ("-o", "--output"):
             set_opt["OUTPUT"] = opt_arg
 
-        if opt in ("-s", "--set"):
-            if '=' in opt_arg:
-                key, val = opt_arg.split('=')
-                try:
-                    val = float(val)
-                except ValueError:
-                    pass
-                set_opt[key] = val
-            else:
-                p_error("unable to set parameter, use syntax -s KEY=VALUE\n")
-                options |= KILLPROC
+        options, set_opt = translate_param_float(
+            opt, opt_arg, set_opt, options, KILLPROC)
 
         if opt == "--init":
             options |= ( INITSB | STOPPROC)
@@ -193,7 +186,7 @@ def starbug_one_time_runs(options, set_opt, args):
     from starbug2.misc import init_starbug, generate_psf, generate_runscript
 
     if options & SHOWHELP:
-        scr.usage(__doc__, verbose=options & VERBOSE)
+        usage(__doc__, verbose=options & VERBOSE)
 
         if options & DODETECT:
             p_error(HELP_STRINGS[DETECTION])
@@ -297,7 +290,7 @@ def starbug_one_time_runs(options, set_opt, args):
 
     if options & KILLPROC:
         p_error("..quitting :(\n\n")
-        return scr.usage(__doc__, verbose=options&VERBOSE)
+        return usage(__doc__, verbose=options&VERBOSE)
 
     return EXIT_SUCCESS
 
@@ -311,7 +304,6 @@ def starbug_match_outputs(starbugs, options, set_opt):
     :param set_opt: other options.
     :return: None
     """
-    from starbug2.matching import GenericMatch
     if options & VERBOSE:
         printf("Matching outputs\n")
     params = param.load_params(set_opt.get(PARAM_FILE_TAG))
@@ -406,7 +398,7 @@ def fn(args):
             if options & DOAPPHOT:
                 star_bug_base.aperture_photometry()
             if options & DOPHOTOM:
-                star_bug_base.photometry()
+                star_bug_base.photometry_routine()
 
             if options & DOARTIFL:
                 p_error("Artificial stars has no functional implementation\n")

@@ -2,7 +2,6 @@
 Core routines for StarbugII.
 """
 import sys
-from typing import overload
 
 import numpy as np
 from astropy.table import Column, hstack
@@ -41,6 +40,7 @@ class _Grouper(SourceGrouper):
 class PSFPhotRoutine(PSFPhotometry):
     def __init__(self, psf_model, fit_shape, app_hot_r=3, min_separation=8,
                  force_fit=False, background=None, verbose=1):
+        # noinspection SpellCheckingInspection
         """
         PSF Photometry routine called by starbug
 
@@ -56,7 +56,7 @@ class PSFPhotRoutine(PSFPhotometry):
                           photometry
         :type app_hot_r: float
         :param force_fit: Conduct forced centroid PSF fitting
-        :type force_fit: bool
+        :type force_fit: bool or int (with values 0 or 1)
         :param background: 2D array with the same dimensions as the data used
                            in fitting
         :type background: numpy.ndarray
@@ -94,8 +94,7 @@ class PSFPhotRoutine(PSFPhotometry):
 
 
     def do_photometry(
-            self, image, init_params=None, error=None, mask=None,
-            progress_bar=False):
+            self, image, init_params=None, error=None, mask=None):
         """
         does the photometry
         :param image: the image to process.
@@ -106,8 +105,6 @@ class PSFPhotRoutine(PSFPhotometry):
         :type error: ????
         :param mask: the mask.
         :type mask: np.array
-        :param progress_bar: the progress bar.
-        :type progress_bar: ??????
         :return: the processed table.
         :rtype:  astropy.table.Table
         """
@@ -136,6 +133,8 @@ class PSFPhotRoutine(PSFPhotometry):
         d = np.sqrt((
             (cat["x_init"] - cat["x_fit"]) ** 2.0 +
             (cat["y_init"]-cat["y_fit"]) ** 2.0))
+
+        # noinspection SpellCheckingInspection
         cat.add_column(Column(d, name="xydev"))
 
         if "flux_err" not in cat.col_names:
@@ -146,5 +145,6 @@ class PSFPhotRoutine(PSFPhotometry):
 
         cat.rename_column("flux_fit", "flux")
 
+        # noinspection SpellCheckingInspection
         keep=["x_fit", "y_fit", "flux", "eflux", "xydev", "qfit"]
         return hstack((init_params, cat[keep]))

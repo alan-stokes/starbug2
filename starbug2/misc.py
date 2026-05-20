@@ -6,9 +6,10 @@ import os, stat, numpy as np
 from starbug2.constants import (
     JWST_MIRI_APCORR_0010_FITS_URL, JWST_NIRCAM_APCORR_0004_FITS_URL,
     JWST_MIRI_ABVEGA_OFFSET_URL, JWST_NIRCAM_ABVEGA_OFFSET_URL, NIRCAM,
-    SHORT, WEBBPSF_PATH_ENV_VAR, LONG, FITS_EXTENSION, FILE_NAME, FILTER)
+    SHORT, WEBBPSF_PATH_ENV_VAR, LONG, FITS_EXTENSION, FILE_NAME, FILTER,
+    OBS, VISIT, DETECTOR, EXPOSURE)
 from starbug2.constants import MIRI as STAR_BUG_MIRI
-from starbug2.filters import filters
+from starbug2.filters import STAR_BUG_FILTERS
 from astropy.io import fits
 
 from starbug2.matching.generic_match import GenericMatch
@@ -85,7 +86,7 @@ def generate_psfs():
 
         load = Loading(145, msg="initialising")
         load.show()
-        for fltr, _f in filters.items():
+        for fltr, _f in STAR_BUG_FILTERS.items():
             if _f.instr == NIRCAM:
                 if _f.length == SHORT:
                     detectors = [
@@ -138,8 +139,8 @@ def generate_psf(filter_string, detector=None, fov_pixels=None):
     if fov_pixels is not None and fov_pixels <= 0:
         fov_pixels = None
 
-    if filter_string in list(filters.keys()):
-        the_filter = filters.get(filter_string)
+    if filter_string in list(STAR_BUG_FILTERS.keys()):
+        the_filter = STAR_BUG_FILTERS.get(filter_string)
         if detector is None:
             if the_filter.instr == NIRCAM and the_filter.length == SHORT:
                 detector = "NRCA1"
@@ -268,27 +269,27 @@ def sort_exposures(catalogues):
     for cat in catalogues:
         info = exp_info(cat)
 
-        if info[_FILTER] not in out.keys():
-            out[info[_FILTER]] = {}
+        if info[FILTER] not in out.keys():
+            out[info[FILTER]] = {}
 
-        if info[_OBS] not in out[info[_FILTER]].keys():
-            out[info[_FILTER]][info[_OBS]] = {}
+        if info[OBS] not in out[info[FILTER]].keys():
+            out[info[FILTER]][info[OBS]] = {}
 
-        if info[_VISIT] not in out[info[_FILTER]][info[_OBS]].keys():
-            out[info[_FILTER]][info[_OBS]][info[_VISIT]] = {}
+        if info[VISIT] not in out[info[FILTER]][info[OBS]].keys():
+            out[info[FILTER]][info[OBS]][info[VISIT]] = {}
 
-        if (info[_DETECTOR] not in
-            out[info[_FILTER]][info[_OBS]][info[_VISIT]].keys()):
-            out[info[_FILTER]][
-                info[_OBS]][info[_VISIT]][info[_DETECTOR]] = []
-        out[info[_FILTER]][
-            info[_OBS]][info[_VISIT]][info[_DETECTOR]].append(cat)
+        if (info[DETECTOR] not in
+            out[info[FILTER]][info[OBS]][info[VISIT]].keys()):
+            out[info[FILTER]][
+                info[OBS]][info[VISIT]][info[DETECTOR]] = []
+        out[info[FILTER]][
+            info[OBS]][info[VISIT]][info[DETECTOR]].append(cat)
     return out
 
 
 def parse_mask(string, table):
     """
-    Parse an commandline mask string to be passed into a matching routine
+    Parse a commandline mask string to be passed into a matching routine
     Example: --mask=F444W!=nan
 
     :param string: Raw mask sting to be parsed
@@ -298,7 +299,7 @@ def parse_mask(string, table):
     :return: Boolean mask array to index into a table or array
     :rtype: np.ndarray
     """
-    mask=None
+    mask = None
 
     for col_name in table.colnames: string=string.replace(
         col_name, "table[\"%s\"]" % col_name)
@@ -322,11 +323,11 @@ def exp_info(hdu_list):
     RETURN: dictionary of relevant information:
             >   EXPOSURE, DETECTOR, FILTER
     """
-    info={  _FILTER : None,
-            _OBS : 0,
-            _VISIT : 0,
-            _EXPOSURE : 0,
-            _DETECTOR : None
+    info={  FILTER : None,
+            OBS : 0,
+            VISIT : 0,
+            EXPOSURE : 0,
+            DETECTOR : None
             }
 
     if type(hdu_list) in (fits.ImageHDU, fits.BinTableHDU):

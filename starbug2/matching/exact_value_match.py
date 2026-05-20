@@ -12,11 +12,6 @@ from starbug2.constants import CAT_NUM
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.utils import p_error, fill_nan
 
-# keys for catalogue fields.
-# noinspection SpellCheckingInspection
-_OBS = "OBSERVTN"
-_VISIT = "VISIT"
-_EXPOSURE = "EXPOSURE"
 
 class ExactValueMatch(GenericMatch):
     """
@@ -36,10 +31,13 @@ class ExactValueMatch(GenericMatch):
         self.value = value
         super().__init__(**kwargs, method="Exact Value Matching")
 
+        # noinspection SpellCheckingInspection
         if "colnames" in kwargs:
+            # noinspection SpellCheckingInspection
             p_error("Colnames not implemented in %s\n" % self.method)
 
     def __str__(self):
+        # noinspection SpellCheckingInspection
         s=[ "%s:" % self.method,
             "Value: \"%s\"" % self.value,
             "Colnames: %s" % self._col_names,

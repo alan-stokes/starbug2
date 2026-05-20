@@ -24,6 +24,7 @@ class DetectionRoutine(StarFinderBase):
         sharp_hi=1, round_1_hi=1, round_2_hi=1, smooth_lo=-np.inf,
         smooth_hi=np.inf, ricker_r=1.0, verbose=0, clean_src=1,
         do_bgd_2d=1, box_size=2, do_con_vl=1):
+        # noinspection SpellCheckingInspection
         """
         Detection routine
 
@@ -205,7 +206,7 @@ class DetectionRoutine(StarFinderBase):
         ## 2nd order differential detection
         if self.do_con_vl:
             kernel = RickerWavelet2DKernel(self.ricker_r)
-            conv = convolve(data, kernel)
+            conv = convolve(data, kernel.array)
             corr = match_template(conv/np.amax(conv), kernel.array)
             detections = self.detect(corr, method="findpeaks")
             if detections:
@@ -215,6 +216,7 @@ class DetectionRoutine(StarFinderBase):
                     (X_PEAK, Y_PEAK), (X_CENTROID, Y_CENTROID))
                 self.catalogue = self.match(self.catalogue, detections)
             if self.verbose:
+                # noinspection SpellCheckingInspection
                 printf("-> [CONVL] pass: %d sources\n" % len(self.catalogue))
 
         ## Now with xy-coords DAOStarfinder will refit the sharp and round
@@ -239,7 +241,7 @@ class DetectionRoutine(StarFinderBase):
                 & (self.catalogue["roundness2"] > -self.round_2_hi)
                 & (self.catalogue["roundness2"] < self.round_2_hi))
         if self.verbose:
-            printf("-> cleaning %d unlikley point sources\n" % sum(~mask))
+            printf("-> cleaning %d unlikely point sources\n" % sum(~mask))
         self.catalogue.remove_rows(~mask)
 
         if self.verbose:

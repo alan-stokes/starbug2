@@ -11,7 +11,7 @@ from starbug2.constants import (
     CAT_NUM, DEFAULT_COLOUR, RA, DEC, TMP_OUT, FLUX, TMP_FITS,
     FITS_EXTENSION, FILTER, N_MIS_MATCHES, EXIT_SUCCESS, EXIT_FAIL,
     REST_SUCCESS_CODE, DEG, ARCMIN, ARCSEC, PIX, NAXIS, C_TYPE)
-from starbug2.filters import filters
+from starbug2.filters import STAR_BUG_FILTERS
 
 # different print methods (why are we not using loggers?)
 printf = sys.stdout.write
@@ -172,11 +172,41 @@ def export_region(
     with open(f_name, 'w') as fp:
         fp.write("global color=%s width=2\n" % colour)
         if tab:
-            for src, ri in zip(tab, r[r>0]):
+            for src, ri in zip([tab], r[r>0]):
                 fp.write("%scircle %f %f %fi\n" % (
                     prefix, src[x_col], src[y_col], ri))
         else:
             p_error("unable to open %f\n" % f_name)
+
+
+def translate_param_float(opt, opt_arg, set_opt, options, kill_option):
+    """
+    converts an opt param into a float.
+    :param opt: the opt string
+    :type opt: str
+    :param opt_arg: the opt_arg string to convert
+    :type opt_arg: str
+    :param set_opt: the set opt dictionary
+    :type set_opt: dict of strings
+    :param options: the options integer
+    :type options: int
+    :param kill_option: the kill bit mask
+    :type kill_option: int
+    :return:  tuple of options int and set_opt dict
+    :rtype int, dict
+    """
+    if opt in ("-s", "--set"):
+        if '=' in opt_arg:
+            key, val = opt_arg.split('=')
+            try:
+                val = float(val)
+            except ValueError:
+                pass
+            set_opt[key] = val
+        else:
+            p_error("unable to set parameter, use syntax -s KEY=VALUE\n")
+            options |= kill_option
+    return options, set_opt
 
 def parse_unit(raw):
     # noinspection SpellCheckingInspection
@@ -592,12 +622,17 @@ def find_filter(table):
     :return: Identified filter value, otherwise None.
     :rtype: str
     """
-    if not (filter_string := table.meta.get(FILTER)):
-        lst = (set(table.colnames) & set(filters.keys()))
-        if lst:
-            filter_string = lst.pop()
-            return filter_string
+    # 1. Check metadata first and return immediately if found
+    if filter_string := table.meta.get(FILTER):
+        return filter_string
+
+    # 2. Fall back to checking column names
+    matching_filters = set(table.colnames) & set(STAR_BUG_FILTERS.keys())
+    if matching_filters:
+        return matching_filters.pop()
+
     return None
+
 
 def get_version():
     """
@@ -656,6 +691,31 @@ def crop_hdu(hdu, x_limit=None, y_limit=None):
         ext.header.update(
             w[x_limit[0]:x_limit[1], y_limit[0]:y_limit[1]].to_header())
     return hdu
+
+
+def usage(docstring, verbose=0):
+    """
+    outputs the usage.
+    :param docstring: the doc string to output
+    :param verbose: if to do so in verbose mode
+    :return: 1 when complete.
+    """
+    if verbose:
+        p_error(docstring)
+    else:
+        p_error("%s\n" % docstring.split('\n')[1])
+    return 1
+
+def parse_cmd(args):
+    """
+    parses an args command.
+    :param args: the args array.
+    :return: tuple of the command and the rest of the args array.
+    :rtype: (str, array[str])
+    """
+    cmd = os.path.basename(args[0])
+    return cmd, args[1:]
+
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+from typing import cast, Any
 import getopt
 import numpy as np
 from matplotlib.path import Path
@@ -117,7 +118,13 @@ if __name__== "__main__":
     import matplotlib.pyplot as plt
     tt = colour_index(table, ("F115W-F200W", "F115W"))
     plt.scatter(tt["F115W-F200W"], tt["F115W"], c='k', lw=0, s=1)
-    mask.plot(plt.gca(), fill=False, edgecolor="blue", label="test")
+
+    # Cast the current axes to 'Any' to satisfy the linter's strict inspection
+    # due to a known type-hinting blind spot with matplotlib
+    axis = cast(Any, plt.gca())
+
+    # plot.
+    mask.plot(axis, fill=False, edgecolor="blue", label="test")
     plt.legend()
     plt.show()
 

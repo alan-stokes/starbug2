@@ -13,7 +13,7 @@ from matplotlib.colors import LinearSegmentedColormap
 
 from astropy.wcs import WCS
 from starbug2 import utils
-from starbug2.filters import filters as filter_data
+from starbug2.filters import STAR_BUG_FILTERS as filter_data
 
 # try to import pyplot as plt.
 try: import matplotlib.pyplot as plt
