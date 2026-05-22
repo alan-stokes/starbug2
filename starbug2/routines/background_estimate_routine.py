@@ -17,7 +17,7 @@ class BackGroundEstimateRoutine(BackgroundBase):
 
         :param source_list: List of sources in the image in a table
                             containing X_CENTROID Y_CENTROID
-        :type source_list: astropy.table.Table
+        :type source_list: astropy.table.Table or None
         :param box_size: Size of the kernel to pass over the image in
                          un-sharp masking
         :type box_size: int
@@ -127,7 +127,7 @@ class BackGroundEstimateRoutine(BackgroundBase):
 
         dimension = 50
         load = Loading(len(self._source_list), msg="masking sources", res=10)
-        for r,src in zip(rlist, self._source_list):
+        for r, src in zip(rlist, self._source_list): # type: ignore
 
             rin = 1.5 * r
             rout = rin + 1

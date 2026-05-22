@@ -73,7 +73,8 @@ from starbug2.constants import (
     REGION_SCAL, REGION_RAD, REGION_X_COL, REGION_Y_COL, REGION_WCS)
 from starbug2.utils import (
     p_error, printf, get_version, warn, split_file_name, export_region,
-    combine_file_names, export_table, puts, translate_param_float, parse_cmd, usage)
+    combine_file_names, export_table, puts, translate_param_float, parse_cmd,
+    usage)
 from starbug2 import param
 from astropy.table import Table
 
@@ -286,7 +287,8 @@ def starbug_one_time_runs(options, set_opt, args):
         p_error("instrumental zero point application deprecated\n")
 
     if options & STOPPROC:
-        return EXIT_EARLY ## quiet ending the process if required
+        ## quiet ending the process if required
+        return EXIT_EARLY
 
     if options & KILLPROC:
         p_error("..quitting :(\n\n")
@@ -412,7 +414,7 @@ def fn(args):
 
 def starbug_main(argv):
     """Command entry"""
-    options, set_opt, args= starbug_parse_argv(argv)
+    options, set_opt, args = starbug_parse_argv(argv)
 
     if options or set_opt:
 
@@ -435,16 +437,16 @@ def starbug_main(argv):
                 [fn((file_name, options, set_opt)) for file_name in args])
         else:
 
-            zip_options = np.full(len(args),options, dtype=int)
+            zip_options = np.full(len(args), options, dtype=int)
             for n in range(len(args)):
                 if n > 0:
                     zip_options[n] &= ~VERBOSE
 
             pool = Pool(processes=n_cores)
-            starbugs = pool.map(fn,zip(args, zip_options, repeat(set_opt)))
+            starbugs = pool.map(fn, zip(args, zip_options, repeat(set_opt)))
             pool.close()
 
-        for n,sb in enumerate(starbugs): 
+        for n, sb in enumerate(starbugs):
             if not sb: 
                 p_error("FAILED: %s\n" % args[n])
                 starbugs.remove(sb)

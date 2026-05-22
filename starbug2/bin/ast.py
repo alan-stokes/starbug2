@@ -209,7 +209,7 @@ def ast_main(argv):
 
         buffer[0] = 0
         buffer[1] = n_tests
-        loading = Process(target=load, args=("ast",))
+        loading = Process(target=load, args=())
         loading.start()
 
         if (n_cores := params.get(N_CORES)) is None or n_cores == 1:

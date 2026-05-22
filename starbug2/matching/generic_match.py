@@ -397,3 +397,19 @@ class GenericMatch(object):
             if num_thresh > 0:
                 av.remove_rows( av[NUM] < num_thresh)
         return av
+
+    @property
+    def col_names(self):
+        return self._col_names
+
+    @property
+    def filter(self):
+        return self._filter
+
+    @property
+    def threshold(self):
+        return self._threshold
+
+    @property
+    def verbose(self):
+        return self._verbose

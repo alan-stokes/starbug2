@@ -17,9 +17,9 @@ class SourceProperties:
         source properties.
 
         :param image: the image
-        :type image: numpy.ndarray
+        :type image: numpy.ndarray or None
         :param source_list: the source list
-        :type source_list:  astropy.Table
+        :type source_list:  astropy.Table or None
         :param verbose: int for verbose
         :type verbose: int
         """
@@ -28,11 +28,11 @@ class SourceProperties:
         self._verbose = verbose
 
         if source_list and type(source_list) in (Table, QTable):
-            if len({X_CENTROID, Y_CENTROID} & set(source_list.col_names)) == 2:
-                self.source_list = Table(source_list[[X_CENTROID, Y_CENTROID]])
-            elif len({"x_0", "y_0"} & set(source_list.col_names)) == 2:
-                self.source_list = Table(source_list[["x_0", "y_0"]])
-                self.source_list.rename_columns(
+            if len({X_CENTROID, Y_CENTROID} & set(source_list.colnames)) == 2:
+                self._source_list = Table(source_list[[X_CENTROID, Y_CENTROID]])
+            elif len({"x_0", "y_0"} & set(source_list.colnames)) == 2:
+                self._source_list = Table(source_list[["x_0", "y_0"]])
+                self._source_list.rename_columns(
                     ("x_0", "y_0"), (X_CENTROID, Y_CENTROID))
             else:
                 p_error("no positional columns in source list\n")
@@ -68,18 +68,18 @@ class SourceProperties:
         :param n_closest_sources: the number of closest sources.
         :type n_closest_sources: int
         """
-        if self.source_list is None:
+        if self._source_list is None:
             p_error("no source list\n")
             return None
 
-        crowd = np.zeros(len(self.source_list))
+        crowd = np.zeros(len(self._source_list))
         load = Loading(
-            len(self.source_list), msg="calculating crowding", res=10)
+            len(self._source_list), msg="calculating crowding", res=10)
 
-        for i, src in enumerate(self._source_list):
+        for i, src in enumerate([self._source_list]):
             dist = np.sqrt(
-                (src[X_CENTROID] - self.source_list[X_CENTROID]) ** 2
-                + (src[Y_CENTROID] - self.source_list[Y_CENTROID]) ** 2)
+                (src[X_CENTROID] - self._source_list[X_CENTROID]) ** 2
+                + (src[Y_CENTROID] - self._source_list[Y_CENTROID]) ** 2)
             dist.sort()
             crowd[i]= sum( dist[1 : n_closest_sources])
             load()
@@ -94,13 +94,13 @@ class SourceProperties:
         :param full_width_half_max: the full width half max.
         :type full_width_half_max: float
         """
-        if self.source_list is None:
+        if self._source_list is None:
             p_error("no source list\n")
             return None
         if self._verbose:
             printf("-> measuring source geometry\n")
         xy_coords = np.array(
-            (self.source_list[X_CENTROID], self.source_list[Y_CENTROID])).T
+            (self._source_list[X_CENTROID], self._source_list[Y_CENTROID])).T
 
         dao_find = DAOStarFinder(
             -np.inf, full_width_half_max, sharplo=-np.inf, sharphi=np.inf,

@@ -115,7 +115,7 @@ CRIT_SEP    = 1.0
 FORCE_POS   = 0
 
 // If allowed to fit position, max separation (arcsec) from source list 
-centroid
+// centroid
 DPOS_THRESH = -1
 
 // Maximum deviation from initial guess centroid position
@@ -142,11 +142,11 @@ MATCH_COLS   =
 NEXP_THRESH  = -1
 
 // Remove sources with SN ratio < SN_THRESH before matching 
-(default -1 to not apply this cut)
+// (default -1 to not apply this cut)
 SN_THRESH    = -1
 
 // Bridge --band matching NIRCam and MIRI catalogues by ensuring NIRCam 
-catalogue has a match in BRIDGE_COL
+// catalogue has a match in BRIDGE_COL
 BRIDGE_COL   = 
 
 ## ARTIFICIAL STAR TESTS
@@ -188,13 +188,16 @@ REGION_YCOL = DEC
 REGION_WCS  = 1
 """ % get_version()
 
+# the first characters to exclude
+EXCLUDES = "# \t\n //"
+
 def parse_param(line):
     """
     Parse a parameter line
     """
     param={}
-    if line and line[0] not in "# \t\n":
-        if "//" in line:
+    if line and line[0] not in EXCLUDES:
+        if "//" in line and line[0] != "/":
             key, value, _ = parse("{}={}//{}", line)
         else:
             key, value = parse("{}={}",line)
@@ -227,7 +230,7 @@ def load_params(f_name):
     Convert a parameter file into a dictionary of options
 
     :param f_name: path/to/file.param
-    :type f_name: str
+    :type f_name: str or None
     :return: dictionary of options
     :rtype: dict of string, string
     """
@@ -279,17 +282,19 @@ def update_param_file(f_name):
             return 
 
         for inline in default.split("\n"):
-            if inline and inline[0] not in "# \t\n":
+            outline = ""
+            if inline and inline[0] not in EXCLUDES:
+                if "//" in inline and inline[0] != "/":
+                    key, value, comment = parse("{}={}//{}", inline)
+                    key = key.strip().rstrip()
 
-                key, value, comment = parse("{}={}//{}", inline)
-                key = key.strip().rstrip()
-
-                if key not in add_keys:
-                    value = current_param[key]
-                outline = (
-                    "%-24s" % ("%-12s" % key + "= " +str(value)) +
-                    " //" + comment)
-            else: outline = inline
+                    if key not in add_keys:
+                        value = current_param[key]
+                    outline = (
+                        "%-24s" % ("%-12s" % key + "= " +str(value)) +
+                        " //" + comment)
+            else:
+                outline = inline
 
             fpo.write("%s\n" % outline)
         fpi.close()

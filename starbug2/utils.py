@@ -302,7 +302,7 @@ def export_table(table, f_name=None, header=None):
     :return: None
     """
     dtypes = []
-    if CAT_NUM not in table.col_names:
+    if CAT_NUM not in table.colnames:
         table = reindex(table)
     for name in table.colnames:
         if name == CAT_NUM:
@@ -358,7 +358,7 @@ def fill_nan(table):
     :return: Input table with masked vales filled in as nan
     :rtype: atrophy.table
     """
-    for i, name in enumerate(table.col_names):
+    for i, name in enumerate(table.colnames):
         match table.dtype[i].kind:
             case 'f': fill_val=np.nan
             case 'i' | 'u': fill_val=0
@@ -369,7 +369,7 @@ def fill_nan(table):
 
 def find_col_names(tab, basename):
     """
-    Find substring (basename) within the table col_names. Searches for
+    Find substring (basename) within the table colnames. Searches for
     substring at the beginning of the word I.E search for "flux" in
     ("flux_out","flux_err","d_flux") returns as ("flux_out","flux_err")
 
@@ -381,7 +381,7 @@ def find_col_names(tab, basename):
     :rtype: list of str
     """
     return [
-        col_name for col_name in tab.col_names
+        col_name for col_name in tab.colnames
             if col_name[:len(basename)] == basename]
 
 def combine_file_names(f_names, n_mismatch=N_MIS_MATCHES):
@@ -487,9 +487,9 @@ def flux2mag(flux, flux_err=None, zp=1):
     Convert flux to magnitude in an arbitrary system
 
     :param flux: List of source flux values
-    :type flux: list of floats or float
+    :type flux: list of floats or float or None or ndarray
     :param flux_err: List of known flux uncertainties
-    :type flux_err: list of floats or float
+    :type flux_err: list of floats or float or None or ndarray
     :param zp: Zero point flux value
     :type zp: float
     :return: tuple of (Source magnitudes, Magnitude errors )
@@ -570,7 +570,7 @@ def reindex(table):
     :rtype: atrophy.Table
     """
 
-    if CAT_NUM in table.col_names:
+    if CAT_NUM in table.colnames:
         table.remove_column(CAT_NUM)
     column = Column(
         ["CN%d" % i for i in range(len(table))], name=CAT_NUM)
@@ -590,7 +590,7 @@ def colour_index(table, keys):
 
     out = Table()
     for key in keys:
-        if key in table.col_names:
+        if key in table.colnames:
             out.add_column(table[key])
         elif '-' in key:
             a, b = key.split('-')

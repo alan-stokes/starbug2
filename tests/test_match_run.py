@@ -1,57 +1,73 @@
-import os,glob
+import os
 import pytest
 from starbug2.bin.main import starbug_main
 from starbug2.bin.match import match_main
 from starbug2.constants import EXIT_FAIL, EXIT_EARLY, EXIT_SUCCESS
+from tests.generic import clean, TEST_IMAGE_FITS, TEST_PATH
 
 run = lambda s:match_main(s.split())
 
 def test_match_start():
-    assert run("starbug2-match")==EXIT_FAIL
-    assert run("starbug2-match -h")==EXIT_EARLY
-    assert run("starbug2-match -vh")==EXIT_EARLY
+    assert run("starbug2-match") == EXIT_FAIL
+    assert run("starbug2-match -h") == EXIT_EARLY
+    assert run("starbug2-match -vh") == EXIT_EARLY
 
 def test_match_bad_input():
-    #clean()
-    assert run("starbug2-match ")==EXIT_FAIL
-    assert run("starbug2-match tests/dat/image.fits")==EXIT_EARLY
-    assert run("starbug2-match badinput.fits")==EXIT_FAIL
-    assert run("starbug2-match badinput.txt")==EXIT_FAIL
-    #assert run("starbug2-match tests/dat/image.fits tests/dat/image.fits")==EXIT_FAIL
-    starbug_main("starbug2 -D tests/dat/image.fits".split())
-    assert run("starbug2-match tests/dat/image-ap.fits")==EXIT_EARLY
-    
-    #clean()
+    assert run("starbug2-match ") == EXIT_FAIL
+    assert run(f"starbug2-match {TEST_IMAGE_FITS}") == EXIT_EARLY
+    assert run("starbug2-match badinput.fits") == EXIT_FAIL
+    assert run("starbug2-match badinput.txt") == EXIT_FAIL
+    starbug_main(f"starbug2 -D {TEST_IMAGE_FITS}".split())
+    assert run(f"starbug2-match {
+        os.path.join(TEST_PATH, "image-ap.fits")}") == EXIT_FAIL
 
 def test_match_basic_run_through():
-    #clean()
-    starbug_main("starbug2 -Do tests/dat/out1.fits tests/dat/image.fits".split())
-    starbug_main("starbug2 -Do tests/dat/out2.fits tests/dat/image.fits".split())
-    assert run("starbug2-match tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
-    assert run("starbug2-match -G tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
-    assert run("starbug2-match -C tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
-    #assert run("starbug2-match -D tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
-
-    assert run("starbug2-match -f tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
-    assert run("starbug2-match -fG tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
-    assert run("starbug2-match -fC tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
-    #assert run("starbug2-match -fD tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
-    #clean()
+    starbug_main(
+        f"starbug2 -Do {os.path.join(TEST_PATH, "out1.fits")}"
+        f"  {TEST_IMAGE_FITS}".split())
+    starbug_main(
+        f"starbug2 -Do {os.path.join(TEST_PATH, "out2.fits")} "
+        f" {TEST_IMAGE_FITS}".split())
+    assert (run(
+        f"starbug2-match {os.path.join(TEST_PATH, "out1-ap.fits")}"
+        f" {os.path.join(TEST_PATH, "out2-ap.fits")}") == EXIT_SUCCESS)
+    assert (run(
+        f"starbug2-match -G"
+        f" {os.path.join(TEST_PATH, "out1-ap.fits")}"
+        f" tests/dat/out2-ap.fits") == EXIT_SUCCESS)
+    assert (run(
+        f"starbug2-match -C"
+        f" {os.path.join(TEST_PATH, "out1-ap.fits")} "
+        f"{os.path.join(TEST_PATH, "out2-ap.fits")}") == EXIT_SUCCESS)
+    assert (run(
+        f"starbug2-match -f "
+        f"{os.path.join(TEST_PATH, "out1-ap.fits")} "
+        f"{os.path.join(TEST_PATH, "out2-ap.fits")}") == EXIT_SUCCESS)
+    assert (run(
+        f"starbug2-match -fG "
+        f"{os.path.join(TEST_PATH, "out1-ap.fits")}"
+        f"{os.path.join(TEST_PATH, "out2-ap.fits")}") == EXIT_SUCCESS)
+    assert (run(
+        f"starbug2-match -fC "
+        f"{os.path.join(TEST_PATH, "out1-ap.fits")}"
+        f"{os.path.join(TEST_PATH, "out2-ap.fits")}") == EXIT_SUCCESS)
 
 def test_mask():
-    starbug_main("starbug2 -Do tests/dat/out1.fits tests/dat/image.fits".split())
-    starbug_main("starbug2 -Do tests/dat/out2.fits tests/dat/image.fits".split())
-    assert run("starbug2-match -vmF444W>20 tests/dat/out1-ap.fits tests/dat/out2-ap.fits")==EXIT_SUCCESS
+    starbug_main(
+        f"starbug2 -Do "
+        f"{os.path.join(TEST_PATH, "out1.fits")}  {TEST_IMAGE_FITS}".split())
+    starbug_main(
+        f"starbug2 -Do "
+        f"{os.path.join(TEST_PATH, "out2.fits")}  {TEST_IMAGE_FITS}".split())
+    assert run(
+        f"starbug2-match -vmF444W>20 "
+        f"{os.path.join(TEST_PATH, "out1-ap.fits")}"
+        f"{os.path.join(TEST_PATH, "out2-ap.fits")}") == EXIT_SUCCESS
 
 
 
 @pytest.fixture(autouse=True)
 def init():
-    files=glob.glob("tests/dat/*")
-    files.remove("tests/dat/image.fits")
-    files.remove("tests/dat/psf.fits")
-    for file_name in files: os.remove(file_name)
-    if os.path.exists("starbug.param"): os.remove("starbug.param")
-
+    clean()
 
 

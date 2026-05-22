@@ -133,7 +133,7 @@ class DetectionRoutine(StarFinderBase):
             return find(data - bkg)
 
 
-    def _bkg2d(self, data):
+    def bkg2d(self, data):
         """
         ?????
         :param data: the data to apply background 2d to.
@@ -179,7 +179,7 @@ class DetectionRoutine(StarFinderBase):
         3:RickerWave convolution
 
         :param data: 2D image array to detect on
-        :type data: numpy.ndarray
+        :type data: numpy.ndarray or None
         :param mask: Pixels to mask out on the data array
         :type mask: numpy.ndarray
         :return: the catalogue containing stars.
@@ -199,7 +199,7 @@ class DetectionRoutine(StarFinderBase):
 
         if self.do_bgd_2d:
             self.catalogue = self.match(
-                self.catalogue, self.detect(data, self._bkg2d))
+                self.catalogue, self.detect(data, self.bkg2d))
             if self.verbose:
                 printf("-> [BGD2D] pass: %d sources\n" % len(self.catalogue))
 

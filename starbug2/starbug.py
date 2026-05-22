@@ -107,7 +107,6 @@ class StarbugBase(object):
         self._image = None
         self._filter = None
         self._header = None
-        self._info = None
         self._wcs = None
         self._stage = 0
         self._detections = None
@@ -179,13 +178,14 @@ class StarbugBase(object):
 
                     # ABS WTF
                     ## Force assigning _nHDU
-                    self._image = self.main_image
+                    main_image = self.main_image
+                    self._header = main_image.header
 
                     self.log(
                         "-> using image HDU: %d (%s)\n" % (
-                            self._n_hdu, self._image.name))
+                            self._n_hdu, main_image.name))
 
-                    if self._image.data is None:
+                    if main_image.data is None:
                         warn("Image seems to be empty.\n")
 
                     if ((val := self._header.get(TELESCOPE)) is None
@@ -205,14 +205,14 @@ class StarbugBase(object):
                     else:
                         warn("Unable to determine image filter\n")
 
-                    if DETECTOR in self._info.keys():
+                    if DETECTOR in self.info.keys():
                         self.log(
-                            "-> detector module: %s\n" % self._info[DETECTOR])
+                            "-> detector module: %s\n" % self.info[DETECTOR])
                     else:
                         warn("Unable to determine Telescope DETECTOR.\n")
 
-                    if BUN_IT in self._image.header:
-                        self._unit = self._image.header[BUN_IT]
+                    if BUN_IT in main_image.header:
+                        self._unit = main_image.header[BUN_IT]
                     else:
                         warn("Unable to determine image BUNIT.\n")
 
@@ -333,7 +333,7 @@ class StarbugBase(object):
         if not f_name:
             filter_string = STAR_BUG_FILTERS.get(self._filter)
             if filter_string:
-                dt_name = self._info[DETECTOR]
+                dt_name = self.info[DETECTOR]
                 if dt_name == "NRCALONG":
                     dt_name = "NRCA5"
                 if dt_name == "NRCBLONG":
@@ -353,7 +353,8 @@ class StarbugBase(object):
                     StarbugBase.get_data_path(), self._filter, dt_name)
             else:
                 status = 1
-        if os.path.exists(f_name):
+
+        if f_name is not None and os.path.exists(f_name):
             fp = fits.open(f_name)
 
             if fp[0].data is None: 
@@ -425,7 +426,7 @@ class StarbugBase(object):
         :rtype: int
         """
         self.log("Detecting Sources\n")
-        status = 0
+        status = EXIT_SUCCESS
         if self.main_image:
             filter_map = STAR_BUG_FILTERS.get(self._filter)
             if self._options[FWHM] > 0:
@@ -436,7 +437,7 @@ class StarbugBase(object):
                 full_width_half_max = 2
 
             # noinspection SpellCheckingInspection
-            detector=DetectionRoutine(
+            detector = DetectionRoutine(
                 sig_src=self._options["SIGSRC"],
                 sig_sky=self._options["SIGSKY"],
                 full_width_half_max=full_width_half_max,
@@ -469,7 +470,7 @@ class StarbugBase(object):
 
         else:
             p_error("Something went wrong.\n")
-            status=1
+            status = EXIT_FAIL
         return status
 
 
@@ -508,10 +509,10 @@ class StarbugBase(object):
         ap_corr_f_name=None
         if _ap_corr_f_name := self._options.get(APCORR_FILE):
             ap_corr_f_name = _ap_corr_f_name
-        elif   self._info.get(INSTRUMENT) == NIRCAM_STRING:
+        elif   self.info.get(INSTRUMENT) == NIRCAM_STRING:
             ap_corr_f_name = (
                 "%s/apcorr_nircam.fits" % StarbugBase.get_data_path())
-        elif self._info.get(INSTRUMENT) == "MIRI":
+        elif self.info.get(INSTRUMENT) == "MIRI":
             ap_corr_f_name = (
                 "%s/apcorr_miri.fits" % StarbugBase.get_data_path())
 
@@ -912,14 +913,14 @@ class StarbugBase(object):
         :rtype int
         """
 
-        status = 0
+        status = EXIT_SUCCESS
         
         self.log("Checking internal systems..\n")
 
         if not self._filter:
             warn("No FILTER set, please set in parameter file or "
                  "use \"-s FILTER=XXX\"\n")
-            status = 1
+            status = EXIT_FAIL
 
         d_name = os.path.expandvars(StarbugBase.get_data_path())
         if not os.path.exists(d_name):
@@ -927,23 +928,23 @@ class StarbugBase(object):
 
         if not os.path.exists(self._out_dir):
             warn("Unable to locate OUTPUT='%s'\n" % self._out_dir)
-            status = 1
+            status = EXIT_FAIL
 
         tmp = load_default_params()
         if set(tmp.keys()) - set(self._options.keys()):
             warn("Parameter file version mismatch. "
                  "Run starbug2 --update-param to update\n")
-            status = 1
+            status = EXIT_FAIL
         
         if self._image is None or self.main_image.data is None:
             warn("Image did not load correctly\n")
-            status = 1
+            status = EXIT_FAIL
 
         if self._options[AP_FILE] and self._detections is not None:
             test = self._filter_detections()
             if not len(test):
                 warn("Detection file empty or no sources overlap the image.\n")
-                status = 1
+                status = EXIT_FAIL
 
         return status
 
@@ -957,7 +958,8 @@ class StarbugBase(object):
         detections = detections[ detections[Y_CENTROID]>=0 ]
         detections = detections[
             detections[X_CENTROID] < self.main_image.header[NAXIS1]]
-        return detections[detections[Y_CENTROID] < self.main_image.header[NAXIS2]]
+        return detections[detections[Y_CENTROID] <
+                self.main_image.header[NAXIS2]]
 
     def __getstate__(self):
         """
@@ -999,7 +1001,7 @@ class StarbugBase(object):
         if self._filter:
             head[FILTER] = self._filter
         head.update(self._options)
-        head.update(self._info)
+        head.update(self.info)
         return collapse_header(head)
 
 
@@ -1088,3 +1090,7 @@ class StarbugBase(object):
     @property
     def psf_catalogue(self):
         return self._psf_catalogue
+
+    @property
+    def psf(self):
+        return self._psf

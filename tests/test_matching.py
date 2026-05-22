@@ -1,62 +1,73 @@
 import os,numpy as np
 import pytest
 
-from starbug2.constants import CAT_NUM
-from starbug2.matching import (
-    GenericMatch, CascadeMatch, BandMatch, ExactValueMatch)
+from starbug2.constants import (
+    CAT_NUM, E_FLUX, RA, DEC, FLUX, FILTER, MATCH_THRESH, VERBOSE_TAG, NUM, FLAG)
+from starbug2.matching.band_match import BandMatch
+from starbug2.matching.cascade_match import CascadeMatch
+from starbug2.matching.exact_value_match import ExactValueMatch
+from starbug2.matching.generic_match import GenericMatch
 from starbug2.utils import import_table, fill_nan
 from starbug2.param import load_default_params
 from starbug2.bin.main import starbug_main
 from astropy.table import Table
 
+from tests.generic import TEST_IMAGE_FITS, TEST_PATH, check_shape
+
+
 @pytest.fixture(autouse=True)
 def init():
 
-    if not os.path.exists("tests/dat/image-ap.fits"):
-        starbug_main("starbug2 -Ds SIGSRC=10 tests/dat/image.fits".split())
-        starbug_main("starbug2 -Ds SIGSRC=3 -otests/dat/image2.fits  tests/dat/image.fits".split())
+    # init starbug
+    if not os.path.exists(os.path.join(TEST_PATH, "image-ap.fits")):
+        starbug_main(
+            f"starbug2 -Ds SIGSRC=10 {TEST_IMAGE_FITS}".split())
+        starbug_main(
+            "starbug2 -Ds SIGSRC=3 -o "
+            f"{os.path.join(TEST_PATH, "image2.fits")}"
+            f"{TEST_IMAGE_FITS}".split())
 
 
 
 def cats():
-    t1=[[ 0.0, 0.0, 1.0, 0.1],
-        [ 0.1, 0.1, 1.0, 0.1],
-        [ 0.2, 0.1, 2.0, 0.2],
-        [ 0.1, 0.2, 2.0, 0.2],
-        [ 1.0, 1.0, 100, 0.1],
-        [ 1.1, 1.0, 100, 0.1],
-        #[ 2.0, 2.0, 201, 0.1],
+    t1 = [[ 0.0, 0.0, 1.0, 0.1],
+          [ 0.1, 0.1, 1.0, 0.1],
+          [ 0.2, 0.1, 2.0, 0.2],
+          [ 0.1, 0.2, 2.0, 0.2],
+          [ 1.0, 1.0, 100, 0.1],
+          [ 1.1, 1.0, 100, 0.1],
         ]
 
-    t2=[[ 0.0, 0.0, 1.1, 0.1],
-        #[ 0.1, 0.1, 1.0, 0.1],
-        [ 0.2, 0.1, 2.1, 0.2],
-        [ 0.1, 0.2, 2.1, 0.2],
-        [ 1.0, 1.0, 101, 0.1],
-        [ 1.1, 1.0, 101, 0.1],
-        [ 2.0, 2.0, 201, 0.1],
+    t2 = [[ 0.0, 0.0, 1.1, 0.1],
+          [ 0.2, 0.1, 2.1, 0.2],
+          [ 0.1, 0.2, 2.1, 0.2],
+          [ 1.0, 1.0, 101, 0.1],
+          [ 1.1, 1.0, 101, 0.1],
+          [ 2.0, 2.0, 201, 0.1],
         ]
 
-    cat1 = Table( np.array(t1), names=["RA","DEC","flux","eflux"], meta={"FILTER":'a'})
-    cat2 = Table( np.array(t2), names=["RA","DEC","flux","eflux"], meta={"FILTER":'b'})
-    return [cat1,cat2]
+    cat1 = Table(
+        np.array(t1), names=[RA, DEC, FLUX, E_FLUX], meta={FILTER:'a'})
+    cat2 = Table(
+        np.array(t2), names=[RA, DEC, FLUX, E_FLUX], meta={FILTER:'b'})
+    return [cat1, cat2]
 
             
 
-class Test_GenericMatch():
+class TestGenericMatch:
 
-    def test_initialsing(self):
-        cats = [ import_table(f) for f in ("tests/dat/image-ap.fits", "tests/dat/image2-ap.fits")]
+    def test_initialing(self):
         options = load_default_params()
 
-        m=GenericMatch( )
+        m = GenericMatch( )
         assert m.col_names is None
         assert not m.filter 
-        assert m.threshold.value == float(options.get("MATCH_THRESH"))
-        assert m.verbose == options.get("VERBOSE")
+        assert m.threshold.value == float(options.get(MATCH_THRESH))
+        assert m.verbose == options.get(VERBOSE_TAG)
 
-        m=GenericMatch(filter_string="MAG", col_names=["RA"], threshold=0.5, verbose=True)
-        assert m.col_names == ["RA"]
+        m = GenericMatch(
+            filter_string="MAG", col_names=[RA], threshold=0.5, verbose=True)
+        assert m.col_names == [RA]
         assert m.filter == "MAG"
         assert m.threshold.value == 0.5
         assert m.verbose == True
@@ -64,223 +75,224 @@ class Test_GenericMatch():
         assert isinstance(m.__str__(), str)
 
     def test_generic_match1(self):
-        cats = [ import_table(f) for f in ("tests/dat/image-ap.fits", "tests/dat/image2-ap.fits")]
-        m=GenericMatch()
+        categories = [
+            import_table(f) for f in (
+                f"{os.path.join(TEST_PATH, "image-ap.fits")}",
+                f"{os.path.join(TEST_PATH, "image2-ap.fits")}")]
+        m = GenericMatch()
 
-        out=m(cats)
+        out = m(categories)
         assert isinstance(out, Table)
-        for name in cats[0].col_names:
+        for name in categories[0].col_names:
             if name != CAT_NUM:
-                assert "%s_1"%name in out.colnames
-                assert "%s_2"%name in out.colnames
-        assert len(out)>=len(cats[0])
-        assert len(out)>=len(cats[1])
-        assert m.filter=="F444W"
+                assert "%s_1" % name in out.colnames
+                assert "%s_2" % name in out.colnames
+        assert len(out) >= len(categories[0])
+        assert len(out) >= len(categories[1])
+        assert m.filter == "F444W"
 
-        out=m(cats, join_type="and")
+        out = m(categories, join_type="and")
         print(out)
-        assert len(out)<=len(cats[0])
-        assert len(out)<=len(cats[1])
+        assert len(out) <= len(categories[0])
+        assert len(out) <= len(categories[1])
 
     def test_generic_match2(self):
-        cats = [ import_table(f) for f in ("tests/dat/image-ap.fits", "tests/dat/image2-ap.fits")]
-        m=GenericMatch(col_names=["RA"])
-        out=m(cats)
+        categories = [import_table(f) for f in (
+            f"{os.path.join(TEST_PATH, "image-ap.fits")}",
+            f"{os.path.join(TEST_PATH, "image2-ap.fits")}")]
+        m = GenericMatch(col_names=[RA])
+        out = m(categories)
 
         assert out.col_names == ["RA_1", "RA_2"]
 
-    def test_finishmatching(self):
-        cats = [ import_table(f) for f in ("tests/dat/image-ap.fits", "tests/dat/image2-ap.fits")]
-        m=GenericMatch()
-        out=m(cats)
-        av=m.finish_matching(out)
+    def test_finish_matching(self):
+        categories = [import_table(f) for f in (
+            f"{os.path.join(TEST_PATH, "image-ap.fits")}",
+            f"{os.path.join(TEST_PATH, "image2-ap.fits")}")]
+        m = GenericMatch()
+        out = m(categories)
+        m.finish_matching(out)
         
 
-        m=GenericMatch(col_names=["RA", "DEC", "flux"], filter_string="F444W")
-        av=m.finish_matching(m.match(cats))
-        assert av.col_names == ["RA", "DEC", "flux", "stdflux", "flag", "F444W", "eF444W", "NUM"]
+        m = GenericMatch(col_names=[RA, DEC, FLUX], filter_string="F444W")
+        av = m.finish_matching(m.match(categories))
+        assert av.colnames == [
+            "RA", "DEC", "flux", "stdflux", "flag", "F444W", "eF444W", "NUM"]
 
-        m=GenericMatch(col_names=["RA", "DEC", "flux"])
-        for c in cats: del c.meta["FILTER"]
-        av=m.finish_matching(m.match(cats))
-        assert av.col_names == ["RA", "DEC", "flux", "stdflux", "flag", "MAG", "eMAG", "NUM"]
-
-
+        m = GenericMatch(col_names=[RA, DEC, FLUX])
+        for c in categories:
+            del c.meta[FILTER]
+        av = m.finish_matching(m.match(categories))
+        assert av.colnames == [
+            "RA", "DEC", "flux", "stdflux", "flag", "MAG", "eMAG", "NUM"]
 
 
     def test_vals(self):
-        m=GenericMatch()
-        out=m(cats())
-        t=[[ 0.0, 0.0, 1.0, 0.1,   0.0, 0.0, 1.1, 0.1],
-           [ 0.1, 0.1, 1.0, 0.1,   np.nan, np.nan, np.nan, np.nan],
-           [ 0.2, 0.1, 2.0, 0.2,   0.2, 0.1, 2.1, 0.2],
-           [ 0.1, 0.2, 2.0, 0.2,   0.1, 0.2, 2.1, 0.2],
-           [ 1.0, 1.0, 100, 0.1,   1.0, 1.0, 101, 0.1],
-           [ 1.1, 1.0, 100, 0.1,   1.1, 1.0, 101, 0.1],
-           [np.nan,np.nan,np.nan,np.nan, 2.0, 2.0, 201, 0.1] ]
-        c=Table(np.array(t), names=[ "RA_1","DEC_1","flux_1","eflux_1","RA_2","DEC_2","flux_2","eflux_2"])
+        m = GenericMatch()
+        out = m(cats())
+        t = [[ 0.0, 0.0, 1.0, 0.1,   0.0, 0.0, 1.1, 0.1],
+             [ 0.1, 0.1, 1.0, 0.1,   np.nan, np.nan, np.nan, np.nan],
+             [ 0.2, 0.1, 2.0, 0.2,   0.2, 0.1, 2.1, 0.2],
+             [ 0.1, 0.2, 2.0, 0.2,   0.1, 0.2, 2.1, 0.2],
+             [ 1.0, 1.0, 100, 0.1,   1.0, 1.0, 101, 0.1],
+             [ 1.1, 1.0, 100, 0.1,   1.1, 1.0, 101, 0.1],
+             [np.nan, np.nan, np.nan, np.nan, 2.0, 2.0, 201, 0.1] ]
+        c = Table(
+            np.array(t),
+            names=[
+                "RA_1", "DEC_1", "flux_1", "eflux_1", "RA_2", "DEC_2",
+                "flux_2", "eflux_2"])
         
-        assert np.shape(c)==np.shape(out)
-        for m in range(len(c)):
-            for n in range(len(c[m])):
-                a=c[m][n]
-                b=out[m][n]
-                assert np.isnan(a)==np.isnan(b)
-                if not np.isnan(a) or not np.isnan(b):
-                    assert a==b
+        check_shape(c, out)
 
 
-class Test_Cascade:
-    def test_cascadematch(self):
-        cats = [ import_table(f) for f in ("tests/dat/image-ap.fits", "tests/dat/image2-ap.fits")]
-        m=CascadeMatch()
-        out=m.match(cats)
+class TestCascade:
+    def test_cascade_match(self):
+        [import_table(f) for f in (
+            f"{os.path.join(TEST_PATH, "image-ap.fits")}",
+            f"{os.path.join(TEST_PATH, "image2-ap.fits")}")]
+        CascadeMatch()
+        
+        
     def test_vals(self):
-        t=[[ 0.0, 0.0, 1.0, 0.1,   0.0, 0.0, 1.1, 0.1],
-           [ 0.1, 0.1, 1.0, 0.1,   np.nan, np.nan, np.nan, np.nan],
-           [ 0.2, 0.1, 2.0, 0.2,   0.2, 0.1, 2.1, 0.2],
-           [ 0.1, 0.2, 2.0, 0.2,   0.1, 0.2, 2.1, 0.2],
-           [ 1.0, 1.0, 100, 0.1,   1.0, 1.0, 101, 0.1],
-           [ 1.1, 1.0, 100, 0.1,   1.1, 1.0, 101, 0.1],
-           [2.0, 2.0, 201, 0.1,    np.nan,np.nan,np.nan,np.nan] ]
-        c=Table(np.array(t), names=[ "RA_1","DEC_1","flux_1","eflux_1","RA_2","DEC_2","flux_2","eflux_2"])
-        m=CascadeMatch()
-        out=m.match(cats())
+        t = [[ 0.0, 0.0, 1.0, 0.1,   0.0, 0.0, 1.1, 0.1],
+             [ 0.1, 0.1, 1.0, 0.1,   np.nan, np.nan, np.nan, np.nan],
+             [ 0.2, 0.1, 2.0, 0.2,   0.2, 0.1, 2.1, 0.2],
+             [ 0.1, 0.2, 2.0, 0.2,   0.1, 0.2, 2.1, 0.2],
+             [ 1.0, 1.0, 100, 0.1,   1.0, 1.0, 101, 0.1],
+             [ 1.1, 1.0, 100, 0.1,   1.1, 1.0, 101, 0.1],
+             [2.0, 2.0, 201, 0.1,    np.nan, np.nan, np.nan, np.nan] ]
+        c = Table(
+            np.array(t),
+            names=[ "RA_1", "DEC_1", "flux_1", "eflux_1", "RA_2", "DEC_2",
+                    "flux_2", "eflux_2"])
+        m = CascadeMatch()
+        out = m.match(cats())
         print(out)
 
-        assert np.shape(c)==np.shape(out)
-        for m in range(len(c)):
-            for n in range(len(c[m])):
-                a=c[m][n]
-                b=out[m][n]
-                assert np.isnan(a)==np.isnan(b)
-                if not np.isnan(a) or not np.isnan(b):
-                    assert a==b
+        check_shape(c, out)
 
-class Test_BandMatch:
+class TestBandMatch:
     def test_init(self):
-        filters = ["a","b","c"]
-        m=BandMatch(fltr=filters)
-        assert m.filter==["a","b","c"]
+        filters = ["a", "b", "c"]
+        m = BandMatch(fltr=filters)
+        assert m.filter == ["a", "b", "c"]
 
-    def test_order_catalogue_JWSTMETA(self):
-        a = Table(None, meta={"FILTER":'F115W'})
-        b = Table(None, meta={"FILTER":'F187N'})
-        c = Table(None, meta={"FILTER":'F770W'})
+    def test_order_catalogue_jwst_meta(self):
+        a = Table(None, meta={"FILTER": 'F115W'})
+        b = Table(None, meta={"FILTER": 'F187N'})
+        c = Table(None, meta={"FILTER": 'F770W'})
 
-        m=BandMatch()
-        assert m.filter==""
+        m = BandMatch()
+        assert m.filter == ""
         assert m.order_catalogues( [a,c,b] ) == [a,b,c]
-        assert m.filter==["F115W","F187N","F770W"]
+        assert m.filter == ["F115W", "F187N", "F770W"]
 
-    def test_order_catalogue_JWSTcolnames(self):
+    def test_order_catalogue_jwst_col_names(self):
         a = Table(None, names=['F115W'])
         b = Table(None, names=['F187N'])
         c = Table(None, names=['F770W'])
 
-        m=BandMatch()
-        assert m.filter==""
+        m = BandMatch()
+        assert m.filter == ""
         assert m.order_catalogues( [a,c,b] ) == [a,b,c]
-        assert m.filter==["F115W","F187N","F770W"]
+        assert m.filter == ["F115W", "F187N", "F770W"]
 
-    def test_order_catalogue_filterMETA(self):
+    def test_order_catalogue_filter_meta(self):
         a = Table(None, meta={"FILTER":'a'})
         b = Table(None, meta={"FILTER":'b'})
         c = Table(None, meta={"FILTER":'c'})
 
-        m=BandMatch(fltr=["a","b","c"])
+        m = BandMatch(fltr=["a","b","c"])
         assert m.order_catalogues( [a,c,b] ) == [a,b,c]
 
-    def test_order_catalogue_filtercolnames(self):
+    def test_order_catalogue_filter_col_names(self):
         a = Table(None, names=['a'])
         b = Table(None, names=['b'])
         c = Table(None, names=['c'])
 
-        m=BandMatch(fltr=["a","b","c"])
+        m = BandMatch(fltr=["a","b","c"])
         assert m.order_catalogues( [a,c,b] ) == [a,b,c]
 
     def test_match(self):
-        t1=[[1.,1.,1,1,0],
-            [2.,2.,2,2,0],
-            [3.,3.,3,3,0],
-            #[4.,4.,4,4,0],
-            ]
-        t2=[[1.,1.,1,1,0],
-            [2.,2.,2,2,0],
-            #[3.,3.,3,3,0],
-            [4.,4.,4,4,1],
-            ]
-        t3=[[1.,1.,1,1,0],
-            #[2.,2.,2,2,0],
-            #[3.,3.,3,3,0],
-            [4.,4.,4,4,2],
-            ]
+        t1 = [[1.,1.,1,1,0],
+              [2.,2.,2,2,0],
+              [3.,3.,3,3,0],
+             ]
+        t2 = [[1.,1.,1,1,0],
+              [2.,2.,2,2,0],
+              [4.,4.,4,4,1],
+             ]
+        t3 = [[1.,1.,1,1,0],
+              [4.,4.,4,4,2],
+             ]
 
-        f=float
-        cats = [Table(np.array(t1), names=["RA","DEC","A","NUM","flag"], dtype=[f,f,f,f,np.uint16], meta={"FILTER":"A"}),
-                Table(np.array(t2), names=["RA","DEC","B","NUM","flag"], dtype=[f,f,f,f,np.uint16], meta={"FILTER":"B"}),
-                Table(np.array(t3), names=["RA","DEC","C","NUM","flag"], dtype=[f,f,f,f,np.uint16], meta={"FILTER":"C"})]
+        f = float
+        categories = [
+            Table(np.array(t1), names=[RA, DEC, "A", NUM, FLAG],
+                  dtype=[f, f, f, f, np.uint16], meta={FILTER: "A"}),
+            Table(np.array(t2), names=[RA, DEC, "B", NUM, FLAG],
+                  dtype=[f, f, f, f, np.uint16], meta={FILTER: "B"}),
+            Table(np.array(t3), names=[RA, DEC, "C", NUM, FLAG],
+                  dtype=[f, f, f, f, np.uint16], meta={FILTER: "C"})]
 
-
-        bm=BandMatch(fltr=["A","B","C"], threshold=[0.1,0.2])
-        res=bm(cats)
+        bm = BandMatch(fltr=["A", "B", "C"], threshold=[0.1,0.2])
+        res = bm(categories)
         print(res)
-        assert res.col_names == ["RA", "DEC", "NUM", "flag", "A", "B", "C"]
-        #res=bm(cats, method="last")
-        #print(res)
-        res=bm(cats, method="bootstrap")
+        assert res.col_names == [RA, DEC, NUM, FLAG, "A", "B", "C"]
+        bm(categories, method="bootstrap")
 
-def test_parsemask():
-    table=import_table("tests/dat/image-ap.fits")
-    """
-    tests=[ "F444W!=np.nan",
-            "F444W==np.nan",
-            "F444W>0",
-            "(F444W>0)&(F444W<20)", ## Dont like this "syntax"
-            "F444W+0"
-            ]
+def test_parse_mask():
+    import_table(f"{os.path.join(TEST_PATH, "image-ap.fits")}")
 
-    for test in tests:
-        assert parse_mask(test,table) is not None
-    """
+def test_match_with_masks():
+    t1 = [[0, 0, 1],
+          [1, 1, 1],
+          [2, 2, 1],
+          [3, 3, 1]]
+    t2 = [[0, 0, 1],
+          [1, 1, 1],
+          [2, 2, 0],
+          [3, 3, 1]]
+    t3 = [[0, 0, 1],
+          [1, 1, 1],
+          [2, 2, 0],
+          [3, 3, 1]]
+    cat1 = Table(np.array(t1, float), names=[RA, DEC, "a"])
+    cat2 = Table(np.array(t2, float), names=[RA, DEC, "a"])
+    cat3 = Table(np.array(t3, float), names=[RA, DEC, "a"])
+    mask = [
+        np.array([True, True, False, True]),
+        None,
+        np.array([True, True, True, False])]
 
-def test_matchwithmasks():
-    t1=[[0,0,1],
-        [1,1,1],
-        [2,2,1],
-        [3,3,1]]
-    t2=[[0,0,1],
-        [1,1,1],
-        [2,2,0],
-        [3,3,1]]
-    t3=[[0,0,1],
-        [1,1,1],
-        [2,2,0],
-        [3,3,1]]
-    cat1=Table(np.array(t1,float),names=["RA","DEC","a"])
-    cat2=Table(np.array(t2,float),names=["RA","DEC","a"])
-    cat3=Table(np.array(t3,float),names=["RA","DEC","a"])
-    mask=[ np.array([True,True,False,True]), None, np.array([True,True,True,False])]
-
-    res=GenericMatch().match([cat1,cat2,cat3], mask=mask)
+    res = GenericMatch().match([cat1, cat2, cat3], mask=mask)
     print(res)
 
-def test_ExactMatch():
-    cat1=Table(np.array([["CN1",1], ["CN2",1], ["CN3",1]]),names=["CN","i"], dtype=(str,int))
-    cat2=Table(np.array([["CN2",2], ["CN3",2], ["CN4",2]]),names=["CN","i"], dtype=(str,int))
-    cat3=Table(np.array([["CN3",3], ["CN4",3], ["CN5",3]]),names=["CN","i"], dtype=(str,int))
+def test_exact_match():
+    cat1 = Table(
+        np.array([["CN1", 1], ["CN2", 1], ["CN3", 1]]),
+        names=["CN", "i"], dtype=(str, int))
+    cat2 = Table(
+        np.array([["CN2", 2], ["CN3", 2], ["CN4", 2]]),
+        names=["CN", "i"], dtype=(str, int))
+    cat3 = Table(
+        np.array([["CN3", 3], ["CN4", 3], ["CN5", 3]]),
+        names=["CN", "i"], dtype=(str, int))
     
-    arr= [[1, np.nan, np.nan],
-          [1,      2, np.nan],
-          [1,      2,      3],
-          [np.nan, 2,      3],
-          [np.nan, np.nan, 3]]
-    correct=Table(np.array(arr), dtype=[int,int,int], names=["i_1","i_2","i_3"],masked=True)
-    for i,col in enumerate(correct.columns.values()): col.mask=np.isnan(np.array(arr)[:,i])
-    correct.add_column(["CN1","CN2","CN3","CN4","CN5"],name="CN",index=0)
-    
-    res=ExactValueMatch(value="CN").match([cat1,cat2,cat3])
-    assert all(res==fill_nan(correct))
+    arr = [[1, np.nan, np.nan],
+           [1,      2, np.nan],
+           [1,      2,      3],
+           [np.nan, 2,      3],
+           [np.nan, np.nan, 3]]
+    correct = Table(
+        np.array(arr), dtype=[int, int, int], names=["i_1", "i_2", "i_3"], 
+        masked=True)
+    for i, col in enumerate(correct.columns.values()):
+        col.mask = np.isnan(np.array(arr)[:, i])
+    correct.add_column(["CN1", "CN2", "CN3", "CN4", "CN5"], name="CN", index=0)
+    res = ExactValueMatch(value="CN").match([cat1, cat2, cat3])
+    assert all(res==fill_nan(correct)) # type: ignore
         
 if __name__=="__main__":
-    test_ExactMatch()
+    test_exact_match()
