@@ -11,16 +11,15 @@ from photutils.datasets import make_model_image
 from photutils.psf import FittableImageModel
 
 from starbug2.constants import (
-    VERBOSE, FILTER, STAR_BUG, CALIBRATION_LV, DETECTOR, TELESCOPE,
-    INSTRUMENT, BUN_IT, PIXAR_A2, PIXAR_SR, HDU_NAME, SCI, BGD, RES,
-    VERBOSE_TAG, AP_FILE, BGD_FILE, OUTPUT, FITS_EXTENSION, JWST, FWHM, DQ,
-    AREA, WHT, USE_WCS, RA, DEC, X_CENTROID, Y_CENTROID, SHORT, LONG, NIRCAM,
-    MIRI, SRC_FIX, CRIT_SEP, FORCE_POS, DEG, ARCMIN, ARCSEC, MAX_XY_DEV,
-    DQ_DO_NOT_USE, DQ_SATURATED, NAXIS1, NAXIS2, CALC_CROWD, ERR,
-    EXIT_SUCCESS, EXIT_FAIL, APCORR_FILE, APPHOT_R, ENCENERGY, SKY_RIN,
-    SKY_ROUT, SIGSKY, ZP_MAG, CLEANSRC, QUIETMODE, BOX_SIZE, BGD_R,
-    PROF_SCALE, PROF_SLOPE, BGD_CHECKFILE, PSF_FILE, PSF_SIZE, GEN_RESIDUAL,
-    NIRCAM_STRING, STARBUG_DATA_DIR)
+    FILTER, STAR_BUG, CALIBRATION_LV, DETECTOR, TELESCOPE, INSTRUMENT, BUN_IT,
+    PIXAR_A2, PIXAR_SR, HDU_NAME, SCI, BGD, RES, VERBOSE_TAG, AP_FILE,
+    BGD_FILE, OUTPUT, FITS_EXTENSION, JWST, FWHM, DQ, AREA, WHT, USE_WCS, RA,
+    DEC, X_CENTROID, Y_CENTROID, SHORT, LONG, NIRCAM, MIRI, SRC_FIX, CRIT_SEP,
+    FORCE_POS, DEG, ARCMIN, ARCSEC, MAX_XY_DEV, DQ_DO_NOT_USE, DQ_SATURATED,
+    NAXIS1, NAXIS2, CALC_CROWD, ERR, EXIT_SUCCESS, EXIT_FAIL, APCORR_FILE,
+    APPHOT_R, ENCENERGY, SKY_RIN, SKY_ROUT, SIGSKY, ZP_MAG, CLEANSRC,
+    QUIETMODE, BOX_SIZE, BGD_R, PROF_SCALE, PROF_SLOPE, BGD_CHECKFILE,
+    PSF_FILE, PSF_SIZE, GEN_RESIDUAL, NIRCAM_STRING, STARBUG_DATA_DIR)
 from starbug2.filters import STAR_BUG_FILTERS
 from starbug2.param import load_params, load_default_params
 from starbug2.routines.app_hot_routine import APPhotRoutine
@@ -255,7 +254,7 @@ class StarbugBase(object):
             f_name = self._options[AP_FILE]
         if os.path.exists(f_name):
             self._detections = import_table(f_name)
-            column_names = set(self._detections.col_names)
+            column_names = set(self._detections.colnames)
 
             self.log("loaded AP_FILE='%s'\n" % f_name)
 
@@ -287,12 +286,12 @@ class StarbugBase(object):
                     ("x_init", "y_init"), (X_CENTROID, Y_CENTROID))
 
             if len({X_CENTROID, Y_CENTROID} & 
-                   set(self._detections.col_names)) == 2:
+                   set(self._detections.colnames)) == 2:
                 mask = (
                     (self._detections[X_CENTROID] >= 0)
-                    & (self._detections[X_CENTROID] < self._image.shape[1])
+                    & (self._detections[X_CENTROID] < self.main_image.shape[1])
                     & (self._detections[Y_CENTROID] >= 0)
-                    & (self._detections[Y_CENTROID] < self._image.shape[0])
+                    & (self._detections[Y_CENTROID] < self.main_image.shape[0])
                 )
                 self._detections.remove_rows(~mask)
                 self.log(
@@ -610,15 +609,15 @@ class StarbugBase(object):
             else:
                 full_width_half_max = 2
 
-            if "x_init" in source_list.col_names:
+            if "x_init" in source_list.colnames:
                 source_list.rename_column("x_init", X_CENTROID)
-            if "y_init" in source_list.col_names:
+            if "y_init" in source_list.colnames:
                 source_list.rename_column("y_init", Y_CENTROID)
-            if "x_det" in source_list.col_names:
+            if "x_det" in source_list.colnames:
                 source_list.rename_column("x_det", X_CENTROID)
-            if "y_det" in source_list.col_names:
+            if "y_det" in source_list.colnames:
                 source_list.rename_column("y_det", Y_CENTROID)
-            if "flux_det" in source_list.col_names:
+            if "flux_det" in source_list.colnames:
                 source_list.rename_column("flux_det", "flux")
             mask = ~(np.isnan(source_list[X_CENTROID])
                      | np.isnan(source_list[Y_CENTROID]))
@@ -637,7 +636,7 @@ class StarbugBase(object):
             self._background = fits.ImageHDU(
                 data=bgd(
                     self.main_image.data.copy(),
-                    output=self._options.get(BGD_CHECKFILE)).background,
+                    output=self._options.get(BGD_CHECKFILE)),
                 header=header)
             if not self._options.get(QUIETMODE):
                 f_name = "%s/%s-bgd.fits"%(self._out_dir, self._b_name)
@@ -733,13 +732,13 @@ class StarbugBase(object):
                 app_hot_r = 3
 
             init_guesses = self._detections.copy()
-            if X_CENTROID in init_guesses.col_names:
+            if X_CENTROID in init_guesses.colnames:
                 init_guesses.rename_column(X_CENTROID, "x_init")
-            if Y_CENTROID in init_guesses.col_names:
+            if Y_CENTROID in init_guesses.colnames:
                 init_guesses.rename_column(Y_CENTROID, "y_init")
-            if "x_det" in init_guesses.col_names:
+            if "x_det" in init_guesses.colnames:
                 init_guesses.rename_column("x_det", "x_init")
-            if "y_det" in init_guesses.col_names:
+            if "y_det" in init_guesses.colnames:
                 init_guesses.rename_column("y_det", "y_init")
 
             init_guesses = init_guesses[ init_guesses["x_init"] >=0 ]
@@ -753,7 +752,7 @@ class StarbugBase(object):
             # Allow tables that don't have the correct columns through
             ######
             required = ["x_init","y_init","flux",self._filter, "flag"]
-            for notfound in  set(required) - set(init_guesses.col_names):
+            for notfound in  set(required) - set(init_guesses.colnames):
                 dtype = np.uint16 if notfound == "flag" else float
                 init_guesses.add_column(
                     Column(np.zeros(len(init_guesses)),
@@ -1094,3 +1093,15 @@ class StarbugBase(object):
     @property
     def psf(self):
         return self._psf
+
+    @property
+    def f_name(self):
+        return self._f_name
+
+    @property
+    def detections(self):
+        return self._detections
+
+    @property
+    def out_dir(self):
+        return self._out_dir

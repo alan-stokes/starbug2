@@ -13,22 +13,31 @@ from starbug2.param import load_default_params
 from starbug2.bin.main import starbug_main
 from astropy.table import Table
 
-from tests.generic import TEST_IMAGE_FITS, TEST_PATH, check_shape
+from tests.generic import TEST_IMAGE_FITS, TEST_PATH, check_shape, clean
+
+IMAGE_2_FITS = os.path.join(TEST_PATH, "image2.fits")
+IMAGE_AP_FITS = os.path.join(TEST_PATH, "image-ap.fits")
+IMAGE_2_AP_FITS = os.path.join(TEST_PATH, "image2-ap.fits")
+
 
 
 @pytest.fixture(autouse=True)
 def init():
 
-    # init starbug
-    if not os.path.exists(os.path.join(TEST_PATH, "image-ap.fits")):
-        starbug_main(
-            f"starbug2 -Ds SIGSRC=10 {TEST_IMAGE_FITS}".split())
-        starbug_main(
-            "starbug2 -Ds SIGSRC=3 -o "
-            f"{os.path.join(TEST_PATH, "image2.fits")}"
-            f"{TEST_IMAGE_FITS}".split())
-
-
+    clean()
+    starbug_main(
+        f"starbug2 -Ds SIGSRC=10 {TEST_IMAGE_FITS}"
+        f" -s FILTER=F444W -G".split())
+    starbug_main(
+        "starbug2 -Ds SIGSRC=3 -o "
+        f"{IMAGE_2_FITS} {TEST_IMAGE_FITS} -s FILTER=F444W -G".split())
+    starbug_main(
+        f"starbug2 -d {IMAGE_AP_FITS} --background {TEST_IMAGE_FITS}"
+        f" -s FILTER=F444W -G".split())
+    os.system(f"cp {TEST_IMAGE_FITS} {IMAGE_2_FITS}")
+    starbug_main(
+        f"starbug2 -d {IMAGE_2_AP_FITS} --background {IMAGE_2_FITS}"
+        f" -s FILTER=F444W -G".split())
 
 def cats():
     t1 = [[ 0.0, 0.0, 1.0, 0.1],
@@ -76,15 +85,13 @@ class TestGenericMatch:
         assert isinstance(m.__str__(), str)
 
     def test_generic_match1(self):
-        categories = [
-            import_table(f) for f in (
-                f"{os.path.join(TEST_PATH, "image-ap.fits")}",
-                f"{os.path.join(TEST_PATH, "image2-ap.fits")}")]
+        categories = [import_table(f) for f in (
+            f"{IMAGE_AP_FITS}", f"{IMAGE_2_AP_FITS}")]
         m = GenericMatch()
 
         out = m(categories)
         assert isinstance(out, Table)
-        for name in categories[0].col_names:
+        for name in categories[0].colnames:
             if name != CAT_NUM:
                 assert "%s_1" % name in out.colnames
                 assert "%s_2" % name in out.colnames
@@ -99,17 +106,17 @@ class TestGenericMatch:
 
     def test_generic_match2(self):
         categories = [import_table(f) for f in (
-            f"{os.path.join(TEST_PATH, "image-ap.fits")}",
-            f"{os.path.join(TEST_PATH, "image2-ap.fits")}")]
+            f"{IMAGE_AP_FITS}",
+            f"{IMAGE_2_AP_FITS}")]
         m = GenericMatch(col_names=[RA])
         out = m(categories)
 
-        assert out.col_names == ["RA_1", "RA_2"]
+        assert out.colnames == ["RA_1", "RA_2"]
 
     def test_finish_matching(self):
         categories = [import_table(f) for f in (
-            f"{os.path.join(TEST_PATH, "image-ap.fits")}",
-            f"{os.path.join(TEST_PATH, "image2-ap.fits")}")]
+            f"{IMAGE_AP_FITS}",
+            f"{IMAGE_2_AP_FITS}")]
         m = GenericMatch()
         out = m(categories)
         m.finish_matching(out)
@@ -143,15 +150,12 @@ class TestGenericMatch:
             names=[
                 "RA_1", "DEC_1", "flux_1", "eflux_1", "RA_2", "DEC_2",
                 "flux_2", "eflux_2"])
-        
         check_shape(c, out)
 
 
 class TestCascade:
     def test_cascade_match(self):
-        [import_table(f) for f in (
-            f"{os.path.join(TEST_PATH, "image-ap.fits")}",
-            f"{os.path.join(TEST_PATH, "image2-ap.fits")}")]
+        [import_table(f) for f in (f"{IMAGE_AP_FITS}", f"{IMAGE_2_AP_FITS}")]
         CascadeMatch()
         
         
@@ -173,11 +177,13 @@ class TestCascade:
 
         check_shape(c, out)
 
+
 class TestBandMatch:
     def test_init(self):
         filters = ["a", "b", "c"]
-        m = BandMatch(fltr=filters)
+        m = BandMatch(filter_string=filters)
         assert m.filter == ["a", "b", "c"]
+
 
     def test_order_catalogue_jwst_meta(self):
         a = Table(None, meta={"FILTER": 'F115W'})
@@ -189,6 +195,7 @@ class TestBandMatch:
         assert m.order_catalogues( [a,c,b] ) == [a,b,c]
         assert m.filter == ["F115W", "F187N", "F770W"]
 
+
     def test_order_catalogue_jwst_col_names(self):
         a = Table(None, names=['F115W'])
         b = Table(None, names=['F187N'])
@@ -196,36 +203,39 @@ class TestBandMatch:
 
         m = BandMatch()
         assert m.filter == ""
-        assert m.order_catalogues( [a,c,b] ) == [a,b,c]
+        assert m.order_catalogues( [a, c, b] ) == [a, b, c]
         assert m.filter == ["F115W", "F187N", "F770W"]
+
 
     def test_order_catalogue_filter_meta(self):
         a = Table(None, meta={"FILTER":'a'})
         b = Table(None, meta={"FILTER":'b'})
         c = Table(None, meta={"FILTER":'c'})
 
-        m = BandMatch(fltr=["a","b","c"])
+        m = BandMatch(filter_string=["a", "b", "c"])
         assert m.order_catalogues( [a,c,b] ) == [a,b,c]
+
 
     def test_order_catalogue_filter_col_names(self):
         a = Table(None, names=['a'])
         b = Table(None, names=['b'])
         c = Table(None, names=['c'])
 
-        m = BandMatch(fltr=["a","b","c"])
-        assert m.order_catalogues( [a,c,b] ) == [a,b,c]
+        m = BandMatch(filter_string=["a", "b", "c"])
+        assert m.order_catalogues( [a, c, b] ) == [a, b, c]
+
 
     def test_match(self):
-        t1 = [[1.,1.,1,1,0],
-              [2.,2.,2,2,0],
-              [3.,3.,3,3,0],
+        t1 = [[1., 1., 1, 1,0],
+              [2., 2., 2, 2, 0],
+              [3., 3., 3, 3, 0],
              ]
-        t2 = [[1.,1.,1,1,0],
-              [2.,2.,2,2,0],
-              [4.,4.,4,4,1],
+        t2 = [[1., 1., 1, 1, 0],
+              [2., 2., 2, 2, 0],
+              [4., 4., 4, 4, 1],
              ]
-        t3 = [[1.,1.,1,1,0],
-              [4.,4.,4,4,2],
+        t3 = [[1., 1., 1, 1, 0],
+              [4., 4., 4, 4, 2],
              ]
 
         f = float
@@ -237,14 +247,16 @@ class TestBandMatch:
             Table(np.array(t3), names=[RA, DEC, "C", NUM, FLAG],
                   dtype=[f, f, f, f, np.uint16], meta={FILTER: "C"})]
 
-        bm = BandMatch(fltr=["A", "B", "C"], threshold=[0.1,0.2])
+        bm = BandMatch(filter_string=["A", "B", "C"], threshold=[0.1, 0.2])
         res = bm(categories)
         print(res)
         assert res.col_names == [RA, DEC, NUM, FLAG, "A", "B", "C"]
         bm(categories, method="bootstrap")
 
+
 def test_parse_mask():
-    import_table(f"{os.path.join(TEST_PATH, "image-ap.fits")}")
+    import_table(f"{IMAGE_AP_FITS}")
+
 
 def test_match_with_masks():
     t1 = [[0, 0, 1],
@@ -269,6 +281,7 @@ def test_match_with_masks():
 
     res = GenericMatch().match([cat1, cat2, cat3], mask=mask)
     print(res)
+
 
 def test_exact_match():
     cat1 = Table(

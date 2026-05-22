@@ -65,8 +65,8 @@ class ExactValueMatch(GenericMatch):
         """
 
         tmp = Table(
-            np.full((len(base), len(cat.col_names)), np.nan),
-            names=cat.col_names, dtype=cat.dtype, masked=True)
+            np.full((len(base), len(cat.colnames)), np.nan),
+            names=cat.colnames, dtype=cat.dtype, masked=True)
         for col in tmp.columns.values():
             col.mask |= True
 
@@ -107,7 +107,7 @@ class ExactValueMatch(GenericMatch):
             self._load.msg = "matching: %d"%n
             tmp = self.inner_match(base, cat)
             tmp.rename_columns(
-                tmp.col_names, ["%s_%d" % (name, n) for name in tmp.col_names])
+                tmp.colnames, ["%s_%d" % (name, n) for name in tmp.colnames])
             base = hstack([base,tmp])
 
             if n > 1:

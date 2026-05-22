@@ -79,7 +79,7 @@ class BackGroundEstimateRoutine(BackgroundBase):
         :param masked: if the data is masked
         :param output: if the data should be outputted
         :return: the new background 2D object.
-        :rtype: Background2D
+        :rtype: `~numpy.ndarray`
         """
         if self._source_list is None or data is None:
             return self._bgd

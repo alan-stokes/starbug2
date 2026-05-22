@@ -137,7 +137,7 @@ class PSFPhotRoutine(PSFPhotometry):
         # noinspection SpellCheckingInspection
         cat.add_column(Column(d, name="xydev"))
 
-        if "flux_err" not in cat.col_names:
+        if "flux_err" not in cat.colnames:
             cat.add_column(Column(np.full(len(cat), np.nan), name="eflux"))
             warn("Something went wrong with PSF error fitting\n")
         else:

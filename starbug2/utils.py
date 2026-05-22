@@ -263,7 +263,7 @@ def tab2array(tab, col_names=None):
     :rtype: numpy.ndarray
     """
     if not col_names:
-        col_names=tab.col_names
+        col_names=tab.colnames
     else:
         col_names=remove_duplicates(col_names)
     return np.array(tab[col_names].as_array().tolist())
@@ -282,10 +282,11 @@ def collapse_header(header):
     :rtype fits.Header
     """
     out = fits.Header()
-    for key,value in header.items():
+    for key, value in header.items():
         if len(key) > 8:
             out["comment"] = ":".join([key, str(value)])
-        else: out[key] = value
+        else:
+            out[key] = value
     return out
 
 

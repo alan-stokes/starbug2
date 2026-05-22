@@ -70,7 +70,7 @@ from starbug2.constants import (
     LOGO, HELP_STRINGS, N_CORES, EXIT_EARLY, EXIT_SUCCESS, EXIT_FAIL,
     EXIT_MIXED, READ_THE_DOCS_URL, FILTER, DET_NAME, PSF_SIZE, MATCH_THRESH,
     NEXP_THRESH, ZP_MAG, AP_FILE, BGD_FILE, FITS_EXTENSION, REGION_COL,
-    REGION_SCAL, REGION_RAD, REGION_X_COL, REGION_Y_COL, REGION_WCS)
+    REGION_SCAL, REGION_RAD, REGION_X_COL, REGION_Y_COL, REGION_WCS, VERBOSE_TAG)
 from starbug2.utils import (
     p_error, printf, get_version, warn, split_file_name, export_region,
     combine_file_names, export_table, puts, translate_param_float, parse_cmd,
@@ -311,7 +311,7 @@ def starbug_match_outputs(starbugs, options, set_opt):
     params = param.load_params(set_opt.get(PARAM_FILE_TAG))
     params.update(set_opt)
 
-    if f_name := combine_file_names([sb.fname for sb in starbugs]):
+    if f_name := combine_file_names([sb.f_name for sb in starbugs]):
         _, name ,_ = split_file_name(os.path.basename(f_name))
         f_name = "%s/%s"%(starbugs[0].out_dir, name)
     else:
@@ -338,7 +338,7 @@ def starbug_match_outputs(starbugs, options, set_opt):
         export_table(av, f_name="%s-apmatch.fits" % f_name, header=header)
 
     if options & DOPHOTOM:
-        full = match( [sb.psfcatalogue for sb in starbugs], join_type="or")
+        full = match( [sb.psf_catalogue for sb in starbugs], join_type="or")
         av = match.finish_matching(
             full, num_thresh=params[NEXP_THRESH], zp_mag=params[ZP_MAG])
 
@@ -376,7 +376,7 @@ def fn(args):
         ## Sorting out the stdout
         if options & VERBOSE:
             printf("-> showing starbug stdout for \"%s\"\n" % f_name)
-            set_opt[VERBOSE] = 1
+            set_opt[VERBOSE_TAG] = 1
         elif set_opt.get(N_CORES) > 1:
             printf("-> hiding starbug stdout for \"%s\"\n" % f_name)
         else: printf("-> %s\n" % f_name)
