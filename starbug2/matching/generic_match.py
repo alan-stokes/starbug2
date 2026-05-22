@@ -50,7 +50,7 @@ class GenericMatch(object):
                 if type(subset) == list:
                     subset=np.array(subset)
                 if len(subset) == len(cat):
-                    masked = vstack((masked,cat[~subset]))
+                    masked = vstack((masked, cat[~subset]))
                     cat.remove_rows(~subset)
         return masked
 
@@ -187,12 +187,12 @@ class GenericMatch(object):
         if self._col_names is None:
             self._col_names = []
             for cat in catalogues:
-                self._col_names += cat.col_names
+                self._col_names += cat.colnames
         self._col_names = remove_duplicates(self._col_names)
 
         # clean out the column names not included in self._col_names
         for n,catalogue in enumerate(catalogues):
-            keep = set(catalogue.col_names) & set(self._col_names)
+            keep = set(catalogue.colnames) & set(self._col_names)
             keep = sorted(keep, key= lambda s: self._col_names.index(s))
             catalogues[n] = catalogue[keep]
 

@@ -485,7 +485,7 @@ class StarbugBase(object):
             p_error("No detection source file loaded (-d file-ap.fits)\n")
             return EXIT_FAIL
         if len({"x_0", "y_0", "x_init", "y_init", X_CENTROID, Y_CENTROID} &
-               set(self._detections.col_names)) < 2:
+               set(self._detections.colnames)) < 2:
             p_error("No pixel coordinates in source file\n")
             return EXIT_FAIL
 
@@ -493,7 +493,7 @@ class StarbugBase(object):
             "smoothness","flux","eflux","sky", "flag",
             self._filter, "e%s" % self._filter)
         self._detections.remove_columns(
-            set(new_columns) & set(self._detections.col_names))
+            set(new_columns) & set(self._detections.colnames))
 
 
         #######################
@@ -541,21 +541,21 @@ class StarbugBase(object):
 
         ap_corr = APPhotRoutine.calc_ap_corr(
             self._filter, radius, table_f_name=ap_corr_f_name,
-            verbose=self._options[VERBOSE])
+            verbose=self._options[VERBOSE_TAG])
 
         ##################
         # Run Photometry #
         ##################
         app_hot = APPhotRoutine(
-            radius, sky_in, sky_out, verbose=self._options[VERBOSE])
+            radius, sky_in, sky_out, verbose=self._options[VERBOSE_TAG])
 
         if DQ in ext_names(self._image):
             dq_flags = self._image[DQ].data.copy()
         else:
             dq_flags = None
         ap_cat = app_hot(
-            image, self._detections, error=error, dqflags=dq_flags,
-            apcorr=ap_corr, sig_sky=self._options[SIGSKY])
+            image, self._detections, error=error, dq_flags=dq_flags,
+            ap_corr=ap_corr, sig_sky=self._options[SIGSKY])
 
 
         filter_string = self._filter if self._filter else "mag"
@@ -631,7 +631,7 @@ class StarbugBase(object):
                 bgd_r=self._options[BGD_R],
                 profile_scale=self._options[PROF_SCALE],
                 profile_slope=self._options[PROF_SLOPE],
-                verbose=self._options[VERBOSE])
+                verbose=self._options[VERBOSE_TAG])
             header = self.header
             header.update(self._wcs.to_header())
             self._background = fits.ImageHDU(
@@ -775,7 +775,7 @@ class StarbugBase(object):
                 phot = PSFPhotRoutine(
                     psf_model, size, min_separation=min_separation,
                     app_hot_r=app_hot_r, background=bgd, force_fit=1,
-                    verbose=self._options[VERBOSE])
+                    verbose=self._options[VERBOSE_TAG])
                 psf_cat = phot(
                     image,init_params=init_guesses, error=error, mask=mask)
                 psf_cat["flag"] |= SRC_FIX
@@ -784,7 +784,7 @@ class StarbugBase(object):
                 phot = PSFPhotRoutine(
                     psf_model, size, min_separation=min_separation,
                     app_hot_r=app_hot_r, background=bgd, force_fit=0,
-                    verbose=self._options[VERBOSE])
+                    verbose=self._options[VERBOSE_TAG])
                 psf_cat = phot(
                     image,init_params=init_guesses, error=error, mask=mask)
 
@@ -818,7 +818,7 @@ class StarbugBase(object):
                     phot = PSFPhotRoutine(
                         psf_model, size, min_separation=min_separation,
                         app_hot_r=app_hot_r, background=bgd, force_fit=1,
-                        verbose=self._options[VERBOSE])
+                        verbose=self._options[VERBOSE_TAG])
                     ii = psf_cat["xydev"] > max_y_dev
                     fixed_centres = psf_cat[ii][
                         ["x_init", "y_init", "ap_%s" % self._filter, "flag"]]
@@ -890,7 +890,7 @@ class StarbugBase(object):
             slist = self._filter_detections()
 
             sp = SourceProperties(
-                self.main_image.data, slist, verbose=self._options[VERBOSE])
+                self.main_image.data, slist, verbose=self._options[VERBOSE_TAG])
             stat = sp(
                 fwhm=STAR_BUG_FILTERS[self._filter].pFWHM,
                 do_crowd=self._options[CALC_CROWD])
@@ -980,10 +980,10 @@ class StarbugBase(object):
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        v = self._options[VERBOSE]
-        self._options[VERBOSE] = 0
+        v = self._options[VERBOSE_TAG]
+        self._options[VERBOSE_TAG] = 0
         self.load_image(self._f_name)
-        self._options[VERBOSE] = v
+        self._options[VERBOSE_TAG] = v
 
     @property
     def header(self):

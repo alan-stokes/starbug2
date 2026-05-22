@@ -140,11 +140,35 @@ class APPhotRoutine:
         self.catalogue = Table(None)
         self.verbose = verbose
 
-    def __call__(self, image, detections, **kwargs):
-        return self.run(image, detections, **kwargs)
-
-    def run(self, image, detections, error=None, dq_flags=None, ap_corr=1.0,
+    def __call__(
+            self, image, detections, error=None, dq_flags=None, ap_corr=1.0,
             sig_sky=3):
+        """
+        Forced aperture photometry on a list of detections are an
+         `astropy.table.Table` with columns x_centroid y_centroid or x_0 y_0
+        This will add extra columns into this table ap_flux ap_sky
+
+        :param detections: Table with source positions containing
+                           x_centroid, y_centroid columns
+        :type detections: astropy.table.Table
+        :param image: 2D Image data to run photometry on
+        :type image: numpy.ndarray
+        :param error: 2D Image array containing photometric error per pixel
+        :type error: numpy.ndarray
+        :param dq_flags: 2D Image array containing JWST data quality flags per
+                         pixel
+        :type dq_flags: numpy.ndarray
+        :param ap_corr: Aperture correction to be applied to the flux
+        :type ap_corr: float
+        :param sig_sky: Sigma threshold above the median to clip from sky
+                        apertures
+        :type sig_sky: float
+        :return: Photometry catalogue
+        :rtype: astropy.table.Table
+        """
+        return self._run(image, detections, error, dq_flags, ap_corr, sig_sky)
+
+    def _run(self, image, detections, error, dq_flags, ap_corr, sig_sky):
         """
         Forced aperture photometry on a list of detections are an
          `astropy.table.Table` with columns x_centroid y_centroid or x_0 y_0
