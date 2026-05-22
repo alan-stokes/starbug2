@@ -2,7 +2,8 @@ import os,numpy as np
 import pytest
 
 from starbug2.constants import (
-    CAT_NUM, E_FLUX, RA, DEC, FLUX, FILTER, MATCH_THRESH, VERBOSE_TAG, NUM, FLAG)
+    CAT_NUM, E_FLUX, RA, DEC, FLUX, FILTER, MATCH_THRESH, VERBOSE_TAG, NUM,
+    FLAG)
 from starbug2.matching.band_match import BandMatch
 from starbug2.matching.cascade_match import CascadeMatch
 from starbug2.matching.exact_value_match import ExactValueMatch
