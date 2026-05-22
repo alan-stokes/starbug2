@@ -133,7 +133,7 @@ def generate_psf(filter_string, detector=None, fov_pixels=None):
     """
 
     # ABS again, why are we importing here?
-    from webbpsf.webbpsf_core import NIRCam, MIRI
+    from webbpsf import NIRCam, MIRI
     psf = None
     model = None
     if fov_pixels is not None and fov_pixels <= 0:

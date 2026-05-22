@@ -41,7 +41,7 @@ but was set up for consistency.
 - ```./star_bug_env/bin/pip install numpy==2.3.5 photutils==2.0.1 --force```
 - ```./star_bug_env/bin/pip install parse==1.22.0```
 - ```./star_bug_env/bin/pip install setuptools==82.0.1```
-- ```/star_bug_env/bin/pip install scikit-image==0.26.0```
+- ```./star_bug_env/bin/pip install scikit-image==0.26.0```
 - ```./star_bug_env/bin/pip install webbpsf==2.0.0```
 - ```./star_bug_env/bin/pip install pytest==9.0.3```
 - ```./star_bug_env/bin/python -m pip install build```
