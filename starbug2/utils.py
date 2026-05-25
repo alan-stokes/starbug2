@@ -369,6 +369,7 @@ def fill_nan(table):
     return table
 
 def find_col_names(tab, basename):
+    # noinspection SpellCheckingInspection
     """
     Find substring (basename) within the table colnames. Searches for
     substring at the beginning of the word I.E search for "flux" in

@@ -35,7 +35,7 @@ class ArtificialStarsIII:
     def __init__(self, starbug, index=-1):
         ## Initials the starbug instance
         self.starbug = starbug
-        main_image = self.starbug.main_image
+        _ = self.starbug.main_image
         psf_success = self.starbug.load_psf()
 
         if psf_success != EXIT_SUCCESS:
@@ -85,7 +85,7 @@ class ArtificialStarsIII:
         test_result = Table(
             np.full((n_tests * stars_per_test, 8), np.nan),
             names=[X_0, Y_0, MAG, FLUX, X_DET, Y_DET, FLUX_DET, STATUS])
-        scale_factor = get_mj_ysr2jy_scale_factor(self.starbug.image)
+        scale_factor = get_mj_ysr2jy_scale_factor(self.starbug.main_image)
         base_image = self.starbug.image.copy()
         base_shape = np.copy(self.starbug.main_image.shape)
         stars_per_test = int(stars_per_test)
@@ -123,7 +123,8 @@ class ArtificialStarsIII:
 
             star_overlay = (
                 make_model_image(
-                    shape, self.psf, source_list, model_shape=self.psf.shape)
+                    shape, self.psf, source_list,
+                    model_shape=self.psf.data.shape)
                 / scale_factor)
             image[self.starbug.n_hdu].data += star_overlay
             self.starbug.image = image
@@ -309,7 +310,10 @@ def estimate_completeness_mag(ast):
 
     if len(set(ast.colnames) & {MAG, REC}) == 2:
         try:
-            fit = curve_fit(
+            # need the *_ as the return tuple can be multiple sizes. The *_
+            # allows the IDE to not freak out, especially as we don't care
+            # about the rest of the return values.
+            fit, *_ = curve_fit(
                 scurve, ast[MAG], ast[REC], [1, -1, np.median(ast[MAG])])
             completeness = (fn_i(0.9, *fit), fn_i(0.7, *fit), fn_i(0.5, *fit))
         except (RuntimeError, ValueError) as e:

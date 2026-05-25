@@ -1087,6 +1087,10 @@ class StarbugBase(object):
     def image(self):
         return self._image
 
+    @image.setter
+    def image(self, new_image):
+        self._image = new_image
+
     @property
     def psf_catalogue(self):
         return self._psf_catalogue
@@ -1102,6 +1106,10 @@ class StarbugBase(object):
     @property
     def detections(self):
         return self._detections
+
+    @detections.setter
+    def detections(self, new_detections):
+        self._detections = new_detections
 
     @property
     def out_dir(self):

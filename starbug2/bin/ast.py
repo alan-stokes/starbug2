@@ -272,7 +272,12 @@ def ast_main(argv):
         p_error("must include a fits image to work on\n")
         exit_code = EXIT_FAIL
 
-    share.unlink()
+    # Wrapped fix to handle rapid multiprocess teardowns safely
+    try:
+        share.unlink()
+    except FileNotFoundError:
+        # The memory handle was already unlinked safely by another thread
+        pass
     return exit_code
 
 def ast_main_entry():

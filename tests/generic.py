@@ -2,16 +2,15 @@ import os, glob
 
 import numpy as np
 
-from starbug2.constants import  START_BUG_TEST_DAT_ENV
+from starbug2.constants import  STAR_BUG_TEST_DAT_ENV
 
 # paths to test files
-TEST_PATH = os.getenv(START_BUG_TEST_DAT_ENV)
+TEST_PATH = os.getenv(STAR_BUG_TEST_DAT_ENV)
 TEST_IMAGE_FITS = os.path.join(TEST_PATH, "image.fits")
 TEST_PSF_FITS = os.path.join(TEST_PATH, "psf.fits")
 
 # the filter string for tests to ensure they all use the same stuff
 TEST_FILTER_STRING = "-s FILTER=F444W -G"
-TEST_FILTER_STRING_NO_G = "-s FILTER=F444W"
 
 
 def clean():

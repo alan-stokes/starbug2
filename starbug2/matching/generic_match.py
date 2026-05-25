@@ -292,7 +292,11 @@ class GenericMatch(object):
 
         if cartesian:
             dist = d3d
-            threshold = self._threshold
+            # If your threshold has an explicit unit wrapper,
+            # extract its scalar magnitude
+            threshold = (self._threshold.value
+                if hasattr(self._threshold, "value") else
+                    self._threshold)
         else:
             dist = d2d
             threshold = self._threshold
