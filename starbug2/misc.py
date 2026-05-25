@@ -8,7 +8,7 @@ from starbug2.constants import (
     JWST_MIRI_ABVEGA_OFFSET_URL, JWST_NIRCAM_ABVEGA_OFFSET_URL, NIRCAM,
     SHORT, WEBBPSF_PATH_ENV_VAR, LONG, FITS_EXTENSION, FILE_NAME, FILTER,
     OBS, VISIT, DETECTOR, EXPOSURE)
-from starbug2.constants import MIRI as STAR_BUG_MIRI
+from starbug2.constants import STAR_BUG_MIRI
 from starbug2.filters import STAR_BUG_FILTERS
 from astropy.io import fits
 
@@ -145,8 +145,10 @@ def generate_psf(filter_string, detector=None, fov_pixels=None):
             if the_filter.instr == NIRCAM and the_filter.length == SHORT:
                 detector = "NRCA1"
             elif the_filter.instr == NIRCAM and the_filter.length == LONG:
-                detector="NRCA5"
+                detector = "NRCA5"
             elif the_filter.instr == STAR_BUG_MIRI:
+                detector = "MIRIM"
+            else:
                 detector = "MIRIM"
 
         if the_filter.instr == NIRCAM:
@@ -168,6 +170,9 @@ def generate_psf(filter_string, detector=None, fov_pixels=None):
             except (KeyError, AttributeError, ValueError) as e:
                 p_error("\x1b[2KSomething went wrong with: %s %s with "
                         "error %s\n" % (filter_string, detector, str(e)))
+            except RuntimeError as e:
+                p_error(f"during detector on {the_filter.instr} with wave"
+                        f" length {filter_string}. something failed. {str(e)}")
         else:
             p_error(
                 "Unable to determine instrument from filter_string '%s'\n" %

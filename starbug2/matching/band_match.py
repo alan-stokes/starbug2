@@ -51,7 +51,7 @@ class BandMatch(GenericMatch):
 
         super().__init__(**kwargs, method="Band Matching")
 
-    def order_catalogues(self,catalogues):
+    def order_catalogues(self, catalogues):
         """
         Reorder catalogue list into increasing wavelength size.
         This only works for JWST bands. Unrecognised filters will be left
@@ -72,14 +72,14 @@ class BandMatch(GenericMatch):
 
             ## col_names in JWST filters
             lambda t: list(STAR_BUG_FILTERS.keys()).index(
-                (set(t.col_names) & set(STAR_BUG_FILTERS.keys())).pop()),
+                (set(t.colnames) & set(STAR_BUG_FILTERS.keys())).pop()),
 
             ## META in self.filters
-            lambda t: self.FILTER.index( t.meta.get(FILTER)),
+            lambda t: self._filter.index( t.meta.get(FILTER)),
 
             ## col_names in JWST filters
-            lambda t: self.FILTER.index(
-                (set(t.col_names) & set(self.FILTER)).pop())
+            lambda t: self._filter.index(
+                (set(t.colnames) & set(self._filter)).pop())
         ]
 
         for n, fn in enumerate(sorters):
@@ -88,7 +88,8 @@ class BandMatch(GenericMatch):
                 _ii = map(fn, catalogues)
                 status = n
                 break
-            except (KeyError, AttributeError, TypeError, ValueError):
+            except (KeyError, AttributeError, TypeError, ValueError) as e:
+                warn(f"failed to use sorter {n} due to {str(e)}\n")
                 pass
 
         if status < 0:
@@ -170,7 +171,7 @@ class BandMatch(GenericMatch):
         for n, tab in enumerate(catalogues):
             ## Temporarily recast threshold
             self._threshold = _threshold[n - 1]
-            self._load.msg = f"{self._filter[n]} ({float(self._threshold)}\")"
+            self._load.msg = f"{self._filter[n]} ({self._threshold}\")"
             col_names = [
                 name for name in self._col_names if name in tab.colnames]
 
@@ -182,7 +183,7 @@ class BandMatch(GenericMatch):
             base.rename_columns(
                 col_names, ["%s_%d" % (name, n + 1) for name in col_names])
 
-            if RA not in base.col_names:
+            if RA not in base.colnames:
                 base = fill_nan(hstack((tmp[RA, DEC], base)))
             elif method == self._FIRST:
                 _mask = np.logical_and(np.isnan(base[RA]), tmp[RA] != np.nan)

@@ -1,7 +1,7 @@
 import numpy as np
 from typing import cast, Any
 from photutils.datasets import make_model_image, make_random_models_table
-from photutils.psf import FittableImageModel
+from photutils.psf import ImagePSF
 from astropy.table import Table, hstack
 from astropy.io import fits
 from scipy.optimize import curve_fit
@@ -38,7 +38,7 @@ class ArtificialStarsIII:
         _ = self.starbug.main_image
         _ = self.starbug.load_psf()
 
-        self.psf = FittableImageModel(self.starbug.psf)
+        self.psf = ImagePSF(self.starbug.psf)
         self.index = index
 
     def __call__(self, *args, **kwargs):

@@ -32,7 +32,7 @@ from astropy.table import vstack
 from starbug2 import (utils, param)
 from starbug2.constants import (
     PARAM_FILE_TAG, EXIT_EARLY, EXIT_SUCCESS, EXIT_FAIL, VERBOSE_TAG,
-    CAT_NUM, MATCH_THRESH, FILTER, NEXP_THRESH, OUTPUT, MIRI, NIRCAM,
+    CAT_NUM, MATCH_THRESH, FILTER, NEXP_THRESH, OUTPUT, STAR_BUG_MIRI, NIRCAM,
     match_cols)
 from starbug2.filters import STAR_BUG_FILTERS
 from starbug2.matching.band_match import BandMatch
@@ -133,8 +133,8 @@ def match_one_time_runs(options, set_opt):
 
 def match_full_band_match(tables, parameters):
     utils.p_error("THIS NEEDS A TEST\n")
-    to_match = { NIRCAM: [],
-                 MIRI: [] }
+    to_match = {NIRCAM: [],
+                STAR_BUG_MIRI: []}
     _col_names = ["RA","DEC","flag"]
     d_threshold = parameters.get(MATCH_THRESH)
     band_matcher = BandMatch(threshold=d_threshold)
@@ -144,12 +144,12 @@ def match_full_band_match(tables, parameters):
         to_match[STAR_BUG_FILTERS[filter_string].instr].append(tab)
         _col_names += ([filter_string, "e%s" % filter_string])
     
-    if to_match[NIRCAM] and to_match[MIRI]:
+    if to_match[NIRCAM] and to_match[STAR_BUG_MIRI]:
         utils.printf("Detected NIRCam to MIRI matching\n")
         nir_cam_matched = band_matcher.band_match(
             to_match[NIRCAM], col_names=_col_names)
         miri_matched = band_matcher.band_match(
-            to_match[MIRI], col_names=_col_names)
+            to_match[STAR_BUG_MIRI], col_names=_col_names)
 
         # noinspection SpellCheckingInspection
         load = utils.Loading(

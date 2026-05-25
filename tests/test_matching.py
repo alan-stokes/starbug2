@@ -250,7 +250,7 @@ class TestBandMatch:
         bm = BandMatch(filter_string=["A", "B", "C"], threshold=[0.1, 0.2])
         res = bm(categories)
         print(res)
-        assert res.col_names == [RA, DEC, NUM, FLAG, "A", "B", "C"]
+        assert res.colnames == [RA, DEC, NUM, FLAG, "A", "B", "C"]
         bm(categories, method="bootstrap")
 
 

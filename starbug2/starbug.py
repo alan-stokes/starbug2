@@ -14,12 +14,13 @@ from starbug2.constants import (
     FILTER, STAR_BUG, CALIBRATION_LV, DETECTOR, TELESCOPE, INSTRUMENT, BUN_IT,
     PIXAR_A2, PIXAR_SR, HDU_NAME, SCI, BGD, RES, VERBOSE_TAG, AP_FILE,
     BGD_FILE, OUTPUT, FITS_EXTENSION, JWST, FWHM, DQ, AREA, WHT, USE_WCS, RA,
-    DEC, X_CENTROID, Y_CENTROID, SHORT, LONG, NIRCAM, MIRI, SRC_FIX, CRIT_SEP,
-    FORCE_POS, DEG, ARCMIN, ARCSEC, MAX_XY_DEV, DQ_DO_NOT_USE, DQ_SATURATED,
-    NAXIS1, NAXIS2, CALC_CROWD, ERR, EXIT_SUCCESS, EXIT_FAIL, APCORR_FILE,
-    APPHOT_R, ENCENERGY, SKY_RIN, SKY_ROUT, SIGSKY, ZP_MAG, CLEANSRC,
-    QUIETMODE, BOX_SIZE, BGD_R, PROF_SCALE, PROF_SLOPE, BGD_CHECKFILE,
-    PSF_FILE, PSF_SIZE, GEN_RESIDUAL, NIRCAM_STRING, STARBUG_DATA_DIR)
+    DEC, X_CENTROID, Y_CENTROID, SHORT, LONG, NIRCAM, STAR_BUG_MIRI, SRC_FIX,
+    CRIT_SEP,  FORCE_POS, DEG, ARCMIN, ARCSEC, MAX_XY_DEV, DQ_DO_NOT_USE,
+    DQ_SATURATED,NAXIS1, NAXIS2, CALC_CROWD, ERR, EXIT_SUCCESS, EXIT_FAIL,
+    APCORR_FILE,APPHOT_R, ENCENERGY, SKY_RIN, SKY_ROUT, SIGSKY, ZP_MAG,
+    CLEANSRC, QUIETMODE, BOX_SIZE, BGD_R, PROF_SCALE, PROF_SLOPE,
+    BGD_CHECKFILE, PSF_FILE, PSF_SIZE, GEN_RESIDUAL, NIRCAM_STRING,
+    STARBUG_DATA_DIR)
 from starbug2.filters import STAR_BUG_FILTERS
 from starbug2.param import load_params, load_default_params
 from starbug2.routines.app_hot_routine import APPhotRoutine
@@ -344,7 +345,7 @@ class StarbugBase(object):
                     elif (filter_string.instr == NIRCAM and
                           filter_string.length == LONG):
                         dt_name = "NRCA5"
-                    elif filter_string.instr == MIRI:
+                    elif filter_string.instr == STAR_BUG_MIRI:
                         dt_name = ""
                 if dt_name == "MIRIMAGE":
                     dt_name = ""
