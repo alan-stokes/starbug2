@@ -8,7 +8,7 @@ from scipy.optimize import curve_fit
 
 from starbug2.constants import (
     X_0, Y_0, MAG, FLUX, X_DET, Y_DET, FLUX_DET, STATUS, ZP_MAG, ID,
-    X_CENTROID, Y_CENTROID, REC)
+    X_CENTROID, Y_CENTROID, REC, EXIT_SUCCESS)
 from starbug2.matching.generic_match import GenericMatch
 
 try:
@@ -35,8 +35,12 @@ class ArtificialStarsIII:
     def __init__(self, starbug, index=-1):
         ## Initials the starbug instance
         self.starbug = starbug
-        _ = self.starbug.main_image
-        _ = self.starbug.load_psf()
+        main_image = self.starbug.main_image
+        psf_success = self.starbug.load_psf()
+
+        if psf_success != EXIT_SUCCESS:
+            warn("the psf file was not loaded. Expected failure.")
+            raise Exception("the psf file failed to load.")
 
         self.psf = ImagePSF(self.starbug.psf)
         self.index = index

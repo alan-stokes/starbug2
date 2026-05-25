@@ -329,7 +329,7 @@ class StarbugBase(object):
         :return: the status
         :rtype int
         """
-        status = 0
+        status = EXIT_SUCCESS
         if not f_name:
             filter_string = STAR_BUG_FILTERS.get(self._filter)
             if filter_string:
@@ -352,7 +352,7 @@ class StarbugBase(object):
                 f_name = "%s/%s%s.fits" % (
                     StarbugBase.get_data_path(), self._filter, dt_name)
             else:
-                status = 1
+                status = EXIT_FAIL
 
         if f_name is not None and os.path.exists(f_name):
             fp = fits.open(f_name)
@@ -369,7 +369,7 @@ class StarbugBase(object):
             self.log("loaded PSF_FILE='%s'\n" % f_name)
         else:
             p_error("PSF_FILE='%s' does not exist\n" % f_name)
-            status = 1
+            status = EXIT_FAIL
         return status
 
     def prepare_image_arrays(self):
@@ -598,7 +598,7 @@ class StarbugBase(object):
         :return: the status. which seems to always be 1.
         """
         self.log("\nEstimating Diffuse Background\n")
-        status = 1
+        status = EXIT_SUCCESS
         if self._detections:
             source_list = self._detections.copy()
 
@@ -646,7 +646,7 @@ class StarbugBase(object):
 
         else:
             p_error("unable to estimate background, no source list loaded\n")
-            status = 1
+            status = EXIT_FAIL
         return status
 
 

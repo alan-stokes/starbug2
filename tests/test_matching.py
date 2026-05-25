@@ -13,7 +13,8 @@ from starbug2.param import load_default_params
 from starbug2.bin.main import starbug_main
 from astropy.table import Table
 
-from tests.generic import TEST_IMAGE_FITS, TEST_PATH, check_shape, clean
+from tests.generic import (
+    TEST_IMAGE_FITS, TEST_PATH, check_shape, clean, TEST_FILTER_STRING)
 
 IMAGE_2_FITS = os.path.join(TEST_PATH, "image2.fits")
 IMAGE_AP_FITS = os.path.join(TEST_PATH, "image-ap.fits")
@@ -27,17 +28,17 @@ def init():
     clean()
     starbug_main(
         f"starbug2 -Ds SIGSRC=10 {TEST_IMAGE_FITS}"
-        f" -s FILTER=F444W -G".split())
+        f" {TEST_FILTER_STRING}".split())
     starbug_main(
         "starbug2 -Ds SIGSRC=3 -o "
-        f"{IMAGE_2_FITS} {TEST_IMAGE_FITS} -s FILTER=F444W -G".split())
+        f"{IMAGE_2_FITS} {TEST_IMAGE_FITS} {TEST_FILTER_STRING}".split())
     starbug_main(
         f"starbug2 -d {IMAGE_AP_FITS} --background {TEST_IMAGE_FITS}"
-        f" -s FILTER=F444W -G".split())
+        f" {TEST_FILTER_STRING}".split())
     os.system(f"cp {TEST_IMAGE_FITS} {IMAGE_2_FITS}")
     starbug_main(
         f"starbug2 -d {IMAGE_2_AP_FITS} --background {IMAGE_2_FITS}"
-        f" -s FILTER=F444W -G".split())
+        f" {TEST_FILTER_STRING}".split())
 
 def cats():
     t1 = [[ 0.0, 0.0, 1.0, 0.1],

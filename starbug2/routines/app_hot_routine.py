@@ -39,13 +39,13 @@ class APPhotRoutine:
             return EXIT_FAIL
         tmp = Table.read(table_f_name, format="fits")
 
-        if FILTER_LOWER in tmp.col_names:
+        if FILTER_LOWER in tmp.colnames:
             t_ap_corr = tmp[(tmp[FILTER_LOWER] == filter_string)]
         else:
             t_ap_corr = tmp
 
 
-        if "pupil" in t_ap_corr.col_names:
+        if "pupil" in t_ap_corr.colnames:
             t_ap_corr = t_ap_corr[ t_ap_corr["pupil"] == "CLEAR"]
 
         ap_corr = np.interp(radius, t_ap_corr[RADIUS], t_ap_corr[AP_CORR])

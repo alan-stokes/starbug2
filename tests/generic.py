@@ -9,6 +9,10 @@ TEST_PATH = os.getenv(START_BUG_TEST_DAT_ENV)
 TEST_IMAGE_FITS = os.path.join(TEST_PATH, "image.fits")
 TEST_PSF_FITS = os.path.join(TEST_PATH, "psf.fits")
 
+# the filter string for tests to ensure they all use the same stuff
+TEST_FILTER_STRING = "-s FILTER=F444W -G"
+TEST_FILTER_STRING_NO_G = "-s FILTER=F444W"
+
 
 def clean():
     files = glob.glob(os.path.join(TEST_PATH, "*"))
