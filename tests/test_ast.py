@@ -1,3 +1,6 @@
+import os
+
+import pytest
 from starbug2.bin.ast import ast_main
 from starbug2.constants import EXIT_SUCCESS
 from tests.generic import TEST_IMAGE_FITS, clean
@@ -16,6 +19,13 @@ def test_run_basic():
         f" {TEST_FILTER_STRING}") == EXIT_SUCCESS
     clean()
 
+@pytest.mark.skipif(
+    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") is None or
+    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") == "false",
+    reason="Harsh stress test locked out of normal development runs due to "
+           "length of time to run, CPU resources required which nearly slags"
+           " the machine."
+)
 def test_run_harsh_inputs():
     clean()
     assert run(
@@ -28,3 +38,7 @@ def test_run_harsh_inputs():
         f"starbug2-ast -N1000 -S1000 -n1000"
         f" {TEST_FILTER_STRING}") == EXIT_SUCCESS
     clean()
+
+if __name__ == "__main__":
+    # This allows you to run the harhs test directly.
+    test_run_harsh_inputs()
