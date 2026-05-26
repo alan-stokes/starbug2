@@ -65,7 +65,7 @@ class DetectionRoutine(StarFinderBase):
                          detection step.
         :type ricker_r: float
         :param verbose: Set whether to print verbose output information.
-        :type verbose: bool
+        :type verbose: bool or int
         :param clean_src: Set whether to "clean" the catalogue after detection
                           based on the above source geometric properties.
         :type clean_src: bool

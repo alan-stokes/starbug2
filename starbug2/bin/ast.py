@@ -32,7 +32,7 @@ from starbug2.constants import (
     EXIT_EARLY, EXIT_FAIL, EXIT_SUCCESS, MAX_MAG, MIN_MAG, FLUX, FLUX_DET,
     PLOTAST)
 from starbug2.starbug import StarbugBase
-from starbug2.artificialstars import ArtificialStarsIII, compile_results
+from starbug2.artificialstars import ArtificialStars, compile_results
 from starbug2.utils import (
     printf, p_error, combine_tables, fill_nan, translate_param_float,
     parse_cmd, usage)
@@ -166,7 +166,7 @@ def fn(args):
         star_bug_base = StarbugBase(
             f_name, set_opt.get(PARAM_FILE_TAG), options=set_opt)
         opt = star_bug_base.options
-        ast = ArtificialStarsIII(star_bug_base, index=index)
+        ast = ArtificialStars(star_bug_base, index=index)
         out = ast.auto_run(
             opt.get(N_TESTS), stars_per_test=opt.get(N_STARS),
             mag_range=(opt.get(MAX_MAG),opt.get(MIN_MAG)),

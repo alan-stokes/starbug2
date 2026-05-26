@@ -8,7 +8,8 @@ from scipy.optimize import curve_fit
 
 from starbug2.constants import (
     X_0, Y_0, MAG, FLUX, X_DET, Y_DET, FLUX_DET, STATUS, ZP_MAG, ID,
-    X_CENTROID, Y_CENTROID, REC, EXIT_SUCCESS)
+    X_CENTROID, Y_CENTROID, REC, EXIT_SUCCESS, XY_DEV, Y_INIT, X_INIT,
+    XY_DEV_, FLUX_2, ERR_LOWER, OFF)
 from starbug2.matching.generic_match import GenericMatch
 
 try:
@@ -21,29 +22,35 @@ from starbug2.utils import (
     printf, p_error, get_mj_ysr2jy_scale_factor, warn)
 
 
-class ArtificialStarsIII:
+class ArtificialStars:
     # not found
     NULL = 0
 
     # found
     DETECT = 1
 
+    # the number of columns in the test table.
+    N_COLUMNS = 8
+
+    # the column names of the table
+    TEST_TABLE_COLUMN_NAMES = [
+        X_0, Y_0, MAG, FLUX, X_DET, Y_DET, FLUX_DET, STATUS]
 
     """
     ast
     """
     def __init__(self, starbug, index=-1):
         ## Initials the starbug instance
-        self.starbug = starbug
-        _ = self.starbug.main_image
-        psf_success = self.starbug.load_psf()
+        self._starbug = starbug
+        _ = self._starbug.main_image
+        psf_success = self._starbug.load_psf()
 
         if psf_success != EXIT_SUCCESS:
             warn("the psf file was not loaded. Expected failure.")
             raise Exception("the psf file failed to load.")
 
-        self.psf = ImagePSF(self.starbug.psf)
-        self.index = index
+        self._psf = ImagePSF(self._starbug.psf)
+        self._index = index
 
     def __call__(self, *args, **kwargs):
         return self.auto_run(*args, **kwargs)
@@ -83,17 +90,17 @@ class ArtificialStarsIII:
         """
 
         test_result = Table(
-            np.full((n_tests * stars_per_test, 8), np.nan),
-            names=[X_0, Y_0, MAG, FLUX, X_DET, Y_DET, FLUX_DET, STATUS])
-        scale_factor = get_mj_ysr2jy_scale_factor(self.starbug.main_image)
-        base_image = self.starbug.image.copy()
-        base_shape = np.copy(self.starbug.main_image.shape)
+            np.full((n_tests * stars_per_test, self.N_COLUMNS), np.nan),
+            names=self.TEST_TABLE_COLUMN_NAMES)
+        scale_factor = get_mj_ysr2jy_scale_factor(self._starbug.main_image)
+        base_image = self._starbug.image.copy()
+        base_shape = np.copy(self._starbug.main_image.shape)
         stars_per_test = int(stars_per_test)
         passed = 0
 
         z_p = (
-            self.starbug.options.get(ZP_MAG) if
-            self.starbug.options.get(ZP_MAG) else 0)
+            self._starbug.options.get(ZP_MAG) if
+            self._starbug.options.get(ZP_MAG) else 0)
         buffer = 0
 
         if mag_range[0] - mag_range[1] >= 0:
@@ -109,7 +116,7 @@ class ArtificialStarsIII:
         for test in range(1, int(n_tests) + 1):
             image = base_image.__deepcopy__()
 
-            shape = image[self.starbug.n_hdu].shape
+            shape = image[self._starbug.n_hdu].shape
 
             source_list = make_random_models_table(
                 stars_per_test,
@@ -123,11 +130,11 @@ class ArtificialStarsIII:
 
             star_overlay = (
                 make_model_image(
-                    shape, self.psf, source_list,
-                    model_shape=self.psf.data.shape)
+                    shape, self._psf, source_list,
+                    model_shape=self._psf.data.shape)
                 / scale_factor)
-            image[self.starbug.n_hdu].data += star_overlay
-            self.starbug.image = image
+            image[self._starbug.n_hdu].data += star_overlay
+            self._starbug.image = image
 
             result = self.single_test(
                 source_list, skip_phot=skip_phot,
@@ -140,12 +147,13 @@ class ArtificialStarsIII:
 
             if loading_buffer is not None:
                 loading_buffer[0] += 1
-                loading_buffer[2] = int(100 * passed / (test * stars_per_test))
+                loading_buffer[2] = int(
+                    100 * passed / (test * stars_per_test))
 
             if autosave > 0 and not test % autosave:
                 # noinspection SpellCheckingInspection
                 test_result.write(
-                    "sbast-autosave%d.tmp" % self.index, overwrite=True,
+                    "sbast-autosave%d.tmp" % self._index, overwrite=True,
                     format="fits")
 
             # is this necessary?
@@ -179,8 +187,8 @@ class ArtificialStarsIII:
         threshold = 2
 
         #Run detection on the image
-        if not self.starbug.detect():
-            det = self.starbug.detections
+        if not self._starbug.detect():
+            det = self._starbug.detections
 
             #Check for detection in output
             for i, src in enumerate(contains): # type: ignore
@@ -198,21 +206,21 @@ class ArtificialStarsIII:
 
             # Run background
             if (sum(test_result[STATUS])
-                and (skip_background or not self.starbug.bgd_estimate())):
+                and (skip_background or not self._starbug.bgd_estimate())):
                 # estimate if there were detections
-                self.starbug.detections = test_result
+                self._starbug.detections = test_result
 
                 # Run PSF photometry on detected sources
-                if not skip_phot and not self.starbug.photometry_routine():
+                if not skip_phot and not self._starbug.photometry_routine():
                     # noinspection SpellCheckingInspection
-                    self.starbug.psf_catalogue.rename_columns(
-                        ("x_init", "y_init", "xydev"),
-                        ("_x_init", "_y_init", "_xydev"))
+                    self._starbug.psf_catalogue.rename_columns(
+                        (X_INIT, Y_INIT, XY_DEV),
+                        (X_INIT, Y_INIT, XY_DEV_))
                     matched = GenericMatch(threshold=threshold)(
-                        [contains, self.starbug.psf_catalogue],
+                        [contains, self._starbug.psf_catalogue],
                         cartesian=True)
                     test_result[FLUX_DET] = (
-                        matched[:len(test_result)]["flux_2"])
+                        matched[:len(test_result)][FLUX_2])
         return hstack((contains, test_result))
 
 
@@ -252,7 +260,7 @@ def get_completeness(test_result):
 
     out = Table(
         [bins, percents, errors, offsets],
-        names=("mag", "rec", "err", "off"),
+        names=(MAG, REC, ERR_LOWER, OFF),
         dtype=(float, float, float, float))
     return out
 

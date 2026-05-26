@@ -10,17 +10,19 @@ from astropy.stats import sigma_clipped_stats
 from photutils.datasets import make_model_image
 from photutils.psf import FittableImageModel
 
+from starbug2.artificialstars import ArtificialStars
 from starbug2.constants import (
     FILTER, STAR_BUG, CALIBRATION_LV, DETECTOR, TELESCOPE, INSTRUMENT, BUN_IT,
     PIXAR_A2, PIXAR_SR, HDU_NAME, SCI, BGD, RES, VERBOSE_TAG, AP_FILE,
     BGD_FILE, OUTPUT, FITS_EXTENSION, JWST, FWHM, DQ, AREA, WHT, USE_WCS, RA,
     DEC, X_CENTROID, Y_CENTROID, SHORT, LONG, NIRCAM, STAR_BUG_MIRI, SRC_FIX,
-    CRIT_SEP,  FORCE_POS, DEG, ARCMIN, ARCSEC, MAX_XY_DEV, DQ_DO_NOT_USE,
-    DQ_SATURATED,NAXIS1, NAXIS2, CALC_CROWD, ERR, EXIT_SUCCESS, EXIT_FAIL,
-    APCORR_FILE,APPHOT_R, ENCENERGY, SKY_RIN, SKY_ROUT, SIGSKY, ZP_MAG,
+    CRIT_SEP, FORCE_POS, DEG, ARCMIN, ARCSEC, MAX_XY_DEV, DQ_DO_NOT_USE,
+    DQ_SATURATED, NAXIS1, NAXIS2, CALC_CROWD, ERR, EXIT_SUCCESS, EXIT_FAIL,
+    APCORR_FILE, APPHOT_R, ENCENERGY, SKY_RIN, SKY_ROUT, SIG_SKY, ZP_MAG,
     CLEANSRC, QUIETMODE, BOX_SIZE, BGD_R, PROF_SCALE, PROF_SLOPE,
     BGD_CHECKFILE, PSF_FILE, PSF_SIZE, GEN_RESIDUAL, NIRCAM_STRING,
-    STARBUG_DATA_DIR)
+    STARBUG_DATA_DIR, N_TESTS, SIG_SRC, SHARP_LO, SHARP_HI, ROUND_1_HI,
+    N_STARS, SUB_IMAGE)
 from starbug2.filters import STAR_BUG_FILTERS
 from starbug2.param import load_params, load_default_params
 from starbug2.routines.app_hot_routine import APPhotRoutine
@@ -42,6 +44,9 @@ class StarbugBase(object):
     It is self-contained enough to simply run "photometry" and everything
     should just take care of itself from there on.
     """
+
+    MIN_MAG = 27
+    MAX_MAG = 18
 
     @staticmethod
     def get_data_path():
@@ -555,7 +560,7 @@ class StarbugBase(object):
             dq_flags = None
         ap_cat = app_hot(
             image, self._detections, error=error, dq_flags=dq_flags,
-            ap_corr=ap_corr, sig_sky=self._options[SIGSKY])
+            ap_corr=ap_corr, sig_sky=self._options[SIG_SKY])
 
 
         filter_string = self._filter if self._filter else "mag"
@@ -627,7 +632,7 @@ class StarbugBase(object):
             bgd = BackGroundEstimateRoutine(
                 source_list[mask], box_size=int(self._options[BOX_SIZE]),
                 full_width_half_max=full_width_half_max,
-                sig_sky=self._options[SIGSKY],
+                sig_sky=self._options[SIG_SKY],
                 bgd_r=self._options[BGD_R],
                 profile_scale=self._options[PROF_SCALE],
                 profile_slope=self._options[PROF_SLOPE],
@@ -691,7 +696,7 @@ class StarbugBase(object):
 
             if bgd is None:
                 _, median, _ = (
-                    sigma_clipped_stats(image, sigma=self._options[SIGSKY]))
+                    sigma_clipped_stats(image, sigma=self._options[SIG_SKY]))
                 bgd = np.ones(self.main_image.shape) * median
                 self.log(
                     "-> no background file loaded, measuring sigma "
@@ -947,6 +952,100 @@ class StarbugBase(object):
                 status = EXIT_FAIL
 
         return status
+
+    def artificial_stars(self):
+        # noinspection SpellCheckingInspection
+        """
+        Execute the automated artificial star testing and completeness
+        pipeline.
+
+        This routine injects synthetic point spread function (PSF) source
+        profiles into the active observation framework across multiple
+        configuration slices to empirically estimate target detection
+        completeness thresholds, stellar recovery fractions, and photometric
+        parameter variability.
+
+        . note::
+            * Flux calculations are normalized automatically into Jansky units
+              if the primary FITS image headers track surface brightness
+              profiles in Mega-Janskys per steradian (MJy/sr).
+            * Background matrices must be explicitly calculated and bound to
+              `self.background.data` prior to execution to handle
+              background-subtracted PSF fitting accurately.
+
+        :return: Execution status code (0 for clean completion).
+        :rtype: int
+        """
+        status = EXIT_SUCCESS
+        self.log(
+            "\nArtificial Star Testing (n=%d)\n" % (self.options[N_TESTS]))
+
+        ################################
+        # Collect files and sort units #
+        ################################
+        image = self.image.data.copy()
+        bgd = None
+
+        if self._background is not None:
+            bgd = self._background.data.copy()
+
+        if self.header.get(BUN_IT) == "MJy/sr-1":
+            scale_factor = get_mj_ysr2jy_scale_factor(self.image)
+            image /= scale_factor
+            if bgd is not None:
+                bgd /= scale_factor
+
+        self.load_psf(self.options.get(PSF_FILE))
+        psf_model = FittableImageModel(self.psf)
+
+        #############################
+        # Build the Routine Classes #
+        #############################
+        detector = DetectionRoutine(
+            sig_src=self.options[SIG_SRC],
+            sig_sky=self.options[SIG_SKY],
+            full_width_half_max=STAR_BUG_FILTERS[self.filter].pFWHM,
+            sharp_lo=self.options[SHARP_LO],
+            sharp_hi=self.options[SHARP_HI],
+            round_1_hi=self.options[ROUND_1_HI],
+            verbose=0
+        )
+
+        phot = PSFPhotRoutine(
+            psf_model,
+            psf_model.shape,
+            app_hot_r=self.options[APPHOT_R],
+            force_fit=False,
+            background=bgd,
+            verbose=0
+        )
+
+        export_table(phot(image, detector(image)), f_name="/tmp/out.fits")
+
+        art = ArtificialStars(self)
+
+        ###########
+        # Execute #
+        ###########
+        zp = (
+            self.options.get(ZP_MAG) if
+            self.options.get(ZP_MAG) else 0)
+
+        min_mag = np.exp((np.log(10) / 2.5) * (zp - self.MIN_MAG))
+        max_mag = np.exp((np.log(10) / 2.5) * (zp - self.MAX_MAG))
+
+        result = art.auto_run(
+            n_tests=self.options.get(N_TESTS),
+            stars_per_test=self.options.get(N_STARS),
+            sub_image_size=self.options.get(SUB_IMAGE),
+            mag_range=(min_mag, max_mag)
+        )
+
+        f_name = "%s/%s-afs.fits" % (self._out_dir, self._b_name)
+        export_table(result, f_name=f_name)
+
+        return status
+
 
     def _filter_detections(self):
         """

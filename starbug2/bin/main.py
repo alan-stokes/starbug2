@@ -403,7 +403,7 @@ def fn(args):
                 star_bug_base.photometry_routine()
 
             if options & DOARTIFL:
-                p_error("Artificial stars has no functional implementation\n")
+                star_bug_base.artificial_stars()
 
         else:
             p_error("file must be type '.fits' not %s\n" % ext)
