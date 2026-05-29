@@ -13,9 +13,8 @@ import logging
 from datetime import datetime
 
 import numpy as np
-import pandas as pd
 from astropy import units as u
-from sedfitter import fit, write_parameters, write_parameter_ranges, plot
+from sedfitter import fit, write_parameters, write_parameter_ranges
 from sedfitter.extinction import Extinction
 
 # -----------------------------
