@@ -1,283 +1,299 @@
 # noinspection SpellCheckingInspection
+from typing import List, Final
 
-STARBUG_DATA_DIR = "STARBUG_DATDIR"
-WEBBPSF_PATH_ENV_VAR = "WEBBPSF_PATH"
-STAR_BUG_PARAMS = "STARBUGII PARAMETERS"
-STAR_BUG_TEST_DAT_ENV = "STARBUG_TEST_DIR"
+STARBUG_DATA_DIR: Final[str] = "STARBUG_DATDIR"
+WEBBPSF_PATH_ENV_VAR: Final[str] = "WEBBPSF_PATH"
+STAR_BUG_PARAMS: Final[str] = "STARBUGII PARAMETERS"
+STAR_BUG_TEST_DAT_ENV: Final[str] = "STARBUG_TEST_DIR"
 
 # url to docs
-URL_DOCS = (
+URL_DOCS: Final[str] = (
     "https://raw.githubusercontent.com/conornally/starbug2/"
     "refs/heads/main/docs/source/_static/images/starbug.png")
-READ_THE_DOCS_URL = "https://starbug2.readthedocs.io/en/latest/"
+READ_THE_DOCS_URL: Final[str] = "https://starbug2.readthedocs.io/en/latest/"
 
 # fit urls
-JWST_MIRI_APCORR_0010_FITS_URL = (
+JWST_MIRI_APCORR_0010_FITS_URL: Final[str] = (
     "https://jwst-crds.stsci.edu/unchecked_get/references/jwst/"
     "jwst_miri_apcorr_0010.fits"
 )
-JWST_NIRCAM_APCORR_0004_FITS_URL = (
+JWST_NIRCAM_APCORR_0004_FITS_URL: Final[str] = (
     "https://jwst-crds.stsci.edu/unchecked_get/references/jwst/"
     "jwst_nircam_apcorr_0004.fits"
 )
 
 # abvega offset urls
-JWST_MIRI_ABVEGA_OFFSET_URL = (
+JWST_MIRI_ABVEGA_OFFSET_URL: Final[str] = (
     "https://jwst-crds.stsci.edu/unchecked_get/references/jwst/"
     "jwst_miri_abvegaoffset_0001.asdf"
 )
-JWST_NIRCAM_ABVEGA_OFFSET_URL = (
+JWST_NIRCAM_ABVEGA_OFFSET_URL: Final[str] = (
     "https://jwst-crds.stsci.edu/unchecked_get/references/jwst/"
     "jwst_nircam_abvegaoffset_0002.asdf"
 )
 
 
 # problematic paths
-PLOT_MAIN_TABLE_PATH = (
+PLOT_MAIN_TABLE_PATH: Final[str] = (
     "/home/conor/sci/proj/ngc6822/overview/dat/ngc6822.fits")
-MASK_MAIN_TABLE_PATH = (
+MASK_MAIN_TABLE_PATH: Final[str] = (
     "/home/conor/sci/proj/ngc6822/paper1/dat/ngc6822.fits")
 
 # paths to temp files.
-TMP_OUT = "/tmp/out.reg"
-TMP_FITS = "/tmp/starbug.fits"
+TMP_OUT: Final[str] = "/tmp/out.reg"
+TMP_FITS: Final[str] = "/tmp/starbug.fits"
 
 # the fits file extension
-FITS_EXTENSION = ".fits"
-FILE_NAME = "FILENAME"
+FITS_EXTENSION: Final[str] = ".fits"
+FILE_NAME: Final[str] = "FILENAME"
 
 # HDU extension names
-DQ = "DQ"
-AREA = "AREA"
-WHT = "WHT"
-ERR = "ERR"
+DQ: Final[str] = "DQ"
+AREA: Final[str] = "AREA"
+WHT: Final[str] = "WHT"
+ERR: Final[str] = "ERR"
 
 # file types
-AP_FILE = "AP_FILE"
-BGD_FILE = "BGD_FILE"
+AP_FILE: Final[str] = "AP_FILE"
+BGD_FILE: Final[str] = "BGD_FILE"
 
 # init parameters
-DET_NAME = "DET_NAME"
-PSF_SIZE = "PSF_SIZE"
-REGION_COL = "REGION_COL"
-REGION_SCAL = "REGION_SCAL"
-REGION_RAD = "REGION_RAD"
-REGION_X_COL = "REGION_XCOL"
-REGION_Y_COL = "REGION_YCOL"
-REGION_WCS = "REGION_WCS"
+DET_NAME: Final[str] = "DET_NAME"
+PSF_SIZE: Final[str] = "PSF_SIZE"
+REGION_COL: Final[str] = "REGION_COL"
+REGION_SCAL: Final[str] = "REGION_SCAL"
+REGION_RAD: Final[str] = "REGION_RAD"
+REGION_X_COL: Final[str] = "REGION_XCOL"
+REGION_Y_COL: Final[str] = "REGION_YCOL"
+REGION_WCS: Final[str] = "REGION_WCS"
 
 # set opt param
-INSPECT = "INSPECT"
-STYLESHEET = "STYLESHEET"
-AP_FILE_SET_OPT = "APFILE"
-N_TESTS = "NTESTS"
-N_STARS = "NSTARS"
-AUTO_SAVE = "AUTOSAVE"
-MAX_MAG = "MAX_MAG"
-MIN_MAG = "MIN_MAG"
-PLOTAST = "PLOTAST"
+INSPECT: Final[str] = "INSPECT"
+STYLESHEET: Final[str] = "STYLESHEET"
+AP_FILE_SET_OPT: Final[str] = "APFILE"
+N_TESTS: Final[str] = "NTESTS"
+N_STARS: Final[str] = "NSTARS"
+AUTO_SAVE: Final[str] = "AUTOSAVE"
+MAX_MAG: Final[str] = "MAX_MAG"
+MIN_MAG: Final[str] = "MIN_MAG"
+PLOTAST: Final[str] = "PLOTAST"
 
 # colours
-DEFAULT_COLOUR = "green"
+DEFAULT_COLOUR: Final[str] = "green"
 
 ## SOURCE FLAGS
-SRC_GOOD = 0
-SRC_BAD = 0x01
-SRC_JMP = 0x02
+SRC_GOOD: Final[int] = 0
+SRC_BAD: Final[int] = 0x01
+SRC_JMP: Final[int] = 0x02
 ##source frame mean >5% different from median
-SRC_VAR = 0x04
+SRC_VAR: Final[int] = 0x04
 ##psf fit with fixed centroid
-SRC_FIX = 0x08
+SRC_FIX: Final[int] = 0x08
 ##source unknown
-SRC_UKN = 0x10
+SRC_UKN: Final[int] = 0x10
 
 ##DQ FLAGS
-DQ_DO_NOT_USE = 0x01
-DQ_SATURATED = 0x02
-DQ_JUMP_DET = 0x04
+DQ_DO_NOT_USE: Final[int] = 0x01
+DQ_SATURATED: Final[int] = 0x02
+DQ_JUMP_DET: Final[int] = 0x04
 
 
 # some binary values.
-VERBOSE = 0x01
-KILLPROC = 0x02
-STOPPROC = 0x04
-SHOWHELP = 0x08
+VERBOSE: Final[int] = 0x01
+KILLPROC: Final[int] = 0x02
+STOPPROC: Final[int] = 0x04
+SHOWHELP: Final[int] = 0x08
 
-DODETECT = 0x100
-DOBGDEST = 0x200
-DOPHOTOM = 0x400
-FINDFILE = 0x800
+DODETECT: Final[int] = 0x100
+DOBGDEST: Final[int] = 0x200
+DOPHOTOM: Final[int] = 0x400
+FINDFILE: Final[int] = 0x800
 
-DOARTIFL = 0x1000
-DOMATCH = 0x2000
-DOAPPHOT= 0x4000
-DOBGDSUB = 0x8000
-DOGEOM = 0x10000
+DOARTIFL: Final[int] = 0x1000
+DOMATCH: Final[int] = 0x2000
+DOAPPHOT: Final[int] = 0x4000
+DOBGDSUB: Final[int] = 0x8000
+DOGEOM: Final[int] = 0x10000
 
-GENRATPSF = 0x100000
-GENRATRUN = 0x200000
-GENRATREG = 0x400000
-INITSB = 0x800000
-UPDATEPRM = 0x1000000
-DODEBUG = 0x2000000
-CALCINSTZP = 0x4000000
-APPLYZP = 0x8000000
+GENRATPSF: Final[int] = 0x100000
+GENRATRUN: Final[int] = 0x200000
+GENRATREG: Final[int] = 0x400000
+INITSB: Final[int] = 0x800000
+UPDATEPRM: Final[int] = 0x1000000
+DODEBUG: Final[int] = 0x2000000
+CALCINSTZP: Final[int] = 0x4000000
+APPLYZP: Final[int] = 0x8000000
 
 # option names
-HDU_NAME = "HDUNAME"
+HDU_NAME: Final[str] = "HDUNAME"
 
 # e name common names
-SCI = "SCI"
-BGD = "BGD"
-RES = "RES"
+SCI: Final[str] = "SCI"
+BGD: Final[str] = "BGD"
+RES: Final[str] = "RES"
 
 # test states
-EXIT_SUCCESS = 0
-EXIT_FAIL = 1
-EXIT_EARLY = 2
-EXIT_MIXED = 3
+EXIT_SUCCESS: Final[int] = 0
+EXIT_FAIL: Final[int] = 1
+EXIT_EARLY: Final[int] = 2
+EXIT_MIXED: Final[int] = 3
 
 # rest success
-REST_SUCCESS_CODE = 200
+REST_SUCCESS_CODE: Final[int] = 200
 
 # tag used table col names
-CAT_NUM = "Catalogue_Number"
-RA = "RA"
-DEC = "DEC"
-FLUX = "flux"
-E_FLUX = "eflux"
-FLUX_2 = "flux_2"
-X_CENTROID = "xcentroid"
-Y_CENTROID = "ycentroid"
-X_PEAK = "x_peak"
-Y_PEAK = "y_peak"
-EE_FRACTION = "eefraction"
-RADIUS = "radius"
-AP_CORR = "apcorr"
-STD_FLUX = "stdflux"
-NUM = "NUM"
-FLAG = "flag"
-FLUX_DET = "flux_det"
-FLUX_FIT = "flux_fit"
-OUT_FLUX = "outflux"
-X_0 = "x_0"
-Y_0 = "y_0"
-X_DET = "x_det"
-Y_DET = "y_det"
-ID = "id"
-MAG = "mag"
-STATUS = "status"
-REC = "rec"
-PARAM = "PARAM"
-X_INIT = "x_init"
-Y_INIT = "y_init"
-XY_DEV = "xydev"
-XY_DEV_ = "_xydev"
-ERR_LOWER = "err"
-OFF = "off"
+CAT_NUM: Final[str] = "Catalogue_Number"
+RA: Final[str] = "RA"
+DEC: Final[str] = "DEC"
+FLUX: Final[str] = "flux"
+E_FLUX: Final[str] = "eflux"
+FLUX_2: Final[str] = "flux_2"
+X_CENTROID: Final[str] = "xcentroid"
+Y_CENTROID: Final[str] = "ycentroid"
+X_PEAK: Final[str] = "x_peak"
+Y_PEAK: Final[str] = "y_peak"
+EE_FRACTION: Final[str] = "eefraction"
+RADIUS: Final[str] = "radius"
+AP_CORR: Final[str] = "apcorr"
+STD_FLUX: Final[str] = "stdflux"
+NUM: Final[str] = "NUM"
+FLAG: Final[str] = "flag"
+FLUX_DET: Final[str] = "flux_det"
+FLUX_FIT: Final[str] = "flux_fit"
+FLUX_ERR: Final[str] = "flux_err"
+OUT_FLUX: Final[str] = "outflux"
+X_0: Final[str] = "x_0"
+Y_0: Final[str] = "y_0"
+X_DET: Final[str] = "x_det"
+Y_DET: Final[str] = "y_det"
+ID: Final[str] = "id"
+MAG: Final[str] = "mag"
+STATUS: Final[str] = "status"
+REC: Final[str] = "rec"
+PARAM: Final[str] = "PARAM"
+X_INIT: Final[str] = "x_init"
+Y_INIT: Final[str] = "y_init"
+XY_DEV: Final[str] = "xydev"
+XY_DEV_: Final[str] = "_xydev"
+ERR_LOWER: Final[str] = "err"
+OFF: Final[str] = "off"
+X_FIT: Final[str] = "x_fit"
+Y_FIT: Final[str] = "y_fit"
+Q_FIT: Final[str] = "qfit"
+PUPIL: Final[str] = "pupil"
+SKY: Final[str] = "sky"
+SMOOTHNESS: Final[str] = "smoothness"
 
+# Q table col names
+SUM_ERR_0: Final[str] = "aperture_sum_err_0"
+SUM_0: Final[str] = "aperture_sum_0"
+SUM_1: Final[str] = "aperture_sum_1"
 
 ## DEFAULT MATCHING COLS
-match_cols = [RA, DEC, FLAG, FLUX, E_FLUX, NUM]
+match_cols: List[str] = [RA, DEC, FLAG, FLUX, E_FLUX, NUM]
 
 # tag for header
-FILTER_LOWER = "filter"
-FILTER = "FILTER"
-EXT = "XTENSION"
-IMAGE = "IMAGE"
-BIN_TABLE = "BINTABLE"
-OUTPUT = "OUTPUT"
-STAR_BUG = "STARBUG"
-CALIBRATION_LV = "CALIBLEVEL"
-NAXIS = "NAXIS"
-NAXIS1 = "NAXIS1"
-NAXIS2 = "NAXIS2"
-C_TYPE = "CTYPE"
+FILTER_LOWER: Final[str] = "filter"
+FILTER: Final[str] = "FILTER"
+EXT: Final[str] = "XTENSION"
+IMAGE: Final[str] = "IMAGE"
+BIN_TABLE: Final[str] = "BINTABLE"
+OUTPUT: Final[str] = "OUTPUT"
+STAR_BUG: Final[str] = "STARBUG"
+CALIBRATION_LV: Final[str] = "CALIBLEVEL"
+NAXIS: Final[str] = "NAXIS"
+NAXIS1: Final[str] = "NAXIS1"
+NAXIS2: Final[str] = "NAXIS2"
+C_TYPE: Final[str] = "CTYPE"
 
 # tags for image header
-DETECTOR = "DETECTOR"
-TELESCOPE = "TELESCOP"
-INSTRUMENT = "INSTRUME"
-BUN_IT = "BUNIT"
-PIXAR_A2 = "PIXAR_A2"
-PIXAR_SR = "PIXAR_SR"
-JWST ="JWST"
+DETECTOR: Final[str] = "DETECTOR"
+TELESCOPE: Final[str] = "TELESCOP"
+INSTRUMENT: Final[str] = "INSTRUME"
+BUN_IT: Final[str] = "BUNIT"
+PIXAR_A2: Final[str] = "PIXAR_A2"
+PIXAR_SR: Final[str] = "PIXAR_SR"
+JWST: Final[str] = "JWST"
 
 # tag used for param file.
-PARAM_FILE_TAG = "PARAMFILE"
-REGION_TAB = "REGION_TAB"
-VERBOSE_TAG = "VERBOSE"
+PARAM_FILE_TAG: Final[str] = "PARAMFILE"
+REGION_TAB: Final[str] = "REGION_TAB"
+VERBOSE_TAG: Final[str] = "VERBOSE"
 
 # mode labels.
-DETECTION = "DETECTION"
-BACKGROUND = "BACKGROUND"
-APP_HOT = "APPHOT"
-PSFP_HOT = "PSFPHOT"
-MATCH_OUTPUTS = "MATCHOUTPUTS"
+DETECTION: Final[str] = "DETECTION"
+BACKGROUND: Final[str] = "BACKGROUND"
+APP_HOT: Final[str] = "APPHOT"
+PSFP_HOT: Final[str] = "PSFPHOT"
+MATCH_OUTPUTS: Final[str] = "MATCHOUTPUTS"
 
 # options
-N_CORES = "NCORES"
-FWHM = "FWHM"
-USE_WCS = "USE_WCS"
-CRIT_SEP = "CRIT_SEP"
-FORCE_POS = "FORCE_POS"
-MAX_XY_DEV = "MAX_XYDEV"
-CALC_CROWD = "CALC_CROWD"
-APCORR_FILE = "APCORR_FILE"
-APPHOT_R = "APPHOT_R"
-ENCENERGY = "ENCENERGY"
-SKY_RIN = "SKY_RIN"
-SKY_ROUT = "SKY_ROUT"
-SIG_SRC = "SIGSRC"
-SIG_SKY = "SIGSKY"
-ZP_MAG = "ZP_MAG"
-CLEANSRC = "CLEANSRC"
-QUIETMODE = "QUIETMODE"
-BOX_SIZE = "BOX_SIZE"
-BGD_R = "BGD_R"
-PROF_SCALE = "PROF_SCALE"
-PROF_SLOPE = "PROF_SLOPE"
-BGD_CHECKFILE = "BGD_CHECKFILE"
-PSF_FILE = "PSF_FILE"
-GEN_RESIDUAL = "GEN_RESIDUAL"
-SHARP_LO = "SHARP_LO"
-SHARP_HI = "SHARP_HI"
-ROUND_1_HI = "ROUND1_HI"
-SUB_IMAGE = "SUBIMAGE"
+N_CORES: Final[str] = "NCORES"
+FWHM: Final[str] = "FWHM"
+USE_WCS: Final[str] = "USE_WCS"
+CRIT_SEP: Final[str] = "CRIT_SEP"
+FORCE_POS: Final[str] = "FORCE_POS"
+MAX_XY_DEV: Final[str] = "MAX_XYDEV"
+CALC_CROWD: Final[str] = "CALC_CROWD"
+APCORR_FILE: Final[str] = "APCORR_FILE"
+APPHOT_R: Final[str] = "APPHOT_R"
+ENCENERGY: Final[str] = "ENCENERGY"
+SKY_RIN: Final[str] = "SKY_RIN"
+SKY_ROUT: Final[str] = "SKY_ROUT"
+SIG_SRC: Final[str] = "SIGSRC"
+SIG_SKY: Final[str] = "SIGSKY"
+ZP_MAG: Final[str] = "ZP_MAG"
+CLEANSRC: Final[str] = "CLEANSRC"
+QUIETMODE: Final[str] = "QUIETMODE"
+BOX_SIZE: Final[str] = "BOX_SIZE"
+BGD_R: Final[str] = "BGD_R"
+PROF_SCALE: Final[str] = "PROF_SCALE"
+PROF_SLOPE: Final[str] = "PROF_SLOPE"
+BGD_CHECKFILE: Final[str] = "BGD_CHECKFILE"
+PSF_FILE: Final[str] = "PSF_FILE"
+GEN_RESIDUAL: Final[str] = "GEN_RESIDUAL"
+SHARP_LO: Final[str] = "SHARP_LO"
+SHARP_HI: Final[str] = "SHARP_HI"
+ROUND_1_HI: Final[str] = "ROUND1_HI"
+SUB_IMAGE: Final[str] = "SUBIMAGE"
+SMOOTH_LO: Final[str] = "SMOOTH_LO"
+SMOOTH_HI: Final[str] = "SMOOTH_HI"
+CLEAR: Final[str] = "CLEAR"
+BRIDGE_COL: Final[str] = "BRIDGE_COL"
 
 # match options
-MATCH_THRESH = "MATCH_THRESH"
+MATCH_THRESH: Final[str] = "MATCH_THRESH"
 
 # match params
-NEXP_THRESH = "NEXP_THRESH"
+NEXP_THRESH: Final[str] = "NEXP_THRESH"
 
 #info tags / keys for catalogue fields.
-OBS = "OBSERVTN"
-VISIT = "VISIT"
-EXPOSURE = "EXPOSURE"
+OBS: Final[str] = "OBSERVTN"
+VISIT: Final[str] = "VISIT"
+EXPOSURE: Final[str] = "EXPOSURE"
 
 
 ## HASHDEFS
-STAR_BUG_MIRI = 1
-NIRCAM = 2
-NIRCAM_STRING = "NIRCAM"
+STAR_BUG_MIRI: Final[int] = 1
+NIRCAM: Final[int] = 2
+NIRCAM_STRING: Final[str] = "NIRCAM"
 
-NULL = 0
-LONG = 1
-SHORT = 2
+NULL: Final[int] = 0
+LONG: Final[int] = 1
+SHORT: Final[int] = 2
 
 # enum unit
-PIX = 0
-ARCSEC = 1
-ARCMIN = 2
-DEG = 3
+PIX: Final[int] = 0
+ARCSEC: Final[int] = 1
+ARCMIN: Final[int] = 2
+DEG: Final[int] = 3
 
 
 # how many characters we will allow by default.
-N_MIS_MATCHES = 10
+N_MIS_MATCHES: Final[int] = 10
 
 # text based logo (using raw string to bypass escape characters)
-LOGO = r"""
+LOGO: Final[str] = r"""
                    *          *  __  *  __   - * --   - 
  STARBUGII               *      / ___ /    \   --  -      - 
  ---------                 *___---.    .___/  -   --   -

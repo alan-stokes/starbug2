@@ -52,9 +52,14 @@ See https://starbug2.readthedocs.io for full documentation.
 # ABS this seems concerning, if they're producing warnings we should be
 # exploring those.
 import warnings
+from typing import Tuple, Dict
+
 from astropy.utils.exceptions import AstropyWarning
+from astropy.io.fits import PrimaryHDU
+from astropy.io.fits.header import Header
 
 from starbug2.matching.generic_match import GenericMatch
+from starbug2.starbug import StarbugBase
 
 warnings.simplefilter("ignore", category=AstropyWarning)
 warnings.simplefilter("ignore", category=RuntimeWarning) ## bit dodge that
@@ -70,7 +75,8 @@ from starbug2.constants import (
     LOGO, HELP_STRINGS, N_CORES, EXIT_EARLY, EXIT_SUCCESS, EXIT_FAIL,
     EXIT_MIXED, READ_THE_DOCS_URL, FILTER, DET_NAME, PSF_SIZE, MATCH_THRESH,
     NEXP_THRESH, ZP_MAG, AP_FILE, BGD_FILE, FITS_EXTENSION, REGION_COL,
-    REGION_SCAL, REGION_RAD, REGION_X_COL, REGION_Y_COL, REGION_WCS, VERBOSE_TAG)
+    REGION_SCAL, REGION_RAD, REGION_X_COL, REGION_Y_COL, REGION_WCS,
+    VERBOSE_TAG)
 from starbug2.utils import (
     p_error, printf, get_version, warn, split_file_name, export_region,
     combine_file_names, export_table, puts, translate_param_float, parse_cmd,
@@ -82,7 +88,9 @@ from astropy.table import Table
 sys.stdout.write("\x1b[1mlaunching \x1b[36mstarbug\x1b[0m\n")
 
 # noinspection SpellCheckingInspection
-def starbug_parse_argv(argv):
+def starbug_parse_argv(
+        argv: list[str]) -> Tuple[
+            int, Dict[str, int | float | str], list[str]]:
     """
     Organise the sys argv line into options, values and arguments
 
@@ -90,10 +98,15 @@ def starbug_parse_argv(argv):
     :return: tuple containing (options, set_opt, args)
     :rtype: tuple int, dict of string, string, list of str
     """
-    options = 0
-    set_opt = {}
+    options: int = 0
+    set_opt: Dict[str, int | float | str] = {}
 
     cmd, argv = parse_cmd(argv)
+    cmd: str
+    argv: list[str]
+
+    opts: list[tuple[str, str]]
+    args: list[str]
 
     opts, args = getopt.gnu_getopt(
         argv,
@@ -108,6 +121,8 @@ def starbug_parse_argv(argv):
     )
 
     for opt, opt_arg in opts:
+        opt: str
+        opt_arg: str
         if opt in ("-h", "--help"):
             options |= (SHOWHELP | STOPPROC)
         if opt in ("-p", "--param"):
@@ -135,23 +150,23 @@ def starbug_parse_argv(argv):
 
         if opt in ("-d", "--apfile"):
             if os.path.exists(opt_arg):
-                set_opt["AP_FILE"] = opt_arg
+                set_opt[AP_FILE] = opt_arg
             else:
                 p_error("AP_FILE \"%s\" does not exist\n" % opt_arg)
 
         if opt in ("-b", "--bgdfile"):
             if os.path.exists(opt_arg):
-                set_opt["BGD_FILE"]=opt_arg
+                set_opt[BGD_FILE] = opt_arg
             else:
                 p_error("BGD_FILE \"%s\" does not exist\n" % opt_arg)
 
         if opt in ("-f", "--find"):
             options |= FINDFILE
         if opt in ("-n", "--ncores"):
-            set_opt["NCORES"] = max(1,int(opt_arg))
+            set_opt[N_CORES] = max(1,int(opt_arg))
 
         if opt in ("-o", "--output"):
-            set_opt["OUTPUT"] = opt_arg
+            set_opt[OUTPUT] = opt_arg
 
         options, set_opt = translate_param_float(
             opt, opt_arg, set_opt, options, KILLPROC)
@@ -178,7 +193,9 @@ def starbug_parse_argv(argv):
             options |= STOPPROC
     return options, set_opt, args
 
-def starbug_one_time_runs(options, set_opt, args):
+def starbug_one_time_runs(
+        options: int, set_opt: dict[str, int | str | float],
+        args: list[str]) -> int:
     """
     Options set, verify/run one time functions
     """
@@ -202,19 +219,20 @@ def starbug_one_time_runs(options, set_opt, args):
         return EXIT_EARLY
 
     ## Load parameter files for onetime runs
+    p_file: str | None
     if (p_file := set_opt.get(PARAM_FILE_TAG)) is None:
         if os.path.exists("./starbug.param"):
             p_file = "starbug.param"
         else:
             p_file = None
 
-    init_parameters = param.load_params(p_file)
+    init_parameters: dict[str, int | float | str] = param.load_params(p_file)
 
     if options & UPDATEPRM:
         param.update_param_file(p_file)
         return EXIT_EARLY
 
-    tmp = param.load_default_params()
+    tmp: dict[str, int | float | str] = param.load_default_params()
     if (set(tmp.keys()) - set(init_parameters.keys())
             | set(init_parameters.keys()) - set(tmp.keys())):
         warn("Parameter file version mismatch. "
@@ -222,7 +240,9 @@ def starbug_one_time_runs(options, set_opt, args):
         return EXIT_FAIL
 
     init_parameters.update(set_opt)
+    output: int | float | str
     if _output := init_parameters.get(OUTPUT):
+        _output: int | float | str
         output = _output
     else:
         output = '.'
@@ -238,15 +258,15 @@ def starbug_one_time_runs(options, set_opt, args):
     ## Generate a single PSF
     if options & GENRATPSF:
         if filter_string := init_parameters.get(FILTER):
-            detector = init_parameters.get(DET_NAME)
-            psf_size = init_parameters.get(PSF_SIZE)
+            detector: str = str(init_parameters.get(DET_NAME))
+            psf_size: int = int(init_parameters.get(PSF_SIZE))
             printf(
                 "Generating PSF: %s %s (%d)\n" %
                 (filter_string, detector, psf_size))
-            psf = generate_psf(
+            psf: PrimaryHDU = generate_psf(
                 filter_string, detector=detector, fov_pixels=psf_size)
             if psf: 
-                name = (
+                name: str = (
                     "%s%s.fits" %
                       (filter_string, "" if detector is None else detector))
                 printf("--> %s\n" % name)
@@ -266,10 +286,11 @@ def starbug_one_time_runs(options, set_opt, args):
 
     ## Generate a region from a table
     if options & GENRATREG:
-        file_name = set_opt.get("REGION_TAB")
+        file_name: str = str(set_opt.get("REGION_TAB"))
         if file_name and os.path.exists(file_name):
-            table = Table.read(file_name, format="fits")
+            table: Table = Table.read(file_name, format="fits")
             _, name, _ = split_file_name(file_name)
+            name: str
             export_region(
                 table, colour=init_parameters[REGION_COL],
                 scale_radius=init_parameters[REGION_SCAL],
@@ -297,7 +318,9 @@ def starbug_one_time_runs(options, set_opt, args):
     return EXIT_SUCCESS
 
 
-def starbug_match_outputs(starbugs, options, set_opt):
+def starbug_match_outputs(
+        starbugs: list[StarbugBase], options: int,
+        set_opt:  dict[str, int | float | str]) -> None:
     """
     Matching output catalogues
 
@@ -311,22 +334,25 @@ def starbug_match_outputs(starbugs, options, set_opt):
     params = param.load_params(set_opt.get(PARAM_FILE_TAG))
     params.update(set_opt)
 
+    f_name: str
     if f_name := combine_file_names([sb.f_name for sb in starbugs]):
         _, name ,_ = split_file_name(os.path.basename(f_name))
+        name: str
         f_name = "%s/%s"%(starbugs[0].out_dir, name)
     else:
         f_name = "out"
 
-    header = starbugs[0].header
+    header: Header = starbugs[0].header
 
-    match = GenericMatch(
+    match: GenericMatch = GenericMatch(
         threshold = params[MATCH_THRESH],
         col_names = None,
         p_file = set_opt.get(PARAM_FILE_TAG))
 
     if options & (DODETECT | DOAPPHOT):
-        full = match( [sb.detections for sb in starbugs], join_type="or")
-        av = match.finish_matching(
+        full: Table = match(
+            [sb.detections for sb in starbugs], join_type="or")
+        av: Table = match.finish_matching(
             full, num_thresh=params[NEXP_THRESH], zp_mag=params[ZP_MAG])
 
         printf("-> %s-ap*...\n" % f_name)
@@ -338,8 +364,9 @@ def starbug_match_outputs(starbugs, options, set_opt):
         export_table(av, f_name="%s-apmatch.fits" % f_name, header=header)
 
     if options & DOPHOTOM:
-        full = match( [sb.psf_catalogue for sb in starbugs], join_type="or")
-        av = match.finish_matching(
+        full: Table = match(
+            [sb.psf_catalogue for sb in starbugs], join_type="or")
+        av: Table = match.finish_matching(
             full, num_thresh=params[NEXP_THRESH], zp_mag=params[ZP_MAG])
 
         printf("-> %s-psf*...\n" % f_name)
@@ -351,23 +378,32 @@ def starbug_match_outputs(starbugs, options, set_opt):
         export_table(av, f_name="%s-psfmatch.fits" % f_name, header=header)
 
 
-def fn(args):
+def fn(args: tuple[str, int,
+                   dict[str, int | float | str]]) -> StarbugBase | None:
     """
-    ??????
-    :param args: the args
-    :return: the star bug instance for the function
-    :rtype starbug2.StarBugBase
+    Worker function to initialise and run standard photometry processes on a
+    single file.
+
+    :param args: A tuple containing (file_name, options_flags,
+                 configurations_dict)
+    :type args: tuple
+    :return: The verified StarbugBase pipeline wrapper instance, or None
+             if validation fails
+    :rtype: starbug2.StarbugBase or None
     """
     ## I've put this here because it takes some time
     from starbug2.starbug import StarbugBase
-    star_bug_base = None
+    star_bug_base: StarbugBase | None = None
+    f_name: str
+    options: int
+    set_opt: dict[str, float | int | str]
     f_name, options, set_opt = args
     if os.path.exists(f_name):
         folder, file_name, ext = split_file_name(f_name)
 
         if options & FINDFILE:
-            ap = "%s/%s-ap.fits" % (folder,file_name)
-            bgd = "%s/%s-bgd.fits" % (folder,file_name)
+            ap: str = "%s/%s-ap.fits" % (folder,file_name)
+            bgd: str = "%s/%s-bgd.fits" % (folder,file_name)
             if os.path.exists(ap)  and not set_opt.get(AP_FILE):
                 set_opt[AP_FILE] = ap
             if os.path.exists(bgd) and not set_opt.get(BGD_FILE):
@@ -382,7 +418,7 @@ def fn(args):
         else: printf("-> %s\n" % f_name)
 
         if ext == FITS_EXTENSION:
-            star_bug_base = StarbugBase(
+            star_bug_base: StarbugBase = StarbugBase(
                 f_name, p_file=set_opt.get(PARAM_FILE_TAG), options=set_opt)
             if star_bug_base.verify():
                 warn("System verification failed\n")
@@ -412,12 +448,24 @@ def fn(args):
     return star_bug_base
 
 
-def starbug_main(argv):
-    """Command entry"""
+def starbug_main(argv: list[str]) -> int:
+    """
+    Command-line execution orchestrator for processing astronomical image
+    datasets.
+
+    :param argv: System arguments mapping configurations and input filenames
+    :type argv: list of str
+    :return: System operational termination exit code status matrix
+    :rtype: int
+    """
+
+    options: int
+    set_opt: dict[str, float | int | str]
+    args: list[str]
     options, set_opt, args = starbug_parse_argv(argv)
 
     if options or set_opt:
-
+        exit_code: int
         if exit_code := starbug_one_time_runs(options, set_opt, args):
             return exit_code
 
@@ -428,7 +476,8 @@ def starbug_main(argv):
         from itertools import repeat
 
         puts(LOGO % READ_THE_DOCS_URL)
-        exit_code = EXIT_SUCCESS
+        exit_code: int = EXIT_SUCCESS
+        starbugs: list[StarbugBase | None]
 
         if ((n_cores := set_opt.get(N_CORES)) is None
                 or n_cores == 1 or len(args) == 1):
@@ -436,13 +485,12 @@ def starbug_main(argv):
             starbugs = (
                 [fn((file_name, options, set_opt)) for file_name in args])
         else:
-
-            zip_options = np.full(len(args), options, dtype=int)
+            zip_options: np.ndarray = np.full(len(args), options, dtype=int)
             for n in range(len(args)):
                 if n > 0:
                     zip_options[n] &= ~VERBOSE
 
-            pool = Pool(processes=n_cores)
+            pool: Pool = Pool(processes=n_cores)
             starbugs = pool.map(fn, zip(args, zip_options, repeat(set_opt)))
             pool.close()
 
@@ -466,6 +514,8 @@ def starbug_main(argv):
 
     return exit_code
 
-def starbug_main_entry():
-    """Entry point"""
+def starbug_main_entry() -> int:
+    """
+    System binary path gateway routing console script entries.
+    """
     return starbug_main(sys.argv)
