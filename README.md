@@ -27,6 +27,13 @@
 
 ```bash
 $~ pip install starbug2
+```
+
+NOTE::
+At this point star bug is fully functional for telescopes which are not JWST.
+To bring into line for use with JWST, the "JWST initialization" section
+needs to be followed, which can be done using the following command line.
+```
 $~ starbug2 --init
 ```
 
