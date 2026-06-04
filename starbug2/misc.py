@@ -152,11 +152,11 @@ def generate_psf(
     """
 
     # ABS again, why are we importing here?
-    import webbpsf
+    import stpsf
 
     # define types
     psf: Optional[fits.PrimaryHDU] = None
-    model: Optional[webbpsf.stpsf.JWInstrument] = None
+    model: Optional[stpsf.JWInstrument] = None
 
     # ensure fov pixels is greater than 0
     if fov_pixels is not None and fov_pixels <= 0:
@@ -175,11 +175,11 @@ def generate_psf(
                 detector = "MIRIM"
 
         # need to use getattr as these are not found by the IDE automatically.
-        mode: webbpsf.stpsf.JWInstrument
+        mode: stpsf.JWInstrument
         if the_filter.instr == NIRCAM:
-            model = getattr(webbpsf, "NIRCam")()
+            model = getattr(stpsf, "NIRCam")()
         elif the_filter.instr == STAR_BUG_MIRI:
-            model = getattr(webbpsf, "MIRI")()
+            model = getattr(stpsf, "MIRI")()
 
         if model:
             model.filter = filter_string
@@ -210,8 +210,8 @@ def generate_psf(
     return psf
 
 
-def generate_runscript(f_names: List[str],
-                       args: str = "starbug2 ") -> None:
+def generate_runscript(
+        f_names: List[str], args: str = "starbug2 ") -> None:
     """
     generate the run script
 

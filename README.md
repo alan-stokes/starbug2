@@ -12,7 +12,7 @@
 &emsp; • Powerful modular and simple GNU Linux standard command line interface
 
 
-<br clear="left"/>
+<br clear="left">
 
 [![Python application](https://github.com/conornally/starbug2/actions/workflows/python-app.yml/badge.svg)](https://github.com/conornally/starbug2/actions/workflows/python-app.yml)
 [![PyPI version fury.io](https://badge.fury.io/py/starbug2.svg)](https://pypi.python.org/pypi/starbug2/)
@@ -37,6 +37,13 @@ needs to be followed, which can be done using the following command line.
 $~ starbug2 --init
 ```
 
+NOTE:: I found the stpsf stuff to fail due to outdated dependnecy. needed to 
+do the following:
+```
+ pip install --upgrade pysiaf
+
+```
+
 ### From source
 
 If installing starbugII from source, the following commands are used to ensure
@@ -58,19 +65,22 @@ instead of:
 I used the following command to ensure live development.
 - ```./star_bug_env/bin/python -m pip install -e . --no-deps```
 
-</br>
+For generating the doc images. graphviz is needed. To isntall that , run 
+the following commands:
+``` pip isntall graphviz```
 
 > [!IMPORTANT]
-> If you make use of *StarbugII* in any published or presented work, please include a [citation](https://ui.adsabs.harvard.edu/abs/2023ascl.soft09012N/abstract).
+> If you make use of *StarbugII* in any published or presented work,
+> please include a [citation](https://ui.adsabs.harvard.edu/abs/2023ascl.soft09012N/abstract).
 > 
-> *StarbugII* uses methods and datatypes from [astropy](https://docs.astropy.org/en/stable/) and [photutils](https://photutils.readthedocs.io/en/stable), please acknowledge them accordingly.
-
-</br>
+> *StarbugII* uses methods and datatypes from [astropy](https://docs.astropy.org/en/stable/) and 
+> [photutils](https://photutils.readthedocs.io/en/stable), please acknowledge them accordingly.
 
 ## Documentation
 
-See the [full documentation](https://starbug2.readthedocs.io/en/latest/?badge=latest) for the complete installation and detailed guides to using the photometric routines.
-Basic usage information is produced by running:
+See the [full documentation](https://starbug2.readthedocs.io/en/latest/?badge=latest) for the complete installation and detailed 
+guides to using the photometric routines. Basic usage information is 
+produced by running:
 
 ```txt
 StarbugII - JWST PSF photometry

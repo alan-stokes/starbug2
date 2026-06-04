@@ -13,7 +13,7 @@ from starbug2.utils import Loading, printf, warn
 
 class BackGroundEstimateRoutine(BackgroundBase):
     def __init__(
-            self, source_list: Table,
+            self, source_list: Table | None,
             box_size: int = 2, full_width_half_max: float = 2.0,
             sig_sky: float = 2.0, bgd_r: float = -1.0,
             profile_scale: float = 1.0, profile_slope: float = 0.5,
@@ -82,7 +82,7 @@ class BackGroundEstimateRoutine(BackgroundBase):
             printf(msg)
 
     def __call__(
-            self, data: np.ndarray,
+            self, data: np.ndarray | None,
             axis: Optional[Axis] = None, masked: bool=False,
             output:Optional[str]=None) -> Background2D:
         """

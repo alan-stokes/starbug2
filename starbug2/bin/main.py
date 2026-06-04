@@ -36,8 +36,10 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o ouput]
    --> typical runs
       //Source detect on image with a parameter file
       $~ starbug2 -vD -p file.param image.fits
+
       //Source detect and match outputs of a list of images
       $~ starbug2 -vDM -n4 images*.fits
+
       //PSF photometry on an image with a source file (image-ap.fits)
       $~ starbug2 -vd image-ap.fits -BP image.fits
 

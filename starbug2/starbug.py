@@ -567,6 +567,9 @@ class StarbugBase(StarBugInterface):
             if (radius := self._options[FWHM]) > 0:
                 self.log("-> using FWHM as aperture radius\n")
             else:
+                self.log(
+                    "No valid aperture radius was detected. defaulting "
+                    "to default value of 2")
                 radius = 2.0
 
         ap_corr: float = APPhotRoutine.calc_ap_corr(
