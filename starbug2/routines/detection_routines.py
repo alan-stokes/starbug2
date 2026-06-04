@@ -1,18 +1,19 @@
 """
 Core routines for StarbugII.
 """
+from typing import Optional
+
 import numpy as np
 from scipy.ndimage import convolve
 from skimage.feature import match_template
 
 from astropy.stats import sigma_clipped_stats
 from astropy.coordinates import SkyCoord
-from astropy.table import Column, Table, vstack
+from astropy.table import Column, Table, vstack, QTable
 from astropy.convolution import RickerWavelet2DKernel
 
 from photutils.background import Background2D
 from photutils.detection import StarFinderBase, DAOStarFinder, find_peaks
-
 from starbug2.constants import X_CENTROID, Y_CENTROID, Y_PEAK, X_PEAK
 from starbug2.routines.source_properties import SourceProperties
 from starbug2.utils import printf
@@ -20,10 +21,13 @@ from starbug2.utils import printf
 
 class DetectionRoutine(StarFinderBase):
     def __init__(
-        self,  sig_src=5, sig_sky=3, full_width_half_max=2, sharp_lo=0.2,
-        sharp_hi=1, round_1_hi=1, round_2_hi=1, smooth_lo=-np.inf,
-        smooth_hi=np.inf, ricker_r=1.0, verbose=0, clean_src=1,
-        do_bgd_2d=1, box_size=2, do_con_vl=1):
+        self,  sig_src: float=5.0, sig_sky: float=3.0,
+        full_width_half_max: float=2.0, sharp_lo: float=0.2,
+        sharp_hi: float=1, round_1_hi: float=1, round_2_hi: float=1,
+        smooth_lo: float=-np.inf, smooth_hi: float=np.inf,
+        ricker_r: float=1.0, verbose: int or bool=0,
+        clean_src: bool or int=1, do_bgd_2d: bool or int=1, box_size: int=2,
+        do_con_vl: bool or int=1) -> None:
         # noinspection SpellCheckingInspection
         """
         Detection routine
@@ -57,6 +61,7 @@ class DetectionRoutine(StarFinderBase):
         :param round_2_hi: Upper bound for a source "roundness2", this
                            distribution is symmetric and the lower bound is
                            taken as negative round_2_hi.
+        :type round_2_hi: float
         :param smooth_lo: Lower bound for source "smoothness".
         :type smooth_lo: float
         :param smooth_hi: Upper bound for source "smoothness".
@@ -65,7 +70,7 @@ class DetectionRoutine(StarFinderBase):
                          detection step.
         :type ricker_r: float
         :param verbose: Set whether to print verbose output information.
-        :type verbose: bool
+        :type verbose: bool or int
         :param clean_src: Set whether to "clean" the catalogue after detection
                           based on the above source geometric properties.
         :type clean_src: bool
@@ -76,27 +81,33 @@ class DetectionRoutine(StarFinderBase):
         :param do_con_vl: Set whether to run the CONVL detection step.
         :type do_con_vl: bool
         """
-        self.sig_src = sig_src
-        self.sig_sky = sig_sky
-        self.full_width_half_max = full_width_half_max
-        self.sharp_hi = sharp_hi
-        self.sharp_lo = sharp_lo
-        self.round_1_hi = round_1_hi if round_1_hi is not None else np.inf
-        self.round_2_hi = round_2_hi if round_2_hi is not None else np.inf
-        self.smooth_lo = smooth_lo if smooth_lo is not None else -np.inf
-        self.smooth_hi = smooth_hi if smooth_hi is not None else np.inf
+        self.sig_src: float = sig_src
+        self.sig_sky: float = sig_sky
+        self.full_width_half_max: float = full_width_half_max
+        self.sharp_hi: float = sharp_hi
+        self.sharp_lo: float = sharp_lo
+        self.round_1_hi:float = (
+            round_1_hi if round_1_hi is not None else np.inf)
+        self.round_2_hi: float = (
+            round_2_hi if round_2_hi is not None else np.inf)
+        self.smooth_lo: float = (
+            smooth_lo if smooth_lo is not None else -np.inf)
+        self.smooth_hi: float = (
+            smooth_hi if smooth_hi is not None else np.inf)
 
-        self.ricker_r = ricker_r
-        self.clean_src = clean_src
+        self.ricker_r: float = ricker_r
+        self.clean_src: bool or int = clean_src
 
-        self.catalogue = Table()
-        self.verbose = verbose
+        self.catalogue: Table = Table()
+        self.verbose: bool or int = verbose
 
-        self.do_bgd_2d = do_bgd_2d
-        self.box_size = box_size
-        self.do_con_vl = do_con_vl
+        self.do_bgd_2d: bool or int = do_bgd_2d
+        self.box_size: int = box_size
+        self.do_con_vl: bool or int = do_con_vl
 
-    def detect(self, data, bkg_estimator=None, xy_coords=None, method=None):
+    def detect(self, data: np.ndarray or np.array,
+               bkg_estimator: Optional[callable]=None,
+               xy_coords: Table=None, method: str=None) -> Table:
         """
         The core detection step (DAOStarFinder)
 
@@ -114,18 +125,20 @@ class DetectionRoutine(StarFinderBase):
         :return: Source list Table
         :rtype: astropy.Table
         """
-        bkg = np.zeros(data.shape)
+        bkg: np.ndarray = np.zeros(data.shape)
         if bkg_estimator:
             bkg = bkg_estimator(data)
 
-        _, median, std = sigma_clipped_stats(data, sigma=self.sig_sky)
+        median_stat: float
+        std: float
+        _, median_stat, std = sigma_clipped_stats(data, sigma=self.sig_sky)
         if method == "findpeaks":
             return find_peaks(
-                data - bkg, median + std * self.sig_src, box_size=11)
+                data - bkg, median_stat + std * self.sig_src, box_size=11)
 
         else:
-            round_hi = max((self.round_1_hi, self.round_2_hi))
-            find = DAOStarFinder(
+            round_hi: float = max((self.round_1_hi, self.round_2_hi))
+            find: DAOStarFinder = DAOStarFinder(
                 std * self.sig_src, self.full_width_half_max,
                 sharplo=self.sharp_lo, sharphi=self.sharp_hi,
                 roundlo=-round_hi, roundhi=round_hi, peakmax=np.inf,
@@ -133,7 +146,7 @@ class DetectionRoutine(StarFinderBase):
             return find(data - bkg)
 
 
-    def bkg2d(self, data):
+    def bkg2d(self, data: np.array) -> np.ndarray:
         """
         ?????
         :param data: the data to apply background 2d to.
@@ -142,7 +155,7 @@ class DetectionRoutine(StarFinderBase):
         """
         return Background2D(data, self.box_size, filter_size=3).background
 
-    def match(self, base, cat):
+    def match(self, base: Table, cat: Table) -> Table:
         """
          Internal function to class
         Used to match detections from separate background subtracted images
@@ -156,18 +169,22 @@ class DetectionRoutine(StarFinderBase):
         :return: The matched catalogue
         :rtype: astropy.Table
         """
-        base_sky = SkyCoord(
+        base_sky: SkyCoord = SkyCoord(
             x=base[X_CENTROID], y=base[Y_CENTROID], z=np.zeros(len(base)),
             representation_type="cartesian")
-        cat_sky = SkyCoord(
+        cat_sky: SkyCoord = SkyCoord(
             x=cat[X_CENTROID], y=cat[Y_CENTROID], z=np.zeros(len(cat)),
             representation_type="cartesian")
-        idx, separation, dist = cat_sky.match_to_catalog_3d(base_sky)
-        mask = dist.to_value() > self.full_width_half_max
+
+        dist: np.array
+        _, _, dist = cat_sky.match_to_catalog_3d(base_sky)
+        mask: np.array = dist.to_value() > self.full_width_half_max
         return vstack((base, cat[mask]))
 
 
-    def find_stars(self, data, mask=None):
+    def find_stars(
+            self, data: np.array,
+            mask: Optional[np.array]=None) -> Table or None:
         """
         This routine runs source detection several times, but on a different
         form of the data array each time. Each form has been "skewed" somehow
@@ -188,10 +205,11 @@ class DetectionRoutine(StarFinderBase):
         if data is None:
             return None
         if mask is None:
-            mask=np.where(np.isnan(data))
+            mask = np.where(np.isnan(data))
 
-        _, median, _ = sigma_clipped_stats(data, sigma=self.sig_sky)
-        data[mask] = median
+        median_stat: float
+        _, median_stat, _ = sigma_clipped_stats(data, sigma=self.sig_sky)
+        data[mask] = median_stat
 
         self.catalogue = self.detect(data)
         if self.verbose:
@@ -205,10 +223,11 @@ class DetectionRoutine(StarFinderBase):
 
         ## 2nd order differential detection
         if self.do_con_vl:
-            kernel = RickerWavelet2DKernel(self.ricker_r)
-            conv = convolve(data, kernel.array)
-            corr = match_template(conv/np.amax(conv), kernel.array)
-            detections = self.detect(corr, method="findpeaks")
+            kernel: RickerWavelet2DKernel = (
+                RickerWavelet2DKernel(self.ricker_r))
+            conv: np.ndarray = convolve(data, kernel.array)
+            corr: np.array = match_template(conv/np.amax(conv), kernel.array)
+            detections: Table = self.detect(corr, method="findpeaks")
             if detections:
                 detections[X_PEAK] += kernel.shape[0] // 2
                 detections[Y_PEAK] += kernel.shape[0] // 2
@@ -221,16 +240,15 @@ class DetectionRoutine(StarFinderBase):
 
         ## Now with xy-coords DAOStarfinder will refit the sharp and round
         # values at the detected locations
-        tmp = (
+        tmp: Optional[QTable] = (
             SourceProperties(data, self.catalogue, verbose=self.verbose)
-            .calculate_geometry(self.full_width_half_max))
+                .calculate_geometry(self.full_width_half_max))
         if tmp:
             self.catalogue = tmp
 
-        mask = (
+        mask: np.array = (
             ~np.isnan(self.catalogue[X_CENTROID]) &
             ~np.isnan(self.catalogue[Y_CENTROID]))
-        #self.catalogue.remove_rows(~mask)
 
         if self.clean_src:
             mask &=(

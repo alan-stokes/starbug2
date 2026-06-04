@@ -1,6 +1,8 @@
 """
 Core routines for StarbugII.
 """
+from typing import Optional
+
 import numpy as np
 from astropy.table import Table, QTable, hstack
 from photutils.detection import DAOStarFinder
@@ -11,8 +13,10 @@ from starbug2.utils import Loading, printf, p_error
 
 
 class SourceProperties:
-    status = 0
-    def __init__(self, image, source_list, verbose=1):
+    status: int = 0
+
+    def __init__(self, image: Optional[np.ndarray],
+                 source_list: Optional[Table], verbose: int or bool=1) -> None:
         """
         source properties.
 
@@ -23,13 +27,14 @@ class SourceProperties:
         :param verbose: int for verbose
         :type verbose: int
         """
-        self._image = image
-        self._source_list = None
-        self._verbose = verbose
+        self._image: Optional[np.ndarray] = image
+        self._source_list: Optional[Table] = None
+        self._verbose: int or bool = verbose
 
         if source_list and type(source_list) in (Table, QTable):
             if len({X_CENTROID, Y_CENTROID} & set(source_list.colnames)) == 2:
-                self._source_list = Table(source_list[[X_CENTROID, Y_CENTROID]])
+                self._source_list = (
+                    Table(source_list[[X_CENTROID, Y_CENTROID]]))
             elif len({"x_0", "y_0"} & set(source_list.colnames)) == 2:
                 self._source_list = Table(source_list[["x_0", "y_0"]])
                 self._source_list.rename_columns(
@@ -40,28 +45,32 @@ class SourceProperties:
             p_error("bad source list type: %s\n" % type(source_list))
 
 
-    def __call__(self, do_crowd=1, **kwargs):
+    def __call__(self, do_crowd: int=1, n_closest_sources: int = 10,
+                 full_width_half_max: float = 2.0) -> Table:
         """
         trigger source properties
 
-        :param do_crowd: int
-        :type do_crowdL int
-        :param kwargs: extra args
-        :type kwargs: dict.
+        :param do_crowd: int check for doing crowd
+        :type do_crowd: int
+        :param n_closest_sources: the number of closest sources.
+        :type n_closest_sources: int
+        :param full_width_half_max: the full width half max.
+        :type full_width_half_max: float
         """
 
-        out = Table()
+        out: Table = Table()
 
         ## This can be slow
         if do_crowd:
             out = hstack(
-                (out, Table([self.calculate_crowding(**kwargs)],
+                (out, Table([self.calculate_crowding(n_closest_sources)],
                             names=["crowding"])))
 
-        out = hstack((out, self.calculate_geometry(**kwargs)))
+        out = hstack((out, self.calculate_geometry(full_width_half_max)))
         return out
 
-    def calculate_crowding(self, n_closest_sources=10, **_):
+    def calculate_crowding(
+            self, n_closest_sources: int = 10) -> np.ndarray | None:
         """
         Crowding Index: Sum of magnitude of separation of n closest sources
 
@@ -72,12 +81,14 @@ class SourceProperties:
             p_error("no source list\n")
             return None
 
-        crowd = np.zeros(len(self._source_list))
-        load = Loading(
+        crowd: np.ndarray = np.zeros(len(self._source_list))
+        load: Loading = Loading(
             len(self._source_list), msg="calculating crowding", res=10)
 
         for i, src in enumerate([self._source_list]):
-            dist = np.sqrt(
+            i: int
+            src: Table
+            dist: np.ndarray = np.sqrt(
                 (src[X_CENTROID] - self._source_list[X_CENTROID]) ** 2
                 + (src[Y_CENTROID] - self._source_list[Y_CENTROID]) ** 2)
             dist.sort()
@@ -87,7 +98,8 @@ class SourceProperties:
                 load.show()
         return crowd
 
-    def calculate_geometry(self, full_width_half_max=2.0, **_):
+    def calculate_geometry(
+            self, full_width_half_max: float=2.0) -> int | None:
         """
         calculate geometry
 
@@ -99,10 +111,10 @@ class SourceProperties:
             return None
         if self._verbose:
             printf("-> measuring source geometry\n")
-        xy_coords = np.array(
+        xy_coords: np.ndarray = np.array(
             (self._source_list[X_CENTROID], self._source_list[Y_CENTROID])).T
 
-        dao_find = DAOStarFinder(
+        dao_find: DAOStarFinder = DAOStarFinder(
             -np.inf, full_width_half_max, sharplo=-np.inf, sharphi=np.inf,
             roundlo=-np.inf, roundhi=np.inf, xycoords=xy_coords,
             peakmax=np.inf)

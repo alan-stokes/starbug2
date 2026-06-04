@@ -1,4 +1,5 @@
 import os
+from typing import Final
 
 import pytest
 from starbug2.bin.ast import ast_main
@@ -7,7 +8,7 @@ from tests.generic import TEST_IMAGE_FITS, clean
 
 # main ast run
 run = lambda s: ast_main(s.split() + [TEST_IMAGE_FITS])
-TEST_FILTER_STRING = "-s FILTER=F444W"
+TEST_FILTER_STRING: Final[str] = "-s FILTER=F444W"
 
 def test_run_basic():
     clean()
