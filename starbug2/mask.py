@@ -1,12 +1,11 @@
 from __future__ import annotations
-from typing import cast, Any, List, Optional, Tuple
+from typing import List, Optional, Tuple
 import getopt
 import numpy as np
 from matplotlib.path import Path
 from matplotlib.patches import Polygon
 from astropy.table import Table
 
-from starbug2.constants import MASK_MAIN_TABLE_PATH
 from starbug2.utils import tab2array, colour_index, fill_nan
 
 class Mask(object):
@@ -109,29 +108,3 @@ class Mask(object):
             label=self._label.replace('_', ' ') if self._label else None,
             fill=False, edgecolor=self._colour, **kwargs)
         plot_axis.add_patch(patch)
-        
-
-
-
-if __name__== "__main__":
-    """
-    main method if you ran mask object.
-    """
-    mask_string: str = "-yF115W -xF115W-F200W -lTestCut 0 20 1 21 1 24 0 24"
-    table: Table = Table.read(
-        MASK_MAIN_TABLE_PATH, format="fits").filled(np.nan)
-    mask: Mask = Mask.from_string(mask_string)
-    masked_table: np.ndarray = mask.apply(table)
-    import matplotlib.pyplot as plt
-    tt: Table = colour_index(table, ["F115W-F200W", "F115W"])
-    plt.scatter(tt["F115W-F200W"], tt["F115W"], c='k', lw=0, s=1)
-
-    # Cast the current axes to 'Any' to satisfy the linter's strict inspection
-    # due to a known type-hinting blind spot with matplotlib
-    axis: Any = cast(Any, plt.gca())
-
-    # plot.
-    mask.plot(axis, fill=False, edgecolor="blue", label="test")
-    plt.legend()
-    plt.show()
-
