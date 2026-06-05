@@ -26,7 +26,7 @@ from starbug2.constants import (
     BGD_CHECKFILE, PSF_FILE, PSF_SIZE, GEN_RESIDUAL, NIRCAM_STRING,
     STARBUG_DATA_DIR, N_TESTS, SIG_SRC, SHARP_LO, SHARP_HI, ROUND_1_HI,
     N_STARS, SUB_IMAGE, FLUX, E_FLUX, SMOOTH_LO, SMOOTH_HI, X_INIT, Y_INIT,
-    X_DET, Y_DET, FLAG, XY_DEV, X_FIT, Y_FIT, MAG)
+    X_DET, Y_DET, FLAG, XY_DEV, X_FIT, Y_FIT, MAG, DEFAULT_FWHM)
 from starbug2.filters import STAR_BUG_FILTERS, FilterStruct
 from starbug2.param import load_params, load_default_params
 from starbug2.routines.app_hot_routine import APPhotRoutine
@@ -213,8 +213,8 @@ class StarbugBase(StarBugInterface):
                             (self._header[FILTER] in STAR_BUG_FILTERS.keys())):
                         self._filter = self._header[FILTER]
                         if self._options[FWHM] < 0:
-                            self._options[FWHM ] = (
-                                STAR_BUG_FILTERS[self._filter].pFWHM)
+                            self._options[FWHM] = (STAR_BUG_FILTERS[
+                                self._filter].full_width_half_max)
                     if self._filter:
                         self.log("-> photometric band: %s\n" % self._filter)
                     else:
@@ -457,9 +457,9 @@ class StarbugBase(StarBugInterface):
             if self._options[FWHM] > 0:
                 full_width_half_max = self._options[FWHM]
             elif filter_struct:
-                full_width_half_max = filter_struct.pFWHM
+                full_width_half_max = filter_struct.full_width_half_max
             else:
-                full_width_half_max = 2.0
+                full_width_half_max = DEFAULT_FWHM
 
             # noinspection SpellCheckingInspection
             detector: DetectionRoutine = DetectionRoutine(
@@ -648,7 +648,7 @@ class StarbugBase(StarBugInterface):
             if self._options[FWHM] > 0:
                 full_width_half_max = self._options[FWHM]
             elif filter_struct:
-                full_width_half_max = filter_struct.pFWHM
+                full_width_half_max = filter_struct.full_width_half_max
             else:
                 full_width_half_max = 2.0
 
@@ -957,7 +957,8 @@ class StarbugBase(StarBugInterface):
                 self.main_image.data, slist,
                 verbose=self._options[VERBOSE_TAG])
             stat: Table = sp(
-                full_width_half_max=STAR_BUG_FILTERS[self._filter].pFWHM,
+                full_width_half_max=STAR_BUG_FILTERS[
+                    self._filter].full_width_half_max,
                 do_crowd=self._options[CALC_CROWD])
             
             self._source_stats = hstack((slist, stat))
@@ -1064,7 +1065,8 @@ class StarbugBase(StarBugInterface):
         detector: DetectionRoutine = DetectionRoutine(
             sig_src=self.options[SIG_SRC],
             sig_sky=self.options[SIG_SKY],
-            full_width_half_max=STAR_BUG_FILTERS[self.filter].pFWHM,
+            full_width_half_max=STAR_BUG_FILTERS[
+                self.filter].full_width_half_max,
             sharp_lo=self.options[SHARP_LO],
             sharp_hi=self.options[SHARP_HI],
             round_1_hi=self.options[ROUND_1_HI],

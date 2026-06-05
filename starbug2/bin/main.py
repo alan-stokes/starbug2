@@ -53,21 +53,25 @@ See https://starbug2.readthedocs.io for full documentation.
 # quietens astropy so that it doesn't flood the terminal with warnings.
 # ABS this seems concerning, if they're producing warnings we should be
 # exploring those.
-import warnings
-from typing import Tuple, Dict
-
 from astropy.utils.exceptions import AstropyWarning
+import warnings
+
+warnings.simplefilter("ignore", category=AstropyWarning)
+warnings.simplefilter("ignore", category=RuntimeWarning) ## bit dodge that
+
+from typing import Tuple, Dict
+import os, sys, getopt
+import numpy as np
+
 from astropy.io.fits import PrimaryHDU
 from astropy.io.fits.header import Header
 
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.starbug import StarbugBase
+from starbug2.misc import generate_runscript
 
-warnings.simplefilter("ignore", category=AstropyWarning)
-warnings.simplefilter("ignore", category=RuntimeWarning) ## bit dodge that
 
-import os, sys, getopt
-import numpy as np
+from starbug2.initialise_psf_data import init_starbug_for_jwst, generate_psf
 
 from starbug2.constants import (
     SHOWHELP, STOPPROC, VERBOSE, PARAM_FILE_TAG, DOAPPHOT, DOBGDEST, DODETECT,
@@ -202,9 +206,6 @@ def starbug_one_time_runs(
     Options set, verify/run one time functions
     """
 
-    # ABS why are we only importing these here?
-    from starbug2.misc import init_starbug, generate_psf, generate_runscript
-
     if options & SHOWHELP:
         usage(__doc__, verbose=options & VERBOSE)
 
@@ -255,7 +256,7 @@ def starbug_one_time_runs(
 
     ## Initialise or update starbug
     if options & INITSB:
-        init_starbug()
+        init_starbug_for_jwst()
 
     ## Generate a single PSF
     if options & GENRATPSF:

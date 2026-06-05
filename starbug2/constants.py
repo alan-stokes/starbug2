@@ -32,16 +32,12 @@ JWST_NIRCAM_ABVEGA_OFFSET_URL: Final[str] = (
     "jwst_nircam_abvegaoffset_0002.asdf"
 )
 
-
-# problematic paths
-PLOT_MAIN_TABLE_PATH: Final[str] = (
-    "/home/conor/sci/proj/ngc6822/overview/dat/ngc6822.fits")
-MASK_MAIN_TABLE_PATH: Final[str] = (
-    "/home/conor/sci/proj/ngc6822/paper1/dat/ngc6822.fits")
-
 # paths to temp files.
 TMP_OUT: Final[str] = "/tmp/out.reg"
 TMP_FITS: Final[str] = "/tmp/starbug.fits"
+
+# default Full width 1/2 max when not set by param / options
+DEFAULT_FWHM: Final[float] = 2.0
 
 # the fits file extension
 FITS_EXTENSION: Final[str] = ".fits"
