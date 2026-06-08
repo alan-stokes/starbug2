@@ -158,7 +158,7 @@ def ast_one_time_runs(options, args):
 
     return EXIT_SUCCESS
 
-def fn(args):
+def execute_artificial_stars(args):
     f_name, options, set_opt, index = args
     global buffer
     out = None
@@ -214,7 +214,8 @@ def ast_main(argv):
 
         if (n_cores := params.get(N_CORES)) is None or n_cores == 1:
             params[N_CORES] = 1
-            outs = [fn((f_name, options, params, 0)) for f_name in args]
+            outs = [execute_artificial_stars(
+                (f_name, options, params, 0)) for f_name in args]
         else:
             n_cores = min(n_cores, n_tests)
             zip_options = np.full(n_cores, options, dtype=int)
@@ -227,10 +228,11 @@ def ast_main(argv):
 
             pool = Pool(processes=n_cores)
             outs = pool.map(
-                fn, zip(
+                execute_artificial_stars, zip(
                     repeat(f_name), zip_options, repeat(params),
                     range(1, n_cores + 1)))
             pool.close()
+            pool.join()
 
         #force finish
         buffer[0] = buffer[1]
