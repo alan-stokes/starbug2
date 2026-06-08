@@ -20,40 +20,44 @@ usage: starbug2-ast [-vhR] [-N ntests] [-n ncores] [-p file.param] [-S nstars]
 """
 
 import os,sys,getopt
+from multiprocessing.shared_memory import SharedMemory
+from typing import Final, Dict, Tuple
+
 import numpy as np
 import glob
 from multiprocessing import Pool, Process, shared_memory
 from itertools import repeat
 from time import sleep
 from astropy.table import Table
+from astropy.io.fits import HDUList
 
 from starbug2.constants import (
     PARAM_FILE_TAG, N_CORES, OUTPUT, N_TESTS, N_STARS, AUTO_SAVE, QUIETMODE,
     EXIT_EARLY, EXIT_FAIL, EXIT_SUCCESS, MAX_MAG, MIN_MAG, FLUX, FLUX_DET,
     PLOTAST)
 from starbug2.starbug import StarbugBase
-from starbug2.artificialstars import ArtificialStarsIII, compile_results
+from starbug2.artificialstars import ArtificialStars, compile_results
 from starbug2.utils import (
     printf, p_error, combine_tables, fill_nan, translate_param_float,
     parse_cmd, usage)
 from starbug2.param import load_params
 
 # random bit markers
-VERBOSE = 0x01
-SHOW_HELP = 0x02
-STOP_PROC = 0x04
-KILL_PROC = 0x08
-NO_BGD = 0x10
-NO_PHOT = 0x20
-RECOVER = 0x40
+VERBOSE: Final[int] = 0x01
+SHOW_HELP: Final[int] = 0x02
+STOP_PROC: Final[int] = 0x04
+KILL_PROC: Final[int] = 0x08
+NO_BGD: Final[int] = 0x10
+NO_PHOT: Final[int] = 0x20
+RECOVER: Final[int] = 0x40
 
 # globals
-c = np.array([0, 0, 0], dtype=np.int64)
-share = shared_memory.SharedMemory(create=True, size=c.nbytes)
-buffer = np.ndarray(c.shape, dtype=c.dtype, buffer=share.buf)
+c: np.ndarray = np.array([0, 0, 0], dtype=np.int64)
+share: SharedMemory = shared_memory.SharedMemory(create=True, size=c.nbytes)
+buffer: np.ndarray = np.ndarray(c.shape, dtype=c.dtype, buffer=share.buf)
 
 
-def load():
+def load() -> None:
     """
     A loading bar that should be run in a subprocess
     It sits and watches the shared memory buffer and periodically
@@ -62,25 +66,32 @@ def load():
     global buffer
     while buffer[0] < buffer[1]:
         sleep(1)
-        p = buffer[0] / buffer[1]
-        msg = f"recovering:{buffer[2]}%"
-        s = "\x1b[2K%s|%-40s|%d/%d\r" % (
+        p: np.ndarray = buffer[0] / buffer[1]
+        msg: str = f"recovering:{buffer[2]}%"
+        s: str = "\x1b[2K%s|%-40s|%d/%d\r" % (
             msg, int(p*40)*'=', int(buffer[0]), int(buffer[1]))
         printf(s)
         sys.stdout.flush()
     printf("\n")
 
-def ast_parse_argv(argv):
+
+def ast_parse_argv(argv: list[str]) -> (
+        Tuple[int, Dict[str, int | str | float], list[str]]):
     """ Organise the argv line into options, values and arguments """
-    options = 0
-    set_opt = {QUIETMODE : 1, AUTO_SAVE : 100}
+    options: int = 0
+    set_opt: Dict[str, int | str | float] = {QUIETMODE : 1, AUTO_SAVE : 100}
     cmd, argv = parse_cmd(argv)
+    cmd: str
+    argv: list[str]
+
     # noinspection SpellCheckingInspection
     opts, args = getopt.gnu_getopt(
         argv, "hvN:n:p:R:S:s:o:",
         ["help", "verbose", "ncores=", "param=", "set=", "output=",
          "ntests=", "nstars=", "autosave=", "no-background", "no-psfphot",
          "recover"])
+    opts: list[tuple[str, str]]
+    args: list[str]
 
     for opt, opt_arg in opts:
         if opt in ("-h","--help"):
@@ -113,12 +124,11 @@ def ast_parse_argv(argv):
             options |= NO_PHOT
 
         options, set_opt = translate_param_float(
-            opt, opt_arg, set_opt, options, KILL_PROC
-        )
+            opt, opt_arg, set_opt, options, KILL_PROC)
 
     return options, set_opt, args
 
-def ast_one_time_runs(options, args):
+def ast_one_time_runs(options: int, args: list[str]) -> int:
     """
     Set options, verify run and execute one time functions
     """
@@ -128,6 +138,7 @@ def ast_one_time_runs(options, args):
         return EXIT_EARLY
 
     if options & RECOVER:
+        f_names: list[str] | None
         if not args:
             # noinspection SpellCheckingInspection
             f_names = glob.glob("sbast-autosave*.tmp")
@@ -135,9 +146,11 @@ def ast_one_time_runs(options, args):
             f_names = [a for a in args if os.path.exists(a)]
         if f_names:
             printf("Recovery Mode:\n-> %s\n"%("\n-> ".join(f_names)))
-            raw = Table()
+            raw: Table = Table()
             for f_name in f_names:
+                f_name: str
                 raw = combine_tables(raw, Table.read(f_name))
+            results: HDUList
             if (results := compile_results(
                     fill_nan(raw), plot_ast="recovered.pdf")):
                 printf("-> successful recovery!\n--> %s\n" % (
@@ -158,26 +171,49 @@ def ast_one_time_runs(options, args):
 
     return EXIT_SUCCESS
 
-def execute_artificial_stars(args):
+def execute_artificial_stars(
+        args: tuple[str, int, dict[str, int | str | float], int]) -> (
+            Table | None):
+    """
+    Multiprocessing worker function to run artificial star tests on a given
+    file.
+
+    :param args: A tuple containing (f_name, options_flags,
+                configuration_dict, worker_index)
+    :type args: tuple
+    :return: The generated artificial stars recovery catalogue table, or
+             None if the file doesn't exist
+    :rtype: astropy.table.Table or None
+    """
+    f_name: str
+    options: int
+    set_opt: dict[str, int | str | float]
+    index: int
     f_name, options, set_opt, index = args
+
     global buffer
-    out = None
+    out: Table | None = None
     if os.path.exists(f_name):
-        star_bug_base = StarbugBase(
+        star_bug_base: StarbugBase = StarbugBase(
             f_name, set_opt.get(PARAM_FILE_TAG), options=set_opt)
-        opt = star_bug_base.options
-        ast = ArtificialStarsIII(star_bug_base, index=index)
-        out = ast.auto_run(
+        opt: dict[str, int | str | float] = star_bug_base.options
+        ast: ArtificialStars = ArtificialStars(star_bug_base, index=index)
+        out = ast(
             opt.get(N_TESTS), stars_per_test=opt.get(N_STARS),
             mag_range=(opt.get(MAX_MAG),opt.get(MIN_MAG)),
             loading_buffer=buffer, autosave=opt.get(AUTO_SAVE),
             skip_phot=options & NO_PHOT, skip_background=options & NO_BGD)
     return out
 
-def ast_main(argv):
+def ast_main(argv: list[str]) -> int:
     global buffer, share
+
+    options: int
+    set_opt: dict[str, int | str | float]
+    args: list[str]
     options, set_opt, args = ast_parse_argv(argv)
-    exit_code = EXIT_SUCCESS
+
+    exit_code: int = EXIT_SUCCESS
 
     if options or set_opt:
         if exit_code := ast_one_time_runs(options, args):
@@ -191,8 +227,8 @@ def ast_main(argv):
         return EXIT_FAIL
 
     if args:
-        f_name = args[0]
-        n_tests = params.get(N_TESTS)
+        f_name: str = args[0]
+        n_tests: int = int(params.get(N_TESTS))
         if options & VERBOSE:
             printf("Artificial Stars\n----------------\n")
             printf("-> loading %s\n"%f_name)
@@ -209,16 +245,19 @@ def ast_main(argv):
 
         buffer[0] = 0
         buffer[1] = n_tests
-        loading = Process(target=load, args=())
+        loading: Process = Process(target=load, args=())
         loading.start()
+
+        # Initialise output container tracking tables
+        outs: list[Table | None]
 
         if (n_cores := params.get(N_CORES)) is None or n_cores == 1:
             params[N_CORES] = 1
             outs = [execute_artificial_stars(
                 (f_name, options, params, 0)) for f_name in args]
         else:
-            n_cores = min(n_cores, n_tests)
-            zip_options = np.full(n_cores, options, dtype=int)
+            n_cores: int = int(min(n_cores, n_tests))
+            zip_options: np.ndarray = np.full(n_cores, options, dtype=int)
             for n in range(n_cores):
                 if n > 0:
                     zip_options[n] &= ~VERBOSE
@@ -226,7 +265,7 @@ def ast_main(argv):
             params[AUTO_SAVE] = int(np.ceil(set_opt.get(AUTO_SAVE) / n_cores))
 
 
-            pool = Pool(processes=n_cores)
+            pool: Pool = Pool(processes=n_cores)
             outs = pool.map(
                 execute_artificial_stars, zip(
                     repeat(f_name), zip_options, repeat(params),
@@ -242,20 +281,23 @@ def ast_main(argv):
         # COMPILING ALL THE RESULTS #
         #############################
 
-        raw = outs[0]
+        raw: Table = outs[0]
         for res in outs[1:]:
             raw = combine_tables(raw, res)
-        star_bug_base = StarbugBase(
+        star_bug_base: StarbugBase = StarbugBase(
             f_name, set_opt.get(PARAM_FILE_TAG), options=set_opt)
         if options & VERBOSE:
             printf("-> compiling results\n")
             printf("-> flux recovery: %.2g\n" % (
                 np.nanmean(raw[FLUX] / raw[FLUX_DET])))
 
+        results: HDUList
         if (results := compile_results(
-                raw, image=star_bug_base.main_image,
+                raw, image=star_bug_base.main_image.data,
                 filter_string=star_bug_base.filter,
                 plot_ast=set_opt.get(PLOTAST))):
+            out_dir: str
+            b_name: str
             out_dir, b_name, _= StarbugBase.sort_output_names(
                 f_name, param_output=set_opt.get(OUTPUT))
             if options & VERBOSE:
@@ -265,6 +307,7 @@ def ast_main(argv):
             ## autosave cleanup
             # noinspection SpellCheckingInspection
             for _f_name in glob.glob("sbast-autosave*.tmp"):
+                _f_name: str
                 os.remove(_f_name)
 
         else:
@@ -282,6 +325,6 @@ def ast_main(argv):
         pass
     return exit_code
 
-def ast_main_entry():
+def ast_main_entry() -> int:
     """Command line entry point"""
     return ast_main(sys.argv)

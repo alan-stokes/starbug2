@@ -5,39 +5,50 @@ import time
 import numpy as np
 from astropy.table import Column, Table
 from photutils.datasets import make_model_image, make_random_models_table
+from photutils.detection import StarFinder
+from photutils.psf import IterativePSFPhotometry, ImagePSF
 
 from starbug2.constants import (
     X_CENTROID, Y_CENTROID, OUT_FLUX, FLUX, X_0, Y_0, X_DET, Y_DET, FLUX_FIT,
-    ID)
+    ID, STATUS)
 from starbug2.utils import Loading, warn, export_table
 
 
-class ArtificialStarRoutine(object):
-    def __init__(self, detector, psf_fitter, psf):
+class ArtificialStarRoutine:
+    def __init__(
+        self,
+        detector: StarFinder,
+        psf_fitter: IterativePSFPhotometry,
+        psf: ImagePSF):
         """
         :param detector: Detection class that fits the StarFinder base class
         :type detector: photutils.detection.StarFinder
         :param psf_fitter: PSF fitting class that fits the
-                           IterativelySubtractedPSFPhotometry base class
-        :type psf_fitter: photutils.psf.IterativelySubtractedPSFPhotometry
-        :param psf: Discrete Point Response Function
-        :type psf: photutils.psf.DiscretePRF
+                           IterativePSFPhotometry base class
+        :type psf_fitter: photutils.psf.IterativePSFPhotometry
+        :param psf: Empirical Image Point Spread Function model
+        :type psf: photutils.psf.ImagePSF
         """
-        self._detector = detector
-        self._psf_fitter = psf_fitter
-        self._psf = psf
+        self._detector: StarFinder = detector
+        self._psf_fitter: IterativePSFPhotometry = psf_fitter
+        self._psf: ImagePSF = psf
 
         print("WARNING: THIS IS UNDER DEVELOPMENT")
 
-
-    def run(self, image, n_tests=1000, sub_image_size=500, sources=None,
-            full_width_half_max=1, flux_range=(0,1e5), separation_thresh=2,
-            save_progress=1):
+    def run(self,
+            image: np.ndarray,
+            n_tests: int = 1000,
+            sub_image_size: int = 500,
+            sources: Table | None = None,
+            full_width_half_max: float = 1.0,
+            flux_range: tuple[float, float] | list[float] = (0.0, 1e5),
+            separation_thresh: float = 2.0,
+            save_progress: bool = True) -> Table:
         # noinspection SpellCheckingInspection
         """
-        Run artificial star testing on an image
+        Run artificial star testing on an image.
 
-        :param image: the image to run artifical star routine one.
+        :param image: the image to run artificial star routine on.
         :type image: numpy.ndarray
         :param n_tests: Number of tests to conduct
         :type n_tests: int
@@ -45,94 +56,106 @@ class ArtificialStarRoutine(object):
         :type sub_image_size: int
         :param sources: Precalculated positions to test stars with x_0, y_0,
                         and flux columns
-        :type sources: astropy.table.Table
+        :type sources: astropy.table.Table or None
         :param full_width_half_max: FWHM of the stars to be added (used for
                                     border safety checks)
         :type full_width_half_max: float
         :param flux_range: Range of fluxes to test
-        :type flux_range: list or tuple
+        :type flux_range: tuple or list
         :param separation_thresh: Number of pixels above which a detection is
                                   considered a failure
         :type separation_thresh: float
         :param save_progress: Periodically save the catalogue during the run
         :type save_progress: bool
+        :return: Table containing the injected parameters alongside recoveries
+        :rtype: astropy.table.Table
         """
-        shape = np.array(image.shape)
+        shape: np.ndarray = np.array(image.shape)
         if np.any(sub_image_size > shape):
             warn("sub image_size bigger than image dimensions\n")
-            sub_image_size = min(shape)
+            sub_image_size = int(min(shape))
         sub_image_size = int(sub_image_size)
 
         if not sources:
-            x_range = [
-                2.0 * full_width_half_max, shape[0]
-                - (2.0 * full_width_half_max)]
-            y_range = [
-                2.0 * full_width_half_max, shape[1]
-                - (2.0 * full_width_half_max)]
+            x_range: list[float] = [
+                2.0 * full_width_half_max,
+                float(shape[0] - (2.0 * full_width_half_max))
+            ]
+            y_range: list[float] = [
+                2.0 * full_width_half_max,
+                float(shape[1] - (2.0 * full_width_half_max))
+            ]
             sources = make_random_models_table(
                 int(n_tests),
                 {X_0: x_range, Y_0: y_range, FLUX: flux_range},
                 seed=int(time.time()))
 
         # noinspection SpellCheckingInspection
-        sources.add_column(Column(np.zeros(len(sources)), name="outflux"))
-        sources.add_column(Column(np.zeros(len(sources)), name="x_det"))
-        sources.add_column(Column(np.zeros(len(sources)), name="y_det"))
-        sources.add_column(Column(np.zeros(len(sources)), name="status"))
+        sources.add_column(Column(np.zeros(len(sources)), name=OUT_FLUX))
+        sources.add_column(Column(np.zeros(len(sources)), name=X_DET))
+        sources.add_column(Column(np.zeros(len(sources)), name=Y_DET))
+        sources.add_column(Column(np.zeros(len(sources)), name=STATUS))
 
-        load = Loading(len(sources), msg="artificial star tests")
+        load: Loading = Loading(len(sources), msg="artificial star tests")
         load.show()
-        for n, src in enumerate(sources):
 
-            subx = 0
-            suby = 0
+        for n, src in enumerate(sources):
+            subx: int = 0
+            suby: int = 0
+
             if sub_image_size > 0:
-                ## !! I might change this to be PSF_SIZE not
-                # 2_Full_width_1/2_max
-                subx = np.random.randint(
+                subx = int(np.random.randint(
                     max(0,
-                        src[X_0] + (2 * full_width_half_max)
-                        - sub_image_size),
+                        src[X_0] + (2 * full_width_half_max) - sub_image_size),
                     np.min(shape[0] - sub_image_size,
-                        src[X_0] - (2 * full_width_half_max)))
-                suby = np.random.randint(
+                           src[X_0] - (2 * full_width_half_max))))
+                suby = int(np.random.randint(
                     max(0,
-                        src[Y_0] + (2 * full_width_half_max)
-                        - sub_image_size),
+                        src[Y_0] + (2 * full_width_half_max) - sub_image_size),
                     np.min(shape[1] - sub_image_size,
-                        src[Y_0] - (2 * full_width_half_max)))
+                           src[Y_0] - (2 * full_width_half_max))))
 
             # src mod translates the position within the sub-image
-            src_mod = Table(src)
+            src_mod: Table = Table(src)
             src_mod[X_0] -= subx
             src_mod[Y_0] -= suby
-            sky = image[
-                  subx : subx + sub_image_size,
-                  suby : suby + sub_image_size]
-            base = np.copy(sky) + make_model_image(
-                2 * [sub_image_size], self._psf, src_mod)
 
-            detections = self._detector(base)
+            sky: np.ndarray = image[
+                subx : subx + sub_image_size, suby : suby + sub_image_size]
+
+            # Dynamically extract matrix geometry from sky to support
+            # rectangular crops safely
+            base: np.ndarray = np.copy(sky) + make_model_image(
+                shape=sky.shape, model=self._psf, params_table=src_mod
+            )
+
+            detections: Table = self._detector(base)
             detections.rename_column(X_CENTROID, X_0)
             detections.rename_column(Y_CENTROID, Y_0)
 
-            separations = (
+            # Check positional matches
+            separations: np.ndarray = (
                 (src_mod[X_0] - detections[X_0]) ** 2
-                + (src_mod[Y_0] - detections[Y_0]) ** 2)
-            best_match = np.argmin(separations)
+                + (src_mod[Y_0] - detections[Y_0]) ** 2
+            )
+            best_match: int = int(np.argmin(separations))
+
             if np.sqrt(separations[best_match]) <= separation_thresh:
-                psf_tab = self._psf_fitter(base, init_guesses=detections)
-                index = np.where(psf_tab[ID] == detections[best_match][ID])
+                psf_tab: Table = self._psf_fitter(
+                    base, init_params=detections)
+                index: np.ndarray = np.where(
+                    psf_tab[ID] == detections[best_match][ID])[0]
 
-                sources[n][OUT_FLUX] = psf_tab[index][FLUX_FIT]
-                sources[n][X_DET] = psf_tab[index][X_0] + subx
-                sources[n][Y_DET] = psf_tab[index][Y_0] + suby
+                if len(index) > 0:
+                    matched_idx: int = int(index[0])
+                    sources[n][OUT_FLUX] = psf_tab[matched_idx][FLUX_FIT]
+                    sources[n][X_DET] = psf_tab[matched_idx][X_0] + subx
+                    sources[n][Y_DET] = psf_tab[matched_idx][Y_0] + suby
 
-                if (abs(sources[n][OUT_FLUX] - sources[n][FLUX])
-                        < (sources[n][FLUX] / 100.0)):
-                    # star matched
-                    sources[n]["status"] = 1
+                    if (abs(sources[n][OUT_FLUX] - sources[n][FLUX])
+                            < (sources[n][FLUX] / 100.0)):
+                        # star matched
+                        sources[n]["status"] = 1
             load()
             load.show()
 

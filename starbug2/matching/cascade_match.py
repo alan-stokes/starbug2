@@ -1,5 +1,5 @@
-from typing import override
-
+from typing import override, Any
+from astropy.table import Table
 from starbug2.constants import CAT_NUM
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.utils import h_cascade, fill_nan
@@ -11,13 +11,14 @@ class CascadeMatch(GenericMatch):
     of columns are not preserved. At the end of each sub match, the
     table is left justified, to reduce the total number of columns needed.
     """
-    def __init__(self, **kwargs):
+
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs, method="Cascade Matching")
 
     @override
-    def match(self, catalogues, **kwargs):
+    def match(self, catalogues: list[Table], **kwargs: Any) -> Table:
         """
-        Match a list of catalogues with RA and DEC columns
+        Match a list of catalogues with RA and DEC columns.
 
         :param catalogues: The input catalogues to work on
         :type catalogues: list (astropy.Tables)
@@ -26,15 +27,18 @@ class CascadeMatch(GenericMatch):
         :rtype: astropy.table.Table
         """
         catalogues = self.init_catalogues(catalogues)
-        if CAT_NUM in self._col_names:
+        if self._col_names and CAT_NUM in self._col_names:
             self._col_names.remove(CAT_NUM)
-        base = self.build_meta(catalogues)
+
+        base: Table = self.build_meta(catalogues)
 
         for n, cat in enumerate(catalogues, 1):
             self._load.msg = "matching: %d" % n
-            tmp = self.inner_match(base, cat, join_type="or")
+            tmp: Table = self.inner_match(base, cat, join_type="or")
             tmp.rename_columns(
-                tmp.colnames, ["%s_%d" % (name, n) for name in tmp.colnames] )
+                tmp.colnames, [f"{name}_{n}" for name in tmp.colnames]
+            )
             base = h_cascade([base, tmp], col_names=self._col_names)
+
         base = fill_nan(base)
         return base

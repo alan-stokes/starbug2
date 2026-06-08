@@ -3,12 +3,12 @@ Starbug matching functions
 Primarily this is the main routines for dither/band/generic matching which are
  at the core of starbug2 and starbug2-match
 """
-from typing import override
+from typing import override, Final, Any
 
 import numpy as np
 import astropy.units as u
 from astropy.table import Table, hstack
-from starbug2.constants import FILTER, RA, DEC
+from starbug2.constants import FILTER, RA, DEC, FLAG
 from starbug2.filters import STAR_BUG_FILTERS
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.utils import (
@@ -16,29 +16,29 @@ from starbug2.utils import (
 
 # keys for catalogue fields.
 # noinspection SpellCheckingInspection
-_OBS = "OBSERVTN"
-_VISIT = "VISIT"
-_EXPOSURE = "EXPOSURE"
+_OBS: Final[str] = "OBSERVTN"
+_VISIT: Final[str] = "VISIT"
+_EXPOSURE: Final[str] = "EXPOSURE"
 
 
 class BandMatch(GenericMatch):
     # filter flag for kwargs.
     # noinspection SpellCheckingInspection
-    FILTER = "fltr"
-    THRESHOLD = "threshold"
+    FILTER: Final[str] = "fltr"
+    THRESHOLD: Final[str] = "threshold"
 
     # match methods
-    _FIRST = "first"
-    _LAST = "last"
-    _BOOT_STRAP = "bootstrap"
+    _FIRST: Final[str] = "first"
+    _LAST: Final[str] = "last"
+    _BOOT_STRAP: Final[str] = "bootstrap"
 
     # warning messages
-    _WRONG_THRESHOLD = (
+    _WRONG_THRESHOLD: Final[str] = (
         "Threshold values must be scalar or list with length 1 less than the "
         "catalogue list. The final element is being ignored.\n")
 
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         if BandMatch.FILTER in kwargs:
             if not isinstance(kwargs[BandMatch.FILTER], list):
                 warn("{} input should be a list, "
@@ -46,12 +46,13 @@ class BandMatch(GenericMatch):
 
         if BandMatch.THRESHOLD in kwargs:
             if isinstance(kwargs[BandMatch.THRESHOLD], list):
+
                 kwargs[BandMatch.THRESHOLD] = (
                     np.array(kwargs[BandMatch.THRESHOLD]))
 
         super().__init__(**kwargs, method="Band Matching")
 
-    def order_catalogues(self, catalogues):
+    def order_catalogues(self, catalogues: list[Table]) -> list[Table]:
         """
         Reorder catalogue list into increasing wavelength size.
         This only works for JWST bands. Unrecognised filters will be left
@@ -64,7 +65,7 @@ class BandMatch(GenericMatch):
         :rtype: list[astropy.table.Table]
         """
 
-        status = -1
+        status: int = -1
         _ii = None
         sorters = [
             ## META in JWST filters
@@ -100,15 +101,17 @@ class BandMatch(GenericMatch):
         elif status <= 1 and (_ii is not None):
             self._filter = [list(STAR_BUG_FILTERS.keys())[i] for i in _ii]
 
-        self._load = Loading(sum(len(c) for c in catalogues[1:]))
+        self._load: Loading = Loading(sum(len(c) for c in catalogues[1:]))
 
         return catalogues
 
-    def jwst_order(self,catalogues):
+    def jwst_order(self, catalogues: list[Table]):
         pass
 
     @override
-    def match(self, catalogues, method="first", **kwargs):
+    def match(
+            self, catalogues: list[Table], method: str ="first",
+            **kwargs: Any) -> Table:
         # noinspection SpellCheckingInspection
         """
         Given a list of catalogues, it will reorder them into increasing
@@ -133,7 +136,7 @@ class BandMatch(GenericMatch):
         :return: Matched catalogue
         :rtype: astropy.Table
         """
-        catalogues = self.order_catalogues(catalogues)
+        catalogues: list[Table] = self.order_catalogues(catalogues)
 
         if (isinstance(self._filter, list) and 
                 len(self._filter) == len(catalogues)):
@@ -141,7 +144,7 @@ class BandMatch(GenericMatch):
         else:
             printf("Bands: Unknown\n")
 
-        if type(self._threshold.value) in (list,np.ndarray):
+        if type(self._threshold.value) in (list, np.ndarray):
             if len(self._threshold) != (len(catalogues) - 1):
                 warn(self._WRONG_THRESHOLD)
                 self._threshold = self._threshold[:-1]
@@ -166,7 +169,7 @@ class BandMatch(GenericMatch):
         # Begin #
         #########
 
-        base = self.build_meta(catalogues)
+        base: Table = self.build_meta(catalogues)
         _threshold = self._threshold.copy()
         for n, tab in enumerate(catalogues):
             ## Temporarily recast threshold
@@ -305,7 +308,7 @@ class BandMatch(GenericMatch):
                     else:
                         tmp.add_row(src[_col_names])
 
-            tmp.rename_column("flag", "flag_%s" % filter_string)
+            tmp.rename_column(FLAG, "flag_%s" % filter_string)
             base = hstack((
                 base, tmp[[filter_string, "e%s" % filter_string,
                            "flag_%s" % filter_string]]
@@ -324,10 +327,10 @@ class BandMatch(GenericMatch):
                 base[DEC][_mask] = tmp[DEC][_mask]
 
         ## Sort out flags
-        flag = np.zeros(len(base),dtype=np.uint16)
-        for f_col in find_col_names(base, "flag"):
+        flag: np.ndarray = np.zeros(len(base),dtype=np.uint16)
+        for f_col in find_col_names(base, FLAG):
             flag |= base[f_col].value.astype(np.uint16)
             base.remove_column(f_col)
-        base.add_column(flag,name="flag")
+        base.add_column(flag, name=FLAG)
 
         return base.filled(np.nan) # type: ignore
