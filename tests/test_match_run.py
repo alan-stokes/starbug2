@@ -18,8 +18,8 @@ IMAGE_AP_FITS = os.path.join(TEST_PATH, "image-ap.fits")
 
 def test_match_start():
     assert run("starbug2-match") == EXIT_FAIL
-    assert run("starbug2-match -h") == EXIT_EARLY
-    assert run("starbug2-match -vh") == EXIT_EARLY
+    assert run("starbug2-match -h") == EXIT_SUCCESS
+    assert run("starbug2-match -vh") == EXIT_SUCCESS
 
 def test_match_bad_input():
     assert run("starbug2-match ") == EXIT_FAIL

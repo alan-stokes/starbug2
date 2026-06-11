@@ -2,16 +2,16 @@ import os,numpy as np
 import pytest
 
 from starbug2.constants import (
-    CAT_NUM, E_FLUX, RA, DEC, FLUX, FILTER, MATCH_THRESH, VERBOSE_TAG, NUM,
-    FLAG)
+    CAT_NUM, E_FLUX, RA, DEC, FLUX, FILTER, NUM, FLAG, MAG)
 from starbug2.matching.band_match import BandMatch
 from starbug2.matching.cascade_match import CascadeMatch
 from starbug2.matching.exact_value_match import ExactValueMatch
 from starbug2.matching.generic_match import GenericMatch
+from starbug2.star_bug_config import StarBugMainConfig
 from starbug2.utils import import_table, fill_nan
-from starbug2.param import load_default_params
 from starbug2.bin.main import starbug_main
 from astropy.table import Table
+from astropy import units, Quantity
 
 from tests.generic import (
     TEST_IMAGE_FITS, TEST_PATH, check_shape, clean, TEST_FILTER_STRING)
@@ -68,18 +68,21 @@ def cats():
 class TestGenericMatch:
 
     def test_initialing(self):
-        options = load_default_params()
+        options = StarBugMainConfig()
 
         m = GenericMatch( )
         assert m.col_names is None
         assert not m.filter 
-        assert m.threshold.value == float(options.get(MATCH_THRESH))
-        assert m.verbose == options.get(VERBOSE_TAG)
+        assert m.threshold.value == (
+            options.match_threshold_arc_sec_as_an_arc_sec)
+        assert m.verbose == options.verbose_logs
 
+        threshold: Quantity = 0.5 * units.arcsec
         m = GenericMatch(
-            filter_string="MAG", col_names=[RA], threshold=0.5, verbose=True)
+            filter_string=MAG, col_names=[RA], threshold=threshold,
+            verbose=True)
         assert m.col_names == [RA]
-        assert m.filter == "MAG"
+        assert m.filter == MAG
         assert m.threshold.value == 0.5
         assert m.verbose == True
 
@@ -192,7 +195,7 @@ class TestBandMatch:
         c = Table(None, meta={"FILTER": 'F770W'})
 
         m = BandMatch()
-        assert m.filter == ""
+        assert m.filter is None
         assert m.order_catalogues( [a,c,b] ) == [a,b,c]
         assert m.filter == ["F115W", "F187N", "F770W"]
 
@@ -203,7 +206,7 @@ class TestBandMatch:
         c = Table(None, names=['F770W'])
 
         m = BandMatch()
-        assert m.filter == ""
+        assert m.filter is None
         assert m.order_catalogues( [a, c, b] ) == [a, b, c]
         assert m.filter == ["F115W", "F187N", "F770W"]
 

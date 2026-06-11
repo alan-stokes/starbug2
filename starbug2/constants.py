@@ -6,6 +6,10 @@ WEBBPSF_PATH_ENV_VAR: Final[str] = "WEBBPSF_PATH"
 STAR_BUG_PARAMS: Final[str] = "STARBUGII PARAMETERS"
 STAR_BUG_TEST_DAT_ENV: Final[str] = "STARBUG_TEST_DIR"
 
+# default value for full width half max when nothing sets it
+DEFAULT_FULL_WIDTH_HALF_MAX = 2.0
+DEFAULT_PSF_FILE_NAME = "psf.fits"
+
 # url to docs
 URL_DOCS: Final[str] = (
     "https://raw.githubusercontent.com/conornally/starbug2/"
@@ -96,33 +100,6 @@ SRC_UKN: Final[int] = 0x10
 DQ_DO_NOT_USE: Final[int] = 0x01
 DQ_SATURATED: Final[int] = 0x02
 DQ_JUMP_DET: Final[int] = 0x04
-
-
-# some binary values.
-VERBOSE: Final[int] = 0x01
-KILLPROC: Final[int] = 0x02
-STOPPROC: Final[int] = 0x04
-SHOWHELP: Final[int] = 0x08
-
-DODETECT: Final[int] = 0x100
-DOBGDEST: Final[int] = 0x200
-DOPHOTOM: Final[int] = 0x400
-FINDFILE: Final[int] = 0x800
-
-DOARTIFL: Final[int] = 0x1000
-DOMATCH: Final[int] = 0x2000
-DOAPPHOT: Final[int] = 0x4000
-DOBGDSUB: Final[int] = 0x8000
-DOGEOM: Final[int] = 0x10000
-
-GENRATPSF: Final[int] = 0x100000
-GENRATRUN: Final[int] = 0x200000
-GENRATREG: Final[int] = 0x400000
-INITSB: Final[int] = 0x800000
-UPDATEPRM: Final[int] = 0x1000000
-DODEBUG: Final[int] = 0x2000000
-CALCINSTZP: Final[int] = 0x4000000
-APPLYZP: Final[int] = 0x8000000
 
 # option names
 HDU_NAME: Final[str] = "HDUNAME"

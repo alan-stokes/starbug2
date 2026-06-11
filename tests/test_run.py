@@ -1,4 +1,5 @@
 import os
+import pytest
 from starbug2.bin.main import starbug_main
 from starbug2.constants import EXIT_EARLY, EXIT_FAIL, EXIT_SUCCESS, EXIT_MIXED
 from tests.generic import (
@@ -17,15 +18,15 @@ def test_start():
     clean()
     assert run("starbug2 -h") == EXIT_EARLY
     assert run("starbug2 -vh") == EXIT_EARLY
-    assert run("starbug2 --version") == EXIT_EARLY
+    assert run("starbug2 --version") == EXIT_SUCCESS
     assert run("starbug2 -vDABPh") == EXIT_EARLY
     assert run("starbug2") == EXIT_FAIL
     clean()
 
 def test_param():
     clean()
-    assert run("starbug2 --local-param") == EXIT_EARLY
-    assert run("starbug2 --update-param") == EXIT_EARLY
+    assert run("starbug2 --local-param") == EXIT_SUCCESS
+    assert run("starbug2 --update-param") == EXIT_SUCCESS
     assert (run(
         f"starbug2 -p starbug.param {TEST_IMAGE_FITS}"
         f" {TEST_FILTER_STRING}") == EXIT_SUCCESS)
@@ -117,8 +118,12 @@ def test_n_cores():
         f"{TEST_IMAGE_2_FITS} {TEST_FILTER_STRING}") == EXIT_SUCCESS
     assert (run(f"starbug2 -vD {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}"
                 f" {TEST_FILTER_STRING}") == EXIT_SUCCESS)
-    assert (run(f"starbug2 -Dn0 {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}"
-                f" {TEST_FILTER_STRING}") == EXIT_SUCCESS)
+
+    with pytest.raises(
+            ValueError,
+            match="Number of processes must be at least 1"):
+        run(f"starbug2 -Dn0 {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}"
+                f" {TEST_FILTER_STRING}")
     assert (run(f"starbug2 -Dn1 {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}"
                 f" {TEST_FILTER_STRING}") == EXIT_SUCCESS)
     assert (run(f"starbug2 -Dn2 {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}"

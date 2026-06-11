@@ -3,7 +3,7 @@ Miscellaneous functions...
 """
 
 import os, stat, numpy as np
-from typing import List, Optional, TextIO, Dict, Tuple, Any
+from typing import List, Optional, TextIO, Dict, Any
 
 from starbug2.constants import (
     JWST_MIRI_APCORR_0010_FITS_URL, JWST_NIRCAM_APCORR_0004_FITS_URL,
@@ -13,9 +13,6 @@ from starbug2.constants import (
 from starbug2.constants import STAR_BUG_MIRI
 from starbug2.filters import STAR_BUG_FILTERS, FilterStruct
 from astropy.io import fits
-from astropy.table import Table
-
-from starbug2.matching.generic_match import GenericMatch
 from starbug2.starbug import StarbugBase
 from starbug2.utils import (
     printf, wget, puts, Loading, p_error, split_file_name)
@@ -133,9 +130,9 @@ def generate_psfs() -> None:
 
 # noinspection SpellCheckingInspection
 def generate_psf(
-        filter_string: str,
+        filter_string: str | None,
         detector: Optional[str] = None,
-        fov_pixels: Optional[int] = None) -> fits.PrimaryHDU:
+        fov_pixels: Optional[int] = None) -> fits.PrimaryHDU | None:
     # noinspection SpellCheckingInspection
     """
     Generate a single PSF for JWST
@@ -161,6 +158,9 @@ def generate_psf(
     # ensure fov pixels is greater than 0
     if fov_pixels is not None and fov_pixels <= 0:
         fov_pixels = None
+
+    if filter_string is None:
+        return None
 
     if filter_string in list(STAR_BUG_FILTERS.keys()):
         the_filter = STAR_BUG_FILTERS.get(filter_string)
@@ -259,41 +259,6 @@ def generate_runscript(
         runfile, stat.S_IXUSR | stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP |
                  stat.S_IROTH)
     printf("->%s\n" % runfile)
-
-
-# ABS DOES THIS METHOD NEED TO EXIST?
-def calc_instrumental_zero_point(
-        psf_table: Table,
-        ap_table: Table,
-        filter_string: Optional[str] = None) -> Tuple[np.array, np.array]:
-    """
-    calculates the zero points.
-
-    :param psf_table: the psf table
-    :type psf_table: astropy.Table
-    :param ap_table: the ap table
-    :type ap_table: astropy.Table
-    :param filter_string: the filter string
-    :type filter_string: str
-    :return: tuple of mean zero point and its standard deviation
-    :rtype: (np.array, np.array)
-    """
-    if (filter_string is None
-            and not (filter_string := psf_table.meta.get(FILTER))):
-        p_error("Unable to determine filter, set with '--set FILTER=F000W'.\n")
-        return None, None
-    printf("Calculating instrumental zero point %s.\n" % filter_string)
-
-    matcher: GenericMatch = GenericMatch(
-        threshold=0.1, col_names=["RA", "DEC", filter_string])
-    matched: Table = matcher([psf_table, ap_table], join_type="and")
-    dist: np.array = np.array(
-        (matched["%s_2" % filter_string]
-         - matched["%s_1" % filter_string]).value)
-    instr_zp: np.array = np.nanmedian(dist)
-    zp_std: np.array = np.nanstd(dist)
-    printf("-> zp=%.3f +/- %.2g\n" % (float(instr_zp), float(zp_std)))
-    return instr_zp, zp_std
 
 
 def sort_exposures(catalogues: List[fits.HDUList]) -> ExposureMapping:

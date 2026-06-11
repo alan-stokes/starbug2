@@ -9,7 +9,7 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
 from starbug2.constants import (
-    X_0, Y_0, MAG, FLUX, X_DET, Y_DET, FLUX_DET, STATUS, ZP_MAG, ID,
+    X_0, Y_0, MAG, FLUX, X_DET, Y_DET, FLUX_DET, STATUS, ID,
     X_CENTROID, Y_CENTROID, REC, EXIT_SUCCESS, XY_DEV, Y_INIT, X_INIT,
     XY_DEV_, FLUX_2, ERR_LOWER, OFF)
 from starbug2.matching.generic_match import GenericMatch
@@ -71,7 +71,8 @@ class ArtificialStars:
             loading_buffer: Optional[np.ndarray] = None,
             autosave: int = -1,
             skip_phot: bool or int = 0,
-            skip_background: bool or int = 0) ->  Table | None:
+            skip_background: bool or int = 0,
+            zp_mag: float = 0.0) ->  Table | None:
         """
         The main entry point into the artificial star test.
         This handles everything except the results compilation at the end.
@@ -97,13 +98,15 @@ class ArtificialStars:
         :param skip_background: If true then ignore the background
                                 subtraction step.
         :type skip_background: bool or int
+        :param zp_mag: the zero point magnitude
+        :type zp_mag: float
         :return: Full raw test results. Injected initial properties with
                  measured values.
         :rtype: astropy.table.Table
         """
         return self._auto_run(
             n_tests, stars_per_test, sub_image_size, mag_range, loading_buffer,
-            autosave, skip_phot, skip_background)
+            autosave, skip_phot, skip_background, zp_mag)
 
     def _auto_run(
             self,
@@ -114,7 +117,8 @@ class ArtificialStars:
             loading_buffer: Optional[np.ndarray] = None,
             autosave: int = -1,
             skip_phot: bool or int = 0,
-            skip_background: bool or int = 0) -> Table | None:
+            skip_background: bool or int = 0,
+            zp_mag: float = 0.0) -> Table | None:
         """
         The main entry point into the artificial star test.
         This handles everything except the results compilation at the end.
@@ -140,6 +144,8 @@ class ArtificialStars:
         :param skip_background: If true then ignore the background
                                 subtraction step.
         :type skip_background: bool or int
+        :param zp_mag: the zero point magnitude
+        :type zp_mag: float
         :return: Full raw test results. Injected initial properties with
                  measured values.
         :rtype: astropy.table.Table
@@ -154,10 +160,6 @@ class ArtificialStars:
         base_shape: np.array = np.copy(self._starbug.main_image.shape)
         stars_per_test: int = int(stars_per_test)
         passed: int = 0
-
-        z_p: int = (
-            self._starbug.options.get(ZP_MAG) if
-            self._starbug.options.get(ZP_MAG) else 0)
         buffer: int = 0
 
         if mag_range[0] - mag_range[1] >= 0:
@@ -182,7 +184,7 @@ class ArtificialStars:
                   MAG :  mag_range
                 })
             source_list.add_column(
-                10.0 ** ( (z_p - source_list[MAG]) / 2.5 ) , name=FLUX)
+                10.0 ** ( (zp_mag - source_list[MAG]) / 2.5 ) , name=FLUX)
             source_list.remove_column(ID)
 
             star_overlay: np.ndarray = (

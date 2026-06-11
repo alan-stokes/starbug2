@@ -1,7 +1,7 @@
 import time
 import os, sys, numpy as np
 from importlib import metadata
-from typing import Tuple, Dict, Optional, List, Union
+from typing import Tuple, Dict, Optional, List, Union, Any
 
 from astropy.table import Table, hstack, Column, MaskedColumn, vstack
 from astropy.io import fits
@@ -89,7 +89,7 @@ class Loading(object):
         self.set_len(length)
         self.msg = msg
         self.start_time = time.time()
-        self.res = int(res)
+        self.res = res
 
 
     def set_len(self, length: int) -> None:
@@ -145,13 +145,13 @@ def combine_tables(base: Table, tab: Table) -> Table:
 
 def export_region(
         tab: Table,
-        colour: Optional[str] = DEFAULT_COLOUR,
-        scale_radius: Optional[int] = 1,
-        region_radius: Optional[int] = 3,
-        x_col: Optional[str] = RA,
-        y_col: Optional[str] = DEC,
-        wcs: Optional[int] = 1,
-        f_name: Optional[str] = TMP_OUT) -> None:
+        colour: str = DEFAULT_COLOUR,
+        scale_radius: int = 1,
+        region_radius: int = 3,
+        x_col: str = RA,
+        y_col: str = DEC,
+        wcs: int = 1,
+        f_name: str = TMP_OUT) -> None:
     """
     A handy function to convert the detections in a DS9 region file
 
@@ -166,8 +166,8 @@ def export_region(
     :param x_col: X column name to use
     :type x_col: str
     :param y_col: Y column name to use
-    :type y_col: str
-    :param wcs: Boolean if the x/y_cols use WCS system
+    :type y_col: str.
+    :param wcs: Boolean which is true if the x or y_cols use the WCS system.
     :type wcs: int.
     :param f_name: Filename to output to
     :type f_name: str
@@ -242,7 +242,7 @@ def translate_param_float(
     return options, set_opt
 
 
-def parse_unit(raw: str) -> Tuple[float or None, int or None]:
+def parse_unit(raw: str) -> Tuple[float | None, int | None]:
     # noinspection SpellCheckingInspection
     """
     Take a value with the ability to be cast into several units and parse it
@@ -265,8 +265,8 @@ def parse_unit(raw: str) -> Tuple[float or None, int or None]:
         's': ARCSEC,
         'm': ARCMIN,
         'd': DEG}
-    value: float or None = None
-    unit: int or None = None
+    value: float | None = None
+    unit: int | None = None
     if raw:
         try: 
             value = float(raw)
@@ -340,7 +340,7 @@ def export_table(table: Table, f_name: Optional[str]=None,
     :type header: dict, fits.Header
     :return: None
     """
-    dtypes: List[any] = []
+    dtypes: List[Any] = []
     if CAT_NUM not in table.colnames:
         table = reindex(table)
     for name in table.colnames:
@@ -354,10 +354,14 @@ def export_table(table: Table, f_name: Optional[str]=None,
 
     if not f_name:
         f_name = TMP_FITS
-    fits.BinTableHDU(data=table, header=header).writeto(
+
+    # create default if header is None
+    fits_header = header if header is not None else fits.Header()
+
+    fits.BinTableHDU(data=table, header=fits_header).writeto(
         f_name, overwrite=True, output_verify="fix")
 
-def import_table(f_name: str, verbose: bool or int = 0) -> Table or None:
+def import_table(f_name: str, verbose: bool | int = 0) -> Table | None:
     """
     Slight tweak to `astropy.table.Table.read`. This makes sure that the
     proper column dtypes are maintained
@@ -367,13 +371,16 @@ def import_table(f_name: str, verbose: bool or int = 0) -> Table or None:
     :param verbose: Display verbose information
     :type verbose: boolean or int
     :return: Loading table
-    :rtype: atrophy.Table
+    :rtype: atrophy.Table | None
     """
 
-    tab: Table or None = None
+    tab: Table | None = None
     if os.path.exists(f_name):
         if os.path.splitext(f_name)[1] == FITS_EXTENSION:
             tab = fill_nan(Table.read(f_name, format="fits"))
+            if tab is None:
+                printf(f"table at {f_name} failed to read")
+                return None
             if not tab.meta.get(FILTER):
                 if filter_string := find_filter(tab):
                     tab.meta[FILTER] = filter_string
@@ -434,7 +441,7 @@ def find_col_names(tab: Table, basename: str) -> List[str]:
 
 
 def combine_file_names(
-        f_names: List[str], n_mismatch: int=N_MIS_MATCHES) -> str or None:
+        f_names: List[str], n_mismatch: int=N_MIS_MATCHES) -> str | None:
     """
     when matching catalogues, combines the file names into an appropriate
     combination of all the inputs.
@@ -537,30 +544,33 @@ def ext_names(hdu_list: fits.HDUList) -> List[str]:
     :return: List of extension names
     :rtype: list of str
     """
-    ext: fits.PrimaryHDU or fits.ImageHDU
+    ext: fits.PrimaryHDU | fits.ImageHDU
     return list(ext.name for ext in hdu_list)
 
 
 def flux2mag(
-        flux: List[float] or np.array,
-        flux_err: Optional[List[float]] = None,
+        raw_flux: np.ndarray | float,
+        flux_err: Optional[Column] | None = None,
         zp: float=1.0) -> Tuple[np.ndarray, np.ndarray]:
     """
     Convert flux to magnitude in an arbitrary system
 
-    :param flux: List of source flux values
-    :type flux: list of floats or float or None or ndarray
+    :param raw_flux: List of source flux values
+    :type raw_flux: list of floats or float or None or ndarray
     :param flux_err: List of known flux uncertainties
     :type flux_err: list of floats or float or None or ndarray
     :param zp: Zero point flux value
-    :type zp: float
-    :return: tuple of (Source magnitudes, Magnitude errors )
-    :rtype: tuple (ndarray, ndarray)
+    :type zp: float.
+    :return: tuple of (Source magnitudes, Magnitude errors ).
+    :rtype: tuple (ndarray, ndarray).
     """
-
+    flux: np.ndarray
     ## sort any type issues in FLUX
-    if type(flux) != np.array:
-        flux = np.array(flux)
+    if type(raw_flux) == float:
+        flux = np.array(raw_flux)
+    else:
+        flux = raw_flux # noqa
+
     if not flux.shape:
         flux = np.array([flux])
 
@@ -586,7 +596,7 @@ def flux2mag(
 
 
 def flux_2_ab_mag(
-        flux: float, flux_err: Optional[float] = None) -> (
+        flux: float, flux_err: Column | None = None) -> (
             Tuple[np.ndarray, np.ndarray]):
     """
     Convert flux to AB magnitudes
@@ -667,7 +677,7 @@ def colour_index(table: Table, keys: List[str]) -> Table:
 
 
 def get_mj_ysr2jy_scale_factor(
-        ext: fits.PrimaryHDU or fits.ImageHDU or fits.BinTableHDU) -> float:
+        ext: fits.PrimaryHDU | fits.ImageHDU | fits.BinTableHDU) -> float:
     """
     Find the unit scale factor to convert an image from MJy/sr to Jy
     Header file must contain the keyword "PIXAR_SR"
@@ -684,7 +694,7 @@ def get_mj_ysr2jy_scale_factor(
     return scale_factor
 
 
-def find_filter(table: Table) -> str or None:
+def find_filter(table: Table) -> str:
     """
     Attempt to identify filter for a table from the metadata or column names
 
@@ -704,7 +714,7 @@ def find_filter(table: Table) -> str or None:
     if matching_filters:
         return matching_filters.pop()
 
-    return None
+    return ""
 
 
 def get_version() -> str:
@@ -734,7 +744,7 @@ def remove_duplicates[T](seq: List[T]) -> List[T]:
     :rtype list of <T>
     """
     seen = set()
-    return [x for x in seq if not (x in seen or seen.add(x))]
+    return [x for x in seq if not (x in seen or seen.add(x))] # noqa
 
 
 def crop_hdu(
@@ -774,7 +784,7 @@ def crop_hdu(
     return hdu
 
 
-def usage(docstring: str, verbose: bool or int=0) -> int:
+def usage(docstring: str, verbose: bool | int=0) -> int:
     """
     outputs the usage.
     :param docstring: the doc string to output

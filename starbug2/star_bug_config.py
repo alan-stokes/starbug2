@@ -1,0 +1,1784 @@
+import getopt
+# noinspection SpellCheckingInspection
+import os
+
+import numpy as np
+from astropy import units
+from typing import Dict, Tuple, Final, Any
+from parse import parse
+
+from starbug2.constants import (
+    DEC, RA, SCI, DEFAULT_COLOUR, OUTPUT, AP_FILE, BGD_FILE, PSF_FILE,
+    STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, E_FLUX)
+from starbug2.utils import p_error, get_version
+
+
+class StarBugMainConfig:
+    # the first characters to exclude
+    EXCLUDES: Final[str] = "# \t\n //"
+
+    # A single master map linking (Short Flag, Long Flag) to the internal
+    # property for MAIN
+    # Format: (short_flag, long_flag, type) -> property_name
+    # None for short_flag means it only has a long version
+    # noinspection SpellCheckingInspection
+    MAIN_FLAG_MAP: Dict[Tuple[str | None, str, Any], str] = {
+        ('A', 'apphot', bool): 'do_aperture_photometry',
+        ('B', 'background', bool): 'do_bgd_estimate',
+        ('D', 'detect', bool): 'do_star_detection',
+        ('f', 'find', bool): 'find_file',
+        ('G', 'geom', bool): 'do_source_geometry',
+        ('h', 'help', bool): 'show_help',
+        ('M', 'match', bool): 'do_matching',
+        ('P', 'psf', bool): 'do_photometry_routine',
+        ('S', 'subbgd', bool): 'do_bgd_subtraction',
+        ('v', 'verbose', bool): 'verbose_logs',
+        ('b', 'bgdfile', str): 'background_file',
+        ('d', 'apfile', str): 'ap_file',
+        ('n', 'ncores', int): 'n_cores',
+        ('o', 'output', str): 'output_file',
+        ('p', 'param', str): 'param_file',
+        ('s', 'set', str): 'set_parameter',
+        (None, 'init', bool): 'execute_jwst_initialisation',
+        (None, 'generate-psf', bool): 'generate_psf',
+        (None, 'local-param', bool): 'generate_local_param_file',
+        (None, 'generate-region', str): 'generate_region',
+        (None, 'version', bool): 'show_version',
+        (None, 'generate-run', bool): 'generate_run',
+        (None, 'update-param', bool): 'update_param',
+        (None, 'debug', bool): 'debug_mode',
+        (None, 'dev', bool): 'dev_mode',
+    }
+
+    # A single master map linking (Short Flag, Long Flag) to the internal
+    # property for AST
+    # Format: (short_flag, long_flag, type) -> property_name
+    # None for short_flag means it only has a long version
+    # noinspection SpellCheckingInspection
+    AST_FLAG_MAP: Dict[Tuple[str | None, str, Any], str] = {
+        ("h", "help", bool): 'show_ast_help',
+        ('v', 'verbose', bool): 'verbose_logs',
+        ('n', 'ncores', int): 'n_cores',
+        ('p', 'param', str): 'param_file',
+        ('s', 'set', str): 'set_parameter',
+        ('o', 'output', str): 'output_file',
+        ('N', 'ntests', int): "artificial_star_tests_count",
+        ('S', 'nstars', int): "stars_per_artificial_test",
+        ('R', 'recover', bool): "ast_recover",
+        (None, 'autosave', int): "ast_auto_save",
+        (None, 'no-background', bool): "ast_no_background",
+        (None, 'no-psfphot', bool): "ast_no_psf_phot",
+    }
+
+    # noinspection SpellCheckingInspection
+    MATCH_FLAG_MAP: Dict[Tuple[str | None, str, Any], str] = {
+        # Boolean Switches (No arguments)
+        ('B', 'band', bool): 'do_band_processing',
+        ('C', 'cascade', bool): 'do_cascade',
+        (None, 'dither', bool): 'use_dither',
+        ('f', 'exact', bool): 'exact_match',
+        ('G', 'full', bool): 'full_run',
+        (None, 'generic', bool): 'generic_mode',
+        ('h', 'help', bool): 'show_match_help',
+        ('v', 'verbose', bool): 'verbose_logs',
+        ('X', 'band-depr', bool): 'band_deprecated',
+
+        # Options with Arguments (Strings/Integers)
+        ('e', 'error', str): 'error_col',
+        ('m', 'mask', str): 'mask_eval',
+        ('o', 'output', str): 'output_file',
+        ('p', 'param', str): 'param_file',
+        ('s', 'set', str): 'set_parameter',
+    }
+
+
+
+    # Comprehensive mapping configuration linking keys to internal
+    # properties and types
+    # noinspection SpellCheckingInspection
+    MAIN_PARAM_FILE_MAP: Dict[str, Tuple[str, type]] = {
+        # GENERIC
+        "VERBOSE": ("verbose_logs", bool),
+        "OUTPUT": ("output_file", str),
+        "HDUNAME": ("hdu_name", str),
+        "FILTER": ("custom_filter", str),
+        # DETECTION
+        "FWHM": ("full_width_half_max", float),
+        "SIGSKY": ("sigma_sky", float),
+        "SIGSRC": ("sigma_source", float),
+        "DOBGD2D": ("do_bgd_2d", bool),
+        "DOCONVL": ("do_convolution", bool),
+        "CLEANSRC": ("clean_sources", bool),
+        "SHARP_LO": ("sharp_cutoff_low", float),
+        "SHARP_HI": ("sharp_cutoff_high", float),
+        "ROUND1_HI": ("round1_cutoff_high", float),
+        "ROUND2_HI": ("round2_cutoff_high", float),
+        "SMOOTH_LO": ("smooth_low", float),
+        "SMOOTH_HI": ("smooth_high", float),
+        "RICKER_R": ("ricker_wavelet_radius", float),
+        # APERTURE PHOTOMETRY
+        "APPHOT_R": ("aperture_phot_radius", float),
+        "ENCENERGY": ("encircled_energy_fraction", float),
+        "SKY_RIN": ("sky_annulus_inner_radius", float),
+        "SKY_ROUT": ("sky_annulus_outer_radius", float),
+        "APCORR_FILE": ("ap_corr_file_override", str),
+        # BACKGROUND ESTIMATION
+        "BGD_R": ("bgd_radius", float),
+        "PROF_SCALE": ("profile_scaling_factor", float),
+        "PROF_SLOPE": ("profile_slope", float),
+        "BOX_SIZE": ("background_box_size", int),
+        "BGD_CHECKFILE": ("bgd_check_file", str),
+        # PHOTOMETRY
+        "AP_FILE": ("ap_file", str),
+        "BGD_FILE": ("background_file", str),
+        "PSF_FILE": ("psf_file_override", str),
+        "USE_WCS": ("use_wcs_values", bool),
+        "ZP_MAG": ("zero_point_magnitude", float),
+        "CRIT_SEP": ("critical_separation", float),
+        "FORCE_POS": ("force_centroid_position", bool),
+        "DPOS_THRESH": ("centroid_delta_threshold", float),
+        "MAX_XYDEV": ("max_xy_deviation", str),
+        "PSF_SIZE": ("psf_fit_size", int),
+        "GEN_RESIDUAL": ("generate_residual_image", bool),
+        # SOURCE STATS
+        "CALC_CROWD": ("calculate_crowding_metric", bool),
+        # CATALOGUE MATCHING
+        "MATCH_THRESH": ("match_threshold_arc_sec", str),
+        "MATCH_COLS": ("extra_match_columns", str),
+        "NEXP_THRESH": ("exposure_count_threshold", int),
+        "SN_THRESH": ("signal_to_noise_threshold", float),
+        "BRIDGE_COL": ("bridge_band_column", str),
+        # ARTIFICIAL STAR TESTS
+        "NTESTS": ("artificial_star_tests_count", int),
+        "NSTARS": ("stars_per_artificial_test", int),
+        "SUBIMAGE": ("sub_image_crop_size", int),
+        "MAX_MAG": ("test_magnitude_bright_limit", int),
+        "MIN_MAG": ("test_magnitude_faint_limit", int),
+        "PLOTAST": ("ast_plot_filename", str),
+        # MISC EXTRAS
+        "REGION_COL": ("region_colour", str),
+        "REGION_SCAL": ("region_scale", bool),
+        "REGION_RAD": ("region_radius", int),
+        "REGION_XCOL": ("region_x_column_name", str),
+        "REGION_YCOL": ("region_y_column_name", str),
+        "REGION_WCS": ("region_uses_wcs", bool),
+        # generate psf extras
+        "DET_NAME": ("detector_name", str),
+        # generation of region tables
+        "REGION_TAB": ("region_file", str),
+        "PARAM": ("param_tag", str),
+    }
+
+    def __init__(self) -> None:
+        self._frozen: bool = False
+
+        # high level stuff
+        self._show_help: bool = False
+        self._show_ast_help: bool = False
+        self._stop_process: bool = False
+        self._verbose_logs: bool = False
+        self._show_version: bool = False
+
+        # main actions
+        self._do_aperture_photometry: bool = False
+        self._do_bgd_estimate: bool = False
+        self._do_star_detection: bool = False
+        self._do_source_geometry: bool = False
+        self._do_matching: bool = False
+        self._do_photometry_routine: bool = False
+        self._do_bgd_subtraction: bool = False
+
+        # other actions
+        self._generate_psf: bool = False
+        self._generate_run: bool = False
+        self._generate_region: bool = False
+        self._generate_local_param_file: bool = False
+        self._execute_jwst_initialisation = False
+
+        # updates an old version param file.
+        self._update_param: bool = False
+
+        # file parameters
+        self._param_file: str | None = None
+        self._ap_file: str | None = None
+        self._background_file: str | None = None
+        self._find_file: bool = True
+        self._region_file: str | None = None
+
+        # multiprocessing params (assumes to use 1 core to begin with)
+        self._n_cores: int = 1
+
+        # artificial stars params
+        self._ast_recover: bool = False
+        self._ast_auto_save: int = 100
+        self._ast_no_background: bool = False
+        self._ast_no_psf_phot: bool = False
+
+        # matching params
+        self._do_band_processing: bool = False
+        self._do_cascade: bool = False
+        self._use_dither: bool = False
+        self._exact_match: bool = False
+        self._full_run: bool = False
+        self._generic_mode: bool = False
+        self._show_match_help: bool = False
+        self._band_deprecated: bool = False
+        self._error_col: str = E_FLUX
+        self._mask_eval: str | None = None
+
+
+        # param file defaults. These constants do not have justifications yet.
+        self._output_file: str | None = None
+        self._hdu_name: str = SCI
+        self._filter: str| None = None
+        self._full_width_half_max: float = -1.0
+        self._sigma_sky: float = 2.0
+        self._sigma_source: float = 5.0
+        self._do_bgd_2d: bool = True
+        self._do_convolution: bool = True
+        self._clean_sources: bool = True
+        self._sharp_cutoff_low: float = 0.4
+        self._sharp_cutoff_high: float = 0.9
+        self._round1_cutoff_high: float = 1.0
+        self._round2_cutoff_high: float = 1.0
+        self._smooth_low: float = 0.0
+        self._smooth_high: float = 1.0
+        self._ricker_wavelet_radius: float = 1.0
+        self._aperture_phot_radius: float = 1.5
+        self._encircled_energy_fraction: float = -1.0
+        self._sky_annulus_inner_radius: float = 3.0
+        self._sky_annulus_outer_radius: float = 4.5
+        self._ap_corr_file_override: str| None = None
+        self._bgd_radius: float = 0.0
+        self._profile_scaling_factor: float = 1.0
+        self._profile_slope: float = 0.5
+        self._background_box_size: int = 2
+        self._bgd_check_file: str| None = None
+        self._psf_file_override: str = DEFAULT_PSF_FILE_NAME
+        self._use_wcs_values: bool = True
+        self._zero_point_magnitude: float = 8.9
+        self._critical_separation: float = 1.0
+        self._force_centroid_position: bool = False
+        self._centroid_delta_threshold: float = -1.0
+        self._max_xy_deviation: str = '3.0'
+        self._psf_fit_size: int = -1
+        self._generate_residual_image: bool = False
+        self._calculate_crowding_metric: bool = True
+        self._match_threshold_arc_sec: str = "0.1"
+        self._extra_match_columns: str | None = None
+        self._exposure_count_threshold: int = -1
+        self._signal_to_noise_threshold: float = -1.0
+        self._bridge_band_column: str| None = None
+        self._artificial_star_tests_count: int = 100
+        self._stars_per_artificial_test: int = 10
+        self._sub_image_crop_size: int = 500
+        self._test_magnitude_bright_limit: int = 18
+        self._test_magnitude_faint_limit: int = 28
+        self._ast_plot_filename: str | None = None
+        self._region_colour: str = DEFAULT_COLOUR
+        self._region_scale: bool = True
+        self._region_radius: int = 3
+        self._region_x_column_name: str = RA
+        self._region_y_column_name: str = DEC
+        self._region_uses_wcs: bool = True
+        self._param_tag: str = STAR_BUG_PARAMS
+
+        # generate psf variables
+        self._detector_name: str| None = None
+
+        # target images
+        self._fits_images: list[str] = []
+
+    @classmethod
+    def _generate_get_opt_definitions(cls, param_map) -> Tuple[str, list[str]]:
+        # noinspection SpellCheckingInspection
+        """
+        Natively inspects the configuration structure to construct perfectly
+        formatted short-option strings and long-option arrays for getopt
+        dynamically.
+
+        :return: the inputs to gnu_getopt.
+        """
+        short_opts_compiled = ""
+        long_opts_compiled = []
+
+        for (short_flag, long_flag, data_type) in param_map.keys():
+            suffix = "" if data_type is bool else "="
+            long_opts_compiled.append(f"{long_flag}{suffix}")
+
+            if short_flag:
+                short_suffix = "" if data_type is bool else ":"
+                short_opts_compiled += f"{short_flag}{short_suffix}"
+
+        return short_opts_compiled, long_opts_compiled
+
+    @classmethod
+    def generate_main_get_opt_definitions(cls) -> Tuple[str, list[str]]:
+        # noinspection SpellCheckingInspection
+        """
+        Natively inspects the configuration structure to construct perfectly
+        formatted short-option strings and long-option arrays for getopt
+        dynamically.
+
+        :return: the inputs to gnu_getopt.
+        """
+        return cls._generate_get_opt_definitions(cls.MAIN_FLAG_MAP)
+
+
+    @classmethod
+    def generate_ast_get_opt_definitions(cls) -> Tuple[str, list[str]]:
+        # noinspection SpellCheckingInspection
+        """
+        Natively inspects the configuration structure to construct perfectly
+        formatted short-option strings and long-option arrays for getopt
+        dynamically.
+
+        :return: the inputs to gnu_getopt.
+        """
+        return cls._generate_get_opt_definitions(cls.AST_FLAG_MAP)
+
+    @classmethod
+    def generate_match_get_opt_definitions(cls) -> Tuple[str, list[str]]:
+        # noinspection SpellCheckingInspection
+        """
+        Natively inspects the configuration structure to construct perfectly
+        formatted short-option strings and long-option arrays for getopt
+        dynamically.
+
+        :return: the inputs to gnu_getopt.
+        """
+        return cls._generate_get_opt_definitions(cls.MATCH_FLAG_MAP)
+
+
+    @staticmethod
+    def parse_param(line: str) -> Dict[str, int | float | str]:
+        """
+        Parse a parameter line
+        :param line: the line to parse
+        :type line: str
+        :return: the parsed params from the line
+        :rtype: Dict[str, int | float | str]
+        """
+        param: Dict[str, int | float | str] = {}
+
+        # Guard against empty lines or comment lines
+        if line and line[0] not in StarBugMainConfig.EXCLUDES:
+            key_str: str = ""
+            val_str: str = ""
+
+            # Explicitly parse out raw string substrings first
+            if "//" in line and line[0] != "/":
+                parsed = parse("{}={}//{}", line)
+                if parsed:
+                    key_str, val_str, _ = parsed
+            else:
+                parsed = parse("{}={}", line)
+                if parsed:
+                    key_str, val_str = parsed
+
+            # Clean up tracking whitespaces while they are guaranteed to be
+            # strings
+            key = key_str.strip()
+            raw_value = val_str.strip()
+
+            # Default fallback type is the cleaned string itself
+            value: int | float | str = raw_value
+
+            # Attempt numeric type conversions safely
+            try:
+                if '.' in raw_value:
+                    value = float(raw_value)
+                else:
+                    value = int(raw_value)
+            except (ValueError, AttributeError, TypeError):
+                # If conversion fails, value remains a string
+                pass
+
+            ## Special case environmental variables expansions for paths
+            if key in (OUTPUT, AP_FILE, BGD_FILE, PSF_FILE) and isinstance(
+                    value, str):
+                value = os.path.expandvars(value)
+
+            param[key] = value
+
+        return param
+
+    @staticmethod
+    def load_params(f_name) -> 'StarBugMainConfig':
+        """
+        Convert a parameter file into a dictionary of options
+
+        :param f_name: path/to/file.param
+        :type f_name: str or None
+        :return: dictionary of options
+        :rtype: dict of string, string
+        """
+        config: StarBugMainConfig = StarBugMainConfig()
+        if f_name is None:
+            return config
+
+        if os.path.exists(f_name):
+            with open(f_name, "r") as fp:
+                for line in fp.readlines():
+                    config.update(StarBugMainConfig.parse_param(line))
+        else:
+            p_error("config file \"%s\" does not exist\n. Using "
+                    "default config instead" % f_name)
+        return config
+
+
+    def populate_params(
+            self, argv: list[str], short_definition: str,
+            long_definition: list[str],
+            param_map: dict[tuple[str | None, str, Any], str]) -> None:
+        """
+        populates the config from command line requests
+        :param argv: the command line
+        :param short_definition: the short lists of command lines
+        :param long_definition: the large list of command lines
+        :param param_map: mapping between command line and property.
+        :return: None
+        """
+        opts: list[tuple[str, str]]
+        args: list[str]
+        opts, args = getopt.gnu_getopt(
+            argv, short_definition, long_definition)
+
+        for opt, opt_arg in opts:
+            clean_opt = opt.lstrip('-') # strip down to raw option label text
+
+            for (short_flag, long_flag, data_type), property_name in (
+                param_map.items()):
+                if clean_opt in (short_flag, long_flag):
+                    if data_type is bool:
+                        setattr(self, property_name, True)
+                    else:
+                        # Casts string inputs to explicit types for
+                        # variables
+                        setattr(self, property_name, data_type(opt_arg))
+                    break
+
+        # add the training args as target image files
+        self.fits_images = args
+
+    def got_valid_psf_generation_params(self) -> bool:
+        """
+        returns if the config has parameters set correctly to execute psf
+        generation
+        :return: bool if the params are set away from invalid defaults.
+        :rtype: bool
+        """
+        return (self._filter != "" and self._detector_name != ""
+                and self._psf_fit_size != -1)
+
+
+    def use_main_one_time_runs(self) -> bool:
+        """
+        check for any of the one-off runs.
+        :return: bool if there is one time runs to run.
+        :rtype: bool
+        """
+        return (
+            self._show_help or self._update_param or
+            self._execute_jwst_initialisation or self._generate_psf or
+            self._generate_run or self._generate_region or
+            self._generate_local_param_file or self._show_version)
+
+    def use_ast_one_time_runs(self) -> bool:
+        """
+        check for any of the one-off runs.
+        :return: bool if there is one time runs to run.
+        :rtype: bool
+        """
+        return self._show_ast_help or self._ast_recover
+
+
+    def generate_default_param_file_text(self, version_str: str) -> str:
+        """
+        Dynamically constructs the entire default configuration string template
+        using the active internal variable defaults directly.
+        """
+        def format_val(key: str) -> str:
+            prop, t = self.MAIN_PARAM_FILE_MAP[key]
+            val = getattr(self, prop)
+            if t is bool:
+                return "1" if val else "0"
+            return "" if val is None else str(val)
+        # noinspection SpellCheckingInspection
+        return f"""## STARBUG CONFIG FILE
+# Generated with starbug2-v{version_str}
+PARAM       =  STARBUGII PARAMETERS     // COMMENT
+
+## GENERIC
+// (0:false 1:true)
+VERBOSE     = {format_val("VERBOSE")}
+
+// Directory or filename to output to 
+OUTPUT      = {format_val("OUTPUT")}
+
+// If using a non standard HDU name, name it here (str or int)
+HDUNAME     = {format_val("HDUNAME")}
+
+// Set a custom filter for the image
+FILTER      = {format_val("FILTER")}
+
+## DETECTION 
+// Custom FWHM for image (-1 to use WEBBPSF)
+FWHM        = {format_val("FWHM")}
+
+// Number of sigma above the median to clip out as background
+SIGSKY      = {format_val("SIGSKY")}
+
+// Source value minimum N sigma above background
+SIGSRC      = {format_val("SIGSRC")}
+
+// Run background2D step (usually finds more sources but takes time)
+DOBGD2D     = {format_val("DOBGD2D")}
+
+// Run convolution step (usually finds more sources)
+DOCONVL     = {format_val("DOCONVL")}
+
+// Run source cleaning after detection (removes likely contaminants)
+CLEANSRC    = {format_val("CLEANSRC")}
+
+// Lower limit of source sharpness (0 is not sharp)
+SHARP_LO    = {format_val("SHARP_LO")}
+
+// Upper limit of source sharpness (1 is sharp)
+SHARP_HI    = {format_val("SHARP_HI")}
+
+// Limit of source roundness1 (|roundness|>>0 is less round)
+ROUND1_HI   = {format_val("ROUND1_HI")} 
+
+// Limit of source roundness2 (|roundness|>>0 is less round)
+ROUND2_HI   = {format_val("ROUND2_HI")}
+
+// Lower limit on source smoothness (0 is not smooth)
+SMOOTH_LO   = {format_val("SMOOTH_LO")}
+
+// Upper limit on source smoothness (1 is smooth)
+SMOOTH_HI   = {format_val("SMOOTH_HI")}
+
+// Radius (pix) of ricker wavelet 
+RICKER_R    = {format_val("RICKER_R")}
+
+## APERTURE PHOTOMETRY
+// Radius in number of pixels
+APPHOT_R    = {format_val("APPHOT_R")}
+
+// Fraction encircled energy (mutually exclusive with APPHOT_R)
+ENCENERGY   = {format_val("ENCENERGY")} 
+
+// Sky annulus inner radius
+SKY_RIN     = {format_val("SKY_RIN")} 
+
+// Sky annulus outer radius
+SKY_ROUT    = {format_val("SKY_ROUT")}  
+
+// Aperture correction file. See full manual for details
+APCORR_FILE = {format_val("APCORR_FILE")}
+
+## BACKGROUND ESTIMATION
+// Aperture masking fixed radius (if zero, starbug will scale radii)
+BGD_R       = {format_val("BGD_R")} 
+
+// Aperture mask radius profile scaling factor
+PROF_SCALE  = {format_val("PROF_SCALE")}
+
+// Aperture mask radius profile slope
+PROF_SLOPE  = {format_val("PROF_SLOPE")} 
+
+// Background estimation kernel size (pix)
+BOX_SIZE    = {format_val("BOX_SIZE")}
+
+// Output region file to check the aperture mask radii
+BGD_CHECKFILE = {format_val("BGD_CHECKFILE")}
+
+## PHOTOMETRY
+// Detection file to use instead of detecting
+AP_FILE     = {format_val("AP_FILE")}
+
+// Background estimation file
+BGD_FILE    = {format_val("BGD_FILE")}
+
+// Non default PSF file
+PSF_FILE    = {format_val("PSF_FILE")}
+
+// When loading an AP_FILE, do you want to use WCS or xy values (if available)
+USE_WCS     = {format_val("USE_WCS")}
+
+// Zero point (mag) to add to the magnitude columns 
+ZP_MAG      = {format_val("ZP_MAG")} 
+
+// Minimum distance for grouping (pixels) between two sources
+CRIT_SEP    = {format_val("CRIT_SEP")}
+
+// Force centroid position (1) or allow psf fitting to fit position too (0)
+FORCE_POS   = {format_val("FORCE_POS")}
+
+// If allowed to fit position, max separation (arcsec) from source list 
+// centroid
+DPOS_THRESH = {format_val("DPOS_THRESH")}
+
+// Maximum deviation from initial guess centroid position
+MAX_XYDEV   = {format_val("MAX_XYDEV")}
+
+// Set fit size of psf (>0) or -1 to take PSF file dimensions
+PSF_SIZE    = {format_val("PSF_SIZE")}
+
+// Generate a residual image
+GEN_RESIDUAL = {format_val("GEN_RESIDUAL")}
+
+## SOURCE STATS
+// Run crowding metric calculation (execution time scales N^2)
+CALC_CROWD  = {format_val("CALC_CROWD")}
+
+## CATALOGUE MATCHING
+// Matching separation threshold in units arcsec
+MATCH_THRESH = {format_val("MATCH_THRESH")}
+
+// EXTRA columns to include in output matched table i.e sharpness
+MATCH_COLS   = {format_val("MATCH_COLS")}
+
+// Keep sources that appear in NUM >= NEXP_THRESH (if -1 keep everything)
+NEXP_THRESH  = {format_val("NEXP_THRESH")}
+
+// Remove sources with SN ratio < SN_THRESH before matching 
+// (default -1 to not apply this cut)
+SN_THRESH    = {format_val("SN_THRESH")}
+
+// Bridge --band matching NIRCam and MIRI catalogues by ensuring NIRCam 
+// catalogue has a match in BRIDGE_COL
+BRIDGE_COL   = {format_val("BRIDGE_COL")}
+
+## ARTIFICIAL STAR TESTS
+// Number of artificial star tests
+NTESTS      = {format_val("NTESTS")}
+
+// Number of stars per artificial test
+NSTARS      = {format_val("NSTARS")}
+
+// Number of pixels to crop around artificial star
+SUBIMAGE    = {format_val("SUBIMAGE")}
+
+// Bright limit of test magnitude
+MAX_MAG     = {format_val("MAX_MAG")}
+
+// Faint limit of test magnitude
+MIN_MAG     = {format_val("MIN_MAG")}
+
+// Output AST result as image with this filename
+PLOTAST     = {format_val("PLOTAST")}
+
+## MISC EXTRAS
+// DS9 region colour
+REGION_COL  = {format_val("REGION_COL")}
+
+// Scale region to flux if possible
+REGION_SCAL = {format_val("REGION_SCAL")}
+
+// Region radius default
+REGION_RAD  = {format_val("REGION_RAD")}
+
+// X column name to use for region
+REGION_XCOL = {format_val("REGION_XCOL")}
+
+// Y column name to use for region
+REGION_YCOL = {format_val("REGION_YCOL")}
+
+// If X/Y column names correspond to WCS values
+REGION_WCS  = {format_val("REGION_WCS")}
+
+// detector name used within psf generation
+DET_NAME = {format_val("DET_NAME")}
+
+// region table file name for generating regions
+REGION_TAB = {format_val("REGION_TAB")}
+"""
+
+
+    def do_generate_local_param_file(self) -> None:
+        """
+        writes a local param file based off the state of this config.
+        :return: None
+        """
+        with open("starbug.param", "w") as fp:
+            fp.write(self.generate_default_param_file_text(get_version()))
+
+
+    def update(self, update_values: dict[str, str | int | float]) -> None:
+        """
+        updates the config with new values extracted from a param file.
+        :param update_values: the updated values
+        :return: None
+        """
+        for key, raw_value in update_values.items():
+            if key not in self.MAIN_PARAM_FILE_MAP.keys():
+                raise TypeError(
+                    f"Param {key} no longer works within Starbug2. Please "
+                    f"execute starbug2 --update-param")
+            property_name, target_type = self.MAIN_PARAM_FILE_MAP[key]
+
+            # process raw value
+            if raw_value == "" or raw_value is None:
+                setattr(self, property_name, None)
+                continue
+
+            if target_type is bool:
+                # Converts parameter flags like 0 or 1 integers to standard
+                # Booleans
+                setattr(self, property_name, bool(int(raw_value)))
+            else:
+                setattr(self, property_name, target_type(raw_value))
+
+
+    def freeze(self) -> None:
+        """
+        locks the class from being editable
+        :return: None
+        """
+        self._frozen = True
+
+    def unfreeze(self) -> None:
+        """
+        unlocks the class to become editable.
+        NOTE: if frozen previously. this really shouldn't happen.
+        :return: None
+        """
+        self._frozen = False
+
+    # ==========================================
+    # these 2 methods are here to ensure the access to threshold is in
+    # a quantity and an array of quantity as needed
+    # ==========================================
+    @property
+    def match_threshold_arc_sec_as_an_arc_sec(self) -> units.Quantity:
+        """
+        builds threshold as an arc second Quantity.
+        :return: the threshold as a quantity
+        :rtype: units.Quantity
+        """
+        threshold: float = float(self._match_threshold_arc_sec)
+        arc_sec_threshold: units.Quantity = threshold * units.arcsec
+        return arc_sec_threshold
+
+    @property
+    def match_threshold_arc_sec_as_an_array(self) -> np.ndarray:
+        """
+        builds threshold as an array of quantity
+        :return: the threshold as an array of quantity
+        :rtype: ndarray[Quantity]
+        """
+        threshold_array: np.ndarray = np.array(
+            self._match_threshold_arc_sec.split(','), float)
+        threshold_quantity_array: np.ndarray = threshold_array * units.arcsec
+        return threshold_quantity_array
+
+
+    # ==========================================
+    # BELOW HERE ARE GETTERS AND SETTERS FOR EVERYTHING
+    # ==========================================
+
+    # ==========================================
+    # HIGH LEVEL STUFF
+    # ==========================================
+
+    @property
+    def show_help(self) -> bool:
+        return self._show_help
+
+
+    @show_help.setter
+    def show_help(self, value: bool) -> None:
+        self._show_help = value
+
+
+    @property
+    def stop_process(self) -> bool:
+        return self._stop_process
+
+
+    @stop_process.setter
+    def stop_process(self, value: bool) -> None:
+        self._stop_process = value
+
+
+    @property
+    def verbose_logs(self) -> bool:
+        return self._verbose_logs
+
+
+    @verbose_logs.setter
+    def verbose_logs(self, value: bool) -> None:
+        self._verbose_logs = value
+
+
+    @property
+    def show_version(self) -> bool:
+        return self._show_version
+
+
+    @show_version.setter
+    def show_version(self, value: bool) -> None:
+        self._show_version = value
+
+    # ==========================================
+    # MAIN ACTIONS
+    # ==========================================
+
+
+    @property
+    def do_aperture_photometry(self) -> bool:
+        return self._do_aperture_photometry
+
+
+    @do_aperture_photometry.setter
+    def do_aperture_photometry(self, value: bool) -> None:
+        self._do_aperture_photometry = value
+
+
+    @property
+    def do_bgd_estimate(self) -> bool:
+        return self._do_bgd_estimate
+
+
+    @do_bgd_estimate.setter
+    def do_bgd_estimate(self, value: bool) -> None:
+        self._do_bgd_estimate = value
+
+
+    @property
+    def do_star_detection(self) -> bool:
+        return self._do_star_detection
+
+
+    @do_star_detection.setter
+    def do_star_detection(self, value: bool) -> None:
+        self._do_star_detection = value
+
+
+    @property
+    def do_source_geometry(self) -> bool:
+        return self._do_source_geometry
+
+
+    @do_source_geometry.setter
+    def do_source_geometry(self, value: bool) -> None:
+        self._do_source_geometry = value
+
+
+    @property
+    def do_matching(self) -> bool:
+        return self._do_matching
+
+
+    @do_matching.setter
+    def do_matching(self, value: bool) -> None:
+        self._do_matching = value
+
+
+    @property
+    def do_photometry_routine(self) -> bool:
+        return self._do_photometry_routine
+
+
+    @do_photometry_routine.setter
+    def do_photometry_routine(self, value: bool) -> None:
+        self._do_photometry_routine = value
+
+
+    @property
+    def do_bgd_subtraction(self) -> bool:
+        return self._do_bgd_subtraction
+
+
+    @do_bgd_subtraction.setter
+    def do_bgd_subtraction(self, value: bool) -> None:
+        self._do_bgd_subtraction = value
+
+    # ==========================================
+    # OTHER ACTIONS
+    # ==========================================
+
+
+    @property
+    def generate_psf(self) -> bool:
+        return self._generate_psf
+
+
+    @generate_psf.setter
+    def generate_psf(self, value: bool) -> None:
+        self._generate_psf = value
+
+
+    @property
+    def generate_run(self) -> bool:
+        return self._generate_run
+
+
+    @generate_run.setter
+    def generate_run(self, value: bool) -> None:
+        self._generate_run = value
+
+
+    @property
+    def generate_region(self) -> bool:
+        return self._generate_region
+
+
+    @generate_region.setter
+    def generate_region(self, value: bool) -> None:
+        self._generate_region = value
+
+
+    @property
+    def generate_local_param_file(self) -> bool:
+        return self._generate_local_param_file
+
+
+    @generate_local_param_file.setter
+    def generate_local_param_file(self, value: bool) -> None:
+        self._generate_local_param_file = value
+
+
+    @property
+    def update_param(self) -> bool:
+        return self._update_param
+
+
+    @update_param.setter
+    def update_param(self, value: bool) -> None:
+        self._update_param = value
+
+    # ==========================================
+    # PARAMETERS
+    # ==========================================
+
+
+    @property
+    def param_file(self) -> str | None:
+        return self._param_file
+
+
+    @param_file.setter
+    def param_file(self, value: str | None) -> None:
+        self._param_file = value
+
+
+    @property
+    def ap_file(self) -> str | None:
+        return self._ap_file
+
+
+    @ap_file.setter
+    def ap_file(self, value: str | None) -> None:
+        if value is None or os.path.exists(value):
+            self._ap_file = value
+        else:
+            p_error("AP_FILE \"%s\" does not exist\n" % value)
+
+
+    @property
+    def background_file(self) -> str | None:
+        return self._background_file
+
+
+    @background_file.setter
+    def background_file(self, value: str | None) -> None:
+        if value is None or os.path.exists(value):
+            self._background_file = value
+        else:
+            p_error("BGD_FILE \"%s\" does not exist\n" % value)
+
+
+    @property
+    def find_file(self) -> bool:
+        return self._find_file
+
+
+    @find_file.setter
+    def find_file(self, value: bool) -> None:
+        self._find_file = value
+
+
+    @property
+    def n_cores(self) -> int:
+        return self._n_cores
+
+
+    @n_cores.setter
+    def n_cores(self, value: int) -> None:
+        self._n_cores = value
+
+    # ==========================================
+    # DYNAMIC PARAM FILE PROPERTIES (MONSTER EXTRAS)
+    # ==========================================
+
+
+    @property
+    def output_file(self) -> str | None:
+        return self._output_file
+
+
+    @output_file.setter
+    def output_file(self, value: str) -> None:
+        self._output_file = value
+
+
+    @property
+    def hdu_name(self) -> str:
+        return self._hdu_name
+
+
+    @hdu_name.setter
+    def hdu_name(self, value: str) -> None:
+        self._hdu_name = value
+
+
+    @property
+    def custom_filter(self) -> str | None:
+        return self._filter
+
+
+    @custom_filter.setter
+    def custom_filter(self, value: str) -> None:
+        self._filter = value
+
+
+    @property
+    def full_width_half_max(self) -> float:
+        return self._full_width_half_max
+
+
+    @full_width_half_max.setter
+    def full_width_half_max(self, value: float) -> None:
+        self._full_width_half_max = value
+
+
+    @property
+    def sigma_sky(self) -> float:
+        return self._sigma_sky
+
+
+    @sigma_sky.setter
+    def sigma_sky(self, value: float) -> None:
+        self._sigma_sky = value
+
+
+    @property
+    def sigma_source(self) -> float:
+        return self._sigma_source
+
+
+    @sigma_source.setter
+    def sigma_source(self, value: float) -> None:
+        self._sigma_source = value
+
+
+    @property
+    def do_bgd_2d(self) -> bool:
+        return self._do_bgd_2d
+
+
+    @do_bgd_2d.setter
+    def do_bgd_2d(self, value: bool) -> None:
+        self._do_bgd_2d = value
+
+
+    @property
+    def do_convolution(self) -> bool:
+        return self._do_convolution
+
+
+    @do_convolution.setter
+    def do_convolution(self, value: bool) -> None:
+        self._do_convolution = value
+
+
+    @property
+    def clean_sources(self) -> bool:
+        return self._clean_sources
+
+
+    @clean_sources.setter
+    def clean_sources(self, value: bool) -> None:
+        self._clean_sources = value
+
+
+    @property
+    def sharp_cutoff_low(self) -> float:
+        return self._sharp_cutoff_low
+
+
+    @sharp_cutoff_low.setter
+    def sharp_cutoff_low(self, value: float) -> None:
+        self._sharp_cutoff_low = value
+
+
+    @property
+    def sharp_cutoff_high(self) -> float:
+        return self._sharp_cutoff_high
+
+
+    @sharp_cutoff_high.setter
+    def sharp_cutoff_high(self, value: float) -> None:
+        self._sharp_cutoff_high = value
+
+
+    @property
+    def round1_cutoff_high(self) -> float:
+        return self._round1_cutoff_high
+
+
+    @round1_cutoff_high.setter
+    def round1_cutoff_high(self, value: float) -> None:
+        self._round1_cutoff_high = value
+
+
+    @property
+    def round2_cutoff_high(self) -> float:
+        return self._round2_cutoff_high
+
+
+    @round2_cutoff_high.setter
+    def round2_cutoff_high(self, value: float) -> None:
+        self._round2_cutoff_high = value
+
+
+    @property
+    def smooth_low(self) -> float:
+        return self._smooth_low
+
+
+    @smooth_low.setter
+    def smooth_low(self, value: float) -> None:
+        self._smooth_low = value
+
+
+    @property
+    def smooth_high(self) -> float:
+        return self._smooth_high
+
+
+    @smooth_high.setter
+    def smooth_high(self, value: float) -> None:
+        self._smooth_high = value
+
+
+    @property
+    def ricker_wavelet_radius(self) -> float:
+        return self._ricker_wavelet_radius
+
+
+    @ricker_wavelet_radius.setter
+    def ricker_wavelet_radius(self, value: float) -> None:
+        self._ricker_wavelet_radius = value
+
+
+    @property
+    def aperture_phot_radius(self) -> float:
+        return self._aperture_phot_radius
+
+
+    @aperture_phot_radius.setter
+    def aperture_phot_radius(self, value: float) -> None:
+        self._aperture_phot_radius = value
+
+
+    @property
+    def encircled_energy_fraction(self) -> float:
+        return self._encircled_energy_fraction
+
+
+    @encircled_energy_fraction.setter
+    def encircled_energy_fraction(self, value: float) -> None:
+        self._encircled_energy_fraction = value
+
+
+    @property
+    def sky_annulus_inner_radius(self) -> float:
+        return self._sky_annulus_inner_radius
+
+
+    @sky_annulus_inner_radius.setter
+    def sky_annulus_inner_radius(self, value: float) -> None:
+        self._sky_annulus_inner_radius = value
+
+
+    @property
+    def sky_annulus_outer_radius(self) -> float:
+        return self._sky_annulus_outer_radius
+
+
+    @sky_annulus_outer_radius.setter
+    def sky_annulus_outer_radius(self, value: float) -> None:
+        self._sky_annulus_outer_radius = value
+
+
+    @property
+    def ap_corr_file_override(self) -> str | None:
+        return self._ap_corr_file_override
+
+
+    @ap_corr_file_override.setter
+    def ap_corr_file_override(self, value: str) -> None:
+        self._ap_corr_file_override = value
+
+
+    @property
+    def bgd_radius(self) -> float:
+        return self._bgd_radius
+
+
+    @bgd_radius.setter
+    def bgd_radius(self, value: float) -> None:
+        self._bgd_radius = value
+
+
+    @property
+    def profile_scaling_factor(self) -> float:
+        return self._profile_scaling_factor
+
+
+    @profile_scaling_factor.setter
+    def profile_scaling_factor(self, value: float) -> None:
+        self._profile_scaling_factor = value
+
+
+    @property
+    def profile_slope(self) -> float:
+        return self._profile_slope
+
+
+    @profile_slope.setter
+    def profile_slope(self, value: float) -> None:
+        self._profile_slope = value
+
+
+    @property
+    def background_box_size(self) -> int:
+        return self._background_box_size
+
+
+    @background_box_size.setter
+    def background_box_size(self, value: int) -> None:
+        self._background_box_size = value
+
+
+    @property
+    def bgd_check_file(self) -> str | None:
+        return self._bgd_check_file
+
+
+    @bgd_check_file.setter
+    def bgd_check_file(self, value: str) -> None:
+        self._bgd_check_file = value
+
+
+    @property
+    def psf_file_override(self) -> str:
+        return self._psf_file_override
+
+
+    @psf_file_override.setter
+    def psf_file_override(self, value: str) -> None:
+        self._psf_file_override = value
+
+
+    @property
+    def use_wcs_values(self) -> bool:
+        return self._use_wcs_values
+
+
+    @use_wcs_values.setter
+    def use_wcs_values(self, value: bool) -> None:
+        self._use_wcs_values = value
+
+
+    @property
+    def zero_point_magnitude(self) -> float:
+        return self._zero_point_magnitude
+
+
+    @zero_point_magnitude.setter
+    def zero_point_magnitude(self, value: float) -> None:
+        self._zero_point_magnitude = value
+
+
+    @property
+    def critical_separation(self) -> float:
+        return self._critical_separation
+
+
+    @critical_separation.setter
+    def critical_separation(self, value: float) -> None:
+        self._critical_separation = value
+
+
+    @property
+    def force_centroid_position(self) -> bool:
+        return self._force_centroid_position
+
+
+    @force_centroid_position.setter
+    def force_centroid_position(self, value: bool) -> None:
+        self._force_centroid_position = value
+
+
+    @property
+    def centroid_delta_threshold(self) -> float:
+        return self._centroid_delta_threshold
+
+
+    @centroid_delta_threshold.setter
+    def centroid_delta_threshold(self, value: float) -> None:
+        self._centroid_delta_threshold = value
+
+
+    @property
+    def max_xy_deviation(self) -> str:
+        return self._max_xy_deviation
+
+
+    @max_xy_deviation.setter
+    def max_xy_deviation(self, value: str) -> None:
+        self._max_xy_deviation = value
+
+
+    @property
+    def psf_fit_size(self) -> int:
+        return self._psf_fit_size
+
+
+    @psf_fit_size.setter
+    def psf_fit_size(self, value: int) -> None:
+        self._psf_fit_size = value
+
+
+    @property
+    def generate_residual_image(self) -> bool:
+        return self._generate_residual_image
+
+
+    @generate_residual_image.setter
+    def generate_residual_image(self, value: bool) -> None:
+        self._generate_residual_image = value
+
+
+    @property
+    def calculate_crowding_metric(self) -> bool:
+        return self._calculate_crowding_metric
+
+
+    @calculate_crowding_metric.setter
+    def calculate_crowding_metric(self, value: bool) -> None:
+        self._calculate_crowding_metric = value
+
+
+    @property
+    def match_threshold_arc_sec(self) -> str:
+        return self._match_threshold_arc_sec
+
+
+    @match_threshold_arc_sec.setter
+    def match_threshold_arc_sec(self, value: str) -> None:
+        self._match_threshold_arc_sec = value
+
+
+    @property
+    def extra_match_columns(self) -> str:
+        if self._extra_match_columns is None:
+            return ""
+        return self._extra_match_columns
+
+
+    @extra_match_columns.setter
+    def extra_match_columns(self, value: str) -> None:
+        self._extra_match_columns = value
+
+
+    @property
+    def exposure_count_threshold(self) -> int:
+        return self._exposure_count_threshold
+
+
+    @exposure_count_threshold.setter
+    def exposure_count_threshold(self, value: int) -> None:
+        self._exposure_count_threshold = value
+
+
+    @property
+    def signal_to_noise_threshold(self) -> float:
+        return self._signal_to_noise_threshold
+
+
+    @signal_to_noise_threshold.setter
+    def signal_to_noise_threshold(self, value: float) -> None:
+        self._signal_to_noise_threshold = value
+
+
+    @property
+    def bridge_band_column(self) -> str:
+        if self._bridge_band_column is None:
+            return ""
+        return self._bridge_band_column
+
+
+    @bridge_band_column.setter
+    def bridge_band_column(self, value: str) -> None:
+        self._bridge_band_column = value
+
+
+    @property
+    def artificial_star_tests_count(self) -> int:
+        return self._artificial_star_tests_count
+
+
+    @artificial_star_tests_count.setter
+    def artificial_star_tests_count(self, value: int) -> None:
+        self._artificial_star_tests_count = value
+
+
+    @property
+    def stars_per_artificial_test(self) -> int:
+        return self._stars_per_artificial_test
+
+
+    @stars_per_artificial_test.setter
+    def stars_per_artificial_test(self, value: int) -> None:
+        self._stars_per_artificial_test = value
+
+
+    @property
+    def sub_image_crop_size(self) -> int:
+        return self._sub_image_crop_size
+
+
+    @sub_image_crop_size.setter
+    def sub_image_crop_size(self, value: int) -> None:
+        self._sub_image_crop_size = value
+
+
+    @property
+    def test_magnitude_bright_limit(self) -> int:
+        return self._test_magnitude_bright_limit
+
+
+    @test_magnitude_bright_limit.setter
+    def test_magnitude_bright_limit(self, value: int) -> None:
+        self._test_magnitude_bright_limit = value
+
+
+    @property
+    def test_magnitude_faint_limit(self) -> int:
+        return self._test_magnitude_faint_limit
+
+
+    @test_magnitude_faint_limit.setter
+    def test_magnitude_faint_limit(self, value: int) -> None:
+        self._test_magnitude_faint_limit = value
+
+
+    @property
+    def ast_plot_filename(self) -> str | None:
+        return self._ast_plot_filename
+
+
+    @ast_plot_filename.setter
+    def ast_plot_filename(self, value: str) -> None:
+        self._ast_plot_filename = value
+
+
+    @property
+    def region_colour(self) -> str:
+        return self._region_colour
+
+
+    @region_colour.setter
+    def region_colour(self, value: str) -> None:
+        self._region_colour = value
+
+
+    @property
+    def region_scale(self) -> bool:
+        return self._region_scale
+
+
+    @region_scale.setter
+    def region_scale(self, value: bool) -> None:
+        self._region_scale = value
+
+
+    @property
+    def region_radius(self) -> int:
+        return self._region_radius
+
+
+    @region_radius.setter
+    def region_radius(self, value: int) -> None:
+        self._region_radius = value
+
+
+    @property
+    def region_x_column_name(self) -> str:
+        return self._region_x_column_name
+
+
+    @region_x_column_name.setter
+    def region_x_column_name(self, value: str) -> None:
+        self._region_x_column_name = value
+
+
+    @property
+    def region_y_column_name(self) -> str:
+        return self._region_y_column_name
+
+
+    @region_y_column_name.setter
+    def region_y_column_name(self, value: str) -> None:
+        self._region_y_column_name = value
+
+
+    @property
+    def region_uses_wcs(self) -> bool:
+        return self._region_uses_wcs
+
+
+    @region_uses_wcs.setter
+    def region_uses_wcs(self, value: bool) -> None:
+        self._region_uses_wcs = value
+
+
+    @property
+    def execute_jwst_initialisation(self) -> bool:
+        return self._execute_jwst_initialisation
+
+
+    @execute_jwst_initialisation.setter
+    def execute_jwst_initialisation(self, value: bool) -> None:
+        self._execute_jwst_initialisation = value
+
+
+    @property
+    def detector_name(self) -> str | None:
+        return self._detector_name
+
+
+    @detector_name.setter
+    def detector_name(self, value: str) -> None:
+        self._detector_name = value
+
+
+    @property
+    def region_file(self) -> str | None:
+        return self._region_file
+
+    @region_file.setter
+    def region_file(self, value: str) -> None:
+        self._region_file = value
+
+    @property
+    def fits_images(self) -> list[str]:
+        return self._fits_images
+
+    @fits_images.setter
+    def fits_images(self, values: list[str]) -> None:
+        self._fits_images = values
+
+    @property
+    def param_tag(self) -> str:
+        return self._param_tag
+
+    @param_tag.setter
+    def param_tag(self, value) -> None:
+        self._param_tag = value
+
+    #===============================
+    # AST properties
+    #===============================
+
+    @property
+    def show_ast_help(self) -> bool:
+        return self._show_ast_help
+
+
+    @show_ast_help.setter
+    def show_ast_help(self, value) -> None:
+        self._show_ast_help = value
+
+
+    @property
+    def ast_recover(self) -> bool:
+        return self._ast_recover
+
+
+    @ast_recover.setter
+    def ast_recover(self, value: bool) -> None:
+        self._ast_recover = value
+
+
+    @property
+    def ast_auto_save(self) -> int:
+        return self._ast_auto_save
+
+
+    @ast_auto_save.setter
+    def ast_auto_save(self, value: int) -> None:
+        self._ast_auto_save = value
+
+
+    @property
+    def ast_no_background(self) -> bool:
+        return self._ast_no_background
+
+
+    @ast_no_background.setter
+    def ast_no_background(self, value: bool) -> None:
+        self._ast_no_background = value
+
+
+    @property
+    def ast_no_psf_phot(self) -> bool:
+        return self._ast_no_psf_phot
+
+
+    @ast_no_psf_phot.setter
+    def ast_no_psf_phot(self, value: bool) -> None:
+        self._ast_no_psf_phot = value
+
+    # =======================================
+    # matching properties
+    # =======================================
+
+    @property
+    def do_band_processing(self) -> bool:
+        return self._do_band_processing
+
+
+    @do_band_processing.setter
+    def do_band_processing(self, value: bool) -> None:
+        self._do_band_processing = value
+
+
+    @property
+    def do_cascade(self) -> bool:
+        return self._do_cascade
+
+
+    @do_cascade.setter
+    def do_cascade(self, value: bool) -> None:
+        self._do_cascade = value
+
+
+    @property
+    def use_dither(self) -> bool:
+        return self._use_dither
+
+
+    @use_dither.setter
+    def use_dither(self, value: bool) -> None:
+        self._use_dither = value
+
+
+    @property
+    def exact_match(self) -> bool:
+        return self._exact_match
+
+
+    @exact_match.setter
+    def exact_match(self, value: bool) -> None:
+        self._exact_match = value
+
+
+    @property
+    def full_run(self) -> bool:
+        return self._full_run
+
+
+    @full_run.setter
+    def full_run(self, value: bool) -> None:
+        self._full_run = value
+
+
+    @property
+    def generic_mode(self) -> bool:
+        return self._generic_mode
+
+
+    @generic_mode.setter
+    def generic_mode(self, value: bool) -> None:
+        self._generic_mode = value
+
+
+    @property
+    def show_match_help(self) -> bool:
+        return self._show_match_help
+
+
+    @show_match_help.setter
+    def show_match_help(self, value: bool) -> None:
+        self._show_match_help = value
+
+
+    @property
+    def band_deprecated(self) -> bool:
+        return self._band_deprecated
+
+
+    @band_deprecated.setter
+    def band_deprecated(self, value: bool) -> None:
+        self._band_deprecated = value
+
+
+    @property
+    def error_col(self) -> str:
+        return self._error_col
+
+
+    @error_col.setter
+    def error_col(self, value: str) -> None:
+        self._error_col = value
+
+
+    @property
+    def mask_eval(self) -> str | None:
+        return self._mask_eval
+
+
+    @mask_eval.setter
+    def mask_eval(self, value: str | None) -> None:
+        self._mask_eval = value
+
+
+    def __setattr__(self, key: str, value: Any) -> None:
+        # Check if the class is frozen, allowing the internal '_frozen'
+        # flag itself to be set
+        if getattr(self, '_frozen', False) and key != '_frozen':
+            raise RuntimeError(f"Cannot modify property '{key}': "
+                               f"Configuration is frozen for workers!")
+
+        # handle -s or --set
+        if key == "set_parameter":
+            if value and '=' in value:
+                # Split into parameter key and value string
+                raw_key, raw_val = value.split('=', 1)
+                param_key = raw_key.strip()
+                val_str = raw_val.strip()
+
+                if param_key not in self.MAIN_PARAM_FILE_MAP:
+                    raise ValueError(
+                        f"Param '{param_key}' passed via -s/--set is not a "
+                        f"valid Starbug2 parameter. Please check spelling")
+
+                property_name, target_type = self.MAIN_PARAM_FILE_MAP[param_key]
+
+                # Convert empty arguments or strings to standard configurations
+                if val_str == "" or val_str.lower() == "none":
+                    super().__setattr__(property_name, None)
+                elif target_type is bool:
+                    super().__setattr__(property_name, bool(int(val_str)))
+                else:
+                    super().__setattr__(property_name, target_type(val_str))
+            return
+
+        super().__setattr__(key, value)
