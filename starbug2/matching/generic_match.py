@@ -18,6 +18,7 @@ Starbug matching functions
 Primarily this is the main routines for dither/band/generic matching which are
  at the core of starbug2 and starbug2-match
 """
+from typing import Any
 import numpy as np
 import astropy.units as u
 from astropy.coordinates import SkyCoord
@@ -31,20 +32,23 @@ from starbug2.utils import (
     find_col_names, flux2mag)
 
 
-class GenericMatch(object):
+class GenericMatch:
 
     @staticmethod
-    def build_meta(catalogues):
+    def build_meta(catalogues: list[Table]) -> Table:
         """
-        Not happy with this yet
+        Extracts structural tracking headers to set up baseline combined
+        outputs.
         """
-        meta = catalogues[0].meta
-        base = Table(None, meta=meta)
+        meta: dict[str, Any] = catalogues[0].meta
+        base: Table = Table(None, meta=meta)
         return base
 
     @staticmethod
-    def mask_catalogues(catalogues, mask):
-        """ takes catalogues and masks and removes catalogues which don't
+    def mask_catalogues(
+            catalogues: list[Table],
+            mask: list[np.ndarray | list[Any]] | np.ndarray | None) -> Table:
+        """ Takes catalogues and masks and removes catalogues which don't
         match the mask.
 
         :param catalogues: the catalogues to match.
@@ -53,25 +57,24 @@ class GenericMatch(object):
         :return: an astro table with masked catalogues.
         :rtype: astropy.Table
         """
-        masked = Table(None)
+        masked: Table = Table(None)
 
-        if mask is None or type(mask) not in (list, np.ndarray):
+        if mask is None or not isinstance(mask, (list, np.ndarray)):
             return masked
-        if len(catalogues) != len(catalogues):
+        if len(catalogues) != len(mask):
             return masked
 
         for subset, cat in zip(mask, catalogues):
             if subset is not None:
-                if type(subset) == list:
-                    subset=np.array(subset)
+                if isinstance(subset, list):
+                    subset = np.array(subset)
                 if len(subset) == len(cat):
                     masked = vstack((masked, cat[~subset]))
                     cat.remove_rows(~subset)
         return masked
 
-
     @staticmethod
-    def _sky_coords_not_cartesian(base):
+    def _sky_coords_not_cartesian(base: Table) -> SkyCoord:
         """
         create sky coords which are not cartesian
 
@@ -80,14 +83,18 @@ class GenericMatch(object):
         :return: a sky coords sing base values.
         :rtype: SkyCoord.
         """
-        ra_cols = list(name for name in base.colnames if RA in name)
-        dec_cols= list(name for name in base.colnames if DEC in name)
-        ra = np.nanmean(tab2array(base, col_names=ra_cols), axis=1)
-        dec = np.nanmean(tab2array(base, col_names=dec_cols), axis=1)
+        ra_cols: list[str] = list(
+            name for name in base.colnames if RA in name)
+        dec_cols: list[str] = list(
+            name for name in base.colnames if DEC in name)
+        ra: np.ndarray = np.nanmean(
+            tab2array(base, col_names=ra_cols), axis=1)
+        dec: np.ndarray = np.nanmean(
+            tab2array(base, col_names=dec_cols), axis=1)
         return SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
 
     @staticmethod
-    def _sky_coords_cartesian(base):
+    def _sky_coords_cartesian(base: Table) -> SkyCoord:
         """
         create sky coords which are cartesian
 
@@ -96,18 +103,25 @@ class GenericMatch(object):
         :return: a sky coords sing base values.
         :rtype: SkyCoord.
         """
-        x_cols = list(name for name in base.colnames if name[0] == "x")
-        y_cols = list(name for name in base.colnames if name[0] == "y")
-        x = np.nanmean(tab2array(base, col_names=x_cols), axis=1)
-        y = np.nanmean(tab2array(base, col_names=y_cols), axis=1)
+        x_cols: list[str] = list(
+            name for name in base.colnames if name[0] == "x")
+        y_cols: list[str] = list(
+            name for name in base.colnames if name[0] == "y")
+        x: np.ndarray = np.nanmean(tab2array(base, col_names=x_cols), axis=1)
+        y: np.ndarray = np.nanmean(tab2array(base, col_names=y_cols), axis=1)
         return SkyCoord(
             x=x, y=y, z=np.zeros(len(x)), representation_type="cartesian")
 
-
     def __init__(
-        self, threshold=None, col_names=None, filter_string=None,
-        verbose=None, p_file=None, method="Generic Matching",
-        load=Loading(1)):
+        self,
+        threshold: float | None = None,
+        col_names: list[str] | None = None,
+        filter_string: str | None = None,
+        verbose: int | None = None,
+        p_file: str | None = None,
+        method: str = "Generic Matching",
+        load: Loading = Loading(1)
+    ) -> None:
         """
         constructor for the generic match.
 
@@ -125,11 +139,12 @@ class GenericMatch(object):
         :param load: the loading object
         :type load: Loading
         """
-        options = load_params(p_file)
-        self._threshold = options.get(MATCH_THRESH)
-        self._filter = options.get(FILTER)
-        self._verbose = options.get(VERBOSE_TAG)
-        self.method = method
+        options: dict[str, float | int | str] = load_params(p_file)
+
+        self._threshold: float = options.get(MATCH_THRESH)
+        self._filter: str | None = options.get(FILTER)
+        self._verbose: int | None = options.get(VERBOSE_TAG)
+        self.method: str = method
 
         if threshold is not None:
             self._threshold = threshold
@@ -140,10 +155,10 @@ class GenericMatch(object):
         if verbose is not None:
             self._verbose = verbose
 
-        self._col_names = col_names
-        self._load = load
+        self._col_names: list[str] | None = col_names
+        self._load: Loading = load
 
-    def log(self, msg):
+    def log(self, msg: str) -> None:
         """
         logs messages only when in verbose mode.
         :param msg: message to log
@@ -152,18 +167,20 @@ class GenericMatch(object):
         if self._verbose:
             printf(msg)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         string representation fo the generic match class.
         :return: str
         """
-        s=[ "%s:" % self.method,
-            "Filter: %s" % self._filter,
-            "Col names: %s" % self._col_names,
-            "Threshold: %s\"" % self._threshold]
+        s: list[str] = [
+            f"{self.method}:",
+            f"Filter: {self._filter}",
+            f"Col names: {self._col_names}",
+            f'Threshold: {self._threshold}"'
+        ]
         return "\n".join(s)
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args: Any, **kwargs: Any) -> Table:
         """
         main entrance method.
 
@@ -174,7 +191,7 @@ class GenericMatch(object):
         """
         return self.match(*args, **kwargs)
 
-    def init_catalogues(self, catalogues):
+    def init_catalogues(self, catalogues: list[Table]) -> list[Table]:
         # noinspection SpellCheckingInspection
         """
         This function is a bit of a "do everything" function
@@ -190,8 +207,6 @@ class GenericMatch(object):
         :return: The cleaned list of input catalogues
         :rtype: list (astropy.Table)
         """
-
-        ## Must copy here maybe?
         if len(catalogues) >= 2:
             self._load = Loading(
                 sum(len(cat) for cat in catalogues[1:]), msg="initialising")
@@ -206,14 +221,18 @@ class GenericMatch(object):
         self._col_names = remove_duplicates(self._col_names)
 
         # clean out the column names not included in self._col_names
-        for n,catalogue in enumerate(catalogues):
-            keep = set(catalogue.colnames) & set(self._col_names)
-            keep = sorted(keep, key= lambda s: self._col_names.index(s))
+        for n, catalogue in enumerate(catalogues):
+            keep: list[str] = list(
+                set(catalogue.colnames) & set(self._col_names))
+            keep = sorted(
+                keep,
+                key=lambda s: self._col_names.index(s) if
+                              self._col_names else 0)
             catalogues[n] = catalogue[keep]
 
-        # Attempt to get a value for filter if not already set
         if not self._filter:
-            if (filter_string := catalogues[0].meta.get(FILTER)) is None:
+            filter_string: str | None = catalogues[0].meta.get(FILTER)
+            if filter_string is None:
                 filter_string = "MAG"
             self._filter = filter_string
 
@@ -221,8 +240,12 @@ class GenericMatch(object):
 
 
     def match(
-            self, catalogues, join_type="or", mask=None, cartesian=False,
-            **kwargs):
+            self,
+            catalogues: list[Table],
+            join_type: str = "or",
+            mask: list[np.ndarray | list[Any]] | np.ndarray | None = None,
+            cartesian: bool = False,
+            **kwargs: Any) -> Table:
         """
         This matching works as a basic match. Everything is included and the
         column names have _N appended to the end.
@@ -243,10 +266,11 @@ class GenericMatch(object):
         :rtype: astropy.table.Table
         """
         catalogues = self.init_catalogues(catalogues)
-        if CAT_NUM in self._col_names:
+        if self._col_names and CAT_NUM in self._col_names:
             self._col_names.remove(CAT_NUM)
-        masked = self.mask_catalogues(catalogues, mask)
-        base = self.build_meta(catalogues)
+
+        masked: Table = self.mask_catalogues(catalogues, mask)
+        base: Table = self.build_meta(catalogues)
 
         if join_type == "and":
             p_error("join_type 'and' not fully implemented\n")
@@ -254,21 +278,22 @@ class GenericMatch(object):
         # Bulk matching processes (column naming)
         for n, cat in enumerate(catalogues, 1):
             self._load.msg = "matching: %d" % n
-            tmp = self.inner_match(
+            tmp: Table = self.inner_match(
                 base, cat, join_type=join_type, cartesian=cartesian)
             tmp.rename_columns(
-                tmp.colnames, ["%s_%d"%(name,n) for name in tmp.colnames] )
+                tmp.colnames, [f"{name}_{n}" for name in tmp.colnames])
             base = fill_nan(hstack((base, tmp)))
 
         # Add in any masked bits
         if len(masked):
             masked.rename_columns(
-                masked.colnames, ["%s_0" % n for n in masked.colnames])
+                masked.colnames, [f"{name}_0" for name in masked.colnames])
             base = fill_nan(vstack((base, masked)))
         return base
 
-
-    def inner_match(self, base, cat, join_type="or", cartesian=False):
+    def inner_match(
+            self, base: Table, cat: Table, join_type: str = "or",
+            cartesian: bool = False) -> Table:
         """
         Base matching function between two catalogues
 
@@ -284,57 +309,67 @@ class GenericMatch(object):
         :return: Indices, 2D separation, and 3D separation
         :rtype: astropy.table.Table
         """
-        if not len(base): return cat.copy()
+        if not len(base):
+            return cat.copy()
 
         base = fill_nan(base.copy())
-        col_names = [n for n in self._col_names if n in cat.colnames]
+        assert self._col_names is not None
+        col_names: list[str] = [
+            n for n in self._col_names if n in cat.colnames]
         cat = fill_nan(cat[col_names].copy())
 
+        sky_coords_1: SkyCoord
+        sky_coords_2: SkyCoord
         if not cartesian:
             sky_coords_1 = self._sky_coords_not_cartesian(base)
             sky_coords_2 = self._sky_coords_not_cartesian(cat)
         else:
             sky_coords_1 = self._sky_coords_cartesian(base)
-            sky_coords_2 =  self._sky_coords_cartesian(cat)
+            sky_coords_2 = self._sky_coords_cartesian(cat)
 
-        #######################
-        # The actual Matching #
-        #######################
+        idx: np.ndarray
+        d2d: u.Quantity
+        d3d: u.Quantity
         idx, d2d, d3d = sky_coords_2.match_to_catalog_3d(sky_coords_1)
-        tmp = Table(
+
+        tmp: Table = Table(
             np.full((len(base), len(col_names)), np.nan),
             names=col_names, dtype=cat[col_names].dtype)
 
+        dist: np.ndarray | u.Quantity
+        threshold: Any
         if cartesian:
             dist = d3d
             # If your threshold has an explicit unit wrapper,
             # extract its scalar magnitude
-            threshold = (self._threshold.value
-                if hasattr(self._threshold, "value") else
-                    self._threshold)
+            threshold = self._threshold.value if hasattr(
+                self._threshold, "value") else self._threshold
         else:
             dist = d2d
             threshold = self._threshold
 
-        for src, IDX, sep in zip(cat, idx, dist):
+        src: Any
+        IDX: int
+        sep: Any
+        for src, IDX, sep in zip(cat.as_array(), idx, dist):
             self._load()
             if self._verbose:
                 self._load.show()
 
-            ##GOODMATCH
             if (sep <= threshold) and (sep == min(dist[idx == IDX])):
                 tmp[IDX] = src
-
-            ## Append a source
             elif join_type == "or":
                 tmp.add_row(src)
+
         return tmp
 
-
     def finish_matching(
-            self, tab, error_column=E_FLUX, num_thresh=-1, zp_mag=0,
-            col_names=None):
-        # noinspection SpellCheckingInspection
+        self,
+        tab: Table,
+        error_column: str = E_FLUX,
+        num_thresh: int = -1,
+        zp_mag: float = 0.0,
+        col_names: list[str] | None = None) -> Table:
         """
         Averaging all the values. Combining source flags and building a NUM
         column
@@ -356,32 +391,37 @@ class GenericMatch(object):
         :return: An averaged version of the input table
         :rtype: astropy.table.Table
         """
-        flags = np.full(len(tab), SRC_GOOD, dtype=np.uint16)
-        av = Table(None)
+        flags: np.ndarray = np.full(len(tab), SRC_GOOD, dtype=np.uint16)
+        av: Table = Table(None)
 
         if col_names is None:
-            col_names = self._col_names
+            col_names = self._col_names if self._col_names else []
+
         for ii, name in enumerate(col_names):
             if all_cols := find_col_names(tab, name):
-                ar = tab2array(tab, col_names=all_cols)
+                ar: np.ndarray = tab2array(tab, col_names=all_cols)
+                col: Column
+
                 if ar.shape[1] > 1:
                     if name == FLUX:
                         col = Column(np.nanmedian(ar, axis=1), name=name)
-                        mean = np.nanmean(ar, axis=1)
-                        
-                        if STD_FLUX not in self._col_names:
+                        mean: np.ndarray = np.nanmean(ar, axis=1)
+
+                        if self._col_names and STD_FLUX not in self._col_names:
                             av.add_column(
                                 Column(np.nanstd(ar, axis=1), name=STD_FLUX),
                                 index=ii + 1)
-                        ## if median and mean are >5% different, flag as SRC_VAR
-                        flags[np.abs(mean-col)>(col/5.0)] |= SRC_VAR
+                        ## if median and mean are >5% different, flag as
+                        # SRC_VAR
+                        flags[np.abs(mean - col) > (col / 5.0)] |= SRC_VAR
                     elif name == E_FLUX:
-                        col = Column(np.sqrt(np.nansum(ar * ar, axis=1)),
-                                     name=name)
+                        col = Column(
+                            np.sqrt(np.nansum(ar * ar, axis=1)), name=name)
                     elif name == STD_FLUX:
                         col = Column(np.nanmedian(ar, axis=1), name=name)
                     elif name == FLAG:
                         col = Column(flags, name=name)
+                        f_col: np.ndarray
                         for f_col in ar.T:
                             flags |= f_col.astype(np.uint16)
                     elif name == NUM:
@@ -393,42 +433,45 @@ class GenericMatch(object):
                 else:
                     col = tab[all_cols[0]]
                     col.name = name
-                av.add_column(col,index=ii)
+                av.add_column(col, index=ii)
 
         av[FLAG] = Column(flags, name=FLAG)
         if FLUX in av.colnames:
-            ecol = av[error_column] if error_column in av.colnames else None
+            ecol: Column | None = (
+                av[error_column] if error_column in av.colnames else None)
+            mag: np.ndarray
+            mag_err: np.ndarray
             mag, mag_err = flux2mag(av[FLUX], flux_err=ecol)
             mag += zp_mag
 
             if self._filter in av.colnames:
-                av.remove_column(self._filter)
-            if "e%s" % self._filter in av.colnames:
-                av.remove_column("e%s" % self._filter)
-            av.add_column(mag, name=self._filter)
-            av.add_column(mag_err, name="e%s" % self._filter)
+                av.remove_column(str(self._filter))
+            if f"e{self._filter}" in av.colnames:
+                av.remove_column(f"e{self._filter}")
+            av.add_column(mag, name=str(self._filter))
+            av.add_column(mag_err, name=f"e{self._filter}")
 
         if NUM not in av.colnames:
-            narr = np.nansum(np.invert(
+            narr: np.ndarray = np.nansum(np.invert(
                 np.isnan(tab2array(tab, find_col_names(tab, RA)))), axis=1)
             av.add_column(Column(narr, name=NUM))
 
             if num_thresh > 0:
-                av.remove_rows( av[NUM] < num_thresh)
+                av.remove_rows(av[NUM] < num_thresh)
         return av
 
     @property
-    def col_names(self):
+    def col_names(self) -> list[str] | None:
         return self._col_names
 
     @property
-    def filter(self):
+    def filter(self) -> str | None:
         return self._filter
 
     @property
-    def threshold(self):
+    def threshold(self) -> Any:
         return self._threshold
 
     @property
-    def verbose(self):
+    def verbose(self) -> int | None:
         return self._verbose

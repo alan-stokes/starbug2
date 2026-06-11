@@ -28,6 +28,7 @@ usage: starbug2-plot [-vhX] [-I CN000] [-o outfile] images.fits
     -apfile              : ?????
 """
 import os, sys, getopt
+from typing import Final
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -39,22 +40,34 @@ from starbug2.constants import (
     BIN_TABLE, OUTPUT, INSPECT, STYLESHEET, AP_FILE_SET_OPT)
 from starbug2.plot import load_style, plot_test, plot_inspect_source
 from starbug2.utils import p_error, warn, parse_cmd, usage
+from astropy.io.fits import PrimaryHDU, ImageHDU, BinTableHDU
 
-VERBOSE = 0x01
-SHOW_HELP = 0x02
-STOP_PROC = 0x04
-KILL_PROC = 0x08
-DARK_MODE = 0x10
+VERBOSE: Final[int] = 0x01
+SHOW_HELP: Final[int] = 0x02
+STOP_PROC: Final[int] = 0x04
+KILL_PROC: Final[int] = 0x08
+DARK_MODE: Final[int] = 0x10
 
-PTEST = 0x1000
-PINSPECT = 0x2000
+PTEST: Final[int] = 0x1000
+PINSPECT: Final[int] = 0x2000
 
 
-def plot_parse_argv(argv):
-    options = 0
-    set_opt = {}
+def plot_parse_argv(
+        argv: list[str]) -> tuple[int,
+                                  dict[str, float | int | str], list[str]]:
+    """
+    Parses configuration flags and image/catalogue parameters from the
+     command line string.
+    """
+    options: int = 0
+    set_opt: dict[str, float | int | str] = {}
+
+    cmd: list[str]
     cmd, argv = parse_cmd(argv)
+
     # noinspection SpellCheckingInspection
+    opts: list[tuple[str, str]]
+    args: list[str]
     opts, args = getopt.gnu_getopt(
         argv, "hvXI:d:o:",
         ["help", "verbose", "test", "inspect=", "output=", "style=", "apfile",
@@ -72,8 +85,7 @@ def plot_parse_argv(argv):
                 set_opt[OUTPUT] = opt_arg
             case "-d" | "--apfile":
                 set_opt[AP_FILE_SET_OPT] = opt_arg
-
-            case "-I"|"--inspect":
+            case "-I" | "--inspect":
                 options |= PINSPECT
                 set_opt[INSPECT] = opt_arg
             case "-X" | "--test":
@@ -86,34 +98,31 @@ def plot_parse_argv(argv):
     return options, set_opt, args
 
 
-def plot_one_time_runs(options, set_opt, args):
+def plot_one_time_runs(
+        options: int, set_opt: dict[str, Any], args: list[str]) -> int:
     """
-    runs plot one time
-
-    :param options: the plot options
-    :param set_opt: the options
-    :param args: args
-    :return: end state
+    Handles initialization routines such as style sheet distribution or
+     help menu warnings.
     """
-
     if options & SHOW_HELP:
-        usage(__doc__, verbose=options & VERBOSE)
-
+        usage(__doc__, verbose=bool(options & VERBOSE))
         if options & PINSPECT:
-            p_error(fn_pinspect.__doc__)
-
+            p_error(str(fn_pinspect.__doc__))
         return EXIT_EARLY
 
-    if len(args) != 0:
-        p_error(f"there are args that we dont use. {args}")
+    # Only throw an error if files are missing when they are explicitly
+    # required
+    if not (options & PTEST) and len(args) == 0:
+        p_error(
+            "Error: Image or catalogue argument targets must be provided.\n")
         return EXIT_EARLY
 
     if _file_name := set_opt.get(STYLESHEET):
-        load_style(_file_name)
+        load_style(str(_file_name))
 
     if options & DARK_MODE:
-        load_style("%s/extras/dark.style" % starbug2.__path__[0])
-    
+        load_style(f"{starbug2.__path__[0]}/extras/dark.style")
+
     if options & STOP_PROC:
         return EXIT_EARLY
     if options & KILL_PROC:
@@ -122,73 +131,88 @@ def plot_one_time_runs(options, set_opt, args):
 
     return EXIT_SUCCESS
 
-def fn_pinspect(set_opt, images=None, tables=None):
+
+def fn_pinspect(set_opt: dict[str, float | str | int],
+                images: list[fits.HDUList | fits.ImageHDU] | None = None,
+                tables: list[Table] | None = None) -> plt.Figure | None:
     """
-    Plot at a source position cutouts in a range of images.
+    Plot cutouts at a source position across a range of images.
+
     This requires a source list to be loaded, a list of image
-    file and the source catalogue number to be given. This will
+    files, and the source catalogue number to be given. This will
     take the form::
 
-        $~ starbug2-plot -I CN123 source list.fits image*.fits
+        $~ starbug2-plot -I CN123 source_list.fits image*.fits
 
-    :param set_opt: The starbug2.bin.plot set opt dictionary
+    :param set_opt: The starbug2 config options dictionary
     :type set_opt: dict
-    :param images: The list of fits image HDUs to cut out from
-    :type images: list [HDU]
-    :param tables: The source list to pull the source from. Must have a column
-        with the name "Catalogue_Number"
+    :param images: The list of FITS image HDUs to cut out from
+    :type images: list
+    :param tables: The source list containing coordinates matching a
+                   'Catalogue_Number'
     :type tables: list of astropy.Table
-    :return: The output figure
-    :rtype: plt.figure
+    :return: The output figure object containing rendered cutouts
+    :rtype: matplotlib.pyplot.Figure or None
     """
+    fig: plt.Figure | None = None
+    cn: str | None = set_opt.get(INSPECT)
 
-    fig = None
-    if (cn := set_opt.get(INSPECT)) and images and tables:
-        if (CAT_NUM in tables[0].col_names
-                and cn in tables[0][CAT_NUM]):
-            i = np.where(tables[0][CAT_NUM] == cn)[0]
+    if cn and images and tables and len(tables) > 0:
+        if CAT_NUM in tables[0].colnames and cn in tables[0][CAT_NUM]:
+            i: np.ndarray = np.where(tables[0][CAT_NUM] == cn)[0]
             fig = plot_inspect_source(tables[0][i], images)
-    else: p_error(
-        "Must include the source {}, "
-        "a list of images and a source list \n".format(CAT_NUM))
+    else:
+        p_error(
+            f"Must include the source {CAT_NUM}, "
+            f"a list of images and a source list \n"
+        )
     return fig
 
-def plot_main(argv):
-    """
-    plot main
 
-    :param argv: the arguments for the plot.
-    :return: None
+def plot_main(argv: list[str]) -> int | None:
+    """
+    Main runtime entry path configuration structure for
+    data visualization parsing loops.
     """
     warn("Still in development\n\n")
+    options: int
+    set_opt: dict[str, float | int | str]
+    args: list[str]
     options, set_opt, args = plot_parse_argv(argv)
-    load_style("%s/extras/starbug.style" % starbug2.__path__[0])
+
+    load_style(f"{starbug2.__path__[0]}/extras/starbug.style")
 
     if options or set_opt:
-        if exit_code := plot_one_time_runs(options, set_opt, args):
+        if (exit_code := plot_one_time_runs(
+                options, set_opt, args)) != EXIT_SUCCESS:
             return exit_code
 
-    images = []
-    tables = []
-    for arg in args:
-        if _file_name := os.path.exists(arg):
-            fp = fits.open(arg)
+    images: list[PrimaryHDU | ImageHDU | BinTableHDU | None] = []
+    tables: list[Table] = []
 
-            # THIS IS A HACK
-            _filter = fp[0].header.get(FILTER)
-            hdu = None
+    for arg in args:
+        if os.path.exists(arg):
+            fp: fits.HDUList = fits.open(arg)
+            _filter: str = fp[0].header.get(FILTER)
+
+            # Use type tracking alias explicitly during extraction loop blocks
+            hdu: PrimaryHDU | ImageHDU | BinTableHDU | None = None
             for hdu in fp:
+
                 if hdu.header.get(EXT) == IMAGE:
                     images.append(hdu)
                     break
                 if hdu.header.get(EXT) == BIN_TABLE:
                     tables.append(Table(hdu.data))
                     break
-            hdu.header[FILTER] = _filter
+            if hdu is not None:
+                hdu.header[FILTER] = _filter
 
-    fig = None
+    fig: plt.Figure | None = None
+
     if options & PTEST:
-        fig, ax = plt.subplots(1, figsize=(3,2.5))
+        ax: plt.Axes
+        fig, ax = plt.subplots(1, figsize=(3, 2.5))
         plot_test(ax)
 
     if options & PINSPECT:
@@ -197,10 +221,13 @@ def plot_main(argv):
     if fig is not None:
         fig.tight_layout()
         if output := set_opt.get(OUTPUT):
-            fig.savefig(output, dpi=300)
+            fig.savefig(str(output), dpi=300)
         else:
             plt.show()
 
-def plot_main_entry():
-    """Command Line entry point"""
+    return EXIT_SUCCESS
+
+
+def plot_main_entry() -> int | None:
+    """Command Line package gateway binary endpoint entry pointer mapper."""
     return plot_main(sys.argv)

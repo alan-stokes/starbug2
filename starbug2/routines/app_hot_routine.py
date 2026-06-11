@@ -15,25 +15,31 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 import os
 import sys
+from typing import Tuple, List
+
 import numpy as np
 
 from astropy.stats import sigma_clip
-from astropy.table import Column, Table
+from astropy.table import Column, Table, Row, QTable
 
 from photutils.aperture import (
-    CircularAperture, CircularAnnulus, aperture_photometry)
+    CircularAperture, CircularAnnulus, aperture_photometry, ApertureMask)
 
 from starbug2.constants import (
     SRC_GOOD, DQ_DO_NOT_USE, DQ_SATURATED, SRC_BAD, DQ_JUMP_DET, SRC_JMP,
-    X_CENTROID, Y_CENTROID, E_FLUX, FLUX, FILTER_LOWER, EXIT_FAIL, EE_FRACTION,
-    RADIUS, AP_CORR)
+    X_CENTROID, Y_CENTROID, E_FLUX, FLUX, FILTER_LOWER, EE_FRACTION,
+    RADIUS, AP_CORR, PUPIL, CLEAR, SKY, Y_INIT, X_INIT, Y_0, X_0, SMOOTHNESS,
+    SUM_ERR_0, SUM_0, SUM_1, FLAG)
 from starbug2.utils import printf, p_error, warn
 
 
 class APPhotRoutine:
 
     @staticmethod
-    def calc_ap_corr(filter_string, radius, table_f_name=None, verbose=0):
+    def calc_ap_corr(
+            filter_string: str, radius: float,
+            table_f_name: str | None = None,
+            verbose: int | bool = 0) -> float:
         """
         Using CRDS ap_corr table, fit a curve to the radius vs ap_corr
         columns and then return ap_corr to respective input radius
@@ -46,24 +52,28 @@ class APPhotRoutine:
         :type table_f_name: str
         :param verbose: int for verbose.
         :type verbose: int
-        :return: the ap_corr table.
-        :rtype: np.array
+        :return: the ap_corr float.
+        :rtype: float
+        :raises FileNotFoundError when the table_f_name does not exist
         """
 
         if not table_f_name or not os.path.exists(table_f_name):
-            return EXIT_FAIL
-        tmp = Table.read(table_f_name, format="fits")
+            raise FileNotFoundError("cant find the table filename")
 
+        tmp: Table = Table.read(table_f_name, format="fits")
+
+        t_ap_corr: Table
         if FILTER_LOWER in tmp.colnames:
             t_ap_corr = tmp[(tmp[FILTER_LOWER] == filter_string)]
         else:
             t_ap_corr = tmp
 
 
-        if "pupil" in t_ap_corr.colnames:
-            t_ap_corr = t_ap_corr[ t_ap_corr["pupil"] == "CLEAR"]
+        if PUPIL in t_ap_corr.colnames:
+            t_ap_corr = t_ap_corr[ t_ap_corr[PUPIL] == CLEAR]
 
-        ap_corr = np.interp(radius, t_ap_corr[RADIUS], t_ap_corr[AP_CORR])
+        ap_corr: float = np.interp(
+            radius, t_ap_corr[RADIUS], t_ap_corr[AP_CORR])
         if verbose:
             printf("-> estimating aperture correction: %.3g\n" % ap_corr)
         return ap_corr
@@ -71,7 +81,9 @@ class APPhotRoutine:
 
     @staticmethod
     def ap_corr_from_enc_energy(
-        filter_string, encircled_energy, table_f_name=None, verbose=0):
+            filter_string: str, encircled_energy: np.ndarray,
+            table_f_name: str | None=None, verbose: int | bool=0) -> (
+                Tuple[np.ndarray, np.ndarray]):
         """
         Rather than fitting radius to the AP_CORR CRDS, use the closes
         Encircled energy value
@@ -83,20 +95,21 @@ class APPhotRoutine:
         :param table_f_name: the table file name
         :type table_f_name: str
         :param verbose: int for verbose.
-        :type verbose: int
+        :type verbose: int | bool
         :return: tuple of ap_corr and radius or ExitFail
         :rtype: tuple of np.array and np.array or int.
+        :raises FileNotFoundError when the table_f_name does not exist
         """
         if not table_f_name or not os.path.exists(table_f_name):
-            return EXIT_FAIL
+            raise FileNotFoundError("cannot find table f name")
 
-        tmp = Table.read(table_f_name, format="fits")
+        tmp: Table = Table.read(table_f_name, format="fits")
 
-        if FILTER_LOWER in tmp.col_names:
+        if FILTER_LOWER in tmp.colnames:
             t_ap_corr = tmp[(tmp[FILTER_LOWER] == filter_string)]
         else: t_ap_corr = tmp
 
-        line = t_ap_corr[
+        line: Row = t_ap_corr[
             (np.abs(t_ap_corr[EE_FRACTION] - encircled_energy)).argmin()]
         if verbose:
             printf(
@@ -109,26 +122,30 @@ class APPhotRoutine:
 
 
     @staticmethod
-    def radius_from_enc_energy(filter_string, ee_frac, table_f_name):
+    def radius_from_enc_energy(
+            filter_string: str, ee_frac: float,
+            table_f_name: str | None) -> float:
         """
         """
         if not table_f_name or not os.path.exists(table_f_name):
-            return -1
+            raise FileNotFoundError("cannot find table f name")
         t_ap_corr = Table.read(table_f_name, format="fits")
 
         if len({EE_FRACTION, RADIUS} & set(t_ap_corr.col_names)) != 2:
-            return -1
+            raise Exception("invalid col_names size.")
 
         # Crop down table
         if FILTER_LOWER in t_ap_corr.col_names:
             t_ap_corr=t_ap_corr[(t_ap_corr[FILTER_LOWER] == filter_string)]
 
-        if "pupil" in t_ap_corr.col_names: # Crop down table
-            t_ap_corr=t_ap_corr[ t_ap_corr["pupil"] == "CLEAR"]
+        if PUPIL in t_ap_corr.col_names: # Crop down table
+            t_ap_corr=t_ap_corr[ t_ap_corr[PUPIL] == CLEAR]
 
         return np.interp(ee_frac, t_ap_corr[EE_FRACTION], t_ap_corr[RADIUS])
 
-    def __init__(self, radius, sky_in, sky_out, verbose=0):
+    def __init__(
+            self, radius: float, sky_in: float, sky_out: float,
+            verbose: int | bool=0) -> None:
         """
         Aperture photometry called by starbug
 
@@ -149,15 +166,19 @@ class APPhotRoutine:
             warn("Sky annulus outer radii must be larger than the inner.\n")
             sky_out = sky_in + 1
 
-        self.radius = radius
-        self.sky_in = sky_in
-        self.sky_out = sky_out
-        self.catalogue = Table(None)
-        self.verbose = verbose
+        self.radius: float = radius
+        self.sky_in: float = sky_in
+        self.sky_out: float = sky_out
+        self.catalogue: Table = Table(None)
+        self.verbose: int | bool = verbose
 
     def __call__(
-            self, image, detections, error=None, dq_flags=None, ap_corr=1.0,
-            sig_sky=3):
+            self, image: np.ndarray,
+            detections: Table,
+            error: np.ndarray | None = None,
+            dq_flags: np.ndarray | None = None,
+            ap_corr: float = 1.0,
+            sig_sky: float = 3.0) -> Table:
         """
         Forced aperture photometry on a list of detections are an
          `astropy.table.Table` with columns x_centroid y_centroid or x_0 y_0
@@ -183,7 +204,12 @@ class APPhotRoutine:
         """
         return self._run(image, detections, error, dq_flags, ap_corr, sig_sky)
 
-    def _run(self, image, detections, error, dq_flags, ap_corr, sig_sky):
+    def _run(self, image: np.ndarray,
+             detections: Table,
+             error: np.ndarray | None = None,
+             dq_flags: np.ndarray | None = None,
+             ap_corr: float = 1.0,
+             sig_sky: float = 3.0) -> Table:
         """
         Forced aperture photometry on a list of detections are an
          `astropy.table.Table` with columns x_centroid y_centroid or x_0 y_0
@@ -207,43 +233,49 @@ class APPhotRoutine:
         :return: Photometry catalogue
         :rtype: astropy.table.Table
         """
+        pos: list[tuple[Table | Row, Table | Row]]
         if len({X_CENTROID, Y_CENTROID} & set(detections.colnames)) == 2:
             pos = [(line[X_CENTROID],line[Y_CENTROID]) for line in detections]
-        elif len({"x_0", "y_0"} & set(detections.colnames))==2:
-            pos = [(line["x_0"], line["y_0"]) for line in detections]
-        elif len({"x_init", "y_init"} & set(detections.colnames)) == 2:
-            pos=[(line["x_init"], line["y_init"]) for line in detections]
+        elif len({X_0, Y_0} & set(detections.colnames)) == 2:
+            pos = [(line[X_0], line[Y_0]) for line in detections]
+        elif len({X_INIT, Y_INIT} & set(detections.colnames)) == 2:
+            pos=[(line[X_INIT], line[Y_INIT]) for line in detections]
         else:
             p_error(
                 "Cannot identify position in detection catalogue ("
                 "x_0/x_centroid)\n")
-            return None
+            raise Exception(
+                "Cannot identify position in detection catalogue ("
+                "x_0/x_centroid)\n")
 
-        mask = np.isnan(image)
+        mask: np.ndarray = np.isnan(image)
         if error is None:
             error = np.sqrt(image)
 
-        apertures = CircularAperture(pos, self.radius)
-        smooth_apertures = CircularAperture(
+        apertures: CircularAperture = CircularAperture(pos, self.radius)
+        smooth_apertures: CircularAperture = CircularAperture(
             pos, min(1.5 * self.radius, self.sky_in))
-        annulus_aperture = CircularAnnulus(
+        annulus_aperture: CircularAnnulus = CircularAnnulus(
             pos, r_in=self.sky_in, r_out=self.sky_out)
 
         self.log(
             "-> apertures: %.2g (%.2g - %.2g)\n" % (
                 self.radius, self.sky_in, self.sky_out))
-        phot = aperture_photometry(
+        phot: QTable = aperture_photometry(
             image, (apertures, smooth_apertures), error=error, mask=mask)
-        self.catalogue=(
+        self.catalogue = (
             Table(np.full((len(pos), 4), np.nan),
-                  names=("smoothness", "flux", "eflux", "sky")))
+                  names=(SMOOTHNESS, FLUX, E_FLUX, SKY)))
 
         self.log("-> calculating sky values\n")
-        masks = annulus_aperture.to_mask(method="center")
-        dat = list(map(lambda a : a.multiply(image), masks))
+        masks: ApertureMask | List[ApertureMask] = (
+            annulus_aperture.to_mask(method="center"))
+        dat_list: list[np.ndarray | None] = list(
+            map(lambda a : a.multiply(image), masks))
+        dat: np.ndarray
 
         try:
-            dat = np.array(dat).astype(float)
+            dat = np.array(dat_list).astype(float)
         except (ValueError, TypeError) as e:
             ## Cases where the array is inhomogeneous
             ## If annulus reaches the edge of the image, it will create a
@@ -253,30 +285,37 @@ class APPhotRoutine:
             warn(
                 f"Ran into issues with the sky annuli. {e},"
                 f" trying to fix them..\n")
-            size = np.max([np.shape(d) for d in dat if d is not None])
-            for i, d in enumerate(dat):
+            size: int = int(
+                np.max([np.shape(d) for d in dat_list if d is not None]))
+            fixed_dat: list[np.ndarray] = []
+            for d in dat_list:
                 if d is None:
-                    dat[i] = np.zeros((size,size))
+                    fixed_dat.append(np.zeros((size, size)))
                 elif (shape := np.shape(d)) != (size, size):
-                    dat[i] = np.zeros((size,size))
-                    dat[i][:shape[0],:shape[1]] += d
-            dat = np.array(dat)
+                    padded: np.ndarray = np.zeros((size, size))
+                    padded[:shape[0], :shape[1]] += d
+                    fixed_dat.append(padded)
+                else:
+                    fixed_dat.append(d)
+            dat = np.array(fixed_dat)
 
         mask = (dat > 0 & np.isfinite(dat))
         dat[~mask] = np.nan
-        dat = sigma_clip(dat.reshape(dat.shape[0],-1), sigma=sig_sky, axis=1)
-        self.catalogue["sky"] = np.ma.median(dat, axis=1).filled(fill_value=0)
-        std = np.ma.std(dat, axis=1)
+        clipped_dat: np.ma.MaskedArray = sigma_clip(
+            dat.reshape(dat.shape[0],-1), sigma=sig_sky, axis=1)
+        self.catalogue[SKY] = (
+            np.ma.median(clipped_dat, axis=1).filled(fill_value=0))
+        std: np.ndarray = np.ma.std(clipped_dat, axis=1)
 
-        e_poisson = phot["aperture_sum_err_0"]
-        esky_scatter = apertures.area * std ** 2
-        esky_mean = (std ** 2 * apertures.area ** 2) / annulus_aperture.area
+        e_poisson: np.ndarray = phot[SUM_ERR_0]
+        esky_scatter: np.ndarray = apertures.area * std ** 2
+        esky_mean: np.ndarray = (
+            (std ** 2 * apertures.area ** 2) / annulus_aperture.area)
 
         self.catalogue[E_FLUX] = np.sqrt(
             e_poisson ** 2 + esky_scatter ** 2 + esky_mean ** 2)
         self.catalogue[FLUX] = (
-            ap_corr * (phot["aperture_sum_0"] - (
-            self.catalogue["sky"] * apertures.area)))
+            ap_corr * (phot[SUM_0] - (self.catalogue[SKY] * apertures.area)))
 
         self.catalogue[FLUX][self.catalogue[FLUX] == 0] = np.nan
 
@@ -285,27 +324,29 @@ class APPhotRoutine:
         # two test apertures
         ######################
 
-        self.catalogue["smoothness"] = (
-            (phot["aperture_sum_1"] / smooth_apertures.area)
-            / (phot["aperture_sum_0"] / apertures.area))
+        self.catalogue[SMOOTHNESS] = (
+            (phot[SUM_1] / smooth_apertures.area)
+            / (phot[SUM_0] / apertures.area))
 
-        col = Column(
-            np.full(len(apertures), SRC_GOOD), dtype=np.uint16, name="flag")
+        col: Column = Column(
+            np.full(len(apertures), SRC_GOOD), dtype=np.uint16, name=FLAG)
         if dq_flags is not None:
             self.log("-> flagging unlikely sources\n")
-            for i, mask in enumerate(apertures.to_mask(method="center")):
-                tmp = mask.multiply(dq_flags)
+            for i, ap_mask in enumerate(apertures.to_mask(method="center")):
+                i: int
+                ap_mask: ApertureMask
+                tmp: np.ndarray = ap_mask.multiply(dq_flags)
                 if tmp is not None:
-                    dat = np.array(tmp,dtype=np.uint32)
-                    if np.sum( dat & (DQ_DO_NOT_USE | DQ_SATURATED)):
+                    dq_dat = np.array(tmp,dtype=np.uint32)
+                    if np.sum( dq_dat & (DQ_DO_NOT_USE | DQ_SATURATED)):
                         col[i] |= SRC_BAD
-                    if np.sum( dat & DQ_JUMP_DET):
+                    if np.sum( dq_dat & DQ_JUMP_DET):
                         col[i] |= SRC_JMP
         self.catalogue.add_column(col)
         return self.catalogue
 
 
-    def log(self, msg):
+    def log(self, msg: str) -> None:
         """
         log message if in verbose mode
 

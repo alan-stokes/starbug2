@@ -14,11 +14,15 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 import os
+from typing import Dict, Final
+
 from parse import parse
+
+from starbug2.constants import OUTPUT, AP_FILE, BGD_FILE, PSF_FILE
 from starbug2.utils import printf,p_error,get_version
 
 # noinspection SpellCheckingInspection
-default = """## STARBUG CONFIG FILE
+default: Final[str] = """## STARBUG CONFIG FILE
 # Generated with starbug2-v%s
 PARAM       =  STARBUGII PARAMETERS     // COMMENT
 
@@ -204,14 +208,20 @@ REGION_WCS  = 1
 """ % get_version()
 
 # the first characters to exclude
-EXCLUDES = "# \t\n //"
+EXCLUDES: Final[str] = "# \t\n //"
 
-def parse_param(line):
+def parse_param(line: str) -> Dict[str, int | float| str]:
     """
     Parse a parameter line
+    :param line: the line to parse
+    :type line: str
+    :return: the parsed params from the line
+    :rtype: Dict[str, str]
     """
-    param={}
+    param: Dict[str, int | float| str] = {}
     if line and line[0] not in EXCLUDES:
+        key: str
+        value: int | float| str
         if "//" in line and line[0] != "/":
             key, value, _ = parse("{}={}//{}", line)
         else:
@@ -227,20 +237,25 @@ def parse_param(line):
             pass
 
         ## Special case values
-        if key in ("OUTPUT", "AP_FILE", "BGD_FILE", "PSF_FILE"):
+        if key in (OUTPUT, AP_FILE, BGD_FILE, PSF_FILE):
             value = os.path.expandvars(value)
         param[key] = value
     return param
 
 
 
-def load_default_params():
-    config = {}
+def load_default_params() -> Dict[str, int | float| str]:
+    """
+    load default params from default string.
+    :return: the config
+    :rtype: Dict[str, int | float| str]
+    """
+    config: Dict[str, int | float| str] = {}
     for line in default.split('\n'):
         config.update(parse_param(line))
     return config
 
-def load_params(f_name):
+def load_params(f_name) -> Dict[str, int | float| str]:
     """
     Convert a parameter file into a dictionary of options
 
@@ -249,7 +264,7 @@ def load_params(f_name):
     :return: dictionary of options
     :rtype: dict of string, string
     """
-    config = {}
+    config: Dict[str, int | float| str] = {}
     if f_name is None:
         config = load_default_params()
     elif os.path.exists(f_name):
@@ -260,7 +275,7 @@ def load_params(f_name):
         p_error("config file \"%s\" does not exist\n" % f_name)
     return config
 
-def local_param():
+def local_param() -> None:
     """
     reads a local param file.
     :return: None
@@ -268,7 +283,7 @@ def local_param():
     with open("starbug.param", "w") as fp:
         fp.write(default)
 
-def update_param_file(f_name):
+def update_param_file(f_name) -> None:
     """
     When the local parameter file is from an older version, add or remove the
     new or obsolete keys

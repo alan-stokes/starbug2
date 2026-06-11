@@ -12,8 +12,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-
-from typing import cast, Any
+from __future__ import annotations
+from typing import cast, Any, List, Optional, Tuple
 import getopt
 import numpy as np
 from matplotlib.path import Path
@@ -24,10 +24,9 @@ from starbug2.constants import MASK_MAIN_TABLE_PATH
 from starbug2.utils import tab2array, colour_index, fill_nan
 
 class Mask(object):
-    colour = 'k'
 
     @staticmethod
-    def from_file(f_name):
+    def from_file(f_name: str) -> Mask:
         """
         makes a mask object from a file. The file must have only 1 line
         in it, which must match the format defined in Mask.from_string.
@@ -41,7 +40,7 @@ class Mask(object):
 
 
     @staticmethod
-    def from_string(string):
+    def from_string(string: str) -> Mask:
         # noinspection SpellCheckingInspection
         """
         method to create a mask object from a string. the string should be
@@ -52,11 +51,18 @@ class Mask(object):
         :param string: the string to create the mask of.
         :return: the constructed mask.
         """
-        label = None
-        keys = [None, None]
-        colour = 'k'
-        opts, coords = string.split(':')
-        opts, args = getopt.getopt(opts.split(' '), "c:l:x:y:")
+        label: Optional[str] = None
+        keys: List[Optional[str]] = [None, None]
+        colour: str = 'k'
+
+        # type definitions
+        opts_str: str
+        coords: str
+        opts: List[Tuple[str, str]]
+        args: List[str]
+
+        opts_str, coords = string.split(':')
+        opts, args = getopt.getopt(opts_str.split(' '), "c:l:x:y:")
         for opt, opt_arg in opts:
             if opt == "-x":
                 keys[0] = opt_arg
@@ -66,14 +72,14 @@ class Mask(object):
                 label = opt_arg.replace('_', ' ')
             if opt == "-c":
                 colour = opt_arg
-        strip_coords = coords.strip().rstrip().split(' ')
-        points = (
+        strip_coords: List[str] = coords.strip().rstrip().split(' ')
+        points: np.ndarray = (
             np.array(strip_coords, dtype=float).reshape(
                 (int(len(strip_coords) / 2), 2)))
         return Mask(points, keys, label=label, colour=colour)
 
 
-    def __init__(self, bounds, keys, label=None, **kwargs):
+    def __init__(self, bounds, keys, label=None, colour="k") -> None:
         """
         mask constructor
 
@@ -81,43 +87,42 @@ class Mask(object):
                        sequence of pairs.
         :param keys: iterable array with 2 elements.
         :param label: the mask label
-        :param kwargs: kwargs!
+        :param colour: the colour of the mask.
         """
 
-        self.path = Path(bounds)
+        self._path: Path = Path(bounds)
         if len(keys) == 2:
-            self.keys = keys
+            self._keys: List[str] = keys
         else:
             raise Exception
-        self.label = label
-        
-        if "colour" in kwargs:
-            self.colour = kwargs.get("colour")
+        self._label: Optional[str] = label
+
+        self._colour: str = colour
 
 
-    def apply(self, data_table):
+    def apply(self, data_table) -> np.ndarray:
         """
         applies a data table based off the masks keys.
         :param data_table: the table to apply the mask on.
         :return: length-N bool array
         :rtype: ndarray
         """
-        d = fill_nan(colour_index(data_table, self.keys))
-        return self.path.contains_points(tab2array(d))
+        d: Table = fill_nan(colour_index(data_table, self._keys))
+        return self._path.contains_points(tab2array(d))
 
 
-    def plot(self, axis, **kwargs):
+    def plot(self, plot_axis, **kwargs) -> None:
         """
         plots a polygon onto the axis.
-        :param axis: the axis to plot the polygon onto.
+        :param plot_axis: the axis to plot the polygon onto.
         :param kwargs: arbitrary polygon parameters.
         :return: None
         """
-        patch = Polygon(
-            self.path.vertices,
-            label=self.label.replace('_', ' ') if self.label else None,
-            fill=False, edgecolor=self.colour, **kwargs)
-        axis.add_patch(patch)
+        patch: Polygon = Polygon(
+            self._path.vertices,
+            label=self._label.replace('_', ' ') if self._label else None,
+            fill=False, edgecolor=self._colour, **kwargs)
+        plot_axis.add_patch(patch)
         
 
 
@@ -126,17 +131,18 @@ if __name__== "__main__":
     """
     main method if you ran mask object.
     """
-    mask_string = "-yF115W -xF115W-F200W -lTestCut 0 20 1 21 1 24 0 24"
-    table = Table.read(MASK_MAIN_TABLE_PATH, format="fits").filled(np.nan)
-    mask = Mask.from_string(mask_string)
-    masked_table = mask.apply(table)
+    mask_string: str = "-yF115W -xF115W-F200W -lTestCut 0 20 1 21 1 24 0 24"
+    table: Table = Table.read(
+        MASK_MAIN_TABLE_PATH, format="fits").filled(np.nan)
+    mask: Mask = Mask.from_string(mask_string)
+    masked_table: np.ndarray = mask.apply(table)
     import matplotlib.pyplot as plt
-    tt = colour_index(table, ("F115W-F200W", "F115W"))
+    tt: Table = colour_index(table, ["F115W-F200W", "F115W"])
     plt.scatter(tt["F115W-F200W"], tt["F115W"], c='k', lw=0, s=1)
 
     # Cast the current axes to 'Any' to satisfy the linter's strict inspection
     # due to a known type-hinting blind spot with matplotlib
-    axis = cast(Any, plt.gca())
+    axis: Any = cast(Any, plt.gca())
 
     # plot.
     mask.plot(axis, fill=False, edgecolor="blue", label="test")

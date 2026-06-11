@@ -18,7 +18,7 @@ Starbug matching functions
 Primarily this is the main routines for dither/band/generic matching which are
  at the core of starbug2 and starbug2-match
 """
-from typing import override
+from typing import override, Any
 
 import numpy as np
 from astropy.table import Table, hstack, vstack
@@ -35,15 +35,15 @@ class ExactValueMatch(GenericMatch):
     value.
     """
 
-    def __init__(self, value=CAT_NUM, **kwargs):
+    def __init__(self, value: str = CAT_NUM, **kwargs: Any) -> None:
         """
-        setup method.
+        Setup method.
 
         :param value: Column name to take exact values from
         :type value: str
         :param kwargs:
         """
-        self.value = value
+        self.value: str = value
         super().__init__(**kwargs, method="Exact Value Matching")
 
         # noinspection SpellCheckingInspection
@@ -51,17 +51,19 @@ class ExactValueMatch(GenericMatch):
             # noinspection SpellCheckingInspection
             p_error("Colnames not implemented in %s\n" % self.method)
 
-    def __str__(self):
+    def __str__(self) -> str:
         # noinspection SpellCheckingInspection
-        s=[ "%s:" % self.method,
-            "Value: \"%s\"" % self.value,
-            "Colnames: %s" % self._col_names,
-            ]
-
+        s: list[str] = [
+            f"{self.method}:",
+            f'Value: "{self.value}"',
+            f"Colnames: {self._col_names}",
+        ]
         return "\n".join(s)
 
     @override
-    def inner_match(self, base, cat, join_type="or", cartesian=False):
+    def inner_match(
+            self, base: Table, cat: Table, join_type: str = "or",
+            cartesian: bool = False) -> Table:
         """
          The low level matching function.
 
@@ -78,21 +80,23 @@ class ExactValueMatch(GenericMatch):
             correct sorting to be h-stacked with *base*
         :rtype:  astropy.Table
         """
-
-        tmp = Table(
+        tmp: Table = Table(
             np.full((len(base), len(cat.colnames)), np.nan),
-            names=cat.colnames, dtype=cat.dtype, masked=True)
+            names=cat.colnames, dtype=cat.dtype, masked=True
+        )
+
         for col in tmp.columns.values():
-            col.mask |= True
+            col.mask = True
 
         if not len(base):
-            return vstack([tmp,cat])
+            return vstack([tmp, cat])
 
         for src in cat:
             if self._verbose:
                 self._load()
                 self._load.show()
-            ii = np.where(base[self.value] == src[self.value])[0]
+
+            ii: np.ndarray = np.where(base[self.value] == src[self.value])[0]
             if len(ii):
                 tmp[ii] = src
             else:
@@ -100,7 +104,7 @@ class ExactValueMatch(GenericMatch):
         return tmp
 
     @override
-    def match(self, catalogues, **kwargs):
+    def match(self, catalogues: list[Table], **kwargs: Any) -> Table | None:
         """
         Core matching function
 
@@ -110,28 +114,28 @@ class ExactValueMatch(GenericMatch):
         :return: Full matched catalogue
         :rtype: astropy.Table
         """
-
         catalogues = self.init_catalogues(catalogues)
-        base = self.build_meta(catalogues)
+        base: Table = self.build_meta(catalogues)
 
-        if self.value not in self._col_names:
+        if self._col_names is None or self.value not in self._col_names:
             p_error("Exact value '%s' not in column names.\n" % self.value)
             return None
 
         for n, cat in enumerate(catalogues, 1):
-            self._load.msg = "matching: %d"%n
-            tmp = self.inner_match(base, cat)
+            self._load.msg = "matching: %d" % n
+            tmp: Table = self.inner_match(base, cat)
             tmp.rename_columns(
-                tmp.colnames, ["%s_%d" % (name, n) for name in tmp.colnames])
-            base = hstack([base,tmp])
+                tmp.colnames, [f"{name}_{n}" for name in tmp.colnames]
+            )
+            base = hstack([base, tmp])
 
             if n > 1:
-                ii = (base[self.value].mask
-                      & ~base["%s_%d" % (self.value, n)].mask)
-                base["%s" % self.value][ii] = (
-                    base["%s_%d" % (self.value, n)][ii])
-                base.remove_column("%s_%d" % (self.value, n))
-
-            else: base.rename_column("%s_1" % self.value, self.value)
+                ii: np.ndarray = (
+                    base[self.value].mask & ~base[f"{self.value}_{n}"].mask
+                )
+                base[self.value][ii] = base[f"{self.value}_{n}"][ii]
+                base.remove_column(f"{self.value}_{n}")
+            else:
+                base.rename_column(f"{self.value}_1", self.value)
 
         return fill_nan(base)

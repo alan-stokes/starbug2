@@ -19,10 +19,12 @@ Core routines for StarbugII.
 import sys
 
 import numpy as np
-from astropy.table import Column, hstack
+from astropy.table import Column, hstack, Table, QTable
 from photutils.aperture import (
     CircularAperture, aperture_photometry)
-from photutils.psf import PSFPhotometry, SourceGrouper
+from photutils.psf import PSFPhotometry, SourceGrouper, FittableImageModel
+
+from starbug2.constants import X_INIT, Y_INIT, X_FIT, Y_FIT, XY_DEV, FLUX_ERR, E_FLUX, FLUX, FLUX_FIT, Q_FIT
 from starbug2.utils import printf, p_error, warn
 
 class _Grouper(SourceGrouper):
@@ -41,20 +43,27 @@ class _Grouper(SourceGrouper):
     CRITICAL_VAL = 25
     min_separation = 0
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, min_separation: float) -> None:
+        super().__init__(min_separation)
 
-    def __call__(self, *args, **kwargs):
-        res = super().__call__(*args, **kwargs)
+    def __call__(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+        res: np.ndarray = super().__call__(x, y)
+        n: int
         if n := sum(np.bincount(res) > self.CRITICAL_VAL):
             warn("Source grouper has %d groups larger than %d. Consider"
                  " reducing \"CRIT_SEP=%g\" or fitting might take a long"
-                 " time.\n" % (n,self.CRITICAL_VAL, self.min_separation))
+                 " time.\n" % (n, self.CRITICAL_VAL, self.min_separation))
         return res
 
 class PSFPhotRoutine(PSFPhotometry):
-    def __init__(self, psf_model, fit_shape, app_hot_r=3, min_separation=8,
-                 force_fit=False, background=None, verbose=1):
+    def __init__(
+            self, psf_model: FittableImageModel,
+            fit_shape: int | tuple[int, int],
+            app_hot_r: float = 3.0,
+            min_separation: float = 8.0,
+            force_fit: int | bool = False,
+            background: np.ndarray | None = None,
+            verbose: int | bool = 1) -> None:
         # noinspection SpellCheckingInspection
         """
         PSF Photometry routine called by starbug
@@ -78,11 +87,11 @@ class PSFPhotRoutine(PSFPhotometry):
         :param verbose: Show verbose outputs
         :type verbose: bool or int
         """
-        self._verbose = verbose
-        self._force_fit = force_fit
-        self._background = background
+        self._verbose: int | bool = verbose
+        self._force_fit: bool | int = force_fit
+        self._background: np.ndarray = background
 
-        grouper = _Grouper(min_separation)
+        grouper: _Grouper = _Grouper(min_separation)
 
         if force_fit:
             psf_model.x_0.fixed = True
@@ -95,29 +104,41 @@ class PSFPhotRoutine(PSFPhotometry):
         if self._verbose:
             printf("-> source group separation: %g\n" % min_separation)
 
-    def __call__(self, *args, **kwargs):
+    def __call__(
+            self, image: Table,
+            init_params: Table | None = None,
+            error: np.ndarray | None = None,
+            mask: np.ndarray | None = None):
         """
         runs the psf phot routine.
-        :param args: args
-        :type args: dict
-        :param kwargs: extra args
-        :type kwargs: dict
-        :return: processed table
-        :rtype: astropy.table.Table
+        :param image: the image to process.
+        :type image: astropy.table.Table
+        :param init_params: the init params.
+        :type init_params: Table
+        :param error: the error.
+        :type error: np.array
+        :param mask: the mask.
+        :type mask: np.array
+        :return: the processed table.
+        :rtype:  astropy.table.Table
         """
-        return self.do_photometry(*args, **kwargs)
+        return self.do_photometry(image, init_params, error, mask)
 
 
     def do_photometry(
-            self, image, init_params=None, error=None, mask=None):
+            self,
+            image: Table,
+            init_params: Table | None = None,
+            error: np.ndarray | None = None,
+            mask: np.ndarray | None = None) -> Table | None:
         """
         does the photometry
         :param image: the image to process.
         :type image: astropy.table.Table
         :param init_params: the init params.
-        :type init_params: dict of str, str
+        :type init_params: Table
         :param error: the error.
-        :type error: ????
+        :type error: np.array
         :param mask: the mask.
         :type mask: np.array
         :return: the processed table.
@@ -129,10 +150,10 @@ class PSFPhotRoutine(PSFPhotometry):
             return None
 
         ### Removing completely masked sources
-        apertures = CircularAperture(
-            [(l["x_init"],l["y_init"]) for l in init_params],
+        apertures: CircularAperture = CircularAperture(
+            [(l[X_INIT], l[Y_INIT]) for l in init_params],
             self.aperture_radius)
-        ap_masks = aperture_photometry(~mask, apertures)
+        ap_masks: QTable = aperture_photometry(~mask, apertures)
         init_params.remove_rows(ap_masks["aperture_sum"] == 0)
 
         ## bad errors should be big not small
@@ -142,24 +163,24 @@ class PSFPhotRoutine(PSFPhotometry):
             image = image - self._background
         if self._verbose:
             printf("-> fitting %d sources\n"%len(init_params))
-        cat = super().__call__(
+        cat: QTable = super().__call__(
             image, mask=mask, init_params=init_params, error=error)
 
-        d = np.sqrt((
-            (cat["x_init"] - cat["x_fit"]) ** 2.0 +
-            (cat["y_init"]-cat["y_fit"]) ** 2.0))
+        d: np.ndarray = np.sqrt((
+            (cat[X_INIT] - cat[X_FIT]) ** 2.0 +
+            (cat[Y_INIT]-cat[Y_FIT]) ** 2.0))
 
         # noinspection SpellCheckingInspection
-        cat.add_column(Column(d, name="xydev"))
+        cat.add_column(Column(d, name=XY_DEV))
 
-        if "flux_err" not in cat.colnames:
-            cat.add_column(Column(np.full(len(cat), np.nan), name="eflux"))
+        if FLUX_ERR not in cat.colnames:
+            cat.add_column(Column(np.full(len(cat), np.nan), name=E_FLUX))
             warn("Something went wrong with PSF error fitting\n")
         else:
-            cat.rename_column("flux_err","eflux")
+            cat.rename_column(FLUX_ERR, E_FLUX)
 
-        cat.rename_column("flux_fit", "flux")
+        cat.rename_column(FLUX_FIT, FLUX)
 
         # noinspection SpellCheckingInspection
-        keep=["x_fit", "y_fit", "flux", "eflux", "xydev", "qfit"]
+        keep: list[str] = [X_FIT, Y_FIT, FLUX, E_FLUX, XY_DEV, Q_FIT]
         return hstack((init_params, cat[keep]))

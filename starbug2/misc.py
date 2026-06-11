@@ -18,25 +18,34 @@ Miscellaneous functions...
 """
 
 import os, stat, numpy as np
+from typing import List, Optional, TextIO, Dict, Tuple, Any
+
 from starbug2.constants import (
     JWST_MIRI_APCORR_0010_FITS_URL, JWST_NIRCAM_APCORR_0004_FITS_URL,
     JWST_MIRI_ABVEGA_OFFSET_URL, JWST_NIRCAM_ABVEGA_OFFSET_URL, NIRCAM,
     SHORT, WEBBPSF_PATH_ENV_VAR, LONG, FITS_EXTENSION, FILE_NAME, FILTER,
-    OBS, VISIT, DETECTOR, EXPOSURE)
+    OBS, VISIT, DETECTOR, EXPOSURE, STARBUG_DATA_DIR)
 from starbug2.constants import STAR_BUG_MIRI
-from starbug2.filters import STAR_BUG_FILTERS
+from starbug2.filters import STAR_BUG_FILTERS, FilterStruct
 from astropy.io import fits
+from astropy.table import Table
 
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.starbug import StarbugBase
 from starbug2.utils import (
     printf, wget, puts, Loading, p_error, split_file_name)
 
+# A clear, Type Alias for the deep data nested structure Format:
+# Dict[KeyType, ValueType], str mapping being FILTER, OBS, VISIT, DETECTOR
+ExposureMapping = (
+    Dict[Optional[int], Dict[Optional[int], Dict[Optional[int],
+    Dict[Optional[int], List[fits.HDUList]]]]])
+
 
 ##########################
 # One time run functions #
 ##########################
-def init_starbug():
+def init_starbug() -> None:
     """
     Initialise Starbug..
         - generate PSFs
@@ -46,18 +55,18 @@ def init_starbug():
     """
     printf("Initialising StarbugII\n")
 
-    data_name = StarbugBase.get_data_path()
+    data_name: str = StarbugBase.get_data_path()
 
     # noinspection SpellCheckingInspection
     printf("-> using %s=%s\n" % (
-        "STARBUG_DATDIR" if os.getenv("STARBUG_DATDIR") else "DEFAULT_DIR",
+        STARBUG_DATA_DIR if os.getenv(STARBUG_DATA_DIR) else "DEFAULT_DIR",
         data_name))
     generate_psfs()
 
-    _miri_ap_corr = JWST_MIRI_APCORR_0010_FITS_URL
+    _miri_ap_corr: str = JWST_MIRI_APCORR_0010_FITS_URL
 
     # noinspection SpellCheckingInspection
-    _nircam_ap_corr = JWST_NIRCAM_APCORR_0004_FITS_URL
+    _nircam_ap_corr: str = JWST_NIRCAM_APCORR_0004_FITS_URL
 
     # noinspection SpellCheckingInspection
     printf("Downloading APPCORR CRDS files. NB: "
@@ -84,14 +93,14 @@ def init_starbug():
     puts("Downloading The Junior Colour Encyclopedia of Space\n")
 
 # noinspection SpellCheckingInspection
-def generate_psfs():
+def generate_psfs() -> None:
     """
     Generate the psf files inside a given directory
 
     utilises the star bug data patj to generate the directory to generate info
     :return:
     """
-    dname = StarbugBase.get_data_path()
+    dname: str = StarbugBase.get_data_path()
     if os.getenv(WEBBPSF_PATH_ENV_VAR):
         dname = os.path.expandvars(dname)
         if not os.path.exists(dname):
@@ -99,12 +108,17 @@ def generate_psfs():
 
         printf("Generating PSFs --> %s\n"%dname)
 
-        load = Loading(145, msg="initialising")
+        load: Loading = Loading(145, msg="initialising")
         load.show()
-        for fltr, _f in STAR_BUG_FILTERS.items():
-            if _f.instr == NIRCAM:
-                if _f.length == SHORT:
-                    detectors = [
+
+        # type hitns
+        filter_string: str
+        filter_data: FilterStruct
+
+        for filter_string, filter_data in STAR_BUG_FILTERS.items():
+            if filter_data.instr == NIRCAM:
+                if filter_data.length == SHORT:
+                    detectors: List[Optional[str]] = [
                         "NRCA1","NRCA2","NRCA3","NRCA4","NRCB1","NRCB2",
                         "NRCB3","NRCB4"]
                 else:
@@ -112,14 +126,15 @@ def generate_psfs():
             else:
                 detectors = [None]
 
+            det: str
             for det in detectors:
-                load.msg = "%6s %5s" % (fltr, det)
+                load.msg = "%6s %5s" % (filter_string, det)
                 load.show()
-                psf = generate_psf(fltr, det, None)
+                psf: fits.PrimaryHDU = generate_psf(filter_string, det, None)
                 if psf: 
                     psf.writeto(
                         "%s/%s%s.fits" % (
-                            dname, fltr, "" if det is None else det),
+                            dname, filter_string, "" if det is None else det),
                         overwrite=True)
                 load()
                 load.show()
@@ -132,7 +147,10 @@ def generate_psfs():
 
 
 # noinspection SpellCheckingInspection
-def generate_psf(filter_string, detector=None, fov_pixels=None):
+def generate_psf(
+        filter_string: str,
+        detector: Optional[str] = None,
+        fov_pixels: Optional[int] = None) -> fits.PrimaryHDU:
     # noinspection SpellCheckingInspection
     """
     Generate a single PSF for JWST
@@ -143,14 +161,19 @@ def generate_psf(filter_string, detector=None, fov_pixels=None):
     :param detector: Instrument detector module e.g. NRCA1
     :type detector: str
     :param fov_pixels: size of PSF
+    :type fov_pixels: int
     :return: the generated psfs
-    :rtype fits.HDUlist
+    :rtype fits.PrimaryHDU
     """
 
     # ABS again, why are we importing here?
-    from webbpsf import NIRCam, MIRI
-    psf = None
-    model = None
+    import stpsf
+
+    # define types
+    psf: Optional[fits.PrimaryHDU] = None
+    model: Optional[stpsf.JWInstrument] = None
+
+    # ensure fov pixels is greater than 0
     if fov_pixels is not None and fov_pixels <= 0:
         fov_pixels = None
 
@@ -166,10 +189,12 @@ def generate_psf(filter_string, detector=None, fov_pixels=None):
             else:
                 detector = "MIRIM"
 
+        # need to use getattr as these are not found by the IDE automatically.
+        mode: stpsf.JWInstrument
         if the_filter.instr == NIRCAM:
-            model = NIRCam()
+            model = getattr(stpsf, "NIRCam")()
         elif the_filter.instr == STAR_BUG_MIRI:
-            model = MIRI()
+            model = getattr(stpsf, "MIRI")()
 
         if model:
             model.filter = filter_string
@@ -180,8 +205,11 @@ def generate_psf(filter_string, detector=None, fov_pixels=None):
                 # fox_pixels is set to None and utilise sensible defaults.
                 # so basically bad docing in dependency causes this issue.
                 # noinspection PyTypeChecker
-                psf = model.calc_psf(fov_pixels=fov_pixels)["DET_SAMP"]
-                psf = fits.PrimaryHDU(data=psf.data, header=psf.header)
+                image_hdu: fits.ImageHDU | Any = (
+                    model.calc_psf(fov_pixels=fov_pixels)["DET_SAMP"])
+                psf: fits.PrimaryHDU = (
+                    fits.PrimaryHDU(
+                        data=image_hdu.data, header=image_hdu.header))
             except (KeyError, AttributeError, ValueError) as e:
                 p_error("\x1b[2KSomething went wrong with: %s %s with "
                         "error %s\n" % (filter_string, detector, str(e)))
@@ -197,7 +225,8 @@ def generate_psf(filter_string, detector=None, fov_pixels=None):
     return psf
 
 
-def generate_runscript(f_names, args="starbug2 "):
+def generate_runscript(
+        f_names: List[str], args: str = "starbug2 ") -> None:
     """
     generate the run script
 
@@ -207,17 +236,20 @@ def generate_runscript(f_names, args="starbug2 "):
     :type args: str
     :return: None
     """
-    runfile = "./run.sh"
-    fits_files = []
+    runfile: str = "./run.sh"
+    fits_files: List[fits.HDUList] = []
 
-    fp = open(runfile, "w")
+    fp: TextIO = open(runfile, "w")
     fp.write("#!/bin/bash\n")
     fp.write("CMDS=\"-vf\"\n")
     for f_name in f_names:
         if os.path.exists(f_name):
+            d_name: str
+            name: str
+            ext: str
             d_name, name, ext = split_file_name(f_name)
             if ext == FITS_EXTENSION:
-                fits_file = fits.open(f_name)
+                fits_file: fits.HDUList = fits.open(f_name)
                 fits_file[0].header[FILE_NAME] = f_name
                 fits_files.append(fits_file)
             else:
@@ -226,12 +258,13 @@ def generate_runscript(f_names, args="starbug2 "):
         else:
             p_error("file \x1b[1;31m%s\x1b[0m not found\n" % f_name)
 
-    sorted_exposures = sort_exposures(fits_files)
+    sorted_exposures: ExposureMapping = sort_exposures(fits_files)
 
-    for band, obs in sorted_exposures.items():
-        for ob, visits in obs.items():
-            for visit, destinations in visits.items():
-                for destination, exps in destinations.items():
+    # print exps.
+    for _, obs in sorted_exposures.items():
+        for _, visits in obs.items():
+            for _, destinations in visits.items():
+                for _, exps in destinations.items():
                     s = f"{args}${{CMDS}} -n{len(exps)} "
                     for exp in exps:
                         s += "%s " % exp[0].header[FILE_NAME]
@@ -243,36 +276,42 @@ def generate_runscript(f_names, args="starbug2 "):
     printf("->%s\n" % runfile)
 
 
-
-def calc_instrumental_zero_point(psf_table, ap_table, filter_string=None):
+# ABS DOES THIS METHOD NEED TO EXIST?
+def calc_instrumental_zero_point(
+        psf_table: Table,
+        ap_table: Table,
+        filter_string: Optional[str] = None) -> Tuple[np.array, np.array]:
     """
     calculates the zero points.
 
     :param psf_table: the psf table
+    :type psf_table: astropy.Table
     :param ap_table: the ap table
+    :type ap_table: astropy.Table
     :param filter_string: the filter string
+    :type filter_string: str
     :return: tuple of mean zero point and its standard deviation
-    :rtype: (float, float)
+    :rtype: (np.array, np.array)
     """
     if (filter_string is None
             and not (filter_string := psf_table.meta.get(FILTER))):
         p_error("Unable to determine filter, set with '--set FILTER=F000W'.\n")
-        return None
+        return None, None
     printf("Calculating instrumental zero point %s.\n" % filter_string)
 
-    m = GenericMatch(threshold=0.1, col_names=["RA", "DEC", filter_string])
-    matched = m([psf_table, ap_table], join_type="and")
-    dist = np.array(
+    matcher: GenericMatch = GenericMatch(
+        threshold=0.1, col_names=["RA", "DEC", filter_string])
+    matched: Table = matcher([psf_table, ap_table], join_type="and")
+    dist: np.array = np.array(
         (matched["%s_2" % filter_string]
          - matched["%s_1" % filter_string]).value)
-    instr_zp = np.nanmedian(dist)
-    zp_std = np.nanstd(dist)
+    instr_zp: np.array = np.nanmedian(dist)
+    zp_std: np.array = np.nanstd(dist)
     printf("-> zp=%.3f +/- %.2g\n" % (float(instr_zp), float(zp_std)))
     return instr_zp, zp_std
 
 
-
-def sort_exposures(catalogues):
+def sort_exposures(catalogues: List[fits.HDUList]) -> ExposureMapping:
     """
      Given a list of catalogue files, this will return the fitsHDULists as a
      series of nested dictionaries sorted by:
@@ -283,9 +322,11 @@ def sort_exposures(catalogues):
     >   DITHER (EXPOSURE)       -- These two have been switched
 
     :param catalogues: the catalogues to sort exposures of.
+    :type catalogues: list of fits.HDUList
     :return: a dictionary of sorted catalogues
+    :rtype: ExposureMapping
     """
-    out = {}
+    out: ExposureMapping = {}
     for cat in catalogues:
         info = exp_info(cat)
 
@@ -307,7 +348,7 @@ def sort_exposures(catalogues):
     return out
 
 
-def parse_mask(string, table):
+def parse_mask(string, table) -> np.ndarray:
     """
     Parse a commandline mask string to be passed into a matching routine
     Example: --mask=F444W!=nan
@@ -319,10 +360,11 @@ def parse_mask(string, table):
     :return: Boolean mask array to index into a table or array
     :rtype: np.ndarray
     """
-    mask = None
+    mask: Optional[np.ndarray] = None
 
-    for col_name in table.colnames: string=string.replace(
-        col_name, "table[\"%s\"]" % col_name)
+    col_name: str
+    for col_name in table.colnames:
+        string: str = string.replace(col_name, "table[\"%s\"]" % col_name)
 
     try:
         mask = eval(string)
@@ -336,22 +378,24 @@ def parse_mask(string, table):
     return mask
 
 
-def exp_info(hdu_list):
+def exp_info(hdu_list) -> Dict[str, int]:
     """
     Get the exposure information about a hdu list
-    INPUT:  HDUList or ImageHDU or BinTableHDU
-    RETURN: dictionary of relevant information:
-            >   EXPOSURE, DETECTOR, FILTER
+    :param hdu_list: HDUList or ImageHDU or BinTableHDU
+    :return: dictionary of relevant information
+    (filter, obs, visit exposure, detector)
+    :rtype dict(str, Optional[int])
     """
-    info={  FILTER : None,
-            OBS : 0,
-            VISIT : 0,
-            EXPOSURE : 0,
-            DETECTOR : None
-            }
+    info: Dict[str, int] = {
+        FILTER : None,
+        OBS : 0,
+        VISIT : 0,
+        EXPOSURE : 0,
+        DETECTOR : None
+    }
 
     if type(hdu_list) in (fits.ImageHDU, fits.BinTableHDU):
-        hdu_list=fits.HDUList(hdu_list)
+        hdu_list: fits.HDUList = fits.HDUList(hdu_list)
 
     for hdu in hdu_list:
         for key in info:

@@ -16,6 +16,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import time
 import os, sys, numpy as np
 from importlib import metadata
+from typing import Tuple, Dict, Optional, List, Union
+
 from astropy.table import Table, hstack, Column, MaskedColumn, vstack
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -25,7 +27,8 @@ from importlib.metadata import PackageNotFoundError
 from starbug2.constants import (
     CAT_NUM, DEFAULT_COLOUR, RA, DEC, TMP_OUT, FLUX, TMP_FITS,
     FITS_EXTENSION, FILTER, N_MIS_MATCHES, EXIT_SUCCESS, EXIT_FAIL,
-    REST_SUCCESS_CODE, DEG, ARCMIN, ARCSEC, PIX, NAXIS, C_TYPE)
+    REST_SUCCESS_CODE, DEG, ARCMIN, ARCSEC, PIX, NAXIS, C_TYPE, BUN_IT,
+    PIXAR_SR)
 from starbug2.filters import STAR_BUG_FILTERS
 
 # different print methods (why are we not using loggers?)
@@ -35,36 +38,48 @@ puts = lambda s:printf("%s\n"%s)
 s_bold = lambda s: "\x1b[1m%s\x1b[0m" % s
 warn = lambda s:p_error("%s%s" % (s_bold("Warning: "), s))
 
-def append_chars(s, n, c):
+
+def append_chars(s: str, n: int, c: str) -> str:
     """
     append n characters to s.
     :param s: the base string
+    :type s: str
     :param n: the number of times to add the character
+    :type n: int
     :param c: the characters to add.
+    :type c: str
     :return: the adjusted string.
+    :rtype: str
     """
     for _ in range(n):
         s += c
     return s
 
-def repeat_print(n, c):
+
+def repeat_print(n: int, c: str) -> None:
     """
     prints out a repeated string.
     NOTE: this seems unused.
 
     :param n: the number of times to repeat
+    :type n: int
     :param c: the string to repeat.
+    :type c: str
     :return: None
     """
     printf(append_chars("", n, c))
 
-def split_file_name(path):
+
+def split_file_name(path: str) -> Tuple[str, str, str]:
     """
     breaks apart a path into folder, filename and extension.
     :param path: the path to split
     :return: (folder, file name, extension)
     :rtype: tuple of str, str, str
     """
+    folder: str
+    file: str
+    ext: str
     folder, file = os.path.split(path)
     file_name, ext = os.path.splitext(file)
     if not folder:
@@ -84,36 +99,41 @@ class Loading(object):
     # loading bar message
     msg=""
 
-    def __init__(self, length, msg="", res=1):
+    def __init__(self, length: int, msg: Optional[str]="",
+                 res: Optional[int]=1) -> None:
         self.set_len(length)
         self.msg = msg
         self.start_time = time.time()
         self.res = int(res)
 
-    def set_len(self, length):
+
+    def set_len(self, length: int) -> None:
         self.length = abs(length)
 
-    def __call__(self):
+
+    def __call__(self) -> bool:
         self.n += 1
         return self.n <= self.length
 
-    def show(self):
-        dec= self.n / self.length
+
+    def show(self) -> None:
+        dec: int = int(self.n / self.length)
         ## only show once per self.res loads
         if (dec == 1) or (not self.n % self.res):
-            out = "%s|" % self.msg
+            out: str = "%s|" % self.msg
+            i: int
             for i in range(self.bar + 0):
                 out += ('=' if (i < (self.bar*dec)) else ' ')
             out += "|%.0f%%" % (100 * dec)
             
             if self.n:
-                etc = (
+                etc: float = (
                     (time.time() - self.start_time) *
                     (self.length - self.n) / self.n)
-                n_hrs = etc // 3600
-                n_minutes = (etc - (n_hrs * 3600)) // 60
-                n_secs = (etc - (n_hrs * 3600) - (n_minutes * 60))
-                stime = ""
+                n_hrs: float = etc // 3600
+                n_minutes: float = (etc - (n_hrs * 3600)) // 60
+                n_secs: float = (etc - (n_hrs * 3600) - (n_minutes * 60))
+                stime: str = ""
                 if n_hrs:
                     stime += "%dh" % int(n_hrs)
                 if n_minutes:
@@ -127,7 +147,8 @@ class Loading(object):
         if dec == 1:
             printf("\n")
 
-def combine_tables(base, tab):
+
+def combine_tables(base: Table, tab: Table) -> Table:
     """
     Is this the same as vstack?
     """
@@ -136,9 +157,16 @@ def combine_tables(base, tab):
     else:
         return vstack([base,tab])
 
+
 def export_region(
-        tab, colour=DEFAULT_COLOUR, scale_radius=1, region_radius=3, x_col=RA,
-        y_col=DEC, wcs=1, f_name=TMP_OUT):
+        tab: Table,
+        colour: Optional[str] = DEFAULT_COLOUR,
+        scale_radius: Optional[int] = 1,
+        region_radius: Optional[int] = 3,
+        x_col: Optional[str] = RA,
+        y_col: Optional[str] = DEC,
+        wcs: Optional[int] = 1,
+        f_name: Optional[str] = TMP_OUT) -> None:
     """
     A handy function to convert the detections in a DS9 region file
 
@@ -162,7 +190,7 @@ def export_region(
     """
 
     if x_col not in tab.colnames:
-        x_cols= list(filter(lambda s: 'x' == s[0], tab.colnames))
+        x_cols = list(filter(lambda s: 'x' == s[0], tab.colnames))
         if x_cols:
             x_col = x_cols[0]
             printf("Using '%s' as x position column\n" % s_bold(x_col))
@@ -175,14 +203,15 @@ def export_region(
             printf("Using '%s' as y position column\n" % s_bold(y_col))
             wcs = 0
 
-    if "flux" in tab.colnames and scale_radius: 
+    r: np.ndarray
+    if FLUX in tab.colnames and scale_radius:
         r = (-40.0 / np.log10(tab[FLUX]))
         r[r < region_radius] = region_radius
         r[np.isnan(r)] = region_radius
     else:
         r = np.ones(len(tab)) * region_radius
 
-    prefix = "fk5;" if wcs else ""
+    prefix: str = "fk5;" if wcs else ""
 
     with open(f_name, 'w') as fp:
         fp.write("global color=%s width=2\n" % colour)
@@ -194,7 +223,9 @@ def export_region(
             p_error("unable to open %f\n" % f_name)
 
 
-def translate_param_float(opt, opt_arg, set_opt, options, kill_option):
+def translate_param_float(
+        opt: str, opt_arg: str, set_opt: Dict[str, float],
+        options: int, kill_option: int) -> Tuple[int, Dict[str, float]]:
     """
     converts an opt param into a float.
     :param opt: the opt string
@@ -212,6 +243,8 @@ def translate_param_float(opt, opt_arg, set_opt, options, kill_option):
     """
     if opt in ("-s", "--set"):
         if '=' in opt_arg:
+            key: str
+            val: float
             key, val = opt_arg.split('=')
             try:
                 val = float(val)
@@ -223,7 +256,8 @@ def translate_param_float(opt, opt_arg, set_opt, options, kill_option):
             options |= kill_option
     return options, set_opt
 
-def parse_unit(raw):
+
+def parse_unit(raw: str) -> Tuple[float or None, int or None]:
     # noinspection SpellCheckingInspection
     """
     Take a value with the ability to be cast into several units and parse it
@@ -241,13 +275,13 @@ def parse_unit(raw):
     :rtype float
     """
 
-    recognised = {
+    recognised: Dict[str, int] = {
         'p': PIX,
         's': ARCSEC,
         'm': ARCMIN,
         'd': DEG}
-    value = None
-    unit = None
+    value: float or None = None
+    unit: int or None = None
     if raw:
         try: 
             value = float(raw)
@@ -260,7 +294,8 @@ def parse_unit(raw):
                 p_error("unable to parse '%s'\n" % raw)
     return value, unit
 
-def tab2array(tab, col_names=None):
+
+def tab2array(tab: Table, col_names: Optional[List[str]]=None) -> np.ndarray:
     # noinspection SpellCheckingInspection
     """
     Returns the contents of the table as a normal 2D numpy array
@@ -278,12 +313,12 @@ def tab2array(tab, col_names=None):
     :rtype: numpy.ndarray
     """
     if not col_names:
-        col_names=tab.colnames
+        col_names = tab.colnames
     else:
-        col_names=remove_duplicates(col_names)
+        col_names = remove_duplicates(col_names)
     return np.array(tab[col_names].as_array().tolist())
 
-def collapse_header(header):
+def collapse_header(header) -> fits.Header:
     # noinspection SpellCheckingInspection
     """
     Convert a dictionary to a Header.
@@ -296,7 +331,9 @@ def collapse_header(header):
     :return: Collapsed Header
     :rtype fits.Header
     """
-    out = fits.Header()
+    out: fits.Header = fits.Header()
+    key: str
+    value: float
     for key, value in header.items():
         if len(key) > 8:
             out["comment"] = ":".join([key, str(value)])
@@ -305,7 +342,8 @@ def collapse_header(header):
     return out
 
 
-def export_table(table, f_name=None, header=None):
+def export_table(table: Table, f_name: Optional[str]=None,
+                 header: Optional[fits.Header]=None) -> None:
     """
     Export table with correct dtypes
 
@@ -317,7 +355,7 @@ def export_table(table, f_name=None, header=None):
     :type header: dict, fits.Header
     :return: None
     """
-    dtypes = []
+    dtypes: List[any] = []
     if CAT_NUM not in table.colnames:
         table = reindex(table)
     for name in table.colnames:
@@ -334,7 +372,7 @@ def export_table(table, f_name=None, header=None):
     fits.BinTableHDU(data=table, header=header).writeto(
         f_name, overwrite=True, output_verify="fix")
 
-def import_table(f_name, verbose=0):
+def import_table(f_name: str, verbose: bool or int = 0) -> Table or None:
     """
     Slight tweak to `astropy.table.Table.read`. This makes sure that the
     proper column dtypes are maintained
@@ -342,12 +380,12 @@ def import_table(f_name, verbose=0):
     :param f_name: Path to binary fits table file
     :type f_name: str
     :param verbose: Display verbose information
-    :type verbose: boolean
+    :type verbose: boolean or int
     :return: Loading table
     :rtype: atrophy.Table
     """
 
-    tab = None
+    tab: Table or None = None
     if os.path.exists(f_name):
         if os.path.splitext(f_name)[1] == FITS_EXTENSION:
             tab = fill_nan(Table.read(f_name, format="fits"))
@@ -363,7 +401,8 @@ def import_table(f_name, verbose=0):
         p_error("Unable to locate \"%s\"\n" % f_name)
     return tab
 
-def fill_nan(table):
+
+def fill_nan(table: Table) -> Table:
     """
     Fill empty values in table with nans. This is useful for tables that
     have columns that don't support nans (e.g. starbug flag). These will be
@@ -374,16 +413,23 @@ def fill_nan(table):
     :return: Input table with masked vales filled in as nan
     :rtype: atrophy.table
     """
+    i: int
+    name: str
+    fill_val: int | float
     for i, name in enumerate(table.colnames):
-        match table.dtype[i].kind:
-            case 'f': fill_val=np.nan
-            case 'i' | 'u': fill_val=0
-            case _: fill_val=np.nan
+        match table[name].dtype.kind:
+            case 'f':
+                fill_val = np.nan
+            case 'i' | 'u':
+                fill_val = 0
+            case _:
+                fill_val = np.nan
         if type(table[name]) == MaskedColumn:
-            table[name]=table[name].filled(fill_val)
+            table[name] = table[name].filled(fill_val)
     return table
 
-def find_col_names(tab, basename):
+
+def find_col_names(tab: Table, basename: str) -> List[str]:
     # noinspection SpellCheckingInspection
     """
     Find substring (basename) within the table colnames. Searches for
@@ -401,7 +447,9 @@ def find_col_names(tab, basename):
         col_name for col_name in tab.colnames
             if col_name[:len(basename)] == basename]
 
-def combine_file_names(f_names, n_mismatch=N_MIS_MATCHES):
+
+def combine_file_names(
+        f_names: List[str], n_mismatch: int=N_MIS_MATCHES) -> str or None:
     """
     when matching catalogues, combines the file names into an appropriate
     combination of all the inputs.
@@ -414,13 +462,16 @@ def combine_file_names(f_names, n_mismatch=N_MIS_MATCHES):
     :rtype: str
     """
 
-    trys = 0
-    f_name = ""
+    trys: int = 0
+    f_name: str = ""
+    d_name: str
+    ext : str
     d_name, _, ext = split_file_name(f_names[0])
-    f_names = [split_file_name(name)[1] for name in f_names]
-    
+    f_names: List[str] = [split_file_name(name)[1] for name in f_names]
+
+    i: int
     for i in range(len(f_names[0])):
-        chars = [name[i] for name in f_names if len(name) > i]
+        chars: List[str] = [name[i] for name in f_names if len(name) > i]
         if len(set(chars)) == 1:
             f_name += chars[0]
         else: 
@@ -433,7 +484,8 @@ def combine_file_names(f_names, n_mismatch=N_MIS_MATCHES):
     return "%s/%s%s" % (d_name, f_name, ext)
 
 
-def h_cascade(tables, col_names=None):
+def h_cascade(
+        tables: List[Table], col_names: Optional[List[str]] = None) -> Table:
     # noinspection SpellCheckingInspection
     """
     Similar use as hstack Except rather than adding a full new column,
@@ -447,26 +499,27 @@ def h_cascade(tables, col_names=None):
     :return: Single combined table
     :rtype: atrophy.Table
     """
-    tab = fill_nan(hstack(tables))
+    tab: Table = fill_nan(hstack(tables))
 
     if not col_names:
         col_names = tables[0].colnames
     for name in col_names:
-        cols = find_col_names(tab, name)
+        cols: List[str] = find_col_names(tab, name)
         if not cols:
             continue
-        move = 1
+        move: int = 1
         while move:
             move = 0
+            n: int
             for n in range(len(cols) - 1, 0, -1):
                 ##everything that has a value
-                curr_mask = np.invert(np.isnan(tab[cols[n]]))
+                curr_mask: np.ndarray = np.invert(np.isnan(tab[cols[n]]))
 
                 ##everything empty in left neighbouring column
-                left_mask = np.isnan(tab[cols[n - 1]])
+                left_mask: np.ndarray = np.isnan(tab[cols[n - 1]])
 
                 ##cur has value and left is empty
-                mask = np.logical_and(curr_mask, left_mask)
+                mask: np.ndarray = np.logical_and(curr_mask, left_mask)
 
                 tab[cols[n]] = MaskedColumn(tab[cols[n]])
                 tab[cols[n - 1]][mask] = tab[cols[n]][mask]
@@ -478,28 +531,35 @@ def h_cascade(tables, col_names=None):
             tab.rename_columns(
                 cols, ["%s_%d" % (name, i + 1) for i in range(len(cols))])
 
+    name: str
     for name in tab.colnames:
-        col = tab[name]
+        col: Table = tab[name]
 
         # Use getattr to safely check for n_bad without crashing
-        n_bad = getattr(col.info, 'n_bad', 0)
+        n_bad: int = getattr(col.info, 'n_bad', 0)
 
         if n_bad == len(col):
             tab.remove_column(name)
     return tab
 
-def ext_names(hdu_list):
+
+def ext_names(hdu_list: fits.HDUList) -> List[str]:
     """
     Return list of HDU extension names
 
     :param hdu_list: fits hdu_list to operate on
-    :type hdu_list: HDUList
+    :type hdu_list: fits.HDUList
     :return: List of extension names
     :rtype: list of str
     """
+    ext: fits.PrimaryHDU or fits.ImageHDU
     return list(ext.name for ext in hdu_list)
 
-def flux2mag(flux, flux_err=None, zp=1):
+
+def flux2mag(
+        flux: List[float] or np.array,
+        flux_err: Optional[List[float]] = None,
+        zp: float=1.0) -> Tuple[np.ndarray, np.ndarray]:
     """
     Convert flux to magnitude in an arbitrary system
 
@@ -510,7 +570,7 @@ def flux2mag(flux, flux_err=None, zp=1):
     :param zp: Zero point flux value
     :type zp: float
     :return: tuple of (Source magnitudes, Magnitude errors )
-    :rtype: tuple (float, float)
+    :rtype: tuple (ndarray, ndarray)
     """
 
     ## sort any type issues in FLUX
@@ -527,20 +587,22 @@ def flux2mag(flux, flux_err=None, zp=1):
     if not flux_err.shape:
         flux_err = np.array([flux_err])
 
-    mag = np.full(len(flux), np.nan)
-    mag_err = np.full(len(flux), np.nan)
+    mag: np.ndarray = np.full(len(flux), np.nan)
+    mag_err: np.ndarray = np.full(len(flux), np.nan)
 
-    mask_flux = (flux > 0)
-    mask_f_err = (flux_err >= 0)
-    mask= np.logical_and(mask_flux, mask_f_err)
+    mask_flux: np.ndarray = (flux > 0)
+    mask_f_err: np.ndarray = (flux_err >= 0)
+    mask: np.ndarray = np.logical_and(mask_flux, mask_f_err)
 
-    mag[mask_flux]= -2.5 * np.log10(flux[mask_flux] / zp)
+    mag[mask_flux] = -2.5 * np.log10(flux[mask_flux] / zp)
     mag_err[mask] = 2.5 * np.log10(1.0 + (flux_err[mask] / flux[mask]))
 
     return mag, mag_err
 
 
-def flux_2_ab_mag(flux, flux_err=None):
+def flux_2_ab_mag(
+        flux: float, flux_err: Optional[float] = None) -> (
+            Tuple[np.ndarray, np.ndarray]):
     """
     Convert flux to AB magnitudes
 
@@ -549,12 +611,12 @@ def flux_2_ab_mag(flux, flux_err=None):
     :param flux_err: Source flux error values if known.
     :type flux_err: float
     :return: Magnitude in AB system
-    :rtype: float
+    :rtype: tuple[ndarray, ndarray]
     """
     return flux2mag(flux, flux_err, zp=3631.0)
 
 
-def wget(address, f_name=None):
+def wget(address: str, f_name: Optional[str] = None) -> int:
     """
     A really simple "implementation" of wget.
 
@@ -565,7 +627,7 @@ def wget(address, f_name=None):
     :return: 0 on success, 1 on failure
     :rtype int
     """
-    r = requests.get(address)
+    r: requests.Response = requests.get(address)
     if r.status_code == REST_SUCCESS_CODE:
         f_name = f_name if f_name else os.path.basename(address)
         with open(f_name, "wb") as fp:
@@ -577,7 +639,7 @@ def wget(address, f_name=None):
         return EXIT_FAIL
 
 
-def reindex(table):
+def reindex(table: Table) -> Table:
     """
     Add indexes into a table
 
@@ -594,7 +656,8 @@ def reindex(table):
     table.add_column(column, index=0)
     return table
 
-def colour_index(table, keys):
+
+def colour_index(table: Table, keys: List[str]) -> Table:
     """
     Allow table indexing with A-B
 
@@ -605,32 +668,38 @@ def colour_index(table, keys):
     :rtype: atrophy.Table
     """
 
-    out = Table()
+    out: Table = Table()
+    key: str
     for key in keys:
         if key in table.colnames:
             out.add_column(table[key])
         elif '-' in key:
+            a: str
+            b: str
             a, b = key.split('-')
             out.add_column(table[a] - table[b], name=key)
     return out
 
-def get_mj_ysr2jy_scale_factor(ext):
+
+def get_mj_ysr2jy_scale_factor(
+        ext: fits.PrimaryHDU or fits.ImageHDU or fits.BinTableHDU) -> float:
     """
     Find the unit scale factor to convert an image from MJy/sr to Jy
     Header file must contain the keyword "PIXAR_SR"
 
     :param ext: Fits extension with header file
-    :type ext: PrimaryHDU, ImageHDU, BinaryTableHDU
+    :type ext: PrimaryHDU, ImageHDU, BinTableHDU
     :return: Value of scaling factor from the header
     :rtype float
     """
-    scale_factor = 1
-    if ext.header.get("BUNIT") == "MJy/sr":
-        if "PIXAR_SR" in ext.header:
-            scale_factor = 1e6 * float(ext.header["PIXAR_SR"])
+    scale_factor: float = 1.0
+    if ext.header.get(BUN_IT) == "MJy/sr":
+        if PIXAR_SR in ext.header:
+            scale_factor = 1e6 * float(ext.header[PIXAR_SR])
     return scale_factor
 
-def find_filter(table):
+
+def find_filter(table: Table) -> str or None:
     """
     Attempt to identify filter for a table from the metadata or column names
 
@@ -640,25 +709,27 @@ def find_filter(table):
     :rtype: str
     """
     # 1. Check metadata first and return immediately if found
+    filter_string: str
     if filter_string := table.meta.get(FILTER):
         return filter_string
 
     # 2. Fall back to checking column names
-    matching_filters = set(table.colnames) & set(STAR_BUG_FILTERS.keys())
+    matching_filters: set[str] = (
+        set(table.colnames) & set(STAR_BUG_FILTERS.keys()))
     if matching_filters:
         return matching_filters.pop()
 
     return None
 
 
-def get_version():
+def get_version() -> str:
     """
     Try to determine the installed starbug version on the system
 
     :return: the StarBugII version string
     :rtype str
     """
-
+    version: str
     try:
         version = metadata.version("starbug2")
     except (AttributeError, TypeError, PackageNotFoundError):
@@ -666,7 +737,8 @@ def get_version():
         version = "UNKNOWN"
     return version
 
-def remove_duplicates(seq):
+
+def remove_duplicates[T](seq: List[T]) -> List[T]:
     """
      Take a sequence and rm its duplicates while preserving the order
     of the input
@@ -679,7 +751,11 @@ def remove_duplicates(seq):
     seen = set()
     return [x for x in seq if not (x in seen or seen.add(x))]
 
-def crop_hdu(hdu, x_limit=None, y_limit=None):
+
+def crop_hdu(
+        hdu: fits.HDUList,
+        x_limit: Tuple[int, int] | None = None,
+        y_limit: Tuple[int, int] | None = None) -> fits.HDUList | None:
     """
     Crop an image with multiple extensions. Retaining the extensions
 
@@ -692,25 +768,28 @@ def crop_hdu(hdu, x_limit=None, y_limit=None):
     :return: The full HDUList that has been spatially cropped
     :rtype fits.HDUList
     """
-    if x_limit is None or y_limit is None: return None
+    if x_limit is None or y_limit is None:
+        return None
 
+    ext: Union[fits.PrimaryHDU, fits.ImageHDU, fits.BinTableHDU,
+               fits.GroupsHDU]
     for ext in hdu:
         if type(ext) not in (fits.PrimaryHDU, fits.ImageHDU):
             continue
         if not ext.header[NAXIS]:
             continue
         
-        ctype = ext.header.get(C_TYPE)
+        ctype: str = ext.header.get(C_TYPE)
         ext.header[C_TYPE] = "%s-SIP" % ctype
 
-        w = WCS(ext.header, relax=False)
+        w: WCS = WCS(ext.header, relax=False)
         ext.data = ext.data[x_limit[0]:x_limit[1], y_limit[0]:y_limit[1]]
         ext.header.update(
             w[x_limit[0]:x_limit[1], y_limit[0]:y_limit[1]].to_header())
     return hdu
 
 
-def usage(docstring, verbose=0):
+def usage(docstring: str, verbose: bool or int=0) -> int:
     """
     outputs the usage.
     :param docstring: the doc string to output
@@ -723,7 +802,8 @@ def usage(docstring, verbose=0):
         p_error("%s\n" % docstring.split('\n')[1])
     return 1
 
-def parse_cmd(args):
+
+def parse_cmd(args: List[str]) -> Tuple[str, List[str]]:
     """
     parses an args command.
     :param args: the args array.
@@ -732,7 +812,6 @@ def parse_cmd(args):
     """
     cmd = os.path.basename(args[0])
     return cmd, args[1:]
-
 
 
 if __name__ == "__main__":
