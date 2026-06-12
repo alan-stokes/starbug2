@@ -88,7 +88,7 @@ from starbug2.constants import (
 from starbug2.utils import (
     p_error, printf, warn, split_file_name, export_region,
     combine_file_names, export_table, puts, parse_cmd,
-    usage)
+    usage, get_version)
 from starbug2 import param
 from astropy.table import Table
 
@@ -122,6 +122,9 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> int:
 
     # ABS why are we only importing these here?
     from starbug2.misc import init_starbug, generate_psf, generate_runscript
+
+    if config.show_version:
+        printf(get_version())
 
     if config.show_help:
         usage(__doc__, verbose=config.verbose_logs)
