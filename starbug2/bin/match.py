@@ -41,136 +41,52 @@ usage: starbug2-match [-BCGfhvX] [-e column] [-m mask] [-o output]
        $~ starbug2-match -sMATCH_THRESH=0.2 -sBRIDGE_COL=F444W -Bo out.fits
                          F*W.fits
 """
-import os, sys, getopt
-from typing import Final, Any
+import os, sys
+from typing import Any
 
 import numpy as np
 from astropy.table import Table, vstack
-from starbug2 import utils, param
+from astropy.units import Quantity
+from starbug2 import utils
 from starbug2.constants import (
-    PARAM_FILE_TAG, EXIT_EARLY, EXIT_SUCCESS, EXIT_FAIL, VERBOSE_TAG,
-    CAT_NUM, MATCH_THRESH, FILTER, NEXP_THRESH, OUTPUT, STAR_BUG_MIRI, NIRCAM,
-    match_cols, RA, DEC, FLAG, BRIDGE_COL, NUM, E_FLUX)
+    EXIT_EARLY, EXIT_SUCCESS, EXIT_FAIL, CAT_NUM, FILTER, STAR_BUG_MIRI,
+    NIRCAM, MATCH_COLS, RA, DEC, FLAG, NUM)
 from starbug2.filters import STAR_BUG_FILTERS
 from starbug2.matching.band_match import BandMatch
 from starbug2.matching.cascade_match import CascadeMatch
 from starbug2.matching.exact_value_match import ExactValueMatch
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.misc import parse_mask
+from starbug2.star_bug_config import StarBugMainConfig
 from starbug2.utils import parse_cmd, usage
 
-# Random bit trackers.
-VERBOSE: Final[int] = 0x01
-KILL_PROC: Final[int] = 0x02
-STOP_PROC: Final[int] = 0x04
-SHOW_HELP: Final[int] = 0x08
 
-BAND_MATCH: Final[int] = 0x10
-BAND_DEPR: Final[int] = 0x20
-GENERIC_MATCH: Final[int] = 0x40
-CASCADE_MATCH: Final[int] = 0x80
-EXACT_MATCH: Final[int] = 0x100
-
-EXP_FULL: Final[int] = 0x1000
-
-# Unique param tags
-# noinspection SpellCheckingInspection
-ERR_COL: Final[str] = "ERRORCOLUMN"
-# noinspection SpellCheckingInspection
-MASK_EVAL: Final[str] = "MASKEVAL"
-MATCH_COLS: Final[str] = "MATCH_COLS"
-
-
-def match_parse_m_argv(
-        argv: list[str]) -> tuple[int, dict[str, Any], list[str]]:
+def starbug_parse_argv(argv: list[str]) -> StarBugMainConfig:
     """
-    Parses CLI command arguments for catalogue matching operations.
+    Organise the sys argv line into options, values and arguments
 
-    :param argv: List of system arguments passed via the terminal execution
-                 string
-    :type argv: list of str
-    :return: A parsed sequence consisting of options_bit_mask,
-            configuration_dict, and raw arguments
-    :rtype: tuple
+    :param argv: the arguments
+    :return: the config class
+    :rtype: StarBugMainConfig
     """
-    options: int = 0
-    set_opt: dict[str, float | int | str] = {}
+    config: StarBugMainConfig = StarBugMainConfig()
+    short_definition: str
+    long_definition: list[str]
+    short_definition, long_definition = (
+        config.generate_match_get_opt_definitions())
 
-    cmd: list[str]
-    cmd, argv = parse_cmd(argv)
-
-    opts: list[tuple[str, str]]
-    args: list[str]
-    opts, args = getopt.gnu_getopt(
-        argv, "BCfGhvXe:m:o:p:s:",
-        ["band", "cascade", "dither", "exact", "full", "generic", "help",
-         VERBOSE_TAG.lower(), "error=", "mask=", "output=", "param=", "set=",
-         "band-depr"]
-    )
-
-    for opt, opt_arg in opts:
-        if opt in ("-h", "--help"):
-            options |= (SHOW_HELP | STOP_PROC)
-        if opt in ("-v", "--verbose"):
-            options |= VERBOSE
-        if opt in ("-o", "--output"):
-            set_opt[OUTPUT] = opt_arg
-        if opt in ("-p", "--param"):
-            set_opt[PARAM_FILE_TAG] = opt_arg
-
-        if opt in ("-e", "--error"):
-            set_opt[ERR_COL] = opt_arg
-        if opt in ("-f", "--full"):
-            options |= EXP_FULL
-        if opt in ("-m", "--mask"):
-            set_opt[MASK_EVAL] = opt_arg
-        if opt in ("-s", "--set"):
-            if '=' in opt_arg:
-                key, val_raw = opt_arg.split('=')
-                key: str
-                val_raw: str
-                val: float | str
-                val = val_raw
-                try:
-                    val = float(val_raw)
-                except (ValueError, AttributeError, NameError):
-                    pass
-                set_opt[key] = val
-            else:
-                utils.p_error(
-                    "unable to set parameter, use syntax -s KEY=VALUE\n")
-
-        if opt in ("-B", "--band"):
-            options |= BAND_MATCH
-        if opt in ("-C", "--cascade"):
-            options |= CASCADE_MATCH
-        if opt in ("-G", "--generic"):
-            options |= GENERIC_MATCH
-        if opt in ("-X", "--exact"):
-            options |= EXACT_MATCH
-        if opt == "--band-depr":
-            options |= BAND_DEPR
-    return options, set_opt, args
-
-
-def match_one_time_runs(
-        options: int, set_opt: dict[str, float | int | str]) -> int:
-    """
-    Executes immediate utility operations such as version checks or help menus.
-    """
-    if options & VERBOSE:
-        set_opt[VERBOSE_TAG] = 1
-    if options & SHOW_HELP:
-        usage(__doc__, verbose=bool(options & VERBOSE))
-        return EXIT_EARLY
-    return EXIT_SUCCESS
+    _, argv = parse_cmd(argv)
+    config.populate_params(
+        argv, short_definition, long_definition, config.MATCH_FLAG_MAP)
+    return config
 
 
 def match_full_band_match(
         tables: list[Table],
-        parameters: dict[str, float | int | str]) -> Table:
+        d_threshold: np.ndarray, bridge_col: str) -> Table:
     """
-    Handles fallback deprecated band-matching configurations across diverse detectors.
+    Handles fallback deprecated band-matching configurations across diverse
+     detectors.
     """
     utils.p_error("THIS NEEDS A TEST\n")
     to_match: dict[int, list[Table]] = {
@@ -178,7 +94,6 @@ def match_full_band_match(
         STAR_BUG_MIRI: []
     }
     _col_names: list[str] = [RA, DEC, FLAG]
-    d_threshold: float = float(parameters.get(MATCH_THRESH))
     band_matcher: BandMatch = BandMatch(threshold=d_threshold)
 
     for tab in tables:
@@ -198,11 +113,11 @@ def match_full_band_match(
         # noinspection SpellCheckingInspection
         load: utils.Loading = utils.Loading(
             len(miri_matched),
-            msg="Combining NIRCAM-MIRI(%.2g\")" % d_threshold
+            msg=f"Combining NIRCAM-MIRI({np.array2string(d_threshold)}g\")"
         )
 
         mask: np.ndarray
-        if bridge_col := parameters.get(BRIDGE_COL):
+        if bridge_col:
             mask = np.isnan(nir_cam_matched[bridge_col])
             utils.printf("-> bridging catalogues with %s\n" % bridge_col)
         else:
@@ -224,108 +139,107 @@ def match_main(argv: list[str]) -> int:
     Main runtime processing loop for executing cross-catalogue astronomical
     source coordinate matching.
     """
-    options: int
-    set_opt: dict[str, float | int | str]
-    args: list[str]
-    options, set_opt, args = match_parse_m_argv(argv)
+    config: StarBugMainConfig = starbug_parse_argv(argv)
+    exp_full: bool = False
 
-    if options or set_opt:
-        if (exit_code := match_one_time_runs(options, set_opt)) != EXIT_SUCCESS:
-            return exit_code
+    if config.show_match_help:
+        usage(__doc__, verbose=config.verbose_logs) # noqa
+        return EXIT_SUCCESS
 
-    p_file: str | None = set_opt.get(PARAM_FILE_TAG)
+    p_file: str | None = config.param_file
     if not p_file:
-        p_file = (
+        config.param_file = (
             "./starbug.param" if os.path.exists("./starbug.param") else None)
 
-    parameters: dict[str, float | int | str] = param.load_params(p_file)
-    parameters.update(set_opt)
-
     tables: list[Table] = []
-    for f_name in args:
+    for f_name in config.fits_table:
         t: Table | None = utils.import_table(f_name, verbose=True)
         if t is not None:
             tables.append(t)
 
-    masks: list[np.ndarray] | None = None
-    if raw := parameters.get(MASK_EVAL):
+    masks: list[np.ndarray | None] = []
+    if raw := config.mask_eval:
         masks = [parse_mask(raw, t) for t in tables]
         for m in masks:
             try:
-                print(m, sum(m), len(m))
+                print(str(m), sum(m), len(m)) # noqa
             except (TypeError, NameError, ImportError):
-                print(m)
+                print(m) # noqa
 
     if len(tables) > 1:
-        col_names: list[str] = list(match_cols)
-        col_names += [
-            name for name in str(parameters[MATCH_COLS]).split()
-            if name not in col_names
-        ]
-        d_threshold: float | int | str | np.ndarray = parameters[MATCH_THRESH]
-        error_column: str = (
-            str(set_opt.get(ERR_COL) if set_opt.get(ERR_COL) else E_FLUX))
+        col_names: list[str] = list(MATCH_COLS)
 
-        av: Table
-        full: Table| None = None
+        if config.extra_match_columns is not None:
+            col_names += [
+                name for name in config.extra_match_columns.split()
+                if name not in col_names
+            ]
+        d_threshold: Quantity = config.match_threshold_arc_sec_as_an_arc_sec
+        error_column: str = config.error_col
+
+        average_table: Table
+        full: Table | None = None
         matcher: GenericMatch
 
-        if options & BAND_DEPR:
-            av = match_full_band_match(tables, parameters)
-            options &= ~EXP_FULL
+        if config.band_deprecated:
+            average_table = match_full_band_match(
+                tables, config.match_threshold_arc_sec_as_an_array,
+                config.bridge_band_column)
+            exp_full = True
         else:
-            if options & BAND_MATCH:
-                if isinstance(d_threshold, str):
-                    d_threshold = np.array(
-                        parameters[MATCH_THRESH].split(','), float)
+            if config.do_band_processing:
+                band_threshold: np.ndarray = (
+                    config.match_threshold_arc_sec_as_an_array)
 
                 filter_string: list[str]
-                if parameters[FILTER] != "":
-                    filter_string = str(parameters[FILTER]).split(',')
+                if config.custom_filter != "":
+                    filter_string = str(config.custom_filter).split(',')
                 else:
                     filter_string = utils.remove_duplicates(
                         [utils.find_filter(t) for t in tables])
 
                 matcher = BandMatch(
-                    threshold=d_threshold, fltr=filter_string,
-                    verbose=parameters[VERBOSE_TAG]
+                    threshold=band_threshold, fltr=filter_string,
+                    verbose=config.verbose_logs
                 )
-            elif options & CASCADE_MATCH:
+            elif config.do_cascade:
                 matcher = CascadeMatch(
                     threshold=d_threshold, colnames=col_names,
-                    verbose=parameters[VERBOSE_TAG]
+                    verbose=config.verbose_logs
                 )
-            elif options & GENERIC_MATCH:
+            elif config.generic_mode:
                 matcher = GenericMatch(
                     threshold=d_threshold, col_names=col_names,
-                    verbose=parameters[VERBOSE_TAG]
+                    verbose=config.verbose_logs
                 )
-            elif options & EXACT_MATCH:
+            elif config.exact_match:
                 matcher = ExactValueMatch(
                     value=CAT_NUM, colnames=None,
-                    verbose=parameters[VERBOSE_TAG]
+                    verbose=config.verbose_logs
                 )
             else:
                 matcher = GenericMatch(
-                    threshold=d_threshold, verbose=parameters[VERBOSE_TAG]
+                    threshold=d_threshold, verbose=config.verbose_logs
                 )
-                options |= EXP_FULL
+                exp_full = True
 
-            if options & VERBOSE:
+            if config.verbose_logs:
                 print("\n%s" % matcher)
 
             full = matcher.match(tables, join_type="or", mask=masks)
-            av = matcher.finish_matching(
+            average_table = matcher.finish_matching(
                 full,
-                num_thresh=parameters[NEXP_THRESH],
-                zp_mag=parameters["ZP_MAG"],
+                num_thresh=config.exposure_count_threshold,
+                zp_mag=config.zero_point_magnitude,
                 error_column=error_column
             )
 
-        output: str | None = parameters.get(OUTPUT)
+        output: str | None = config.output_file
         if output is None or output == '.':
             output = utils.combine_file_names(
-                [name for name in args], n_mismatch=100)
+                [name for name in config.fits_images], n_mismatch=100)
+            if output is None:
+                return EXIT_FAIL
 
         d_name: str
         f_name: str
@@ -333,14 +247,15 @@ def match_main(argv: list[str]) -> int:
         d_name, f_name, ext = utils.split_file_name(output)
 
         suffix: str = ""
-        if options & EXP_FULL:
+        if exp_full and full is not None:
             utils.export_table(
                 full, f_name="%s/%sfull.fits" % (d_name, f_name))
             utils.printf("-> %s/%sfull.fits\n" % (d_name, f_name))
             suffix = "match"
 
-        if av:
-            utils.export_table(av, "%s/%s%s.fits" % (d_name, f_name, suffix))
+        if average_table:
+            utils.export_table(
+                average_table, "%s/%s%s.fits" % (d_name, f_name, suffix))
             utils.printf("-> %s/%s%s.fits\n" % (d_name, f_name, suffix))
 
         return EXIT_SUCCESS

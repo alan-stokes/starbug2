@@ -72,7 +72,7 @@ class StarBugInterface(ABC):
 
     @abstractmethod
     def prepare_image_arrays(self) -> (
-        Tuple[np.array, np.array, np.array or None, np.array]):
+        Tuple[np.ndarray , np.ndarray, np.ndarray | None, np.ndarray]):
         """
         Make a copy of the original image, and prepare the other image arrays
 
@@ -157,32 +157,6 @@ class StarBugInterface(ABC):
         """
         pass
 
-    @abstractmethod
-    def artificial_stars(self) -> int:
-        # noinspection SpellCheckingInspection
-        """
-        Execute the automated artificial star testing and completeness
-        pipeline.
-
-        This routine injects synthetic point spread function (PSF) source
-        profiles into the active observation framework across multiple
-        configuration slices to empirically estimate target detection
-        completeness thresholds, stellar recovery fractions, and photometric
-        parameter variability.
-
-        . note::
-            * Flux calculations are normalized automatically into Jansky units
-              if the primary FITS image headers track surface brightness
-              profiles in Mega-Janskys per steradian (MJy/sr).
-            * Background matrices must be explicitly calculated and bound to
-              `self.background.data` prior to execution to handle
-              background-subtracted PSF fitting accurately.
-
-        :return: Execution status code (0 for clean completion).
-        :rtype: int
-        """
-        pass
-
 
     @property
     @abstractmethod
@@ -225,12 +199,6 @@ class StarBugInterface(ABC):
         :return: the main image array.
         :rtype: HDUList
         """
-        pass
-
-
-    @property
-    @abstractmethod
-    def options(self) -> dict[str, int | float | str]:
         pass
 
 

@@ -32,7 +32,7 @@ class BackGroundEstimateRoutine(BackgroundBase):
             box_size: int = 2, full_width_half_max: float = 2.0,
             sig_sky: float = 2.0, bgd_r: float = -1.0,
             profile_scale: float = 1.0, profile_slope: float = 0.5,
-            verbose: bool or int = 0,
+            verbose: bool | int = 0,
             bgd: Optional[Background2D] = None) -> None:
         """
         Diffuse background emission estimator run by starbug.
@@ -43,29 +43,30 @@ class BackGroundEstimateRoutine(BackgroundBase):
         :param box_size: Size of the kernel to pass over the image in
                          un-sharp masking
         :type box_size: int
-        :param full_width_half_max: Source full width half maximum in the image
-        :type full_width_half_max: float
-        :param sig_sky: Sigma threshold for background clipping
-        :type sig_sky: float
-        :param bgd_r: Fixed aperture mask radius around each source
-        :type bgd_r: float
+        :param full_width_half_max: Source full width half maximum in the
+                                    image.
+        :type full_width_half_max: float.
+        :param sig_sky: Sigma threshold for background clipping.
+        :type sig_sky: float.
+        :param bgd_r: Fixed aperture mask radius around each source.
+        :type bgd_r: float.
         :param profile_scale: Scaling factor for the aperture mask radius
-                              profile
-        :type profile_scale: float
-        :param profile_slope: Slope of the aperture mask radius profile
-        :type profile_slope: float
-        :param verbose: Set whether to print verbose output information
-        :type verbose: bool
+                              profile.
+        :type profile_scale: float.
+        :param profile_slope: Slope of the aperture mask radius profile.
+        :type profile_slope: float.
+        :param verbose: Set whether to print verbose output information.
+        :type verbose: bool.
         """
-        self._source_list: Table = source_list
+        self._source_list: Table | None = source_list
         self._box_size: int = box_size
         self._full_width_half_max: float = full_width_half_max
         self._sig_sky: float = sig_sky
         self._bgd_r: float = bgd_r
         self._a: float = profile_scale
         self._b: float = profile_slope
-        self._verbose: int or bool = verbose
-        self._background: Background2D = bgd
+        self._verbose: int | bool = verbose
+        self._background: Background2D | None = bgd
         super().__init__()
 
     def calc_peaks(self, im: np.ndarray) -> np.ndarray:
@@ -75,11 +76,13 @@ class BackGroundEstimateRoutine(BackgroundBase):
         :return: peaks
         :rtype: np.array
         """
+
+        assert self._source_list is not None
         x: Table = self._source_list[X_CENTROID]
         y: Table = self._source_list[Y_CENTROID]
         apertures: List[ApertureMask] = CircularAperture(
             np.array((x,y)).T, 2).to_mask()
-        peaks: np.array = np.full(len(x), np.nan)
+        peaks: np.ndarray = np.full(len(x), np.nan)
 
         i: int
         mask: ApertureMask
@@ -99,7 +102,7 @@ class BackGroundEstimateRoutine(BackgroundBase):
     def __call__(
             self, data: np.ndarray | None,
             axis: Optional[Axis] = None, masked: bool=False,
-            output:Optional[str]=None) -> Background2D:
+            output:Optional[str]=None) -> Background2D | None:
         """
         does background estimation routine.
 
@@ -232,4 +235,7 @@ class BackGroundEstimateRoutine(BackgroundBase):
         """
         if self._background is None:
             self.__call__(data)
+        if self._background is None:
+            raise Exception(
+                "the background file didnt get created for some reason")
         return self._background.background

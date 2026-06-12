@@ -21,6 +21,10 @@ WEBBPSF_PATH_ENV_VAR: Final[str] = "WEBBPSF_PATH"
 STAR_BUG_PARAMS: Final[str] = "STARBUGII PARAMETERS"
 STAR_BUG_TEST_DAT_ENV: Final[str] = "STARBUG_TEST_DIR"
 
+# default value for full width half max when nothing sets it
+DEFAULT_FULL_WIDTH_HALF_MAX = 2.0
+DEFAULT_PSF_FILE_NAME = "psf.fits"
+
 # url to docs
 URL_DOCS: Final[str] = (
     "https://raw.githubusercontent.com/conornally/starbug2/"
@@ -71,27 +75,7 @@ ERR: Final[str] = "ERR"
 # file types
 AP_FILE: Final[str] = "AP_FILE"
 BGD_FILE: Final[str] = "BGD_FILE"
-
-# init parameters
-DET_NAME: Final[str] = "DET_NAME"
-PSF_SIZE: Final[str] = "PSF_SIZE"
-REGION_COL: Final[str] = "REGION_COL"
-REGION_SCAL: Final[str] = "REGION_SCAL"
-REGION_RAD: Final[str] = "REGION_RAD"
-REGION_X_COL: Final[str] = "REGION_XCOL"
-REGION_Y_COL: Final[str] = "REGION_YCOL"
-REGION_WCS: Final[str] = "REGION_WCS"
-
-# set opt param
-INSPECT: Final[str] = "INSPECT"
-STYLESHEET: Final[str] = "STYLESHEET"
-AP_FILE_SET_OPT: Final[str] = "APFILE"
-N_TESTS: Final[str] = "NTESTS"
-N_STARS: Final[str] = "NSTARS"
-AUTO_SAVE: Final[str] = "AUTOSAVE"
-MAX_MAG: Final[str] = "MAX_MAG"
-MIN_MAG: Final[str] = "MIN_MAG"
-PLOTAST: Final[str] = "PLOTAST"
+PSF_FILE: Final[str] = "PSF_FILE"
 
 # colours
 DEFAULT_COLOUR: Final[str] = "green"
@@ -104,43 +88,13 @@ SRC_JMP: Final[int] = 0x02
 SRC_VAR: Final[int] = 0x04
 ##psf fit with fixed centroid
 SRC_FIX: Final[int] = 0x08
-##source unknown
+##source unknown (this isnt used anywhere!)
 SRC_UKN: Final[int] = 0x10
 
 ##DQ FLAGS
 DQ_DO_NOT_USE: Final[int] = 0x01
 DQ_SATURATED: Final[int] = 0x02
 DQ_JUMP_DET: Final[int] = 0x04
-
-
-# some binary values.
-VERBOSE: Final[int] = 0x01
-KILLPROC: Final[int] = 0x02
-STOPPROC: Final[int] = 0x04
-SHOWHELP: Final[int] = 0x08
-
-DODETECT: Final[int] = 0x100
-DOBGDEST: Final[int] = 0x200
-DOPHOTOM: Final[int] = 0x400
-FINDFILE: Final[int] = 0x800
-
-DOARTIFL: Final[int] = 0x1000
-DOMATCH: Final[int] = 0x2000
-DOAPPHOT: Final[int] = 0x4000
-DOBGDSUB: Final[int] = 0x8000
-DOGEOM: Final[int] = 0x10000
-
-GENRATPSF: Final[int] = 0x100000
-GENRATRUN: Final[int] = 0x200000
-GENRATREG: Final[int] = 0x400000
-INITSB: Final[int] = 0x800000
-UPDATEPRM: Final[int] = 0x1000000
-DODEBUG: Final[int] = 0x2000000
-CALCINSTZP: Final[int] = 0x4000000
-APPLYZP: Final[int] = 0x8000000
-
-# option names
-HDU_NAME: Final[str] = "HDUNAME"
 
 # e name common names
 SCI: Final[str] = "SCI"
@@ -205,7 +159,7 @@ SUM_0: Final[str] = "aperture_sum_0"
 SUM_1: Final[str] = "aperture_sum_1"
 
 ## DEFAULT MATCHING COLS
-match_cols: List[str] = [RA, DEC, FLAG, FLUX, E_FLUX, NUM]
+MATCH_COLS: List[str] = [RA, DEC, FLAG, FLUX, E_FLUX, NUM]
 
 # tag for header
 FILTER_LOWER: Final[str] = "filter"
@@ -231,8 +185,6 @@ PIXAR_SR: Final[str] = "PIXAR_SR"
 JWST: Final[str] = "JWST"
 
 # tag used for param file.
-PARAM_FILE_TAG: Final[str] = "PARAMFILE"
-REGION_TAB: Final[str] = "REGION_TAB"
 VERBOSE_TAG: Final[str] = "VERBOSE"
 
 # mode labels.
@@ -241,46 +193,7 @@ BACKGROUND: Final[str] = "BACKGROUND"
 APP_HOT: Final[str] = "APPHOT"
 PSFP_HOT: Final[str] = "PSFPHOT"
 MATCH_OUTPUTS: Final[str] = "MATCHOUTPUTS"
-
-# options
-N_CORES: Final[str] = "NCORES"
-FWHM: Final[str] = "FWHM"
-USE_WCS: Final[str] = "USE_WCS"
-CRIT_SEP: Final[str] = "CRIT_SEP"
-FORCE_POS: Final[str] = "FORCE_POS"
-MAX_XY_DEV: Final[str] = "MAX_XYDEV"
-CALC_CROWD: Final[str] = "CALC_CROWD"
-APCORR_FILE: Final[str] = "APCORR_FILE"
-APPHOT_R: Final[str] = "APPHOT_R"
-ENCENERGY: Final[str] = "ENCENERGY"
-SKY_RIN: Final[str] = "SKY_RIN"
-SKY_ROUT: Final[str] = "SKY_ROUT"
-SIG_SRC: Final[str] = "SIGSRC"
-SIG_SKY: Final[str] = "SIGSKY"
-ZP_MAG: Final[str] = "ZP_MAG"
-CLEANSRC: Final[str] = "CLEANSRC"
-QUIETMODE: Final[str] = "QUIETMODE"
-BOX_SIZE: Final[str] = "BOX_SIZE"
-BGD_R: Final[str] = "BGD_R"
-PROF_SCALE: Final[str] = "PROF_SCALE"
-PROF_SLOPE: Final[str] = "PROF_SLOPE"
-BGD_CHECKFILE: Final[str] = "BGD_CHECKFILE"
-PSF_FILE: Final[str] = "PSF_FILE"
-GEN_RESIDUAL: Final[str] = "GEN_RESIDUAL"
-SHARP_LO: Final[str] = "SHARP_LO"
-SHARP_HI: Final[str] = "SHARP_HI"
-ROUND_1_HI: Final[str] = "ROUND1_HI"
-SUB_IMAGE: Final[str] = "SUBIMAGE"
-SMOOTH_LO: Final[str] = "SMOOTH_LO"
-SMOOTH_HI: Final[str] = "SMOOTH_HI"
 CLEAR: Final[str] = "CLEAR"
-BRIDGE_COL: Final[str] = "BRIDGE_COL"
-
-# match options
-MATCH_THRESH: Final[str] = "MATCH_THRESH"
-
-# match params
-NEXP_THRESH: Final[str] = "NEXP_THRESH"
 
 #info tags / keys for catalogue fields.
 OBS: Final[str] = "OBSERVTN"

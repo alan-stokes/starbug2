@@ -20,7 +20,7 @@ import os
 from typing import List, Any
 
 import numpy as np
-from astropy.io.fits import HDUList, PrimaryHDU, ImageHDU
+from astropy.io.fits import HDUList, PrimaryHDU, ImageHDU, BinTableHDU
 from astropy.visualization import ZScaleInterval
 from astropy.table import Row, Table
 from scipy.interpolate import RegularGridInterpolator
@@ -81,7 +81,7 @@ def plot_test(axes: Axes) -> Axes:
     """
     Just plot the starbug image
 
-    :param axes: Ax to plot into
+    :param axes: Axis to plot into
     :type axes: plt.axes
     :return: The working axes
     :rtype: plt.axes
@@ -104,25 +104,25 @@ def plot_cmd(
         y_lim: tuple[float, float] | list[float] | None = None,
         **kwargs: Any) -> Axes:
     """
-    Plot a Color-Magnitude Diagram (CMD) with an optional Hess-based density
-    coloring.
+    Plot a Colour-Magnitude Diagram (CMD) with an optional Hess-based density
+    colouring.
 
     :param tab: Astropy Table containing the stellar catalogue data
     :type tab: astropy.table.Table
-    :param colour: The column name representing the color index
+    :param colour: The column name representing the colour index
                    (e.g., 'B-V' or 'g-r')
     :type colour: str
     :param mag: The column name representing the magnitude (e.g., 'V' or 'g')
     :type mag: str
     :param axis: The matplotlib Axes object to plot on, defaults to None
     :type axis: matplotlib.axes.Axes or None
-    :param col: Custom color string or sequence for the scatter
+    :param col: Custom colour string or sequence for the scatter
                 points/colormap gradient
     :type col: str or tuple or None
     :param hess: Whether to calculate and apply a density-based Hess plot
-                 color gradient
+                 colour gradient
     :type hess: bool
-    :param x_lim: X-axis bounds for the color index (min, max)
+    :param x_lim: X-axis bounds for the colour index (min, max)
     :type x_lim: tuple of (float, float) or None
     :param y_lim: Y-axis bounds for the magnitude (min, max)
     :type y_lim: tuple of (float, float) or None
@@ -140,9 +140,9 @@ def plot_cmd(
         _, axis = plt.subplots(1)
 
     if x_lim is None:
-        x_lim = (np.nanmin(cc),np.nanmax(cc))
+        x_lim = (float(np.nanmin(cc)), float(np.nanmax(cc)))
     if y_lim is None:
-        y_lim = (np.nanmin(mm),np.nanmax(mm))
+        y_lim = (np.nanmin(mm), np.nanmax(mm))
 
     spatial_mask: np.ndarray = (
         (cc >= x_lim[0]) & (cc <= x_lim[1]) &
@@ -150,11 +150,11 @@ def plot_cmd(
     cc = cc[spatial_mask]
     mm = mm[spatial_mask]
 
-    # apply default color
+    # apply default colour
     if col is None:
         col = plt.rcParams["axes.prop_cycle"].by_key()["color"][0]
 
-    # make segmented color map
+    # make segmented colour map
     cmap: LinearSegmentedColormap = LinearSegmentedColormap.from_list(
         "", [plt.rcParams["axes.prop_cycle"].by_key()["color"][0], col])
 
@@ -169,7 +169,7 @@ def plot_cmd(
 
     ax.set_xlabel(colour)
     ax.set_ylabel(mag)
-    ax.set_xlim(x_lim)
+    ax.set_xlim(x_lim) # noqa
 
     # Invert the Y-axis because brighter astronomical magnitudes have
     # lower values
@@ -177,7 +177,8 @@ def plot_cmd(
     return ax
 
 
-def plot_inspect_source(src: Row, images: List[ImageHDU | PrimaryHDU]):
+def plot_inspect_source(
+        src: Row, images: List[PrimaryHDU | ImageHDU | BinTableHDU | None]):
     """
     Show a source in an array of images
 
@@ -194,8 +195,8 @@ def plot_inspect_source(src: Row, images: List[ImageHDU | PrimaryHDU]):
     axs: Axes | List[Axes]
     figure, axs = plt.subplots(1, n, figsize=(1.7 * n, 2))
     if n == 1:
-        axs=[axs]
-    images: List[ImageHDU | PrimaryHDU] = sorted(
+        axs = [axs]  # noqa
+    images: List[ImageHDU | PrimaryHDU | BinTableHDU | None] = sorted(
         images, key=lambda a:
             list(STAR_BUG_FILTERS.keys()).index(a.header[FILTER]))
 
@@ -204,6 +205,7 @@ def plot_inspect_source(src: Row, images: List[ImageHDU | PrimaryHDU]):
     n: int
     im: ImageHDU | PrimaryHDU
     axis: Axes
+    assert isinstance(axs, list)
     for n, (im, axis) in enumerate(zip(images, axs)):
         wcs: WCS = WCS(im)
         x: np.ndarray

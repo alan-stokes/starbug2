@@ -16,7 +16,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import time
 import os, sys, numpy as np
 from importlib import metadata
-from typing import Tuple, Dict, Optional, List, Union
+from typing import Tuple, Dict, Optional, List, Union, Any
 
 from astropy.table import Table, hstack, Column, MaskedColumn, vstack
 from astropy.io import fits
@@ -70,17 +70,21 @@ def repeat_print(n: int, c: str) -> None:
     printf(append_chars("", n, c))
 
 
-def split_file_name(path: str) -> Tuple[str, str, str]:
+def split_file_name(file_path: str | None) -> Tuple[str, str, str]:
     """
     breaks apart a path into folder, filename and extension.
-    :param path: the path to split
+    :param file_path: the path to split
     :return: (folder, file name, extension)
     :rtype: tuple of str, str, str
     """
     folder: str
     file: str
     ext: str
-    folder, file = os.path.split(path)
+
+    if file_path is None:
+        raise Exception("failed as path is None")
+
+    folder, file = os.path.split(file_path)
     file_name, ext = os.path.splitext(file)
     if not folder:
         folder = '.'
@@ -104,7 +108,7 @@ class Loading(object):
         self.set_len(length)
         self.msg = msg
         self.start_time = time.time()
-        self.res = int(res)
+        self.res = res
 
 
     def set_len(self, length: int) -> None:
@@ -148,7 +152,7 @@ class Loading(object):
             printf("\n")
 
 
-def combine_tables(base: Table, tab: Table) -> Table:
+def combine_tables(base: Table| None, tab: Table | None) -> Table | None:
     """
     Is this the same as vstack?
     """
@@ -160,13 +164,13 @@ def combine_tables(base: Table, tab: Table) -> Table:
 
 def export_region(
         tab: Table,
-        colour: Optional[str] = DEFAULT_COLOUR,
-        scale_radius: Optional[int] = 1,
-        region_radius: Optional[int] = 3,
-        x_col: Optional[str] = RA,
-        y_col: Optional[str] = DEC,
-        wcs: Optional[int] = 1,
-        f_name: Optional[str] = TMP_OUT) -> None:
+        colour: str = DEFAULT_COLOUR,
+        scale_radius: int = 1,
+        region_radius: int = 3,
+        x_col: str = RA,
+        y_col: str = DEC,
+        wcs: int = 1,
+        f_name: str = TMP_OUT) -> None:
     """
     A handy function to convert the detections in a DS9 region file
 
@@ -181,8 +185,8 @@ def export_region(
     :param x_col: X column name to use
     :type x_col: str
     :param y_col: Y column name to use
-    :type y_col: str
-    :param wcs: Boolean if the x/y_cols use WCS system
+    :type y_col: str.
+    :param wcs: Boolean which is true if the x or y_cols use the WCS system.
     :type wcs: int.
     :param f_name: Filename to output to
     :type f_name: str
@@ -257,7 +261,7 @@ def translate_param_float(
     return options, set_opt
 
 
-def parse_unit(raw: str) -> Tuple[float or None, int or None]:
+def parse_unit(raw: str) -> Tuple[float | None, int | None]:
     # noinspection SpellCheckingInspection
     """
     Take a value with the ability to be cast into several units and parse it
@@ -280,8 +284,8 @@ def parse_unit(raw: str) -> Tuple[float or None, int or None]:
         's': ARCSEC,
         'm': ARCMIN,
         'd': DEG}
-    value: float or None = None
-    unit: int or None = None
+    value: float | None = None
+    unit: int | None = None
     if raw:
         try: 
             value = float(raw)
@@ -355,7 +359,7 @@ def export_table(table: Table, f_name: Optional[str]=None,
     :type header: dict, fits.Header
     :return: None
     """
-    dtypes: List[any] = []
+    dtypes: List[Any] = []
     if CAT_NUM not in table.colnames:
         table = reindex(table)
     for name in table.colnames:
@@ -369,10 +373,14 @@ def export_table(table: Table, f_name: Optional[str]=None,
 
     if not f_name:
         f_name = TMP_FITS
-    fits.BinTableHDU(data=table, header=header).writeto(
+
+    # create default if header is None
+    fits_header = header if header is not None else fits.Header()
+
+    fits.BinTableHDU(data=table, header=fits_header).writeto(
         f_name, overwrite=True, output_verify="fix")
 
-def import_table(f_name: str, verbose: bool or int = 0) -> Table or None:
+def import_table(f_name: str, verbose: bool | int = 0) -> Table | None:
     """
     Slight tweak to `astropy.table.Table.read`. This makes sure that the
     proper column dtypes are maintained
@@ -382,13 +390,16 @@ def import_table(f_name: str, verbose: bool or int = 0) -> Table or None:
     :param verbose: Display verbose information
     :type verbose: boolean or int
     :return: Loading table
-    :rtype: atrophy.Table
+    :rtype: atrophy.Table | None
     """
 
-    tab: Table or None = None
+    tab: Table | None = None
     if os.path.exists(f_name):
         if os.path.splitext(f_name)[1] == FITS_EXTENSION:
             tab = fill_nan(Table.read(f_name, format="fits"))
+            if tab is None:
+                printf(f"table at {f_name} failed to read")
+                return None
             if not tab.meta.get(FILTER):
                 if filter_string := find_filter(tab):
                     tab.meta[FILTER] = filter_string
@@ -449,13 +460,14 @@ def find_col_names(tab: Table, basename: str) -> List[str]:
 
 
 def combine_file_names(
-        f_names: List[str], n_mismatch: int=N_MIS_MATCHES) -> str or None:
+        f_names: List[str | None],
+        n_mismatch: int=N_MIS_MATCHES) -> str | None:
     """
     when matching catalogues, combines the file names into an appropriate
     combination of all the inputs.
 
     :param f_names: list of file names
-    :type f_names: list of str
+    :type f_names: list of str | None
     :param n_mismatch: The number of mismatched characters it will allow
     :type n_mismatch: int
     :return: Combined filenames
@@ -466,6 +478,10 @@ def combine_file_names(
     f_name: str = ""
     d_name: str
     ext : str
+
+    if f_names is None:
+        return None
+
     d_name, _, ext = split_file_name(f_names[0])
     f_names: List[str] = [split_file_name(name)[1] for name in f_names]
 
@@ -543,7 +559,7 @@ def h_cascade(
     return tab
 
 
-def ext_names(hdu_list: fits.HDUList) -> List[str]:
+def ext_names(hdu_list: fits.HDUList | None) -> List[str]:
     """
     Return list of HDU extension names
 
@@ -552,56 +568,55 @@ def ext_names(hdu_list: fits.HDUList) -> List[str]:
     :return: List of extension names
     :rtype: list of str
     """
-    ext: fits.PrimaryHDU or fits.ImageHDU
+    if hdu_list is None:
+        return []
+
+    ext: fits.PrimaryHDU | fits.ImageHDU
     return list(ext.name for ext in hdu_list)
 
-
+# noinspection SpellCheckingInspection
 def flux2mag(
-        flux: List[float] or np.array,
-        flux_err: Optional[List[float]] = None,
+        raw_flux: np.ndarray | float,
+        flux_err: Column | None | np.ndarray | int | float = None,
         zp: float=1.0) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Convert flux to magnitude in an arbitrary system
+    Convert flux to magnitude in an arbitrary system using the Pogsons relation
 
-    :param flux: List of source flux values
-    :type flux: list of floats or float or None or ndarray
+    :param raw_flux: List of source flux values
+    :type raw_flux: list of floats or float or None or ndarray
     :param flux_err: List of known flux uncertainties
     :type flux_err: list of floats or float or None or ndarray
     :param zp: Zero point flux value
-    :type zp: float
-    :return: tuple of (Source magnitudes, Magnitude errors )
-    :rtype: tuple (ndarray, ndarray)
+    :type zp: float.
+    :return: tuple of (Source magnitudes, Magnitude errors ).
+    :rtype: tuple (ndarray, ndarray).
     """
-
-    ## sort any type issues in FLUX
-    if type(flux) != np.array:
-        flux = np.array(flux)
-    if not flux.shape:
-        flux = np.array([flux])
-
-    # sort type issues in flux_err
+    flux: np.ndarray = np.atleast_1d(raw_flux).astype(float)
     if flux_err is None:
-        flux_err = np.zeros(len(flux))
-    if type(flux_err) != np.array:
-        flux_err = np.array(flux_err)
-    if not flux_err.shape:
-        flux_err = np.array([flux_err])
-
+        flux_err_arr: np.ndarray = np.zeros_like(flux)
+    else:
+        flux_err_arr = np.atleast_1d(np.asarray(flux_err)).astype(float)
     mag: np.ndarray = np.full(len(flux), np.nan)
     mag_err: np.ndarray = np.full(len(flux), np.nan)
 
-    mask_flux: np.ndarray = (flux > 0)
-    mask_f_err: np.ndarray = (flux_err >= 0)
-    mask: np.ndarray = np.logical_and(mask_flux, mask_f_err)
+    # Handle infinities cleanly before passing to mask bounds to satisfy
+    # boundary tests (Prevents runtime RuntimeWarnings during greater/less
+    # than comparisons)
+    with np.errstate(invalid='ignore'):
+        mask_flux: np.ndarray = (flux > 0) & np.isfinite(flux)
+        mask_f_err: np.ndarray = (flux_err_arr >= 0)
 
-    mag[mask_flux] = -2.5 * np.log10(flux[mask_flux] / zp)
-    mag_err[mask] = 2.5 * np.log10(1.0 + (flux_err[mask] / flux[mask]))
+        mask: np.ndarray = mask_flux & mask_f_err
+
+        mag[mask_flux] = -2.5 * np.log10(flux[mask_flux] / zp)
+        mag_err[mask] = 2.5 * np.log10(1.0 + (flux_err_arr[mask] / flux[mask]))
+    mag[flux == np.inf] = -np.inf
 
     return mag, mag_err
 
 
 def flux_2_ab_mag(
-        flux: float, flux_err: Optional[float] = None) -> (
+        flux: float, flux_err: Column | None = None) -> (
             Tuple[np.ndarray, np.ndarray]):
     """
     Convert flux to AB magnitudes
@@ -682,7 +697,7 @@ def colour_index(table: Table, keys: List[str]) -> Table:
 
 
 def get_mj_ysr2jy_scale_factor(
-        ext: fits.PrimaryHDU or fits.ImageHDU or fits.BinTableHDU) -> float:
+        ext: fits.PrimaryHDU | fits.ImageHDU | fits.BinTableHDU) -> float:
     """
     Find the unit scale factor to convert an image from MJy/sr to Jy
     Header file must contain the keyword "PIXAR_SR"
@@ -699,7 +714,7 @@ def get_mj_ysr2jy_scale_factor(
     return scale_factor
 
 
-def find_filter(table: Table) -> str or None:
+def find_filter(table: Table) -> str:
     """
     Attempt to identify filter for a table from the metadata or column names
 
@@ -719,7 +734,7 @@ def find_filter(table: Table) -> str or None:
     if matching_filters:
         return matching_filters.pop()
 
-    return None
+    return ""
 
 
 def get_version() -> str:
@@ -749,7 +764,7 @@ def remove_duplicates[T](seq: List[T]) -> List[T]:
     :rtype list of <T>
     """
     seen = set()
-    return [x for x in seq if not (x in seen or seen.add(x))]
+    return [x for x in seq if not (x in seen or seen.add(x))] # noqa
 
 
 def crop_hdu(
@@ -789,13 +804,16 @@ def crop_hdu(
     return hdu
 
 
-def usage(docstring: str, verbose: bool or int=0) -> int:
+def usage(docstring: str | None, verbose: bool | int=0) -> int:
     """
     outputs the usage.
     :param docstring: the doc string to output
     :param verbose: if to do so in verbose mode
     :return: 1 when complete.
     """
+    if docstring is None:
+        return 1
+
     if verbose:
         p_error(docstring)
     else:

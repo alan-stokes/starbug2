@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 Core routines for StarbugII.
 """
 from typing import Optional
+from collections.abc import Callable
 
 import numpy as np
 from scipy.ndimage import convolve
@@ -24,8 +25,9 @@ from skimage.feature import match_template
 
 from astropy.stats import sigma_clipped_stats
 from astropy.coordinates import SkyCoord
-from astropy.table import Column, Table, vstack, QTable
+from astropy.table import Column, Table, vstack
 from astropy.convolution import RickerWavelet2DKernel
+from astropy.units import Quantity
 
 from photutils.background import Background2D
 from photutils.detection import StarFinderBase, DAOStarFinder, find_peaks
@@ -40,9 +42,9 @@ class DetectionRoutine(StarFinderBase):
         full_width_half_max: float=2.0, sharp_lo: float=0.2,
         sharp_hi: float=1, round_1_hi: float=1, round_2_hi: float=1,
         smooth_lo: float=-np.inf, smooth_hi: float=np.inf,
-        ricker_r: float=1.0, verbose: int or bool=0,
-        clean_src: bool or int=1, do_bgd_2d: bool or int=1, box_size: int=2,
-        do_con_vl: bool or int=1) -> None:
+        ricker_r: float=1.0, verbose: int | bool=0,
+        clean_src: bool | int=1, do_bgd_2d: bool | int=1, box_size: int=2,
+        do_con_vl: bool | int=1) -> None:
         # noinspection SpellCheckingInspection
         """
         Detection routine
@@ -111,18 +113,20 @@ class DetectionRoutine(StarFinderBase):
             smooth_hi if smooth_hi is not None else np.inf)
 
         self.ricker_r: float = ricker_r
-        self.clean_src: bool or int = clean_src
+        self.clean_src: bool | int = clean_src
 
         self.catalogue: Table = Table()
-        self.verbose: bool or int = verbose
+        self.verbose: bool | int = verbose
 
-        self.do_bgd_2d: bool or int = do_bgd_2d
+        self.do_bgd_2d: bool | int = do_bgd_2d
         self.box_size: int = box_size
-        self.do_con_vl: bool or int = do_con_vl
+        self.do_con_vl: bool | int = do_con_vl
 
-    def detect(self, data: np.ndarray or np.array,
-               bkg_estimator: Optional[callable]=None,
-               xy_coords: Table=None, method: str=None) -> Table:
+    def detect(self, data: np.ndarray,
+               bkg_estimator: Optional[Callable[
+                   [np.ndarray], np.ndarray]]=None,
+               xy_coords: Table | None = None,
+               method: str | None=None) -> Table:
         """
         The core detection step (DAOStarFinder)
 
@@ -161,7 +165,7 @@ class DetectionRoutine(StarFinderBase):
             return find(data - bkg)
 
 
-    def bkg2d(self, data: np.array) -> np.ndarray:
+    def bkg2d(self, data: np.ndarray) -> np.ndarray:
         """
         ?????
         :param data: the data to apply background 2d to.
@@ -191,15 +195,15 @@ class DetectionRoutine(StarFinderBase):
             x=cat[X_CENTROID], y=cat[Y_CENTROID], z=np.zeros(len(cat)),
             representation_type="cartesian")
 
-        dist: np.array
+        dist: Quantity
         _, _, dist = cat_sky.match_to_catalog_3d(base_sky)
-        mask: np.array = dist.to_value() > self.full_width_half_max
+        mask: np.ndarray = dist.to_value() > self.full_width_half_max
         return vstack((base, cat[mask]))
 
 
     def find_stars(
-            self, data: np.array,
-            mask: Optional[np.array]=None) -> Table or None:
+            self, data: np.ndarray | None,
+            mask: Optional[np.ndarray]=None) -> Table | None:
         """
         This routine runs source detection several times, but on a different
         form of the data array each time. Each form has been "skewed" somehow
@@ -241,7 +245,7 @@ class DetectionRoutine(StarFinderBase):
             kernel: RickerWavelet2DKernel = (
                 RickerWavelet2DKernel(self.ricker_r))
             conv: np.ndarray = convolve(data, kernel.array)
-            corr: np.array = match_template(conv/np.amax(conv), kernel.array)
+            corr: np.ndarray = match_template(conv/np.amax(conv), kernel.array)
             detections: Table = self.detect(corr, method="findpeaks")
             if detections:
                 detections[X_PEAK] += kernel.shape[0] // 2
@@ -255,13 +259,13 @@ class DetectionRoutine(StarFinderBase):
 
         ## Now with xy-coords DAOStarfinder will refit the sharp and round
         # values at the detected locations
-        tmp: Optional[QTable] = (
+        tmp: Table | None = (
             SourceProperties(data, self.catalogue, verbose=self.verbose)
                 .calculate_geometry(self.full_width_half_max))
         if tmp:
             self.catalogue = tmp
 
-        mask: np.array = (
+        mask: np.ndarray = (
             ~np.isnan(self.catalogue[X_CENTROID]) &
             ~np.isnan(self.catalogue[Y_CENTROID]))
 
@@ -275,7 +279,7 @@ class DetectionRoutine(StarFinderBase):
                 & (self.catalogue["roundness2"] < self.round_2_hi))
         if self.verbose:
             printf("-> cleaning %d unlikely point sources\n" % sum(~mask))
-        self.catalogue.remove_rows(~mask)
+        self.catalogue = self.catalogue[mask]
 
         if self.verbose:
             printf("Total: %d sources\n"%len(self.catalogue))

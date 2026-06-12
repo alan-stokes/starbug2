@@ -19,12 +19,14 @@ from photutils.datasets import make_model_image, make_random_models_table
 from photutils.psf import ImagePSF
 from astropy.table import Table, hstack, QTable
 from astropy.io import fits
+from astropy import units
+from astropy.units import Quantity
 from scipy.optimize import curve_fit
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
 from starbug2.constants import (
-    X_0, Y_0, MAG, FLUX, X_DET, Y_DET, FLUX_DET, STATUS, ZP_MAG, ID,
+    X_0, Y_0, MAG, FLUX, X_DET, Y_DET, FLUX_DET, STATUS, ID,
     X_CENTROID, Y_CENTROID, REC, EXIT_SUCCESS, XY_DEV, Y_INIT, X_INIT,
     XY_DEV_, FLUX_2, ERR_LOWER, OFF)
 from starbug2.matching.generic_match import GenericMatch
@@ -85,8 +87,9 @@ class ArtificialStars:
             mag_range: Tuple[int, int] = (MAG_RANGE_LOW, MAG_RANGE_HIGH),
             loading_buffer: Optional[np.ndarray] = None,
             autosave: int = -1,
-            skip_phot: bool or int = 0,
-            skip_background: bool or int = 0) ->  Table | None:
+            skip_phot: bool | int = 0,
+            skip_background: bool | int = 0,
+            zp_mag: float = 0.0) ->  Table | None:
         """
         The main entry point into the artificial star test.
         This handles everything except the results compilation at the end.
@@ -112,13 +115,15 @@ class ArtificialStars:
         :param skip_background: If true then ignore the background
                                 subtraction step.
         :type skip_background: bool or int
+        :param zp_mag: the zero point magnitude
+        :type zp_mag: float
         :return: Full raw test results. Injected initial properties with
                  measured values.
         :rtype: astropy.table.Table
         """
         return self._auto_run(
             n_tests, stars_per_test, sub_image_size, mag_range, loading_buffer,
-            autosave, skip_phot, skip_background)
+            autosave, skip_phot, skip_background, zp_mag)
 
     def _auto_run(
             self,
@@ -128,8 +133,9 @@ class ArtificialStars:
             mag_range: Tuple[int, int] = (MAG_RANGE_LOW, MAG_RANGE_HIGH),
             loading_buffer: Optional[np.ndarray] = None,
             autosave: int = -1,
-            skip_phot: bool or int = 0,
-            skip_background: bool or int = 0) -> Table | None:
+            skip_phot: bool | int = 0,
+            skip_background: bool | int = 0,
+            zp_mag: float = 0.0) -> Table | None:
         """
         The main entry point into the artificial star test.
         This handles everything except the results compilation at the end.
@@ -155,6 +161,8 @@ class ArtificialStars:
         :param skip_background: If true then ignore the background
                                 subtraction step.
         :type skip_background: bool or int
+        :param zp_mag: the zero point magnitude
+        :type zp_mag: float
         :return: Full raw test results. Injected initial properties with
                  measured values.
         :rtype: astropy.table.Table
@@ -163,16 +171,15 @@ class ArtificialStars:
         test_result: Table = Table(
             np.full((n_tests * stars_per_test, self.N_COLUMNS), np.nan),
             names=self.TEST_TABLE_COLUMN_NAMES)
-        scale_factor: float or int = (
+        scale_factor: float | int = (
             get_mj_ysr2jy_scale_factor(self._starbug.main_image))
-        base_image: fits.HDUList = self._starbug.image.copy()
-        base_shape: np.array = np.copy(self._starbug.main_image.shape)
+
+        current_image = self._starbug.image
+        assert current_image is not None
+        base_image: fits.HDUList = current_image.copy()
+        base_shape: np.ndarray = np.copy(self._starbug.main_image.shape)
         stars_per_test: int = int(stars_per_test)
         passed: int = 0
-
-        z_p: int = (
-            self._starbug.options.get(ZP_MAG) if
-            self._starbug.options.get(ZP_MAG) else 0)
         buffer: int = 0
 
         if mag_range[0] - mag_range[1] >= 0:
@@ -188,7 +195,7 @@ class ArtificialStars:
         for test in range(1, int(n_tests) + 1):
             image: fits.HDUList = base_image.__deepcopy__()
 
-            shape: list[int, int] = image[self._starbug.n_hdu].shape
+            shape: list[int, int] = image[self._starbug.n_hdu].shape # noqa
 
             source_list: QTable = make_random_models_table(
                 stars_per_test,
@@ -197,7 +204,7 @@ class ArtificialStars:
                   MAG :  mag_range
                 })
             source_list.add_column(
-                10.0 ** ( (z_p - source_list[MAG]) / 2.5 ) , name=FLUX)
+                10.0 ** ( (zp_mag - source_list[MAG]) / 2.5 ) , name=FLUX)
             source_list.remove_column(ID)
 
             star_overlay: np.ndarray = (
@@ -258,18 +265,20 @@ class ArtificialStars:
             np.full((len(contains), 4), np.nan),
             names=[X_DET, Y_DET, FLUX_DET, STATUS])
 
-        threshold: int = 2
+        threshold: Quantity = 2 * units.arcsec
 
         #Run detection on the image
         if not self._starbug.detect():
-            det: Table = self._starbug.detections
+            assert self._starbug is not None
+            det: Table | None = self._starbug.detections
+            assert det is not None
 
             #Check for detection in output
             for i, src in enumerate(contains): # type: ignore
-                separations: np.array = np.sqrt(
+                separations: np.ndarray = np.sqrt(
                     (src[X_0] - det[X_CENTROID]) ** 2
-                    + (src[Y_0] - det[Y_CENTROID]) ** 2)
-                best_match: int = np.argmin(separations)
+                    + (src[Y_0] - det[Y_CENTROID]) ** 2) * threshold.unit
+                best_match: int = np.argmin(separations) # noqa
                 if separations[best_match] < threshold:
                     test_result[X_DET][i] = det[X_CENTROID][best_match]
                     test_result[Y_DET][i] = det[Y_CENTROID][best_match]
@@ -289,11 +298,13 @@ class ArtificialStars:
                 # Run PSF photometry on detected sources
                 if not skip_phot and not self._starbug.photometry_routine():
                     # noinspection SpellCheckingInspection
-                    self._starbug.psf_catalogue.rename_columns(
+                    psf_catalogue = self._starbug.psf_catalogue
+                    assert psf_catalogue is not None
+                    psf_catalogue.rename_columns(
                         (X_INIT, Y_INIT, XY_DEV),
                         (X_INIT, Y_INIT, XY_DEV_))
-                    matched: GenericMatch = GenericMatch(threshold=threshold)(
-                        [contains, self._starbug.psf_catalogue],
+                    matched: Table = GenericMatch(threshold=threshold)(
+                        [contains, psf_catalogue],
                         cartesian=True)
                     test_result[FLUX_DET] = (
                         matched[:len(test_result)][FLUX_2])
@@ -307,28 +318,28 @@ def get_completeness(test_result: Table) -> Table:
 
     :param test_result: The output from auto_run.
     :type test_result: astropy.table.Table
-    :return: A table containing percent completeness as a function of
+    :return: A table containing per cent completeness as a function of
              magnitude.
     :rtype: astropy.table.Table
     """
 
-    bins: np.array = np.arange(
-        np.floor(min(test_result[MAG])),
-        np.ceil(max(test_result[MAG])),
+    bins: np.ndarray = np.arange(
+        np.floor(np.nanmin(test_result[MAG])),
+        np.ceil(np.nanmax(test_result[MAG])),
         0.1)
-    percents: np.array = np.zeros(len(bins))
-    errors: np.array = np.zeros(len(bins))
-    offsets: np.array = np.zeros(len(bins))
-    means: np.array = np.zeros(len(bins))
+    percents: np.ndarray = np.zeros(len(bins))
+    errors: np.ndarray = np.zeros(len(bins))
+    offsets: np.ndarray = np.zeros(len(bins))
+    means: np.ndarray = np.zeros(len(bins))
     
-    i_bins: np.array = np.digitize( test_result[MAG], bins=bins)
+    i_bins: np.ndarray = np.asarray(np.digitize( test_result[MAG], bins=bins))
     for i in range(max(i_bins)):
         binned: Table = test_result[ (i_bins==i) ]
         if binned:
             percents[i] = float(sum(binned[STATUS])) / len(binned)
 
-        mag_inj: float = -2.5 * np.log10( binned[FLUX])
-        mag_det: float = -2.5 * np.log10( binned[FLUX_DET])
+        mag_inj: np.ndarray = -2.5 * np.log10(binned[FLUX])
+        mag_det: np.ndarray = -2.5 * np.log10(binned[FLUX_DET])
         errors[i] = np.nanstd( mag_inj - mag_det )
         means[i] = np.nanmean( mag_inj - mag_det )
         offsets[i] = np.nanmedian(binned[FLUX] / binned[FLUX_DET])
@@ -371,7 +382,7 @@ def get_spatial_completeness(
         yi: int
         for yi in y_bins[:-1]:
             yo: int = yi + res
-            mask: bool = (
+            mask: np.ndarray = (
                 (test_result[X_0] >= xi) &
                 (test_result[X_0] < xo) &
                 (test_result[Y_0] >= yi) &
@@ -379,7 +390,7 @@ def get_spatial_completeness(
             binned: Table = test_result[mask]
             if len(binned):
                 percents[int(xi): int(xo), int(yi): int(yo)] = (
-                    float(sum(binned[STATUS]) / len(binned)))
+                    float(np.sum(binned[STATUS])) / len(binned))
     return percents
 
 def estimate_completeness_mag(ast: Table) -> (
@@ -393,13 +404,13 @@ def estimate_completeness_mag(ast: Table) -> (
     :type ast: astropy.table.Table
     :return: A tuple containing:
         - **fit** (*list*): The fitting parameters to the logistic curve
-                            $f(x) = \frac{l}{1 + \exp(-k(x - x_0))}$ formatted
+                            $f(x) = \frac{l}{1 + exp(-k(x - x_0))}$ formatted
                             as ``[l, x_0, k]``.
         - **complete** (*list*): Magnitude of 70% and 50% completeness.
     :rtype: tuple[list, list]
     """
-    fit: Optional[float, float, float] = None
-    completeness: Optional[[Tuple][float, float, float]] = None
+    fit: Optional[Tuple[float, float, float]] = None
+    completeness: Optional[Tuple[float, float, float]] = None
 
     # Syntax: Callable[[Param1Type, Param2Type, ...], ReturnType]
     fn_i: Callable[[float, float, float, float], float] = (
@@ -413,6 +424,7 @@ def estimate_completeness_mag(ast: Table) -> (
             # about the rest of the return values.
             fit, *_ = curve_fit(
                 scurve, ast[MAG], ast[REC], [1, -1, np.median(ast[MAG])])
+            assert fit is not None
             completeness = (fn_i(0.9, *fit), fn_i(0.7, *fit), fn_i(0.5, *fit))
         except (RuntimeError, ValueError) as e:
             warn(f"Unable to fit completeness fractions: {e}\n")
@@ -424,7 +436,7 @@ def scurve(x: np.ndarray, l: float, k: float, xo: float) -> float | np.ndarray:
     """
     S-curve function to fit completeness results to.
 
-    math::  f(x) = \\frac{l}{1 + \\exp(-k(x - x_0))}
+    math::  f(x) = \\frac{l}{1 + \\exp(-k(x - x_0))
 
     :param x: Magnitude range or array to input into the function.
     :type x: list or numpy.ndarray
@@ -444,8 +456,8 @@ def scurve(x: np.ndarray, l: float, k: float, xo: float) -> float | np.ndarray:
 
 def compile_results(
         raw: Table,
-        image: np.ndarray=None,
-        plot_ast:Optional[str]=None,
+        image: np.ndarray | None = None,
+        plot_ast:Optional[str] = None,
         filter_string: str="m") -> fits.HDUList:
     """
     Compile all the raw data into usable results
@@ -463,13 +475,13 @@ def compile_results(
     """
 
     completeness_raw: Table = get_completeness(raw)
-    cfit: [Tuple][float, float, float]
-    completeness: [Tuple][float, float, float]
+    cfit: Tuple[float, float, float]
+    completeness: Tuple[float, float, float]
     cfit, completeness = estimate_completeness_mag(completeness_raw)
-    spatial_completeness: np.ndarray = (
+    spatial_completeness: np.ndarray | None= (
         get_spatial_completeness(raw, image, res=10))
 
-    head: Dict[str, str] = {
+    head: Dict[str, str | float] = {
         "COMPLETE_FN":"F(x)=l/(1+exp(-k(x-xo)))", "l":cfit[0], "k":cfit[1],
         "xo":cfit[2] }
     for i, frac in enumerate((90, 70, 50)):
