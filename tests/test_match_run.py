@@ -1,4 +1,5 @@
 import os
+from typing import Final
 
 import pytest
 
@@ -6,15 +7,15 @@ from starbug2.bin.main import starbug_main
 from starbug2.bin.match import match_main
 from starbug2.constants import EXIT_FAIL, EXIT_EARLY, EXIT_SUCCESS
 from tests.generic import (
-    clean, TEST_IMAGE_FITS, TEST_PATH, TEST_FILTER_STRING)
+    clean, TEST_IMAGE_FITS, TEST_FILTER_STRING, TEST_PATH_STR)
 
 run = lambda s:match_main(s.split())
 
-OUT_1_FITS = os.path.join(TEST_PATH, "out1.fits")
-OUT_2_FITS = os.path.join(TEST_PATH, "out2.fits")
-OUT_1_AP_FITS = os.path.join(TEST_PATH, "out1-ap.fits")
-OUT_2_AP_FITS = os.path.join(TEST_PATH, "out2-ap.fits")
-IMAGE_AP_FITS = os.path.join(TEST_PATH, "image-ap.fits")
+OUT_1_FITS: Final[str] = str(os.path.join(TEST_PATH_STR, "out1.fits"))
+OUT_2_FITS: Final[str] = os.path.join(TEST_PATH_STR, "out2.fits")
+OUT_1_AP_FITS: Final[str] = os.path.join(TEST_PATH_STR, "out1-ap.fits")
+OUT_2_AP_FITS: Final[str] = os.path.join(TEST_PATH_STR, "out2-ap.fits")
+IMAGE_AP_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image-ap.fits")
 
 def test_match_start():
     assert run("starbug2-match") == EXIT_FAIL

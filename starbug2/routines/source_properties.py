@@ -16,7 +16,7 @@ class SourceProperties:
     status: int = 0
 
     def __init__(self, image: Optional[np.ndarray],
-                 source_list: Optional[Table], verbose: int or bool=1) -> None:
+                 source_list: Optional[Table], verbose: int | bool=1) -> None:
         """
         source properties.
 
@@ -29,7 +29,7 @@ class SourceProperties:
         """
         self._image: Optional[np.ndarray] = image
         self._source_list: Optional[Table] = None
-        self._verbose: int or bool = verbose
+        self._verbose: int | bool = verbose
 
         if source_list and type(source_list) in (Table, QTable):
             if len({X_CENTROID, Y_CENTROID} & set(source_list.colnames)) == 2:
@@ -37,6 +37,7 @@ class SourceProperties:
                     Table(source_list[[X_CENTROID, Y_CENTROID]]))
             elif len({"x_0", "y_0"} & set(source_list.colnames)) == 2:
                 self._source_list = Table(source_list[["x_0", "y_0"]])
+                assert self._source_list is not None
                 self._source_list.rename_columns(
                     ("x_0", "y_0"), (X_CENTROID, Y_CENTROID))
             else:
@@ -99,12 +100,14 @@ class SourceProperties:
         return crowd
 
     def calculate_geometry(
-            self, full_width_half_max: float=2.0) -> int | None:
+            self, full_width_half_max: float=2.0) -> Table | None:
         """
         calculate geometry
 
         :param full_width_half_max: the full width half max.
         :type full_width_half_max: float
+        :return the result of geometry
+        :rtype Table
         """
         if self._source_list is None:
             p_error("no source list\n")

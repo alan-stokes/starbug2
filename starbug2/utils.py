@@ -562,7 +562,7 @@ def ext_names(hdu_list: fits.HDUList | None) -> List[str]:
 # noinspection SpellCheckingInspection
 def flux2mag(
         raw_flux: np.ndarray | float,
-        flux_err: Optional[Column] | None = None,
+        flux_err: Column | None | np.ndarray | int | float = None,
         zp: float=1.0) -> Tuple[np.ndarray, np.ndarray]:
     """
     Convert flux to magnitude in an arbitrary system using the Pogsons relation
@@ -576,33 +576,26 @@ def flux2mag(
     :return: tuple of (Source magnitudes, Magnitude errors ).
     :rtype: tuple (ndarray, ndarray).
     """
-    flux: np.ndarray
-    ## sort any type issues in FLUX
-    if type(raw_flux) == float or type(raw_flux) == int:
-        flux = np.array(raw_flux)
-    else:
-        flux = raw_flux # noqa
-
-    if not flux.shape:
-        flux = np.array([flux])
-
-    # sort type issues in flux_err
+    flux: np.ndarray = np.atleast_1d(raw_flux).astype(float)
     if flux_err is None:
-        flux_err = np.zeros(len(flux))
-    if type(flux_err) != np.array:
-        flux_err = np.array(flux_err)
-    if not flux_err.shape:
-        flux_err = np.array([flux_err])
-
+        flux_err_arr: np.ndarray = np.zeros_like(flux)
+    else:
+        flux_err_arr = np.atleast_1d(np.asarray(flux_err)).astype(float)
     mag: np.ndarray = np.full(len(flux), np.nan)
     mag_err: np.ndarray = np.full(len(flux), np.nan)
 
-    mask_flux: np.ndarray = (flux > 0)
-    mask_f_err: np.ndarray = (flux_err >= 0)
-    mask: np.ndarray = np.logical_and(mask_flux, mask_f_err)
+    # Handle infinities cleanly before passing to mask bounds to satisfy
+    # boundary tests (Prevents runtime RuntimeWarnings during greater/less
+    # than comparisons)
+    with np.errstate(invalid='ignore'):
+        mask_flux: np.ndarray = (flux > 0) & np.isfinite(flux)
+        mask_f_err: np.ndarray = (flux_err_arr >= 0)
 
-    mag[mask_flux] = -2.5 * np.log10(flux[mask_flux] / zp)
-    mag_err[mask] = 2.5 * np.log10(1.0 + (flux_err[mask] / flux[mask]))
+        mask: np.ndarray = mask_flux & mask_f_err
+
+        mag[mask_flux] = -2.5 * np.log10(flux[mask_flux] / zp)
+        mag_err[mask] = 2.5 * np.log10(1.0 + (flux_err_arr[mask] / flux[mask]))
+    mag[flux == np.inf] = -np.inf
 
     return mag, mag_err
 

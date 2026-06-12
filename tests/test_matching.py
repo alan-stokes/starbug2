@@ -1,4 +1,6 @@
 import os,numpy as np
+from typing import Final
+
 import pytest
 
 from starbug2.constants import (
@@ -15,11 +17,11 @@ from astropy import units
 from astropy.units import Quantity
 
 from tests.generic import (
-    TEST_IMAGE_FITS, TEST_PATH, check_shape, clean, TEST_FILTER_STRING)
+    TEST_IMAGE_FITS, check_shape, clean, TEST_FILTER_STRING, TEST_PATH_STR)
 
-IMAGE_2_FITS = os.path.join(TEST_PATH, "image2.fits")
-IMAGE_AP_FITS = os.path.join(TEST_PATH, "image-ap.fits")
-IMAGE_2_AP_FITS = os.path.join(TEST_PATH, "image2-ap.fits")
+IMAGE_2_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image2.fits")
+IMAGE_AP_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image-ap.fits")
+IMAGE_2_AP_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image2-ap.fits")
 
 
 
@@ -27,9 +29,11 @@ IMAGE_2_AP_FITS = os.path.join(TEST_PATH, "image2-ap.fits")
 def init():
 
     clean()
+    # noinspection SpellCheckingInspection
     starbug_main(
         f"starbug2 -Ds SIGSRC=10 {TEST_IMAGE_FITS}"
         f" {TEST_FILTER_STRING}".split())
+    # noinspection SpellCheckingInspection
     starbug_main(
         "starbug2 -Ds SIGSRC=3 -o "
         f"{IMAGE_2_FITS} {TEST_IMAGE_FITS} {TEST_FILTER_STRING}".split())
@@ -150,6 +154,7 @@ class TestGenericMatch:
             col_names=[RA, DEC, FLUX], filter_string="F444W",
             threshold=config.match_threshold_arc_sec_as_an_arc_sec)
         av: Table = m.finish_matching(m.match([category1, category2]))
+        # noinspection SpellCheckingInspection
         assert av.colnames == [
             "RA", "DEC", "flux", "stdflux", "flag", "F444W", "eF444W", "NUM"]
 
@@ -160,6 +165,7 @@ class TestGenericMatch:
         for c in categories:
             del c.meta[FILTER]
         av: Table = m.finish_matching(m.match([category1, category2]))
+        # noinspection SpellCheckingInspection
         assert av.colnames == [
             "RA", "DEC", "flux", "stdflux", "flag", "MAG", "eMAG", "NUM"]
 

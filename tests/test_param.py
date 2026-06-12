@@ -29,7 +29,7 @@ def test_load_default_params():
 
 
 def test_load_params():
-    config: StarBugMainConfig = StarBugMainConfig.load_params("doesnotexist")
+    config: StarBugMainConfig = StarBugMainConfig.load_params("does_not_exist")
 
     os.system("starbug2 --local-param")
     second_config: StarBugMainConfig = (

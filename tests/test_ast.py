@@ -42,5 +42,5 @@ def test_run_harsh_inputs():
     clean()
 
 if __name__ == "__main__":
-    # This allows you to run the harhs test directly.
+    # This allows you to run the harsh test directly.
     test_run_harsh_inputs()

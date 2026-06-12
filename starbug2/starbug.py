@@ -709,10 +709,15 @@ class StarbugBase(StarBugInterface):
                 return EXIT_FAIL
             
             header.update(self._wcs.to_header())
+
+            # get image data
+            image_data = bgd(
+                self.main_image.data.copy(),
+                output=self._config.bgd_check_file)
+            assert image_data is not None
+
             self._background = ImageHDU(
-                data=bgd(
-                    self.main_image.data.copy(),
-                    output=self._config.bgd_check_file).background,
+                data=image_data.background,
                 header=header)
 
             # check for insanity

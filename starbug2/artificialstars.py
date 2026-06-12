@@ -158,7 +158,10 @@ class ArtificialStars:
             names=self.TEST_TABLE_COLUMN_NAMES)
         scale_factor: float | int = (
             get_mj_ysr2jy_scale_factor(self._starbug.main_image))
-        base_image: fits.HDUList = self._starbug.image.copy()
+
+        current_image = self._starbug.image
+        assert current_image is not None
+        base_image: fits.HDUList = current_image.copy()
         base_shape: np.ndarray = np.copy(self._starbug.main_image.shape)
         stars_per_test: int = int(stars_per_test)
         passed: int = 0
@@ -259,7 +262,7 @@ class ArtificialStars:
             for i, src in enumerate(contains): # type: ignore
                 separations: np.ndarray = np.sqrt(
                     (src[X_0] - det[X_CENTROID]) ** 2
-                    + (src[Y_0] - det[Y_CENTROID]) ** 2)
+                    + (src[Y_0] - det[Y_CENTROID]) ** 2) * threshold.unit
                 best_match: int = np.argmin(separations) # noqa
                 if separations[best_match] < threshold:
                     test_result[X_DET][i] = det[X_CENTROID][best_match]
@@ -300,7 +303,7 @@ def get_completeness(test_result: Table) -> Table:
 
     :param test_result: The output from auto_run.
     :type test_result: astropy.table.Table
-    :return: A table containing percent completeness as a function of
+    :return: A table containing per cent completeness as a function of
              magnitude.
     :rtype: astropy.table.Table
     """
@@ -418,7 +421,7 @@ def scurve(x: np.ndarray, l: float, k: float, xo: float) -> float | np.ndarray:
     """
     S-curve function to fit completeness results to.
 
-    math::  f(x) = \\frac{l}{1 + \\exp(-k(x - x_0))}
+    math::  f(x) = \\frac{l}{1 + \\exp(-k(x - x_0))
 
     :param x: Magnitude range or array to input into the function.
     :type x: list or numpy.ndarray
