@@ -28,7 +28,6 @@ usage: starbug2-plot [-vhX] [-I CN000] [-o outfile] images.fits
     -apfile              : ?????
 """
 import os, sys
-from typing import Final
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -41,15 +40,6 @@ from starbug2.plot import load_style, plot_test, plot_inspect_source
 from starbug2.star_bug_config import StarBugMainConfig
 from starbug2.utils import p_error, warn, parse_cmd, usage
 from astropy.io.fits import PrimaryHDU, ImageHDU, BinTableHDU
-
-VERBOSE: Final[int] = 0x01
-SHOW_HELP: Final[int] = 0x02
-STOP_PROC: Final[int] = 0x04
-KILL_PROC: Final[int] = 0x08
-DARK_MODE: Final[int] = 0x10
-
-PTEST: Final[int] = 0x1000
-PINSPECT: Final[int] = 0x2000
 
 
 def starbug_parse_argv(argv: list[str]) -> StarBugMainConfig:
