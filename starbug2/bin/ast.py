@@ -21,10 +21,11 @@ usage: starbug2-ast [-vhR] [-N ntests] [-n ncores] [-p file.param] [-S nstars]
 
 import os,sys
 from multiprocessing.shared_memory import SharedMemory
+from multiprocessing import Pool, Process, shared_memory
+from multiprocessing.pool import Pool as PoolType
 
 import numpy as np
 import glob
-from multiprocessing import Pool, Process, shared_memory
 from time import sleep
 from astropy.table import Table
 from astropy.io.fits import HDUList
@@ -100,11 +101,16 @@ def ast_one_time_runs(config: StarBugMainConfig) -> int:
             f_names = [a for a in config.fits_images if os.path.exists(a)]
         if f_names:
             printf("Recovery Mode:\n-> %s\n"%("\n-> ".join(f_names)))
-            raw: Table = Table()
+            raw: Table | None = Table()
             for f_name in f_names:
                 f_name: str
-                raw = combine_tables(raw, Table.read(f_name))
+                read_table: Table | None = Table.read(f_name)
+                if read_table is None:
+                    p_error(f"failed to read table at path {f_name}")
+                    return EXIT_FAIL
+                raw = combine_tables(raw, read_table)
             results: HDUList
+            assert raw is not None
             if (results := compile_results(
                     fill_nan(raw), plot_ast="recovered.pdf")):
                 printf("-> successful recovery!\n--> %s\n" % (
@@ -133,10 +139,10 @@ def execute_artificial_stars(
     :param test_count: the amount of tests
     :type test_count: int
     :param ast_auto_save: how many tests between saves
-    :type ast_auto_save: int
+    :type ast_auto_save: int.
     :return: The generated artificial stars recovery catalogue table, or
-             None if the file doesn't exist
-    :rtype: astropy.table.Table or None
+             None if the file doesn't exist.
+    :rtype: astropy.table.Table or None.
     """
     global buffer
     out: Table | None = None
@@ -221,7 +227,7 @@ def ast_main(argv: list[str]) -> int:
                 for index, file_name in enumerate(config.fits_images)
             ]
 
-            pool: Pool = Pool(processes=n_cores)
+            pool: PoolType = Pool(processes=n_cores)
             outs = pool.starmap(execute_artificial_stars, worker_tasks)
             pool.close()
             pool.join()
@@ -234,9 +240,10 @@ def ast_main(argv: list[str]) -> int:
         # COMPILING ALL THE RESULTS #
         #############################
 
-        raw: Table = outs[0]
+        raw: Table | None = outs[0]
         for res in outs[1:]:
             raw = combine_tables(raw, res)
+        assert raw is not None
         star_bug_base: StarbugBase = StarbugBase(
             f_name, config, ap_file=config.ap_file,
             bkg_file=config.background_file, verbose=config.verbose_logs)
@@ -246,9 +253,12 @@ def ast_main(argv: list[str]) -> int:
                 np.nanmean(raw[FLUX] / raw[FLUX_DET])))
 
         results: HDUList
+        filter_string: str | None = star_bug_base.filter
+        assert filter_string is not None
+        assert raw is not None
         if (results := compile_results(
                 raw, image=star_bug_base.main_image.data,
-                filter_string=star_bug_base.filter,
+                filter_string=filter_string,
                 plot_ast=config.ast_plot_filename)):
             out_dir: str
             b_name: str
@@ -258,7 +268,7 @@ def ast_main(argv: list[str]) -> int:
                 printf("--> %s/%s-ast.fits\n" % (out_dir, b_name))
             results.writeto("%s/%s-ast.fits"%(out_dir, b_name), overwrite=True)
 
-            ## autosave cleanup
+            ## autosave clean-up
             # noinspection SpellCheckingInspection
             for _f_name in glob.glob("sbast-autosave*.tmp"):
                 _f_name: str

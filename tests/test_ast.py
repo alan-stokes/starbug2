@@ -10,6 +10,7 @@ from tests.generic import TEST_IMAGE_FITS, clean
 run = lambda s: ast_main(s.split() + [TEST_IMAGE_FITS])
 TEST_FILTER_STRING: Final[str] = "-s FILTER=F444W"
 
+
 def test_run_basic():
     clean()
     assert run(f"starbug2-ast -N10 -S10 {TEST_FILTER_STRING}") == EXIT_SUCCESS

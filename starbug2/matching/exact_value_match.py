@@ -60,10 +60,10 @@ class ExactValueMatch(GenericMatch):
                           for intersections)
         :type join_type: str
         :param cartesian: Whether to use Cartesian coordinates for matching
-        :type cartesian: bool
+        :type cartesian: bool.
         :return: A new catalogue, it is a reordered version of *cat*, in the
-            correct sorting to be h-stacked with *base*
-        :rtype:  astropy.Table
+            correct sorting to be h-stacked with *base*.
+        :rtype:  astropy.Table.
         """
         tmp: Table = Table(
             np.full((len(base), len(cat.colnames)), np.nan),

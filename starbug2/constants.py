@@ -167,7 +167,7 @@ SUM_0: Final[str] = "aperture_sum_0"
 SUM_1: Final[str] = "aperture_sum_1"
 
 ## DEFAULT MATCHING COLS
-match_cols: List[str] = [RA, DEC, FLAG, FLUX, E_FLUX, NUM]
+MATCH_COLS: List[str] = [RA, DEC, FLAG, FLUX, E_FLUX, NUM]
 
 # tag for header
 FILTER_LOWER: Final[str] = "filter"

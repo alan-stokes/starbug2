@@ -50,7 +50,7 @@ See https://starbug2.readthedocs.io for full documentation.
 
 """
 import warnings
-import os, sys, getopt
+import os, sys
 
 from astropy.utils.exceptions import AstropyWarning
 from astropy.io.fits import PrimaryHDU
@@ -161,7 +161,7 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> int:
             printf(
                 "Generating PSF: %s %s (%d)\n" %
                 (filter_string, detector, psf_size))
-            psf: PrimaryHDU = generate_psf(
+            psf: PrimaryHDU | None = generate_psf(
                 filter_string, detector=detector, fov_pixels=psf_size)
             if psf: 
                 name: str = (
@@ -186,7 +186,7 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> int:
 
     ## Generate a region from a table
     if config.generate_region:
-        file_name: str = config.region_file
+        file_name: str | None = config.region_file
         if file_name and os.path.exists(file_name):
             table: Table = Table.read(file_name, format="fits")
             _, name, _ = split_file_name(file_name)
@@ -209,26 +209,33 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> int:
 
 
 def starbug_match_outputs(
-        starbugs: list[StarbugBase], config: StarBugMainConfig) -> None:
+        starbugs: list[StarbugBase | None], config: StarBugMainConfig) -> None:
     """
     Matching output catalogues
 
     :param starbugs: star bug instances
+    :type starbugs: list of starbugBase or None
     :param config: the config object
+    :type config: StarBugMainConfig
     :return: None
     """
     if config.verbose_logs:
         printf("Matching outputs\n")
 
-    f_name: str
-    if f_name := combine_file_names([sb.f_name for sb in starbugs]):
+    f_name: str | None
+
+    # filter out any Nones.
+    valid_bugs: list[StarbugBase] = [sb for sb in starbugs if sb is not None]
+
+    # get file name
+    if f_name := combine_file_names([sb.f_name for sb in valid_bugs]):
         _, name ,_ = split_file_name(os.path.basename(f_name))
         name: str
-        f_name = "%s/%s"%(starbugs[0].out_dir, name)
+        f_name = "%s/%s"%(valid_bugs[0].out_dir, name)
     else:
         f_name = "out"
 
-    header: Header = starbugs[0].header
+    header: Header = valid_bugs[0].header
 
     match: GenericMatch = GenericMatch(
         threshold = config.match_threshold_arc_sec_as_an_arc_sec,
@@ -237,7 +244,7 @@ def starbug_match_outputs(
 
     if config.do_star_detection or config.do_aperture_photometry:
         full: Table = match(
-            [sb.detections for sb in starbugs], join_type="or")
+            [sb.detections for sb in valid_bugs], join_type="or")
         av: Table = match.finish_matching(
             full, num_thresh=config.exposure_count_threshold,
             zp_mag=config.zero_point_magnitude)
@@ -252,7 +259,7 @@ def starbug_match_outputs(
 
     if config.do_photometry_routine:
         full: Table = match(
-            [sb.psf_catalogue for sb in starbugs], join_type="or")
+            [sb.psf_catalogue for sb in valid_bugs], join_type="or")
         av: Table = match.finish_matching(
             full, num_thresh=config.exposure_count_threshold,
             zp_mag=config.zero_point_magnitude)
@@ -287,8 +294,8 @@ def execute_star_bug(
     if os.path.exists(f_name):
         folder, file_name, ext = split_file_name(f_name)
 
-        ap_file: str = config.ap_file
-        background_file: str = config.background_file
+        ap_file: str | None = config.ap_file
+        background_file: str | None = config.background_file
 
         if config.find_file:
             ap: str = "%s/%s-ap.fits" % (folder, file_name)
@@ -353,6 +360,7 @@ def starbug_main(argv: list[str]) -> int:
         # why import here
         import starbug2
         from multiprocessing import Pool
+        from multiprocessing.pool import Pool as PoolType
 
         # freeze the config now to avoid writers
         config.freeze()
@@ -373,7 +381,7 @@ def starbug_main(argv: list[str]) -> int:
                     (file_name, config, config.verbose_logs))
                     for file_name in config.fits_images])
         else:
-            pool: Pool = Pool(processes=n_cores)
+            pool: PoolType = Pool(processes=n_cores)
 
             # this ensures only the first worker executes verbose.
             worker_tasks = [
@@ -384,7 +392,8 @@ def starbug_main(argv: list[str]) -> int:
             pool.close()
             pool.join()
 
-        to_remove: list[StarbugBase] = []
+        to_remove: list[StarbugBase | None] = []
+        sb: StarbugBase | None
         for n, sb in enumerate(starbugs):
             if not sb: 
                 p_error("FAILED: %s\n" % config.fits_images[n])

@@ -35,7 +35,7 @@ from astropy.units import Quantity
 from starbug2 import utils
 from starbug2.constants import (
     EXIT_EARLY, EXIT_SUCCESS, EXIT_FAIL, CAT_NUM, FILTER, STAR_BUG_MIRI,
-    NIRCAM, match_cols, RA, DEC, FLAG, NUM)
+    NIRCAM, MATCH_COLS, RA, DEC, FLAG, NUM)
 from starbug2.filters import STAR_BUG_FILTERS
 from starbug2.matching.band_match import BandMatch
 from starbug2.matching.cascade_match import CascadeMatch
@@ -137,12 +137,12 @@ def match_main(argv: list[str]) -> int:
             "./starbug.param" if os.path.exists("./starbug.param") else None)
 
     tables: list[Table] = []
-    for f_name in config.fits_images:
+    for f_name in config.fits_table:
         t: Table | None = utils.import_table(f_name, verbose=True)
         if t is not None:
             tables.append(t)
 
-    masks: list[np.ndarray] = []
+    masks: list[np.ndarray | None] = []
     if raw := config.mask_eval:
         masks = [parse_mask(raw, t) for t in tables]
         for m in masks:
@@ -152,7 +152,7 @@ def match_main(argv: list[str]) -> int:
                 print(m) # noqa
 
     if len(tables) > 1:
-        col_names: list[str] = list(match_cols)
+        col_names: list[str] = list(MATCH_COLS)
 
         if config.extra_match_columns is not None:
             col_names += [
@@ -162,12 +162,12 @@ def match_main(argv: list[str]) -> int:
         d_threshold: Quantity = config.match_threshold_arc_sec_as_an_arc_sec
         error_column: str = config.error_col
 
-        av: Table
-        full: Table| None = None
+        average_table: Table
+        full: Table | None = None
         matcher: GenericMatch
 
         if config.band_deprecated:
-            av = match_full_band_match(
+            average_table = match_full_band_match(
                 tables, config.match_threshold_arc_sec_as_an_array,
                 config.bridge_band_column)
             exp_full = True
@@ -212,7 +212,7 @@ def match_main(argv: list[str]) -> int:
                 print("\n%s" % matcher)
 
             full = matcher.match(tables, join_type="or", mask=masks)
-            av = matcher.finish_matching(
+            average_table = matcher.finish_matching(
                 full,
                 num_thresh=config.exposure_count_threshold,
                 zp_mag=config.zero_point_magnitude,
@@ -238,8 +238,9 @@ def match_main(argv: list[str]) -> int:
             utils.printf("-> %s/%sfull.fits\n" % (d_name, f_name))
             suffix = "match"
 
-        if av:
-            utils.export_table(av, "%s/%s%s.fits" % (d_name, f_name, suffix))
+        if average_table:
+            utils.export_table(
+                average_table, "%s/%s%s.fits" % (d_name, f_name, suffix))
             utils.printf("-> %s/%s%s.fits\n" % (d_name, f_name, suffix))
 
         return EXIT_SUCCESS

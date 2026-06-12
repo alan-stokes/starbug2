@@ -29,7 +29,7 @@ ExposureMapping = (
 ##########################
 def init_starbug() -> None:
     """
-    Initialise Starbug..
+    Initialise Starbug.
         - generate PSFs
         - download crds files
     INPUT:
@@ -112,7 +112,8 @@ def generate_psfs() -> None:
             for det in detectors:
                 load.msg = "%6s %5s" % (filter_string, det)
                 load.show()
-                psf: fits.PrimaryHDU = generate_psf(filter_string, det, None)
+                psf: fits.PrimaryHDU | None = generate_psf(
+                    filter_string, det, None)
                 if psf: 
                     psf.writeto(
                         "%s/%s%s.fits" % (
@@ -164,6 +165,7 @@ def generate_psf(
 
     if filter_string in list(STAR_BUG_FILTERS.keys()):
         the_filter = STAR_BUG_FILTERS.get(filter_string)
+        assert the_filter is not None
         if detector is None:
             if the_filter.instr == NIRCAM and the_filter.length == SHORT:
                 detector = "NRCA1"
@@ -298,7 +300,7 @@ def sort_exposures(catalogues: List[fits.HDUList]) -> ExposureMapping:
     return out
 
 
-def parse_mask(string, table) -> np.ndarray:
+def parse_mask(string, table) -> np.ndarray | None:
     """
     Parse a commandline mask string to be passed into a matching routine
     Example: --mask=F444W!=nan
@@ -328,7 +330,7 @@ def parse_mask(string, table) -> np.ndarray:
     return mask
 
 
-def exp_info(hdu_list) -> Dict[str, int]:
+def exp_info(hdu_list) -> Dict[str, int | None]:
     """
     Get the exposure information about a hdu list
     :param hdu_list: HDUList or ImageHDU or BinTableHDU
@@ -336,7 +338,7 @@ def exp_info(hdu_list) -> Dict[str, int]:
     (filter, obs, visit exposure, detector)
     :rtype dict(str, Optional[int])
     """
-    info: Dict[str, int] = {
+    info: Dict[str, int | None] = {
         FILTER : None,
         OBS : 0,
         VISIT : 0,

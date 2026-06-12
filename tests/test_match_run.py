@@ -26,8 +26,8 @@ def test_match_bad_input():
     assert run(f"starbug2-match {TEST_IMAGE_FITS}") == EXIT_EARLY
     assert run("starbug2-match badinput.fits") == EXIT_FAIL
     assert run("starbug2-match badinput.txt") == EXIT_FAIL
-    starbug_main(f"starbug2 -D {TEST_IMAGE_FITS}".split())
-    assert run(f"starbug2-match {IMAGE_AP_FITS}") == EXIT_FAIL
+    starbug_main(f"starbug2 -D {TEST_IMAGE_FITS} {TEST_FILTER_STRING}".split())
+    assert run(f"starbug2-match {IMAGE_AP_FITS}") == EXIT_EARLY
 
 def test_match_basic_run_through():
     starbug_main(

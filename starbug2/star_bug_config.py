@@ -4,6 +4,7 @@ import os
 
 import numpy as np
 from astropy import units
+from astropy.units import Quantity
 from typing import Dict, Tuple, Final, Any
 from parse import parse
 
@@ -89,6 +90,21 @@ class StarBugMainConfig:
         ('o', 'output', str): 'output_file',
         ('p', 'param', str): 'param_file',
         ('s', 'set', str): 'set_parameter',
+    }
+
+    # noinspection SpellCheckingInspection
+    PLOT_FLAG_MAP: Dict[Tuple[str | None, str, Any], str] = {
+        # Boolean Switches (No arguments)
+        ('h', 'help', bool): 'show_plot_help',
+        ('v', 'verbose', bool): 'verbose_logs',
+        ('X', 'test', bool): 'test_mode',
+        (None, 'apfile', bool): 'ap_file',
+        (None, 'dark', bool): 'dark_mode',
+
+        # Options with Arguments (Strings)
+        ('I', 'inspect', str): 'inspect_parameter',
+        ('o', 'output', str): 'output_file',
+        ('d', 'style', str): 'plot_style',
     }
 
 
@@ -226,6 +242,12 @@ class StarBugMainConfig:
         self._error_col: str = E_FLUX
         self._mask_eval: str | None = None
 
+        # plot params
+        self._show_plot_help: bool = False
+        self._test_mode: bool = False
+        self._dark_frame_correction = False
+        self._inspect_parameter: str | None = None
+        self._plot_style: str | None = None
 
         # param file defaults. These constants do not have justifications yet.
         self._output_file: str | None = None
@@ -318,7 +340,7 @@ class StarBugMainConfig:
         """
         Natively inspects the configuration structure to construct perfectly
         formatted short-option strings and long-option arrays for getopt
-        dynamically.
+        dynamically for main.
 
         :return: the inputs to gnu_getopt.
         """
@@ -331,7 +353,7 @@ class StarBugMainConfig:
         """
         Natively inspects the configuration structure to construct perfectly
         formatted short-option strings and long-option arrays for getopt
-        dynamically.
+        dynamically for artificial stars.
 
         :return: the inputs to gnu_getopt.
         """
@@ -343,11 +365,23 @@ class StarBugMainConfig:
         """
         Natively inspects the configuration structure to construct perfectly
         formatted short-option strings and long-option arrays for getopt
-        dynamically.
+        dynamically for match.
 
         :return: the inputs to gnu_getopt.
         """
         return cls._generate_get_opt_definitions(cls.MATCH_FLAG_MAP)
+
+    @classmethod
+    def generate_plot_get_opt_definitions(cls) -> Tuple[str, list[str]]:
+        # noinspection SpellCheckingInspection
+        """
+        Natively inspects the configuration structure to construct perfectly
+        formatted short-option strings and long-option arrays for getopt
+        dynamically for plot.
+
+        :return: the inputs to gnu_getopt.
+        """
+        return cls._generate_get_opt_definitions(cls.PLOT_FLAG_MAP)
 
 
     @staticmethod
@@ -731,6 +765,39 @@ REGION_TAB = {format_val("REGION_TAB")}
             else:
                 setattr(self, property_name, target_type(raw_value))
 
+    def _normalize_threshold(
+            self, threshold: float | int | np.ndarray | list | Quantity)-> (
+                None | np.ndarray | Quantity):
+        """
+        Normalises threshold inputs to ensure they possess the 'arcsec' unit.
+        - Unitless Quantities -> scaled to arcsec
+        - Floats/Ints -> converted to arcsec Quantity
+        - Lists/Arrays of floats -> converted to an object array of arcsec
+                                    Quantities
+        """
+        if threshold is None:
+            return None
+
+        # Handle standard Lists or NumPy arrays
+        if isinstance(threshold, (list, np.ndarray)):
+            # Recursively normalise each element, keeping them as individual
+            # object array slots
+            return np.array(
+                [self._normalize_threshold(t) for t in threshold],
+                dtype=object)
+
+        # Handle Astropy Quantity instances
+        if isinstance(threshold, Quantity):
+            # Check if the Quantity has no physical units (dimensionless)
+            if threshold.unit == units.dimensionless_unscaled:
+                return threshold.value * units.arcsec
+            return threshold
+
+        # Handle raw primitive Python numeric scalars (ints, floats)
+        if isinstance(threshold, (int, float, np.number)):
+            return threshold * units.arcsec
+        return None
+
 
     def freeze(self) -> None:
         """
@@ -759,8 +826,10 @@ REGION_TAB = {format_val("REGION_TAB")}
         :rtype: units.Quantity
         """
         threshold: float = float(self._match_threshold_arc_sec)
-        arc_sec_threshold: units.Quantity = threshold * units.arcsec
-        return arc_sec_threshold
+        normalised_threshold: None | np.ndarray | Quantity = (
+            self._normalize_threshold(threshold))
+        assert isinstance(normalised_threshold, Quantity)
+        return normalised_threshold
 
     @property
     def match_threshold_arc_sec_as_an_array(self) -> np.ndarray:
@@ -771,8 +840,10 @@ REGION_TAB = {format_val("REGION_TAB")}
         """
         threshold_array: np.ndarray = np.array(
             self._match_threshold_arc_sec.split(','), float)
-        threshold_quantity_array: np.ndarray = threshold_array * units.arcsec
-        return threshold_quantity_array
+        normalised_threshold: None | np.ndarray | Quantity = (
+            self._normalize_threshold(threshold_array))
+        assert isinstance(normalised_threshold, np.ndarray)
+        return normalised_threshold
 
 
     # ==========================================
@@ -1585,6 +1656,16 @@ REGION_TAB = {format_val("REGION_TAB")}
     def fits_images(self, values: list[str]) -> None:
         self._fits_images = values
 
+    # when in match, it is no longer image data. but table data. so utilise
+    # this method for clarity of user readability.
+    @property
+    def fits_table(self) -> list[str]:
+        return self._fits_images
+
+    @fits_table.setter
+    def fits_table(self, values: list[str]) -> None:
+        self._fits_images = values
+
     @property
     def param_tag(self) -> str:
         return self._param_tag
@@ -1748,6 +1829,59 @@ REGION_TAB = {format_val("REGION_TAB")}
     @mask_eval.setter
     def mask_eval(self, value: str | None) -> None:
         self._mask_eval = value
+
+    # ==============================
+    # plot getters and setters
+    # ==============================
+
+    @property
+    def show_plot_help(self) -> bool:
+        return self._show_plot_help
+
+
+    @show_plot_help.setter
+    def show_plot_help(self, value: bool) -> None:
+        self._show_plot_help = value
+
+
+    @property
+    def test_mode(self) -> bool:
+        return self._test_mode
+
+
+    @test_mode.setter
+    def test_mode(self, value: bool) -> None:
+        self._test_mode = value
+
+
+    @property
+    def dark_mode(self) -> bool:
+        return self._dark_frame_correction
+
+
+    @dark_mode.setter
+    def dark_mode(self, value: bool) -> None:
+        self._dark_frame_correction = value
+
+
+    @property
+    def inspect_parameter(self) -> str | None:
+        return self._inspect_parameter
+
+
+    @inspect_parameter.setter
+    def inspect_parameter(self, value: str | None) -> None:
+        self._inspect_parameter = value
+
+
+    @property
+    def plot_style(self) -> str | None:
+        return self._plot_style
+
+
+    @plot_style.setter
+    def plot_style(self, value: str | None) -> None:
+        self._plot_style = value
 
 
     def __setattr__(self, key: str, value: Any) -> None:

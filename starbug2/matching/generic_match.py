@@ -33,7 +33,8 @@ class GenericMatch:
     @staticmethod
     def mask_catalogues(
             catalogues: list[Table],
-            mask: list[np.ndarray | list[Any]] | np.ndarray | None) -> Table:
+            mask: list[np.ndarray |
+                       list[Any] | None] | np.ndarray | None) -> Table:
         """ Takes catalogues and masks and removes catalogues which don't
         match the mask.
 
@@ -54,9 +55,17 @@ class GenericMatch:
             if subset is not None:
                 if isinstance(subset, list):
                     subset = np.array(subset)
+
                 if len(subset) == len(cat):
-                    masked = vstack((masked, cat[~subset]))
-                    cat.remove_rows(any(~subset))
+                    # 1. Grab rows where mask is False (the ones we want to
+                    # remove)
+                    masked_rows = cat[~subset]
+                    masked = vstack((masked, masked_rows))
+
+                    # 2. Extract indices where mask is False to safely strip
+                    # them out
+                    indices_to_remove: np.ndarray = np.where(~subset)[0]
+                    cat.remove_rows(indices_to_remove.tolist())
         return masked
 
     @staticmethod
@@ -236,7 +245,8 @@ class GenericMatch:
             self,
             catalogues: list[Table],
             join_type: str = "or",
-            mask: list[np.ndarray | list[Any]] | np.ndarray | None = None,
+            mask: list[np.ndarray | list[Any] | None] |
+                  np.ndarray | None = None,
             cartesian: bool = False,
             **kwargs: Any) -> Table:
         """
@@ -273,8 +283,13 @@ class GenericMatch:
             self._load.msg = "matching: %d" % n
             tmp: Table = self.inner_match(
                 base, cat, join_type=join_type, cartesian=cartesian)
+
             tmp.rename_columns(
                 tmp.colnames, [f"{name}_{n}" for name in tmp.colnames])
+            # check if there is data to match against.
+            if tmp is None or len(tmp) ==0:
+                printf(f"No matches were found in catalogue {n}")
+                continue
             base = fill_nan(hstack((base, tmp)))
 
         # Add in any masked bits
@@ -389,7 +404,7 @@ class GenericMatch:
 
         # have working table
         flags: np.ndarray = np.full(len(tab), SRC_GOOD, dtype=np.uint16)
-        av: Table = Table(None)
+        average_table: Table = Table(None)
 
         if col_names is None:
             col_names = self._col_names if self._col_names else []
@@ -399,13 +414,15 @@ class GenericMatch:
                 ar: np.ndarray = tab2array(tab, col_names=all_cols)
                 col: Column
 
+                # only go forward if both tables have a common column name to
+                # compare
                 if ar.shape[1] > 1:
                     if name == FLUX:
                         col = Column(np.nanmedian(ar, axis=1), name=name)
                         mean: np.ndarray = np.nanmean(ar, axis=1)
 
                         if self._col_names and STD_FLUX not in self._col_names:
-                            av.add_column(
+                            average_table.add_column(
                                 Column(np.nanstd(ar, axis=1), name=STD_FLUX),
                                 index=ii + 1)
                         ## if median and mean are >5% different, flag as
@@ -430,32 +447,33 @@ class GenericMatch:
                 else:
                     col = tab[all_cols[0]]
                     col.name = name
-                av.add_column(col, index=ii)
+                average_table.add_column(col, index=ii)
 
-        av[FLAG] = Column(flags, name=FLAG)
-        if FLUX in av.colnames:
+        average_table[FLAG] = Column(flags, name=FLAG)
+        if FLUX in average_table.colnames:
             ecol: Column | None = (
-                av[error_column] if error_column in av.colnames else None)
+                average_table[error_column]
+                if error_column in average_table.colnames else None)
             mag: np.ndarray
             mag_err: np.ndarray
-            mag, mag_err = flux2mag(av[FLUX], flux_err=ecol)
+            mag, mag_err = flux2mag(average_table[FLUX], flux_err=ecol)
             mag += zp_mag
 
-            if self._filter in av.colnames:
-                av.remove_column(str(self._filter))
-            if f"e{self._filter}" in av.colnames:
-                av.remove_column(f"e{self._filter}")
-            av.add_column(mag, name=str(self._filter))
-            av.add_column(mag_err, name=f"e{self._filter}")
+            if self._filter in average_table.colnames:
+                average_table.remove_column(str(self._filter))
+            if f"e{self._filter}" in average_table.colnames:
+                average_table.remove_column(f"e{self._filter}")
+            average_table.add_column(mag, name=str(self._filter))
+            average_table.add_column(mag_err, name=f"e{self._filter}")
 
-        if NUM not in av.colnames:
+        if NUM not in average_table.colnames:
             narr: np.ndarray = np.nansum(np.invert(
                 np.isnan(tab2array(tab, find_col_names(tab, RA)))), axis=1)
-            av.add_column(Column(narr, name=NUM))
+            average_table.add_column(Column(narr, name=NUM))
 
             if num_thresh > 0:
-                av.remove_rows(av[NUM] < num_thresh)
-        return av
+                average_table.remove_rows(average_table[NUM] < num_thresh)
+        return average_table
 
     @property
     def col_names(self) -> list[str] | None:

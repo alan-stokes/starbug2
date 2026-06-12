@@ -72,7 +72,7 @@ class StarBugInterface(ABC):
 
     @abstractmethod
     def prepare_image_arrays(self) -> (
-        Tuple[np.array, np.array, np.array or None, np.array]):
+        Tuple[np.ndarray , np.ndarray, np.ndarray | None, np.ndarray]):
         """
         Make a copy of the original image, and prepare the other image arrays
 

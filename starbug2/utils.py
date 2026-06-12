@@ -55,17 +55,21 @@ def repeat_print(n: int, c: str) -> None:
     printf(append_chars("", n, c))
 
 
-def split_file_name(path: str) -> Tuple[str, str, str]:
+def split_file_name(file_path: str | None) -> Tuple[str, str, str]:
     """
     breaks apart a path into folder, filename and extension.
-    :param path: the path to split
+    :param file_path: the path to split
     :return: (folder, file name, extension)
     :rtype: tuple of str, str, str
     """
     folder: str
     file: str
     ext: str
-    folder, file = os.path.split(path)
+
+    if file_path is None:
+        raise Exception("failed as path is None")
+
+    folder, file = os.path.split(file_path)
     file_name, ext = os.path.splitext(file)
     if not folder:
         folder = '.'
@@ -133,7 +137,7 @@ class Loading(object):
             printf("\n")
 
 
-def combine_tables(base: Table, tab: Table) -> Table:
+def combine_tables(base: Table| None, tab: Table | None) -> Table | None:
     """
     Is this the same as vstack?
     """
@@ -441,13 +445,14 @@ def find_col_names(tab: Table, basename: str) -> List[str]:
 
 
 def combine_file_names(
-        f_names: List[str], n_mismatch: int=N_MIS_MATCHES) -> str | None:
+        f_names: List[str | None],
+        n_mismatch: int=N_MIS_MATCHES) -> str | None:
     """
     when matching catalogues, combines the file names into an appropriate
     combination of all the inputs.
 
     :param f_names: list of file names
-    :type f_names: list of str
+    :type f_names: list of str | None
     :param n_mismatch: The number of mismatched characters it will allow
     :type n_mismatch: int
     :return: Combined filenames
@@ -458,6 +463,10 @@ def combine_file_names(
     f_name: str = ""
     d_name: str
     ext : str
+
+    if f_names is None:
+        return None
+
     d_name, _, ext = split_file_name(f_names[0])
     f_names: List[str] = [split_file_name(name)[1] for name in f_names]
 
@@ -535,7 +544,7 @@ def h_cascade(
     return tab
 
 
-def ext_names(hdu_list: fits.HDUList) -> List[str]:
+def ext_names(hdu_list: fits.HDUList | None) -> List[str]:
     """
     Return list of HDU extension names
 
@@ -544,16 +553,19 @@ def ext_names(hdu_list: fits.HDUList) -> List[str]:
     :return: List of extension names
     :rtype: list of str
     """
+    if hdu_list is None:
+        return []
+
     ext: fits.PrimaryHDU | fits.ImageHDU
     return list(ext.name for ext in hdu_list)
 
-
+# noinspection SpellCheckingInspection
 def flux2mag(
         raw_flux: np.ndarray | float,
         flux_err: Optional[Column] | None = None,
         zp: float=1.0) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Convert flux to magnitude in an arbitrary system
+    Convert flux to magnitude in an arbitrary system using the Pogsons relation
 
     :param raw_flux: List of source flux values
     :type raw_flux: list of floats or float or None or ndarray
@@ -566,7 +578,7 @@ def flux2mag(
     """
     flux: np.ndarray
     ## sort any type issues in FLUX
-    if type(raw_flux) == float:
+    if type(raw_flux) == float or type(raw_flux) == int:
         flux = np.array(raw_flux)
     else:
         flux = raw_flux # noqa
@@ -784,13 +796,16 @@ def crop_hdu(
     return hdu
 
 
-def usage(docstring: str, verbose: bool | int=0) -> int:
+def usage(docstring: str | None, verbose: bool | int=0) -> int:
     """
     outputs the usage.
     :param docstring: the doc string to output
     :param verbose: if to do so in verbose mode
     :return: 1 when complete.
     """
+    if docstring is None:
+        return 1
+
     if verbose:
         p_error(docstring)
     else:

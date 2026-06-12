@@ -11,7 +11,8 @@ from starbug2.star_bug_config import StarBugMainConfig
 from starbug2.utils import import_table, fill_nan
 from starbug2.bin.main import starbug_main
 from astropy.table import Table
-from astropy import units, Quantity
+from astropy import units
+from astropy.units import Quantity
 
 from tests.generic import (
     TEST_IMAGE_FITS, TEST_PATH, check_shape, clean, TEST_FILTER_STRING)
@@ -68,79 +69,105 @@ def cats():
 class TestGenericMatch:
 
     def test_initialing(self):
-        options = StarBugMainConfig()
+        config = StarBugMainConfig()
 
-        m = GenericMatch( )
+        m = GenericMatch()
         assert m.col_names is None
         assert not m.filter 
-        assert m.threshold.value == (
-            options.match_threshold_arc_sec_as_an_arc_sec)
-        assert m.verbose == options.verbose_logs
+        assert m.threshold is None
+        assert m.verbose == config.verbose_logs
 
-        threshold: Quantity = 0.5 * units.arcsec
         m = GenericMatch(
-            filter_string=MAG, col_names=[RA], threshold=threshold,
+            filter_string=MAG, col_names=[RA],
+            threshold=config.match_threshold_arc_sec_as_an_arc_sec,
             verbose=True)
         assert m.col_names == [RA]
         assert m.filter == MAG
-        assert m.threshold.value == 0.5
+        assert (m.threshold.value ==
+                config.match_threshold_arc_sec_as_an_arc_sec.value)
         assert m.verbose == True
 
         assert isinstance(m.__str__(), str)
 
     def test_generic_match1(self):
-        categories = [import_table(f) for f in (
+        categories: list[Table | None] = [import_table(f) for f in (
             f"{IMAGE_AP_FITS}", f"{IMAGE_2_AP_FITS}")]
-        m = GenericMatch()
+        assert categories is not None
+        category1: Table | None = categories[0]
+        category2: Table | None = categories[1]
+        if category1 is None or category2 is None:
+            raise Exception("failed to import tables")
 
-        out = m(categories)
+        config = StarBugMainConfig()
+        m : GenericMatch = GenericMatch(
+            threshold=config.match_threshold_arc_sec_as_an_arc_sec)
+
+        out: Table = m(categories)
         assert isinstance(out, Table)
-        for name in categories[0].colnames:
+        name : str
+        for name in category1.colnames:
             if name != CAT_NUM:
                 assert "%s_1" % name in out.colnames
                 assert "%s_2" % name in out.colnames
-        assert len(out) >= len(categories[0])
-        assert len(out) >= len(categories[1])
+        assert len(out) >= len(category1)
+        assert len(out) >= len(category2)
         assert m.filter == "F444W"
 
         out = m(categories, join_type="and")
         print(out)
-        assert len(out) <= len(categories[0])
-        assert len(out) <= len(categories[1])
+        assert len(out) <= len(category1)
+        assert len(out) <= len(category2)
 
     def test_generic_match2(self):
         categories = [import_table(f) for f in (
             f"{IMAGE_AP_FITS}",
             f"{IMAGE_2_AP_FITS}")]
-        m = GenericMatch(col_names=[RA])
+        config = StarBugMainConfig()
+        m = GenericMatch(
+            col_names=[RA],
+            threshold=config.match_threshold_arc_sec_as_an_arc_sec)
         out = m(categories)
 
         assert out.colnames == ["RA_1", "RA_2"]
 
     def test_finish_matching(self):
-        categories = [import_table(f) for f in (
+        categories: list[Table | None] = [import_table(f) for f in (
             f"{IMAGE_AP_FITS}",
             f"{IMAGE_2_AP_FITS}")]
-        m = GenericMatch()
-        out = m(categories)
+        config = StarBugMainConfig()
+        m: GenericMatch = GenericMatch(
+            threshold=config.match_threshold_arc_sec_as_an_arc_sec
+        )
+        out: Table = m(categories)
         m.finish_matching(out)
-        
 
-        m = GenericMatch(col_names=[RA, DEC, FLUX], filter_string="F444W")
-        av = m.finish_matching(m.match(categories))
+        category1: Table | None = categories[0]
+        category2: Table | None = categories[1]
+        if category1 is None or category2 is None:
+            raise Exception("failed to import tables")
+
+        m: GenericMatch = GenericMatch(
+            col_names=[RA, DEC, FLUX], filter_string="F444W",
+            threshold=config.match_threshold_arc_sec_as_an_arc_sec)
+        av: Table = m.finish_matching(m.match([category1, category2]))
         assert av.colnames == [
             "RA", "DEC", "flux", "stdflux", "flag", "F444W", "eF444W", "NUM"]
 
-        m = GenericMatch(col_names=[RA, DEC, FLUX])
+        m: GenericMatch = GenericMatch(
+            col_names=[RA, DEC, FLUX],
+            threshold=config.match_threshold_arc_sec_as_an_arc_sec)
+        c: Table
         for c in categories:
             del c.meta[FILTER]
-        av = m.finish_matching(m.match(categories))
+        av: Table = m.finish_matching(m.match([category1, category2]))
         assert av.colnames == [
             "RA", "DEC", "flux", "stdflux", "flag", "MAG", "eMAG", "NUM"]
 
 
     def test_vals(self):
-        m = GenericMatch()
+        config = StarBugMainConfig()
+        m = GenericMatch(
+            threshold=config.match_threshold_arc_sec_as_an_arc_sec)
         out = m(cats())
         t = [[ 0.0, 0.0, 1.0, 0.1,   0.0, 0.0, 1.1, 0.1],
              [ 0.1, 0.1, 1.0, 0.1,   np.nan, np.nan, np.nan, np.nan],
@@ -160,7 +187,8 @@ class TestGenericMatch:
 class TestCascade:
     def test_cascade_match(self):
         [import_table(f) for f in (f"{IMAGE_AP_FITS}", f"{IMAGE_2_AP_FITS}")]
-        CascadeMatch()
+        config = StarBugMainConfig()
+        CascadeMatch(threshold=config.match_threshold_arc_sec_as_an_arc_sec)
         
         
     def test_vals(self):
@@ -175,7 +203,7 @@ class TestCascade:
             np.array(t),
             names=[ "RA_1", "DEC_1", "flux_1", "eflux_1", "RA_2", "DEC_2",
                     "flux_2", "eflux_2"])
-        m = CascadeMatch()
+        m = CascadeMatch(threshold=Quantity(2, unit=units.arcsec))
         out = m.match(cats())
         print(out)
 
@@ -185,8 +213,8 @@ class TestCascade:
 class TestBandMatch:
     def test_init(self):
         filters = ["a", "b", "c"]
-        m = BandMatch(filter_string=filters)
-        assert m.filter == ["a", "b", "c"]
+        m = BandMatch(fltr=filters)
+        assert m.filter_list == ["a", "b", "c"]
 
 
     def test_order_catalogue_jwst_meta(self):
@@ -197,7 +225,7 @@ class TestBandMatch:
         m = BandMatch()
         assert m.filter is None
         assert m.order_catalogues( [a,c,b] ) == [a,b,c]
-        assert m.filter == ["F115W", "F187N", "F770W"]
+        assert m.filter_list == ["F115W", "F187N", "F770W"]
 
 
     def test_order_catalogue_jwst_col_names(self):
@@ -208,7 +236,7 @@ class TestBandMatch:
         m = BandMatch()
         assert m.filter is None
         assert m.order_catalogues( [a, c, b] ) == [a, b, c]
-        assert m.filter == ["F115W", "F187N", "F770W"]
+        assert m.filter_list == ["F115W", "F187N", "F770W"]
 
 
     def test_order_catalogue_filter_meta(self):
@@ -216,7 +244,7 @@ class TestBandMatch:
         b = Table(None, meta={"FILTER":'b'})
         c = Table(None, meta={"FILTER":'c'})
 
-        m = BandMatch(filter_string=["a", "b", "c"])
+        m = BandMatch(fltr=["a", "b", "c"])
         assert m.order_catalogues( [a,c,b] ) == [a,b,c]
 
 
@@ -225,7 +253,7 @@ class TestBandMatch:
         b = Table(None, names=['b'])
         c = Table(None, names=['c'])
 
-        m = BandMatch(filter_string=["a", "b", "c"])
+        m = BandMatch(fltr=["a", "b", "c"])
         assert m.order_catalogues( [a, c, b] ) == [a, b, c]
 
 
@@ -251,7 +279,8 @@ class TestBandMatch:
             Table(np.array(t3), names=[RA, DEC, "C", NUM, FLAG],
                   dtype=[f, f, f, f, np.uint16], meta={FILTER: "C"})]
 
-        bm = BandMatch(filter_string=["A", "B", "C"], threshold=[0.1, 0.2])
+        bm = BandMatch(fltr=["A", "B", "C"],
+                       threshold=[0.1 * units.arcsec, 0.2 * units.arcsec])
         res = bm(categories)
         print(res)
         assert res.colnames == [RA, DEC, NUM, FLAG, "A", "B", "C"]
@@ -282,8 +311,10 @@ def test_match_with_masks():
         np.array([True, True, False, True]),
         None,
         np.array([True, True, True, False])]
-
-    res = GenericMatch().match([cat1, cat2, cat3], mask=mask)
+    config = StarBugMainConfig()
+    res = GenericMatch(
+        threshold=config.match_threshold_arc_sec_as_an_arc_sec
+    ).match([cat1, cat2, cat3], mask=mask)
     print(res)
 
 
