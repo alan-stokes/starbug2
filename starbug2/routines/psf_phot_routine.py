@@ -1,3 +1,18 @@
+"""Copyright (C) 2026 UKATC
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+
 """
 Core routines for StarbugII.
 """
@@ -34,7 +49,7 @@ class _Grouper(SourceGrouper):
     def __call__(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
         res: np.ndarray = super().__call__(x, y)
         n: int
-        if n := sum(np.bincount(res) > self.CRITICAL_VAL):
+        if n := sum(np.bincount(res) > self.CRITICAL_VAL): # noqa
             warn("Source grouper has %d groups larger than %d. Consider"
                  " reducing \"CRIT_SEP=%g\" or fitting might take a long"
                  " time.\n" % (n, self.CRITICAL_VAL, self.min_separation))
@@ -62,19 +77,19 @@ class PSFPhotRoutine(PSFPhotometry):
                               (pixels)
         :type min_separation: float
         :param app_hot_r: Aperture radius to be used in initial guess
-                          photometry
-        :type app_hot_r: float
-        :param force_fit: Conduct forced centroid PSF fitting
-        :type force_fit: bool or int (with values 0 or 1)
+                          photometry.
+        :type app_hot_r: float.
+        :param force_fit: Conduct forced centroid PSF fitting.
+        :type force_fit: bool or int (with values 0 or 1).
         :param background: 2D array with the same dimensions as the data used
-                           in fitting
-        :type background: numpy.ndarray
-        :param verbose: Show verbose outputs
+                           in fitting.
+        :type background: numpy.ndarray.
+        :param verbose: Show verbose outputs.
         :type verbose: bool or int
         """
         self._verbose: int | bool = verbose
         self._force_fit: bool | int = force_fit
-        self._background: np.ndarray = background
+        self._background: np.ndarray | None = background
 
         grouper: _Grouper = _Grouper(min_separation)
 
@@ -90,14 +105,14 @@ class PSFPhotRoutine(PSFPhotometry):
             printf("-> source group separation: %g\n" % min_separation)
 
     def __call__(
-            self, image: Table,
+            self, image: np.ndarray,
             init_params: Table | None = None,
             error: np.ndarray | None = None,
             mask: np.ndarray | None = None):
         """
         runs the psf phot routine.
         :param image: the image to process.
-        :type image: astropy.table.Table
+        :type image: np.ndarray
         :param init_params: the init params.
         :type init_params: Table
         :param error: the error.
@@ -112,14 +127,14 @@ class PSFPhotRoutine(PSFPhotometry):
 
     def do_photometry(
             self,
-            image: Table,
+            image: np.ndarray,
             init_params: Table | None = None,
             error: np.ndarray | None = None,
             mask: np.ndarray | None = None) -> Table | None:
         """
         does the photometry
         :param image: the image to process.
-        :type image: astropy.table.Table
+        :type image: np.ndarray
         :param init_params: the init params.
         :type init_params: Table
         :param error: the error.
@@ -130,8 +145,9 @@ class PSFPhotRoutine(PSFPhotometry):
         :rtype:  astropy.table.Table
         """
 
-        if init_params is None or len(init_params) == 0:
-            p_error("Must include source list\n")
+        if (init_params is None or len(init_params) == 0
+                or mask is None or error is None):
+            p_error("Must include source list and a mask\n")
             return None
 
         ### Removing completely masked sources

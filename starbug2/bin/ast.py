@@ -1,3 +1,18 @@
+"""Copyright (C) 2026 UKATC
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+
 # noinspection SpellCheckingInspection
 
 """
@@ -19,37 +34,24 @@ usage: starbug2-ast [-vhR] [-N ntests] [-n ncores] [-p file.param] [-S nstars]
         --no-psfphot    : turn off psf photometry routine
 """
 
-import os,sys,getopt
+import os,sys
 from multiprocessing.shared_memory import SharedMemory
-from typing import Final, Dict, Tuple
+from multiprocessing import Pool, Process, shared_memory
+from multiprocessing.pool import Pool as PoolType
 
 import numpy as np
 import glob
-from multiprocessing import Pool, Process, shared_memory
-from itertools import repeat
 from time import sleep
 from astropy.table import Table
 from astropy.io.fits import HDUList
 
 from starbug2.constants import (
-    PARAM_FILE_TAG, N_CORES, OUTPUT, N_TESTS, N_STARS, AUTO_SAVE, QUIETMODE,
-    EXIT_EARLY, EXIT_FAIL, EXIT_SUCCESS, MAX_MAG, MIN_MAG, FLUX, FLUX_DET,
-    PLOTAST)
+    EXIT_EARLY, EXIT_FAIL, EXIT_SUCCESS, FLUX, FLUX_DET)
+from starbug2.star_bug_config import StarBugMainConfig
 from starbug2.starbug import StarbugBase
 from starbug2.artificialstars import ArtificialStars, compile_results
 from starbug2.utils import (
-    printf, p_error, combine_tables, fill_nan, translate_param_float,
-    parse_cmd, usage)
-from starbug2.param import load_params
-
-# random bit markers
-VERBOSE: Final[int] = 0x01
-SHOW_HELP: Final[int] = 0x02
-STOP_PROC: Final[int] = 0x04
-KILL_PROC: Final[int] = 0x08
-NO_BGD: Final[int] = 0x10
-NO_PHOT: Final[int] = 0x20
-RECOVER: Final[int] = 0x40
+    printf, p_error, combine_tables, fill_nan,  parse_cmd, usage)
 
 # globals
 c: np.ndarray = np.array([0, 0, 0], dtype=np.int64)
@@ -75,82 +77,55 @@ def load() -> None:
     printf("\n")
 
 
-def ast_parse_argv(argv: list[str]) -> (
-        Tuple[int, Dict[str, int | str | float], list[str]]):
-    """ Organise the argv line into options, values and arguments """
-    options: int = 0
-    set_opt: Dict[str, int | str | float] = {QUIETMODE : 1, AUTO_SAVE : 100}
+def ast_parse_argv(argv: list[str]) -> StarBugMainConfig:
+    """
+    Organise the sys argv line into options, values and arguments
+
+    :param argv: the arguments
+    :return: the config class
+    :rtype: StarBugMainConfig
+    """
     cmd, argv = parse_cmd(argv)
-    cmd: str
     argv: list[str]
+    short_definition: str
+    long_definition: list[str]
 
-    # noinspection SpellCheckingInspection
-    opts, args = getopt.gnu_getopt(
-        argv, "hvN:n:p:R:S:s:o:",
-        ["help", "verbose", "ncores=", "param=", "set=", "output=",
-         "ntests=", "nstars=", "autosave=", "no-background", "no-psfphot",
-         "recover"])
-    opts: list[tuple[str, str]]
-    args: list[str]
+    config: StarBugMainConfig = StarBugMainConfig()
+    short_definition, long_definition = (
+        config.generate_ast_get_opt_definitions())
+    _, argv = parse_cmd(argv)
+    config.populate_params(
+        argv, short_definition, long_definition, config.AST_FLAG_MAP)
+    return config
 
-    for opt, opt_arg in opts:
-        if opt in ("-h","--help"):
-            options |= (SHOW_HELP | STOP_PROC)
-        if opt in ("-v","--verbose"):
-            options |= VERBOSE
-        if opt in ("-p","--param"):
-            set_opt[PARAM_FILE_TAG] = opt_arg
-        # noinspection SpellCheckingInspection
-        if opt in ("-n","--ncores"):
-            set_opt[N_CORES] = int(opt_arg)
-        if opt in ("-o","--output"):
-            set_opt[OUTPUT] = opt_arg
-        # noinspection SpellCheckingInspection
-        if opt in ("-N","--ntests"):
-            set_opt[N_TESTS] = int(opt_arg)
-        # noinspection SpellCheckingInspection
-        if opt in ("-S","--nstars"):
-            set_opt[N_STARS] = int(opt_arg)
-
-        # set options
-        if opt in ("-R","--recover"):
-            options |= (RECOVER | STOP_PROC)
-        if opt == "--autosave":
-            set_opt[AUTO_SAVE] = int(opt_arg)
-        if opt == "--no-background" :
-            options |= NO_BGD
-        # noinspection SpellCheckingInspection
-        if opt == "--no-psfphot"    :
-            options |= NO_PHOT
-
-        options, set_opt = translate_param_float(
-            opt, opt_arg, set_opt, options, KILL_PROC)
-
-    return options, set_opt, args
-
-def ast_one_time_runs(options: int, args: list[str]) -> int:
+def ast_one_time_runs(config: StarBugMainConfig) -> int:
     """
     Set options, verify run and execute one time functions
     """
 
-    if options & SHOW_HELP:
-        usage(__doc__, verbose=options & VERBOSE)
+    if config.show_ast_help:
+        usage(__doc__, verbose=config.verbose_logs)
         return EXIT_EARLY
 
-    if options & RECOVER:
+    if config.ast_recover:
         f_names: list[str] | None
-        if not args:
+        if not config.fits_images:
             # noinspection SpellCheckingInspection
             f_names = glob.glob("sbast-autosave*.tmp")
         else:
-            f_names = [a for a in args if os.path.exists(a)]
+            f_names = [a for a in config.fits_images if os.path.exists(a)]
         if f_names:
             printf("Recovery Mode:\n-> %s\n"%("\n-> ".join(f_names)))
-            raw: Table = Table()
+            raw: Table | None = Table()
             for f_name in f_names:
                 f_name: str
-                raw = combine_tables(raw, Table.read(f_name))
+                read_table: Table | None = Table.read(f_name)
+                if read_table is None:
+                    p_error(f"failed to read table at path {f_name}")
+                    return EXIT_FAIL
+                raw = combine_tables(raw, read_table)
             results: HDUList
+            assert raw is not None
             if (results := compile_results(
                     fill_nan(raw), plot_ast="recovered.pdf")):
                 printf("-> successful recovery!\n--> %s\n" % (
@@ -160,49 +135,48 @@ def ast_one_time_runs(options: int, args: list[str]) -> int:
                 p_error("something went wrong\n")
         else:
             p_error("No files found to recover\n")
-
-
-
-    if options & STOP_PROC:
-        return EXIT_EARLY
-    if options & KILL_PROC:
-        p_error("..killing process\n")
-        return EXIT_FAIL
-
     return EXIT_SUCCESS
 
-def fn(
-        args: tuple[str, int, dict[str, int | str | float], int]) -> (
-            Table | None):
+def execute_artificial_stars(
+        f_name: str, config: StarBugMainConfig, verbose: bool,
+        index: int, test_count: int, ast_auto_save: int) -> Table | None:
     """
     Multiprocessing worker function to run artificial star tests on a given
     file.
-
-    :param args: A tuple containing (f_name, options_flags,
-                configuration_dict, worker_index)
-    :type args: tuple
+    :param f_name: the file to process
+    :type f_name: str
+    :param config: the config object
+    :type config: StarBugMainConfig
+    :param verbose: bool flag if to use verbose
+    :type verbose: bool
+    :param index: the index
+    :type index: int
+    :param test_count: the amount of tests
+    :type test_count: int
+    :param ast_auto_save: how many tests between saves
+    :type ast_auto_save: int.
     :return: The generated artificial stars recovery catalogue table, or
-             None if the file doesn't exist
-    :rtype: astropy.table.Table or None
+             None if the file doesn't exist.
+    :rtype: astropy.table.Table or None.
     """
-    f_name: str
-    options: int
-    set_opt: dict[str, int | str | float]
-    index: int
-    f_name, options, set_opt, index = args
-
     global buffer
     out: Table | None = None
     if os.path.exists(f_name):
         star_bug_base: StarbugBase = StarbugBase(
-            f_name, set_opt.get(PARAM_FILE_TAG), options=set_opt)
-        opt: dict[str, int | str | float] = star_bug_base.options
+            f_name, config, ap_file=config.ap_file,
+            bkg_file=config.background_file, verbose=verbose)
         ast: ArtificialStars = ArtificialStars(star_bug_base, index=index)
         out = ast(
-            opt.get(N_TESTS), stars_per_test=opt.get(N_STARS),
-            mag_range=(opt.get(MAX_MAG),opt.get(MIN_MAG)),
-            loading_buffer=buffer, autosave=opt.get(AUTO_SAVE),
-            skip_phot=options & NO_PHOT, skip_background=options & NO_BGD)
+            test_count,
+            stars_per_test=config.stars_per_artificial_test,
+            mag_range=(
+                config.test_magnitude_bright_limit,
+                config.test_magnitude_faint_limit),
+            loading_buffer=buffer,
+            autosave=ast_auto_save,
+            skip_phot=config.ast_no_psf_phot,
+            skip_background=config.ast_no_background,
+            zp_mag=config.zero_point_magnitude)
     return out
 
 def ast_main(argv: list[str]) -> int:
@@ -210,37 +184,34 @@ def ast_main(argv: list[str]) -> int:
 
     options: int
     set_opt: dict[str, int | str | float]
-    args: list[str]
-    options, set_opt, args = ast_parse_argv(argv)
+    config: StarBugMainConfig = ast_parse_argv(argv)
 
     exit_code: int = EXIT_SUCCESS
 
-    if options or set_opt:
-        if exit_code := ast_one_time_runs(options, args):
+    if config.use_ast_one_time_runs():
+        if exit_code := ast_one_time_runs(config):
             share.unlink()
             return exit_code
+    config.freeze()
 
-    if params := load_params(set_opt.get(PARAM_FILE_TAG)):
-        params.update(set_opt)
-    else: 
-        p_error("Failed to load parameters from file\n")
-        return EXIT_FAIL
+    print (f"{config.fits_images}")
 
-    if args:
-        f_name: str = args[0]
-        n_tests: int = int(params.get(N_TESTS))
-        if options & VERBOSE:
+    if config.fits_images:
+        f_name: str = config.fits_images[0]
+        n_tests: int = int(config.artificial_star_tests_count)
+        if config.verbose_logs:
             printf("Artificial Stars\n----------------\n")
             printf("-> loading %s\n"%f_name)
-            if set_opt.get(PARAM_FILE_TAG):
-                printf("-> parameters: %s\n" % set_opt.get(PARAM_FILE_TAG))
+            if config.param_file:
+                printf("-> parameters: %s\n" % config.param_file)
             printf("-> running %d tests with %d injections per test\n" % (
-                n_tests, params.get(N_STARS)))
+                n_tests, config.stars_per_artificial_test))
             printf("-> magnitude range: %.1f - %.1f\n" % (
-                params.get(MAX_MAG), params.get(MIN_MAG)))
-            if options & NO_PHOT:
+                config.test_magnitude_bright_limit,
+                config.test_magnitude_faint_limit))
+            if config.ast_no_psf_phot:
                 printf("-> skipping PSF photometry step\n")
-            if options & NO_BGD:
+            if config.ast_no_background:
                 printf("-> skipping background estimation step\n")
 
         buffer[0] = 0
@@ -251,24 +222,28 @@ def ast_main(argv: list[str]) -> int:
         # Initialise output container tracking tables
         outs: list[Table | None]
 
-        if (n_cores := params.get(N_CORES)) is None or n_cores == 1:
-            params[N_CORES] = 1
-            outs = [fn((f_name, options, params, 0)) for f_name in args]
+        if (n_cores := config.n_cores) is None or n_cores == 1:
+            config.unfreeze()
+            config.n_cores = 1
+            config.freeze()
+            outs = ([execute_artificial_stars(
+                f_name, config, config.verbose_logs, index,
+                config.artificial_star_tests_count, config.ast_auto_save)
+                    for index, f_name in enumerate(config.fits_images)])
         else:
             n_cores: int = int(min(n_cores, n_tests))
-            zip_options: np.ndarray = np.full(n_cores, options, dtype=int)
-            for n in range(n_cores):
-                if n > 0:
-                    zip_options[n] &= ~VERBOSE
-            params[N_TESTS] = int(np.ceil(n_tests / n_cores))
-            params[AUTO_SAVE] = int(np.ceil(set_opt.get(AUTO_SAVE) / n_cores))
+            per_process_n_test: int = int(np.ceil(n_tests / n_cores))
+            per_process_tests_per_save: int = int(
+                np.ceil(config.ast_auto_save / n_cores))
 
+            worker_tasks = [
+                (file_name, config, index == 0, index, per_process_n_test,
+                 per_process_tests_per_save)
+                for index, file_name in enumerate(config.fits_images)
+            ]
 
-            pool: Pool = Pool(processes=n_cores)
-            outs = pool.map(
-                fn, zip(
-                    repeat(f_name), zip_options, repeat(params),
-                    range(1, n_cores + 1)))
+            pool: PoolType = Pool(processes=n_cores)
+            outs = pool.starmap(execute_artificial_stars, worker_tasks)
             pool.close()
             pool.join()
 
@@ -280,30 +255,35 @@ def ast_main(argv: list[str]) -> int:
         # COMPILING ALL THE RESULTS #
         #############################
 
-        raw: Table = outs[0]
+        raw: Table | None = outs[0]
         for res in outs[1:]:
             raw = combine_tables(raw, res)
+        assert raw is not None
         star_bug_base: StarbugBase = StarbugBase(
-            f_name, set_opt.get(PARAM_FILE_TAG), options=set_opt)
-        if options & VERBOSE:
+            f_name, config, ap_file=config.ap_file,
+            bkg_file=config.background_file, verbose=config.verbose_logs)
+        if config.verbose_logs:
             printf("-> compiling results\n")
             printf("-> flux recovery: %.2g\n" % (
                 np.nanmean(raw[FLUX] / raw[FLUX_DET])))
 
         results: HDUList
+        filter_string: str | None = star_bug_base.filter
+        assert filter_string is not None
+        assert raw is not None
         if (results := compile_results(
                 raw, image=star_bug_base.main_image.data,
-                filter_string=star_bug_base.filter,
-                plot_ast=set_opt.get(PLOTAST))):
+                filter_string=filter_string,
+                plot_ast=config.ast_plot_filename)):
             out_dir: str
             b_name: str
             out_dir, b_name, _= StarbugBase.sort_output_names(
-                f_name, param_output=set_opt.get(OUTPUT))
-            if options & VERBOSE:
+                f_name, param_output=config.output_file)
+            if config.verbose_logs:
                 printf("--> %s/%s-ast.fits\n" % (out_dir, b_name))
             results.writeto("%s/%s-ast.fits"%(out_dir, b_name), overwrite=True)
 
-            ## autosave cleanup
+            ## autosave clean-up
             # noinspection SpellCheckingInspection
             for _f_name in glob.glob("sbast-autosave*.tmp"):
                 _f_name: str

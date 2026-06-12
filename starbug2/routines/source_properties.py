@@ -1,3 +1,18 @@
+"""Copyright (C) 2026 UKATC
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+
 """
 Core routines for StarbugII.
 """
@@ -16,7 +31,7 @@ class SourceProperties:
     status: int = 0
 
     def __init__(self, image: Optional[np.ndarray],
-                 source_list: Optional[Table], verbose: int or bool=1) -> None:
+                 source_list: Optional[Table], verbose: int | bool=1) -> None:
         """
         source properties.
 
@@ -29,7 +44,7 @@ class SourceProperties:
         """
         self._image: Optional[np.ndarray] = image
         self._source_list: Optional[Table] = None
-        self._verbose: int or bool = verbose
+        self._verbose: int | bool = verbose
 
         if source_list and type(source_list) in (Table, QTable):
             if len({X_CENTROID, Y_CENTROID} & set(source_list.colnames)) == 2:
@@ -37,6 +52,7 @@ class SourceProperties:
                     Table(source_list[[X_CENTROID, Y_CENTROID]]))
             elif len({"x_0", "y_0"} & set(source_list.colnames)) == 2:
                 self._source_list = Table(source_list[["x_0", "y_0"]])
+                assert self._source_list is not None
                 self._source_list.rename_columns(
                     ("x_0", "y_0"), (X_CENTROID, Y_CENTROID))
             else:
@@ -99,12 +115,14 @@ class SourceProperties:
         return crowd
 
     def calculate_geometry(
-            self, full_width_half_max: float=2.0) -> int | None:
+            self, full_width_half_max: float=2.0) -> Table | None:
         """
         calculate geometry
 
         :param full_width_half_max: the full width half max.
         :type full_width_half_max: float
+        :return the result of geometry
+        :rtype Table
         """
         if self._source_list is None:
             p_error("no source list\n")

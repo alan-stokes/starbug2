@@ -1,3 +1,18 @@
+"""Copyright (C) 2026 UKATC
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+
 """
 Starbug matching functions
 Primarily this is the main routines for dither/band/generic matching which are
@@ -53,14 +68,23 @@ class BandMatch(GenericMatch):
             if not isinstance(kwargs[BandMatch.FILTER], list):
                 warn("{} input should be a list, "
                      "there may be unexpected behaviour\n", self.FILTER)
+                self._filter_list: list[str] = [kwargs[BandMatch.FILTER]]
+            else:
+                self._filter_list: list[str] = kwargs[BandMatch.FILTER]
+            del kwargs[BandMatch.FILTER]
+        else:
+            self._filter_list: list[str] = []
 
         if BandMatch.THRESHOLD in kwargs:
             if isinstance(kwargs[BandMatch.THRESHOLD], list):
-
                 kwargs[BandMatch.THRESHOLD] = (
-                    np.array(kwargs[BandMatch.THRESHOLD]))
+                    np.array(kwargs[BandMatch.THRESHOLD], dtype=object))
 
         super().__init__(**kwargs, method="Band Matching")
+
+    @property
+    def filter_list(self) -> list[str]:
+        return self._filter_list
 
     def order_catalogues(self, catalogues: list[Table]) -> list[Table]:
         """
@@ -77,6 +101,10 @@ class BandMatch(GenericMatch):
 
         status: int = -1
         _ii = None
+        filter_list: list[str]  = self.filter_list
+        if filter_list is None:
+            raise Exception("no filer was set")
+
         sorters = [
             ## META in JWST filters
             lambda t: list(STAR_BUG_FILTERS.keys()).index(t.meta.get(FILTER)),
@@ -86,11 +114,11 @@ class BandMatch(GenericMatch):
                 (set(t.colnames) & set(STAR_BUG_FILTERS.keys())).pop()),
 
             ## META in self.filters
-            lambda t: self._filter.index( t.meta.get(FILTER)),
+            lambda t: filter_list.index(t.meta.get(FILTER)),
 
             ## col_names in JWST filters
-            lambda t: self._filter.index(
-                (set(t.colnames) & set(self._filter)).pop())
+            lambda t: filter_list.index(
+                (set(t.colnames) & set(filter_list)).pop())
         ]
 
         for n, fn in enumerate(sorters):
@@ -107,9 +135,9 @@ class BandMatch(GenericMatch):
             p_error(
                 "Unable to reorder catalogues, leaving input order"
                 " untouched.\n")
-        ## JWST filters
         elif status <= 1 and (_ii is not None):
-            self._filter = [list(STAR_BUG_FILTERS.keys())[i] for i in _ii]
+            ## JWST filters
+            self._filter_list = [list(STAR_BUG_FILTERS.keys())[i] for i in _ii]
 
         self._load: Loading = Loading(sum(len(c) for c in catalogues[1:]))
 
@@ -125,7 +153,7 @@ class BandMatch(GenericMatch):
         # noinspection SpellCheckingInspection
         """
         Given a list of catalogues, it will reorder them into increasing
-        wavelength or to match the fltr= keyword in the initializer.
+        wavelength or to match the fltr= keyword in the initialiser.
         The matching then uses the shortest wavelength available position.
         I.e. If F115W, F444W, F770W are input, the F115W centroid positions
         will be taken as "correct". If a source is not resolved in this band,
@@ -148,13 +176,11 @@ class BandMatch(GenericMatch):
         """
         catalogues: list[Table] = self.order_catalogues(catalogues)
 
-        if (isinstance(self._filter, list) and 
-                len(self._filter) == len(catalogues)):
-            printf("Bands: %s\n"%', '.join(self._filter))
-        else:
-            printf("Bands: Unknown\n")
+        printf("Bands: %s\n"%', '.join(self.filter_list))
 
-        if type(self._threshold.value) in (list, np.ndarray):
+        assert self._threshold is not None
+        assert len(self.filter_list) != 0
+        if type(self._threshold) in (list, np.ndarray):
             if len(self._threshold) != (len(catalogues) - 1):
                 warn(self._WRONG_THRESHOLD)
                 self._threshold = self._threshold[:-1]
@@ -162,14 +188,18 @@ class BandMatch(GenericMatch):
             self._threshold = (
                 np.full(len(catalogues) - 1, self._threshold) * u.arcsec)
 
-        printf("Thresholds: %s\n"%", ".join(
-            ["%g\""%g for g in self._threshold.value]))
+        assert self._threshold is not None
+        threshold_strs = [f"{
+            g.value if hasattr(g, 'value') else g:g}\""
+                          for g in self._threshold]
+        printf(f"Thresholds: {', '.join(threshold_strs)}\n")
 
         if self._col_names is None:
             self._col_names = [
                 RA, DEC, "flag", "NUM",
-                *self._filter, *["e%s" % f for f in self._filter]]
+                *self._filter_list, *["e%s" % f for f in self.filter_list]]
 
+        assert self._col_names is not None
         printf("Columns: %s\n"%", ".join(self._col_names))
 
         if method not in (self._FIRST, self._LAST, self._BOOT_STRAP):
@@ -184,7 +214,10 @@ class BandMatch(GenericMatch):
         for n, tab in enumerate(catalogues):
             ## Temporarily recast threshold
             self._threshold = _threshold[n - 1]
-            self._load.msg = f"{self._filter[n]} ({self._threshold}\")"
+            assert self._threshold is not None
+            self._load.msg = (
+                f"{self.filter_list[n]} ("
+                f"{np.array2string(self._threshold)}\")")
             col_names = [
                 name for name in self._col_names if name in tab.colnames]
 

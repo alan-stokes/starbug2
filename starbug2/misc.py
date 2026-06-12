@@ -1,14 +1,31 @@
+"""Copyright (C) 2026 UKATC
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+
 """
 Miscellaneous functions...
 """
 
 import os, stat, numpy as np
-from typing import List, Optional, TextIO, Dict
+from typing import List, Optional, TextIO, Dict, Any
 
 from starbug2.constants import (
     FITS_EXTENSION, FILE_NAME, FILTER, OBS, VISIT, DETECTOR, EXPOSURE)
 from astropy.io import fits
-from starbug2.utils import printf, p_error, split_file_name
+from starbug2.starbug import StarbugBase
+from starbug2.utils import (
+    printf, wget, puts, Loading, p_error, split_file_name)
 
 # A clear, Type Alias for the deep data nested structure Format:
 # Dict[KeyType, ValueType], str mapping being FILTER, OBS, VISIT, DETECTOR
@@ -105,7 +122,7 @@ def sort_exposures(catalogues: List[fits.HDUList]) -> ExposureMapping:
     return out
 
 
-def parse_mask(string, table) -> np.ndarray:
+def parse_mask(string, table) -> np.ndarray | None:
     """
     Parse a commandline mask string to be passed into a matching routine
     Example: --mask=F444W!=nan
@@ -135,7 +152,7 @@ def parse_mask(string, table) -> np.ndarray:
     return mask
 
 
-def exp_info(hdu_list) -> Dict[str, int]:
+def exp_info(hdu_list) -> Dict[str, int | None]:
     """
     Get the exposure information about a hdu list
     :param hdu_list: HDUList or ImageHDU or BinTableHDU
@@ -143,7 +160,7 @@ def exp_info(hdu_list) -> Dict[str, int]:
     (filter, obs, visit exposure, detector)
     :rtype dict(str, Optional[int])
     """
-    info: Dict[str, int] = {
+    info: Dict[str, int | None] = {
         FILTER : None,
         OBS : 0,
         VISIT : 0,

@@ -1,3 +1,18 @@
+"""Copyright (C) 2026 UKATC
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+
 """
 Core routines for StarbugII.
 """
@@ -58,17 +73,17 @@ class ArtificialStarRoutine:
                         and flux columns
         :type sources: astropy.table.Table or None
         :param full_width_half_max: FWHM of the stars to be added (used for
-                                    border safety checks)
-        :type full_width_half_max: float
-        :param flux_range: Range of fluxes to test
-        :type flux_range: tuple or list
+                                    border safety checks).
+        :type full_width_half_max: float.
+        :param flux_range: Range of fluxes to test.
+        :type flux_range: tuple or list.
         :param separation_thresh: Number of pixels above which a detection is
-                                  considered a failure
-        :type separation_thresh: float
-        :param save_progress: Periodically save the catalogue during the run
-        :type save_progress: bool
-        :return: Table containing the injected parameters alongside recoveries
-        :rtype: astropy.table.Table
+                                  considered a failure.
+        :type separation_thresh: float.
+        :param save_progress: Periodically save the catalogue during the run.
+        :type save_progress: bool.
+        :return: Table containing the injected parameters alongside recoveries.
+        :rtype: astropy.table.Table.
         """
         shape: np.ndarray = np.array(image.shape)
         if np.any(sub_image_size > shape):
@@ -76,7 +91,7 @@ class ArtificialStarRoutine:
             sub_image_size = int(min(shape))
         sub_image_size = int(sub_image_size)
 
-        if not sources:
+        if sources is None:
             x_range: list[float] = [
                 2.0 * full_width_half_max,
                 float(shape[0] - (2.0 * full_width_half_max))
@@ -99,7 +114,10 @@ class ArtificialStarRoutine:
         load: Loading = Loading(len(sources), msg="artificial star tests")
         load.show()
 
-        for n, src in enumerate(sources):
+        active_sources: Table = sources
+
+        # noinspection PyTypeChecker
+        for n, src in enumerate(iter(active_sources)):
             subx: int = 0
             suby: int = 0
 

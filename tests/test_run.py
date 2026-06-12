@@ -1,31 +1,49 @@
+"""Copyright (C) 2026 UKATC
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+
 import os
+from typing import Final
+
+import pytest
 from starbug2.bin.main import starbug_main
 from starbug2.constants import EXIT_EARLY, EXIT_FAIL, EXIT_SUCCESS, EXIT_MIXED
 from tests.generic import (
-    clean, TEST_IMAGE_FITS, TEST_PATH, TEST_FILTER_STRING)
+    clean, TEST_IMAGE_FITS, TEST_FILTER_STRING, TEST_PATH_STR)
 
 run = lambda s:starbug_main(s.split())
 
 # different fit files paths
-TEST_IMAGE_AP_FITS = os.path.join(TEST_PATH, "image-ap.fits")
-TEST_PSF_FITS =  os.path.join(TEST_PATH, "psf.fits")
-TEST_IMAGE_BGD_FITS = os.path.join(TEST_PATH, "image-bgd.fits")
-TEST_IMAGE_RES_FIT = os.path.join(TEST_PATH, "image-res.fits")
-TEST_IMAGE_2_FITS = os.path.join(TEST_PATH, "image2.fits")
+TEST_IMAGE_AP_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image-ap.fits")
+TEST_PSF_FITS: Final[str] =  os.path.join(TEST_PATH_STR, "psf.fits")
+TEST_IMAGE_BGD_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image-bgd.fits")
+TEST_IMAGE_RES_FIT: Final[str] = os.path.join(TEST_PATH_STR, "image-res.fits")
+TEST_IMAGE_2_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image2.fits")
 
 def test_start():
     clean()
     assert run("starbug2 -h") == EXIT_EARLY
     assert run("starbug2 -vh") == EXIT_EARLY
-    assert run("starbug2 --version") == EXIT_EARLY
+    assert run("starbug2 --version") == EXIT_SUCCESS
     assert run("starbug2 -vDABPh") == EXIT_EARLY
     assert run("starbug2") == EXIT_FAIL
     clean()
 
 def test_param():
     clean()
-    assert run("starbug2 --local-param") == EXIT_EARLY
-    assert run("starbug2 --update-param") == EXIT_EARLY
+    assert run("starbug2 --local-param") == EXIT_SUCCESS
+    assert run("starbug2 --update-param") == EXIT_SUCCESS
     assert (run(
         f"starbug2 -p starbug.param {TEST_IMAGE_FITS}"
         f" {TEST_FILTER_STRING}") == EXIT_SUCCESS)
@@ -117,8 +135,12 @@ def test_n_cores():
         f"{TEST_IMAGE_2_FITS} {TEST_FILTER_STRING}") == EXIT_SUCCESS
     assert (run(f"starbug2 -vD {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}"
                 f" {TEST_FILTER_STRING}") == EXIT_SUCCESS)
-    assert (run(f"starbug2 -Dn0 {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}"
-                f" {TEST_FILTER_STRING}") == EXIT_SUCCESS)
+
+    with pytest.raises(
+            ValueError,
+            match="Number of processes must be at least 1"):
+        run(f"starbug2 -Dn0 {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}"
+                f" {TEST_FILTER_STRING}")
     assert (run(f"starbug2 -Dn1 {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}"
                 f" {TEST_FILTER_STRING}") == EXIT_SUCCESS)
     assert (run(f"starbug2 -Dn2 {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}"

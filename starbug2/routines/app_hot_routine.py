@@ -1,6 +1,21 @@
+"""Copyright (C) 2026 UKATC
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+
 import os
 import sys
-from typing import Tuple, List
+from typing import Tuple
 
 import numpy as np
 
@@ -57,8 +72,8 @@ class APPhotRoutine:
         if PUPIL in t_ap_corr.colnames:
             t_ap_corr = t_ap_corr[ t_ap_corr[PUPIL] == CLEAR]
 
-        ap_corr: float = np.interp(
-            radius, t_ap_corr[RADIUS], t_ap_corr[AP_CORR])
+        ap_corr: float = float(np.interp(
+            radius, t_ap_corr[RADIUS], t_ap_corr[AP_CORR]))
         if verbose:
             printf("-> estimating aperture correction: %.3g\n" % ap_corr)
         return ap_corr
@@ -81,9 +96,9 @@ class APPhotRoutine:
         :type table_f_name: str
         :param verbose: int for verbose.
         :type verbose: int | bool
-        :return: tuple of ap_corr and radius or ExitFail
+        :return: tuple of ap_corr and radius or ExitFail.
         :rtype: tuple of np.array and np.array or int.
-        :raises FileNotFoundError when the table_f_name does not exist
+        :raises: FileNotFoundError when the table_f_name does not exist.
         """
         if not table_f_name or not os.path.exists(table_f_name):
             raise FileNotFoundError("cannot find table f name")
@@ -126,7 +141,8 @@ class APPhotRoutine:
         if PUPIL in t_ap_corr.col_names: # Crop down table
             t_ap_corr=t_ap_corr[ t_ap_corr[PUPIL] == CLEAR]
 
-        return np.interp(ee_frac, t_ap_corr[EE_FRACTION], t_ap_corr[RADIUS])
+        return float(
+            np.interp(ee_frac, t_ap_corr[EE_FRACTION], t_ap_corr[RADIUS]))
 
     def __init__(
             self, radius: float, sky_in: float, sky_out: float,
@@ -253,8 +269,13 @@ class APPhotRoutine:
                   names=(SMOOTHNESS, FLUX, E_FLUX, SKY)))
 
         self.log("-> calculating sky values\n")
-        masks: ApertureMask | List[ApertureMask] = (
-            annulus_aperture.to_mask(method="center"))
+        masks_raw = annulus_aperture.to_mask(method="center")
+
+        # convert to list
+        masks: list[ApertureMask] = (
+            masks_raw if isinstance(masks_raw, list) else [masks_raw])
+
+        # generate dat_list.
         dat_list: list[np.ndarray | None] = list(
             map(lambda a : a.multiply(image), masks))
         dat: np.ndarray
@@ -286,8 +307,8 @@ class APPhotRoutine:
 
         mask = (dat > 0 & np.isfinite(dat))
         dat[~mask] = np.nan
-        clipped_dat: np.ma.MaskedArray = sigma_clip(
-            dat.reshape(dat.shape[0],-1), sigma=sig_sky, axis=1)
+        clipped_dat: np.ma.MaskedArray = np.ma.MaskedArray(sigma_clip(
+            dat.reshape(dat.shape[0],-1), sigma=sig_sky, axis=1))
         self.catalogue[SKY] = (
             np.ma.median(clipped_dat, axis=1).filled(fill_value=0))
         std: np.ndarray = np.ma.std(clipped_dat, axis=1)

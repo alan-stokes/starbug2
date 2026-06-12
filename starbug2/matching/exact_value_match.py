@@ -1,3 +1,18 @@
+"""Copyright (C) 2026 UKATC
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+
 """
 Starbug matching functions
 Primarily this is the main routines for dither/band/generic matching which are
@@ -60,10 +75,10 @@ class ExactValueMatch(GenericMatch):
                           for intersections)
         :type join_type: str
         :param cartesian: Whether to use Cartesian coordinates for matching
-        :type cartesian: bool
+        :type cartesian: bool.
         :return: A new catalogue, it is a reordered version of *cat*, in the
-            correct sorting to be h-stacked with *base*
-        :rtype:  astropy.Table
+            correct sorting to be h-stacked with *base*.
+        :rtype:  astropy.Table.
         """
         tmp: Table = Table(
             np.full((len(base), len(cat.colnames)), np.nan),

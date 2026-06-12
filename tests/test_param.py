@@ -1,52 +1,69 @@
+"""Copyright (C) 2026 UKATC
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+
 import os
-from starbug2 import param
-from starbug2.constants import PARAM, STAR_BUG_PARAMS
+import pytest
+from starbug2.constants import STAR_BUG_PARAMS
+from starbug2.star_bug_config import StarBugMainConfig
 
 
 def test_parse_param():
-    assert type(param.parse_param("A=1//.")) == dict
+    assert type(StarBugMainConfig.parse_param("A=1//.")) == dict
 
-    assert param.parse_param("A = 1 //.") == {'A': 1}
-    assert param.parse_param("A = B //.") == {'A': 'B'}
-    assert param.parse_param("A = B //.\n") == {'A': 'B'}
+    assert StarBugMainConfig.parse_param("A = 1 //.") == {'A': 1}
+    assert StarBugMainConfig.parse_param("A = B //.") == {'A': 'B'}
+    assert StarBugMainConfig.parse_param("A = B //.\n") == {'A': 'B'}
 
-    assert param.parse_param("A = //.\n") == {'A': ''}
-    assert param.parse_param(" = //.") == {}
+    assert StarBugMainConfig.parse_param("A = //.\n") == {'A': ''}
+    assert StarBugMainConfig.parse_param(" = //.") == {}
 
-    assert param.parse_param("A=B") == {"A": "B"}
-    assert param.parse_param("A=B/") == {"A": "B/"}
-    assert param.parse_param("A=B/.") == {"A": "B/."}
-    assert param.parse_param("A=1/.") == {"A": "1/."}
+    assert StarBugMainConfig.parse_param("A=B") == {"A": "B"}
+    assert StarBugMainConfig.parse_param("A=B/") == {"A": "B/"}
+    assert StarBugMainConfig.parse_param("A=B/.") == {"A": "B/."}
+    assert StarBugMainConfig.parse_param("A=1/.") == {"A": "1/."}
 
-    assert param.parse_param("A      =1")=={"A": 1}
-    assert param.parse_param("A=1      ")=={"A": 1}
-    assert param.parse_param("A=1     a")=={"A": "1     a"}
+    assert StarBugMainConfig.parse_param("A      =1")=={"A": 1}
+    assert StarBugMainConfig.parse_param("A=1      ")=={"A": 1}
+    assert StarBugMainConfig.parse_param("A=1     a")=={"A": "1     a"}
 
 def test_load_default_params():
-    assert param.load_default_params()!={}
-    assert type(param.load_default_params()) == dict
-    assert PARAM in param.load_default_params().keys()
-    assert param.load_default_params().get(PARAM) == STAR_BUG_PARAMS
+    config: StarBugMainConfig = StarBugMainConfig()
+    assert config.param_tag == STAR_BUG_PARAMS
 
 
 def test_load_params():
-    assert param.load_default_params() == param.load_params(None)
-
-    assert param.load_params("doesnotexist") == {}
+    config: StarBugMainConfig = StarBugMainConfig.load_params("does_not_exist")
 
     os.system("starbug2 --local-param")
-    assert param.load_params("starbug.param") != {}
-    assert PARAM in param.load_params("starbug.param").keys()
-    assert (
-        param.load_params("starbug.param").get(PARAM) == STAR_BUG_PARAMS)
+    second_config: StarBugMainConfig = (
+        StarBugMainConfig.load_params("starbug.param"))
+
+    for value, _ in config.MAIN_PARAM_FILE_MAP.values():
+        assert getattr(config, value) == getattr(second_config, value)
+    assert second_config.param_tag == STAR_BUG_PARAMS
+    assert config.param_tag == STAR_BUG_PARAMS
     os.remove("starbug.param")
 
 def test_update_params():
     os.system("starbug2 --local-param")
     os.system("sed -i s/PARAM/PARAM1/g starbug.param")
 
-    assert "PARAM" not in param.load_params("starbug.param").keys()
-    assert param.update_param_file("starbug.param") is None
-    assert param.update_param_file("starbug.param") is None
+    with pytest.raises(
+            TypeError,
+        match="Param PARAM1 no longer works within Starbug2. Please "
+              "execute starbug2 --update-param"):
+        StarBugMainConfig.load_params("starbug.param")
     os.remove("starbug.param")
 
