@@ -15,12 +15,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 import glob
 import os
+import pytest
 
 from starbug2.filters import STAR_BUG_FILTERS
 from starbug2.constants import STARBUG_DATA_DIR
 from starbug2.initialise_psf_data import init_starbug_for_jwst
 
-
+@pytest.mark.skipif(
+    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") is None or
+    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") == "false",
+    reason="test_init locked out of normal development runs due to "
+           "length of time to run, CPU resources required which nearly slags"
+           " the machine."
+)
 def test_init():
     os.environ[STARBUG_DATA_DIR] = "/tmp/starbug"
     d = os.getenv(STARBUG_DATA_DIR)
