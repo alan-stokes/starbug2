@@ -201,7 +201,6 @@ class StarBugMainConfig:
         # high level stuff
         self._show_help: bool = False
         self._show_ast_help: bool = False
-        self._stop_process: bool = False
         self._verbose_logs: bool = False
         self._show_version: bool = False
 
@@ -872,16 +871,6 @@ REGION_TAB = {format_val("REGION_TAB")}
     @show_help.setter
     def show_help(self, value: bool) -> None:
         self._show_help = value
-
-
-    @property
-    def stop_process(self) -> bool:
-        return self._stop_process
-
-
-    @stop_process.setter
-    def stop_process(self, value: bool) -> None:
-        self._stop_process = value
 
 
     @property
