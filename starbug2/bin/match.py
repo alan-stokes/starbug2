@@ -140,7 +140,6 @@ def match_main(argv: list[str]) -> int:
     source coordinate matching.
     """
     config: StarBugMainConfig = starbug_parse_argv(argv)
-    exp_full: bool = False
 
     if config.show_match_help:
         usage(__doc__, verbose=config.verbose_logs) # noqa
@@ -178,14 +177,14 @@ def match_main(argv: list[str]) -> int:
         error_column: str = config.error_col
 
         average_table: Table
-        full: Table | None = None
+        output_table: Table | None = None
         matcher: GenericMatch
 
         if config.band_deprecated:
             average_table = match_full_band_match(
                 tables, config.match_threshold_arc_sec_as_an_array,
                 config.bridge_band_column)
-            exp_full = True
+            config.full_run = True
         else:
             if config.do_band_processing:
                 band_threshold: np.ndarray = (
@@ -221,14 +220,14 @@ def match_main(argv: list[str]) -> int:
                 matcher = GenericMatch(
                     threshold=d_threshold, verbose=config.verbose_logs
                 )
-                exp_full = True
+                config.full_run = True
 
             if config.verbose_logs:
                 print("\n%s" % matcher)
 
-            full = matcher.match(tables, join_type="or", mask=masks)
+            output_table = matcher.match(tables, join_type="or", mask=masks)
             average_table = matcher.finish_matching(
-                full,
+                output_table,
                 num_thresh=config.exposure_count_threshold,
                 zp_mag=config.zero_point_magnitude,
                 error_column=error_column
@@ -247,9 +246,9 @@ def match_main(argv: list[str]) -> int:
         d_name, f_name, ext = utils.split_file_name(output)
 
         suffix: str = ""
-        if exp_full and full is not None:
+        if config.full_run and output_table is not None:
             utils.export_table(
-                full, f_name="%s/%sfull.fits" % (d_name, f_name))
+                output_table, f_name="%s/%sfull.fits" % (d_name, f_name))
             utils.printf("-> %s/%sfull.fits\n" % (d_name, f_name))
             suffix = "match"
 
