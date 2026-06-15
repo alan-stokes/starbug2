@@ -112,9 +112,6 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o ouput] [-
        --generate-run      *.fits : Generate a simple run script
        --version                  : Print starbug2 version
 
-       --apply-zeropint    a.fits : Apply a zeropoint (-s ZP_MAG=1.0) to a.fits
-       --calc-instr-zp     a.fits : Calculate and apply an instrumental zero point onto a.fits
-
    --> typical runs
       $~ starbug2 -vD -p file.param image.fits      //Source detect on image with a parameter file
       $~ starbug2 -vDM -n4 images*.fits             //Source detect and match outputs of a list of images
