@@ -58,7 +58,7 @@ def update_param_file(f_name: str | None) -> None:
 
     if os.path.exists(f_name):
         printf("Updating \"%s\"\n" % f_name)
-        fpo = open("/tmp/starbug.param",'w')
+        fpo = open("/tmp/starbug.param", 'w')
 
         add_keys = (
             set(default_param.MAIN_PARAM_FILE_MAP.keys()) -

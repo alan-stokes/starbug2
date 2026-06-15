@@ -143,17 +143,17 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> int:
         return EXIT_EARLY
 
     ## Load parameter files for onetime runs
-    parameter_file: str | None
-    if (parameter_file := config.param_file) is None:
-        if os.path.exists("./starbug.param"):
-            parameter_file = "starbug.param"
-        else:
-            parameter_file = None
+    if not config.update_param:
+        parameter_file: str | None
+        if (parameter_file := config.param_file) is None:
+            if os.path.exists("./starbug.param"):
+                parameter_file = "starbug.param"
+            else:
+                parameter_file = None
 
-    config.load_params(parameter_file)
-
-    if config.update_param:
-        param.update_param_file(parameter_file)
+        config.load_params(parameter_file)
+    else:
+        param.update_param_file(config.param_file)
         return EXIT_SUCCESS
 
     output: int | float | str

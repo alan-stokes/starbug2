@@ -1,0 +1,279 @@
+## STARBUG CONFIG FILE
+# Generated with starbug2-v0.7.7
+PARAM       =  STARBUGII PARAMETERS     // COMMENT
+
+## GENERIC
+// (0:false 1:true)
+VERBOSE     = 0
+
+// Directory or filename to output to 
+OUTPUT      = .
+
+// If using a non standard HDU name, name it here (str or int)
+HDUNAME     = 
+
+// Set a custom filter for the image
+FILTER      = 
+
+## DETECTION 
+// Custom FWHM for image (-1 to use WEBBPSF)
+FWHM        = -1.0
+
+// Number of sigma above the median to clip out as background
+SIGSKY      = 2.5
+
+// Source value minimum N sigma above background
+SIGSRC      = 6.1
+
+// Run background2D step (usually finds more sources but takes time)
+DOBGD2D     = 1
+
+// Run convolution step (usually finds more sources)
+DOCONVL     = 1
+
+// Run source cleaning after detection (removes likely contaminants)
+CLEANSRC    = 1
+
+// Lower limit of source sharpness (0 is not sharp)
+SHARP_LO    = 0.2
+
+// Upper limit of source sharpness (1 is sharp)
+SHARP_HI    = 1.2
+
+// Limit of source roundness1 (|roundness|>>0 is less round)
+ROUND1_HI   = 2.0 
+
+// Limit of source roundness2 (|roundness|>>0 is less round)
+ROUND2_HI   = 2.0
+
+// Lower limit on source smoothness (0 is not smooth)
+SMOOTH_LO   = -1.0
+
+// Upper limit on source smoothness (1 is smooth)
+SMOOTH_HI   = 2.0
+
+// Radius (pix) of ricker wavelet 
+RICKER_R    = 1.0
+
+## APERTURE PHOTOMETRY
+// Radius in number of pixels
+APPHOT_R    = 2.0
+
+// Fraction encircled energy (mutually exclusive with APPHOT_R)
+ENCENERGY   = -1.0 
+
+// Sky annulus inner radius
+SKY_RIN     = 4.0 
+
+// Sky annulus outer radius
+SKY_ROUT    = 6.0  
+
+// Aperture correction file. See full manual for details
+APCORR_FILE = 
+
+## BACKGROUND ESTIMATION
+// Aperture masking fixed radius (if zero, starbug will scale radii)
+BGD_R       = 0.0 
+
+// Aperture mask radius profile scaling factor
+PROF_SCALE  = 1.0
+
+// Aperture mask radius profile slope
+PROF_SLOPE  = 0.5 
+
+// Background estimation kernel size (pix)
+BOX_SIZE    = 5
+
+// Output region file to check the aperture mask radii
+BGD_CHECKFILE = 
+
+## PHOTOMETRY
+// Detection file to use instead of detecting
+AP_FILE     = 
+
+// Background estimation file
+BGD_FILE    = 
+
+// Non default PSF file
+PSF_FILE    = /Users/crouzet/Work/JWST-data-reduction/1Zw18/photometry-2/PSF/JWST/F770W-MIRIM.fits
+
+// When loading an AP_FILE, do you want to use WCS or xy values (if available)
+USE_WCS     = 1
+
+// Zero point (mag) to add to the magnitude columns 
+ZP_MAG      = 8.9 
+
+// Minimum distance for grouping (pixels) between two sources
+CRIT_SEP    = 
+
+// Force centroid position (1) or allow psf fitting to fit position too (0)
+FORCE_POS   = 0
+
+// Maximum deviation from initial guess centroid position
+MAX_XYDEV   = 3p
+
+// Set fit size of psf (>0) or -1 to take PSF file dimensions
+PSF_SIZE    = -1
+
+// Generate a residual image
+GEN_RESIDUAL = 0
+
+## SOURCE STATS
+// Run crowding metric calculation (execution time scales N^2)
+CALC_CROWD  = 1
+
+## CATALOGUE MATCHING
+// Matching separation threshold in units arcsec
+MATCH_THRESH = 0.1
+
+// EXTRA columns to include in output matched table i.e sharpness
+MATCH_COLS   = 
+
+// Keep sources that appear in NUM >= NEXP_THRESH (if -1 keep everything)
+NEXP_THRESH  = -1
+
+// Bridge --band matching NIRCam and MIRI catalogues by ensuring NIRCam 
+// catalogue has a match in BRIDGE_COL
+BRIDGE_COL   = 
+
+## ARTIFICIAL STAR TESTS
+// Number of artificial star tests
+NTESTS      = 100
+
+// Number of stars per artificial test
+NSTARS      = 10
+
+// Number of pixels to crop around artificial star
+SUBIMAGE    = 500
+
+// Bright limit of test magnitude
+MAX_MAG     = 18
+
+// Faint limit of test magnitude
+MIN_MAG     = 28
+
+// Output AST result as image with this filename
+PLOTAST     = 
+
+## MISC EXTRAS
+// DS9 region colour
+REGION_COL  = green
+
+// Scale region to flux if possible
+REGION_SCAL = 1
+
+// Region radius default
+REGION_RAD  = 3
+
+// X column name to use for region
+REGION_XCOL = RA
+
+// Y column name to use for region
+REGION_YCOL = DEC
+
+// If X/Y column names correspond to WCS values
+REGION_WCS  = 1
+
+// detector name used within psf generation
+DET_NAME = 
+
+// region table file name for generating regions
+REGION_TAB = 
+
+## ADDITIONAL UNSETTABLE / DERIVED PARAMETERS
+// Custom analytical parameter grouping identifier string
+PARAM_TAG   = STARBUGII PARAMETERS
+
+## PIPELINE SWITCHES (BYPASS COMMAND LINE FLAGS)
+// Run aperture photometry stage (0:false 1:true)
+RUN_APPHOT  = 0
+
+// Run background estimation stage (0:false 1:true)
+RUN_BGD_EST = 0
+
+// Run star detection stage (0:false 1:true)
+RUN_DETECT  = 0
+
+// Run source geometry analysis stage (0:false 1:true)
+RUN_GEOM    = 0
+
+// Run catalogue matching stage (0:false 1:true)
+RUN_MATCH   = 0
+
+// Run PSF photometry routine (0:false 1:true)
+RUN_PSFPHOT = 0
+
+// Run background subtraction stage (0:false 1:true)
+RUN_BGDSUB  = 0
+
+## SYSTEM & EXECUTION CONTROL
+// Number of processor cores to use for calculation
+NCORES      = 1
+
+// Find files automatically (0:false 1:true)
+FIND_FILE   = 1
+
+## EXTRA RUN GENERATION COMMAND SWITCHES
+// Execute JWST data initialization steps (0:false 1:true)
+INIT_JWST   = 0
+
+// Trigger PSF generation logic (0:false 1:true)
+GEN_PSF     = 0
+
+// Trigger automation run generation scripts (0:false 1:true)
+GEN_RUN     = 0
+
+// Filename target string to output generated region file
+GEN_REGION  = 0
+
+## ADVANCED ARTIFICIAL STAR TEST CONTROLS
+// Recover previous artificial star test state (0:false 1:true)
+AST_RECOVER = 0
+
+// Save frequency of progress during artificial star tests
+AST_AUTOSAVE = 100
+
+// Disable background logic during artificial star tests (0:false 1:true)
+AST_NO_BGD  = 0
+
+// Disable PSF photometry during artificial star tests (0:false 1:true)
+AST_NO_PSF  = 0
+
+## CATALOGUE MATCHING MODE SWITCHES
+// Process matched catalogue across multiple bands (0:false 1:true)
+MATCH_BAND  = 0
+
+// Run matching in cascade execution sequence (0:false 1:true)
+MATCH_CASCADE = 0
+
+// Use dither offsets during matching calculations (0:false 1:true)
+MATCH_DITHER = 0
+
+// Require exact row criteria matches across tables (0:false 1:true)
+MATCH_EXACT = 0
+
+// Force a full evaluation run across matching pipelines (0:false 1:true)
+MATCH_FULL  = 0
+
+// Use generic operating specifications for matching (0:false 1:true)
+MATCH_GENERIC = 0
+
+// Error column label name target string for evaluation
+MATCH_ERR_COL = eflux
+
+// Expression filter string for processing match masks
+MATCH_MASK_EVAL = 
+
+## DIAGNOSTIC PLOTTING MODULE SWITCHES
+// Enable interactive test mode plotting panels (0:false 1:true)
+PLOT_TEST   = 0
+
+// Dark frame visualization profile layout (0:false 1:true)
+PLOT_DARK   = 0
+
+// Visual parameter validation target inspection parameter key
+PLOT_INSPECT = 
+
+// Target design stylesheet pattern configuration profile name
+PLOT_STYLE  = 
+
