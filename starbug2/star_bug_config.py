@@ -22,7 +22,8 @@ from parse import parse
 
 from starbug2.constants import (
     DEC, RA, SCI, DEFAULT_COLOUR, OUTPUT, AP_FILE, BGD_FILE, PSF_FILE,
-    STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, E_FLUX, PROBLEMATIC_FILTER_ID, PROBLEMATIC_FILTER_WARNING)
+    STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, E_FLUX, PROBLEMATIC_FILTER_ID,
+    PROBLEMATIC_FILTER_WARNING, DEFAULT_PARAM_TEMPLATE)
 from starbug2.utils import p_error, get_version, warn
 
 
@@ -55,7 +56,7 @@ class StarBugMainConfig:
         (None, 'init', bool): 'execute_jwst_initialisation',
         (None, 'generate-psf', bool): 'generate_psf',
         (None, 'local-param', bool): 'generate_local_param_file',
-        (None, 'generate-region', str): 'generate_region',
+        (None, 'generate-region', bool): 'generate_region',
         (None, 'version', bool): 'show_version',
         (None, 'generate-run', bool): 'generate_run',
         (None, 'update-param', bool): 'update_param',
@@ -190,6 +191,38 @@ class StarBugMainConfig:
         "DET_NAME": ("detector_name", str),
         # generation of region tables
         "REGION_TAB": ("region_file", str),
+        "PARAM_TAG": ("param_tag", str),
+
+        # --- NEW PARAM FILE SHORT-CIRCUITS FOR STEPS & FLOW CONTROLS ---
+        "RUN_APPHOT": ("do_aperture_photometry", bool),
+        "RUN_BGD_EST": ("do_bgd_estimate", bool),
+        "RUN_DETECT": ("do_star_detection", bool),
+        "RUN_GEOM": ("do_source_geometry", bool),
+        "RUN_MATCH": ("do_matching", bool),
+        "RUN_PSFPHOT": ("do_photometry_routine", bool),
+        "RUN_BGDSUB": ("do_bgd_subtraction", bool),
+        "NCORES": ("n_cores", int),
+        "FIND_FILE": ("find_file", bool),
+        "INIT_JWST": ("execute_jwst_initialisation", bool),
+        "GEN_PSF": ("generate_psf", bool),
+        "GEN_RUN": ("generate_run", bool),
+        "GEN_REGION": ("generate_region", bool),
+        "AST_RECOVER": ("ast_recover", bool),
+        "AST_AUTOSAVE": ("ast_auto_save", int),
+        "AST_NO_BGD": ("ast_no_background", bool),
+        "AST_NO_PSF": ("ast_no_psf_phot", bool),
+        "MATCH_BAND": ("do_band_processing", bool),
+        "MATCH_CASCADE": ("do_cascade", bool),
+        "MATCH_DITHER": ("use_dither", bool),
+        "MATCH_EXACT": ("exact_match", bool),
+        "MATCH_FULL": ("full_run", bool),
+        "MATCH_GENERIC": ("generic_mode", bool),
+        "MATCH_ERR_COL": ("error_col", str),
+        "MATCH_MASK_EVAL": ("mask_eval", str),
+        "PLOT_TEST": ("test_mode", bool),
+        "PLOT_DARK": ("dark_mode", bool),
+        "PLOT_INSPECT": ("inspect_parameter", str),
+        "PLOT_STYLE": ("plot_style", str),
         "PARAM": ("param_tag", str),
     }
 
@@ -440,6 +473,8 @@ class StarBugMainConfig:
                     value, str):
                 value = os.path.expandvars(value)
 
+            if value == "False":
+                raise Exception("")
             param[key] = value
 
         return param
@@ -537,197 +572,19 @@ class StarBugMainConfig:
     def generate_default_param_file_text(self, version_str: str) -> str:
         """
         Dynamically constructs the entire default configuration string template
-        using the active internal variable defaults directly.
+        using the active internal variable defaults directly via the named
+        constant template.
         """
-        def format_val(key: str) -> str:
-            prop, t = self.MAIN_PARAM_FILE_MAP[key]
+        format_dictionary: dict[str, str] = {}
+        for key, (prop, target_type) in self.MAIN_PARAM_FILE_MAP.items():
             val = getattr(self, prop)
-            if t is bool:
-                return "1" if val else "0"
-            return "" if val is None else str(val)
-        # noinspection SpellCheckingInspection
-        return f"""## STARBUG CONFIG FILE
-# Generated with starbug2-v{version_str}
-PARAM       =  STARBUGII PARAMETERS     // COMMENT
+            if target_type is bool:
+                format_dictionary[key] = "1" if val else "0"
+            else:
+                format_dictionary[key] = "" if val is None else str(val)
 
-## GENERIC
-// (0:false 1:true)
-VERBOSE     = {format_val("VERBOSE")}
-
-// Directory or filename to output to 
-OUTPUT      = {format_val("OUTPUT")}
-
-// If using a non standard HDU name, name it here (str or int)
-HDUNAME     = {format_val("HDUNAME")}
-
-// Set a custom filter for the image
-FILTER      = {format_val("FILTER")}
-
-## DETECTION 
-// Custom FWHM for image (-1 to use WEBBPSF)
-FWHM        = {format_val("FWHM")}
-
-// Number of sigma above the median to clip out as background
-SIGSKY      = {format_val("SIGSKY")}
-
-// Source value minimum N sigma above background
-SIGSRC      = {format_val("SIGSRC")}
-
-// Run background2D step (usually finds more sources but takes time)
-DOBGD2D     = {format_val("DOBGD2D")}
-
-// Run convolution step (usually finds more sources)
-DOCONVL     = {format_val("DOCONVL")}
-
-// Run source cleaning after detection (removes likely contaminants)
-CLEANSRC    = {format_val("CLEANSRC")}
-
-// Lower limit of source sharpness (0 is not sharp)
-SHARP_LO    = {format_val("SHARP_LO")}
-
-// Upper limit of source sharpness (1 is sharp)
-SHARP_HI    = {format_val("SHARP_HI")}
-
-// Limit of source roundness1 (|roundness|>>0 is less round)
-ROUND1_HI   = {format_val("ROUND1_HI")} 
-
-// Limit of source roundness2 (|roundness|>>0 is less round)
-ROUND2_HI   = {format_val("ROUND2_HI")}
-
-// Lower limit on source smoothness (0 is not smooth)
-SMOOTH_LO   = {format_val("SMOOTH_LO")}
-
-// Upper limit on source smoothness (1 is smooth)
-SMOOTH_HI   = {format_val("SMOOTH_HI")}
-
-// Radius (pix) of ricker wavelet 
-RICKER_R    = {format_val("RICKER_R")}
-
-## APERTURE PHOTOMETRY
-// Radius in number of pixels
-APPHOT_R    = {format_val("APPHOT_R")}
-
-// Fraction encircled energy (mutually exclusive with APPHOT_R)
-ENCENERGY   = {format_val("ENCENERGY")} 
-
-// Sky annulus inner radius
-SKY_RIN     = {format_val("SKY_RIN")} 
-
-// Sky annulus outer radius
-SKY_ROUT    = {format_val("SKY_ROUT")}  
-
-// Aperture correction file. See full manual for details
-APCORR_FILE = {format_val("APCORR_FILE")}
-
-## BACKGROUND ESTIMATION
-// Aperture masking fixed radius (if zero, starbug will scale radii)
-BGD_R       = {format_val("BGD_R")} 
-
-// Aperture mask radius profile scaling factor
-PROF_SCALE  = {format_val("PROF_SCALE")}
-
-// Aperture mask radius profile slope
-PROF_SLOPE  = {format_val("PROF_SLOPE")} 
-
-// Background estimation kernel size (pix)
-BOX_SIZE    = {format_val("BOX_SIZE")}
-
-// Output region file to check the aperture mask radii
-BGD_CHECKFILE = {format_val("BGD_CHECKFILE")}
-
-## PHOTOMETRY
-// Detection file to use instead of detecting
-AP_FILE     = {format_val("AP_FILE")}
-
-// Background estimation file
-BGD_FILE    = {format_val("BGD_FILE")}
-
-// Non default PSF file
-PSF_FILE    = {format_val("PSF_FILE")}
-
-// When loading an AP_FILE, do you want to use WCS or xy values (if available)
-USE_WCS     = {format_val("USE_WCS")}
-
-// Zero point (mag) to add to the magnitude columns 
-ZP_MAG      = {format_val("ZP_MAG")} 
-
-// Minimum distance for grouping (pixels) between two sources
-CRIT_SEP    = {format_val("CRIT_SEP")}
-
-// Force centroid position (1) or allow psf fitting to fit position too (0)
-FORCE_POS   = {format_val("FORCE_POS")}
-
-// Maximum deviation from initial guess centroid position
-MAX_XYDEV   = {format_val("MAX_XYDEV")}
-
-// Set fit size of psf (>0) or -1 to take PSF file dimensions
-PSF_SIZE    = {format_val("PSF_SIZE")}
-
-// Generate a residual image
-GEN_RESIDUAL = {format_val("GEN_RESIDUAL")}
-
-## SOURCE STATS
-// Run crowding metric calculation (execution time scales N^2)
-CALC_CROWD  = {format_val("CALC_CROWD")}
-
-## CATALOGUE MATCHING
-// Matching separation threshold in units arcsec
-MATCH_THRESH = {format_val("MATCH_THRESH")}
-
-// EXTRA columns to include in output matched table i.e sharpness
-MATCH_COLS   = {format_val("MATCH_COLS")}
-
-// Keep sources that appear in NUM >= NEXP_THRESH (if -1 keep everything)
-NEXP_THRESH  = {format_val("NEXP_THRESH")}
-
-// Bridge --band matching NIRCam and MIRI catalogues by ensuring NIRCam 
-// catalogue has a match in BRIDGE_COL
-BRIDGE_COL   = {format_val("BRIDGE_COL")}
-
-## ARTIFICIAL STAR TESTS
-// Number of artificial star tests
-NTESTS      = {format_val("NTESTS")}
-
-// Number of stars per artificial test
-NSTARS      = {format_val("NSTARS")}
-
-// Number of pixels to crop around artificial star
-SUBIMAGE    = {format_val("SUBIMAGE")}
-
-// Bright limit of test magnitude
-MAX_MAG     = {format_val("MAX_MAG")}
-
-// Faint limit of test magnitude
-MIN_MAG     = {format_val("MIN_MAG")}
-
-// Output AST result as image with this filename
-PLOTAST     = {format_val("PLOTAST")}
-
-## MISC EXTRAS
-// DS9 region colour
-REGION_COL  = {format_val("REGION_COL")}
-
-// Scale region to flux if possible
-REGION_SCAL = {format_val("REGION_SCAL")}
-
-// Region radius default
-REGION_RAD  = {format_val("REGION_RAD")}
-
-// X column name to use for region
-REGION_XCOL = {format_val("REGION_XCOL")}
-
-// Y column name to use for region
-REGION_YCOL = {format_val("REGION_YCOL")}
-
-// If X/Y column names correspond to WCS values
-REGION_WCS  = {format_val("REGION_WCS")}
-
-// detector name used within psf generation
-DET_NAME = {format_val("DET_NAME")}
-
-// region table file name for generating regions
-REGION_TAB = {format_val("REGION_TAB")}
-"""
+        return DEFAULT_PARAM_TEMPLATE.format(
+            version_str=version_str, **format_dictionary)
 
 
     def do_generate_local_param_file(self) -> None:
