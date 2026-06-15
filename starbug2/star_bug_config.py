@@ -162,7 +162,6 @@ class StarBugMainConfig:
         "ZP_MAG": ("zero_point_magnitude", float),
         "CRIT_SEP": ("critical_separation", float),
         "FORCE_POS": ("force_centroid_position", bool),
-        "DPOS_THRESH": ("centroid_delta_threshold", float),
         "MAX_XYDEV": ("max_xy_deviation", str),
         "PSF_SIZE": ("psf_fit_size", int),
         "GEN_RESIDUAL": ("generate_residual_image", bool),
@@ -657,10 +656,6 @@ CRIT_SEP    = {format_val("CRIT_SEP")}
 
 // Force centroid position (1) or allow psf fitting to fit position too (0)
 FORCE_POS   = {format_val("FORCE_POS")}
-
-// If allowed to fit position, max separation (arcsec) from source list 
-// centroid
-DPOS_THRESH = {format_val("DPOS_THRESH")}
 
 // Maximum deviation from initial guess centroid position
 MAX_XYDEV   = {format_val("MAX_XYDEV")}
@@ -1395,16 +1390,6 @@ REGION_TAB = {format_val("REGION_TAB")}
     @force_centroid_position.setter
     def force_centroid_position(self, value: bool) -> None:
         self._force_centroid_position = value
-
-
-    @property
-    def centroid_delta_threshold(self) -> float:
-        return self._centroid_delta_threshold
-
-
-    @centroid_delta_threshold.setter
-    def centroid_delta_threshold(self, value: float) -> None:
-        self._centroid_delta_threshold = value
 
 
     @property
