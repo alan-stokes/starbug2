@@ -22,7 +22,7 @@ from parse import parse
 
 from starbug2.constants import (
     DEC, RA, SCI, DEFAULT_COLOUR, OUTPUT, AP_FILE, BGD_FILE, PSF_FILE,
-    STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, E_FLUX, PROBLEMATIC_FILTER_ID)
+    STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, E_FLUX, PROBLEMATIC_FILTER_ID, PROBLEMATIC_FILTER_WARNING)
 from starbug2.utils import p_error, get_version, warn
 
 
@@ -1132,9 +1132,7 @@ REGION_TAB = {format_val("REGION_TAB")}
         self._filter = value
 
         if self._filter == PROBLEMATIC_FILTER_ID:
-            warn("Caution needed with F150W2 photometric accuracy - "
-                 "please check out carefully. More Info can be found in ("
-                 "https://github.com/alan-stokes/starbug2/issues/2)")
+            warn(PROBLEMATIC_FILTER_WARNING)
 
 
     @property

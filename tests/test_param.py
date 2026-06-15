@@ -15,7 +15,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 import os
 import pytest
-from starbug2.constants import STAR_BUG_PARAMS
+from starbug2.constants import STAR_BUG_PARAMS, PROBLEMATIC_FILTER_WARNING
 from starbug2.star_bug_config import StarBugMainConfig
 
 
@@ -67,3 +67,10 @@ def test_update_params():
         StarBugMainConfig.load_params("starbug.param")
     os.remove("starbug.param")
 
+def test_f150w2_filter(capsys):
+    config: StarBugMainConfig = StarBugMainConfig()
+    config.custom_filter = "F150W2"
+
+    # check for warning
+    captured = capsys.readouterr()
+    assert PROBLEMATIC_FILTER_WARNING in captured.err

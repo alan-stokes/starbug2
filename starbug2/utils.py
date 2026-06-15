@@ -32,8 +32,8 @@ from starbug2.constants import (
 from starbug2.filters import STAR_BUG_FILTERS
 
 # different print methods (why are we not using loggers?)
-printf = sys.stdout.write
-p_error = sys.stderr.write
+printf = lambda s: sys.stdout.write(s)
+p_error = lambda s: sys.stderr.write(s)
 puts = lambda s:printf("%s\n"%s)
 s_bold = lambda s: "\x1b[1m%s\x1b[0m" % s
 warn = lambda s:p_error("%s%s" % (s_bold("Warning: "), s))
