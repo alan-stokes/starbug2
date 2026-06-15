@@ -172,7 +172,6 @@ class StarBugMainConfig:
         "MATCH_THRESH": ("match_threshold_arc_sec", str),
         "MATCH_COLS": ("extra_match_columns", str),
         "NEXP_THRESH": ("exposure_count_threshold", int),
-        "SN_THRESH": ("signal_to_noise_threshold", float),
         "BRIDGE_COL": ("bridge_band_column", str),
         # ARTIFICIAL STAR TESTS
         "NTESTS": ("artificial_star_tests_count", int),
@@ -685,10 +684,6 @@ MATCH_COLS   = {format_val("MATCH_COLS")}
 
 // Keep sources that appear in NUM >= NEXP_THRESH (if -1 keep everything)
 NEXP_THRESH  = {format_val("NEXP_THRESH")}
-
-// Remove sources with SN ratio < SN_THRESH before matching 
-// (default -1 to not apply this cut)
-SN_THRESH    = {format_val("SN_THRESH")}
 
 // Bridge --band matching NIRCam and MIRI catalogues by ensuring NIRCam 
 // catalogue has a match in BRIDGE_COL
@@ -1482,16 +1477,6 @@ REGION_TAB = {format_val("REGION_TAB")}
     @exposure_count_threshold.setter
     def exposure_count_threshold(self, value: int) -> None:
         self._exposure_count_threshold = value
-
-
-    @property
-    def signal_to_noise_threshold(self) -> float:
-        return self._signal_to_noise_threshold
-
-
-    @signal_to_noise_threshold.setter
-    def signal_to_noise_threshold(self, value: float) -> None:
-        self._signal_to_noise_threshold = value
 
 
     @property
