@@ -88,20 +88,18 @@ class StarBugMainConfig:
         # Boolean Switches (No arguments)
         ('B', 'band', bool): 'do_band_processing',
         ('C', 'cascade', bool): 'do_cascade',
-        (None, 'dither', bool): 'use_dither',
-        ('f', 'exact', bool): 'exact_match',
-        ('G', 'full', bool): 'full_run',
-        (None, 'generic', bool): 'generic_mode',
-        ('h', 'help', bool): 'show_match_help',
-        ('v', 'verbose', bool): 'verbose_logs',
-        ('X', 'band-depr', bool): 'band_deprecated',
-
-        # Options with Arguments (Strings/Integers)
+        ('G', 'generic', bool): 'generic_mode',
+        ('X', 'exact', bool): 'exact_match',
         ('e', 'error', str): 'error_col',
+        ('f', 'full', bool): 'full_run',
+        ('h', 'help', bool): 'show_match_help',
         ('m', 'mask', str): 'mask_eval',
         ('o', 'output', str): 'output_file',
         ('p', 'param', str): 'param_file',
         ('s', 'set', str): 'set_parameter',
+        ('v', 'verbose', bool): 'verbose_logs',
+        (None, 'band-depr', bool): 'band_deprecated',
+        (None, 'dither', bool): 'use_dither',
     }
 
     # noinspection SpellCheckingInspection
