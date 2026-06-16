@@ -158,11 +158,11 @@ class DetectionRoutine(StarFinderBase):
         else:
             round_hi: float = max((self.round_1_hi, self.round_2_hi))
             find: DAOStarFinder = DAOStarFinder(
-                std * self.sig_src, self.full_width_half_max,
+                threshold=std * self.sig_src, fwhm=self.full_width_half_max,
                 sharplo=self.sharp_lo, sharphi=self.sharp_hi,
-                roundlo=-round_hi, roundhi=round_hi, peakmax=np.inf,
+                roundlo=-round_hi, roundhi=round_hi, peak_max=np.inf,
                 xycoords=xy_coords)
-            return find(data - bkg)
+            return find.find_stars(data - bkg)
 
 
     def bkg2d(self, data: np.ndarray) -> np.ndarray:

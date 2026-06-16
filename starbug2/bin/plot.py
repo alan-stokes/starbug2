@@ -41,6 +41,10 @@ from starbug2.star_bug_config import StarBugMainConfig
 from starbug2.utils import p_error, warn, parse_cmd, usage
 from astropy.io.fits import PrimaryHDU, ImageHDU, BinTableHDU
 
+import photutils
+
+# Force photutils to strictly return standard QTables globally
+photutils.future_column_names = True
 
 def starbug_parse_argv(argv: list[str]) -> StarBugMainConfig:
     """

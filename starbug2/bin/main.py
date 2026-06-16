@@ -44,6 +44,11 @@ from starbug2.utils import (
 from starbug2 import param
 from astropy.table import Table
 
+import photutils
+
+# Force photutils to strictly return standard QTables globally
+photutils.future_column_names = True
+
 # noinspection SpellCheckingInspection
 """StarbugII - JWST PSF photometry
 usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o ouput]

@@ -59,6 +59,10 @@ from starbug2.matching.generic_match import GenericMatch
 from starbug2.misc import parse_mask
 from starbug2.star_bug_config import StarBugMainConfig
 from starbug2.utils import parse_cmd, usage
+import photutils
+
+# Force photutils to strictly return standard QTables globally
+photutils.future_column_names = True
 
 
 def starbug_parse_argv(argv: list[str]) -> StarBugMainConfig:

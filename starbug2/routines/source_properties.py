@@ -22,7 +22,7 @@ import numpy as np
 from astropy.table import Table, QTable, hstack
 from photutils.detection import DAOStarFinder
 
-from starbug2.constants import X_CENTROID, Y_CENTROID
+from starbug2.constants import X_CENTROID, Y_CENTROID, X_0, Y_0
 from starbug2.utils import Loading, printf, p_error
 
 
@@ -50,11 +50,11 @@ class SourceProperties:
             if len({X_CENTROID, Y_CENTROID} & set(source_list.colnames)) == 2:
                 self._source_list = (
                     Table(source_list[[X_CENTROID, Y_CENTROID]]))
-            elif len({"x_0", "y_0"} & set(source_list.colnames)) == 2:
-                self._source_list = Table(source_list[["x_0", "y_0"]])
+            elif len({X_0, Y_0} & set(source_list.colnames)) == 2:
+                self._source_list = Table(source_list[[X_0, Y_0]])
                 assert self._source_list is not None
                 self._source_list.rename_columns(
-                    ("x_0", "y_0"), (X_CENTROID, Y_CENTROID))
+                    (X_0, Y_0), (X_CENTROID, Y_CENTROID))
             else:
                 p_error("no positional columns in source list\n")
         else:
@@ -135,7 +135,7 @@ class SourceProperties:
         dao_find: DAOStarFinder = DAOStarFinder(
             -np.inf, full_width_half_max, sharplo=-np.inf, sharphi=np.inf,
             roundlo=-np.inf, roundhi=np.inf, xycoords=xy_coords,
-            peakmax=np.inf)
+            peak_max=np.inf)
 
         # ABS protected access. yuck
         return dao_find._get_raw_catalog(self._image).to_table()

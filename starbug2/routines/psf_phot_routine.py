@@ -22,9 +22,11 @@ import numpy as np
 from astropy.table import Column, hstack, Table, QTable
 from photutils.aperture import (
     CircularAperture, aperture_photometry)
-from photutils.psf import PSFPhotometry, SourceGrouper, FittableImageModel
+from photutils.psf import PSFPhotometry, SourceGrouper, ImagePSF
 
-from starbug2.constants import X_INIT, Y_INIT, X_FIT, Y_FIT, XY_DEV, FLUX_ERR, E_FLUX, FLUX, FLUX_FIT, Q_FIT
+from starbug2.constants import (
+    X_INIT, Y_INIT, X_FIT, Y_FIT, XY_DEV, FLUX_ERR, E_FLUX, FLUX, FLUX_FIT,
+    Q_FIT)
 from starbug2.utils import printf, p_error, warn
 
 class _Grouper(SourceGrouper):
@@ -46,7 +48,8 @@ class _Grouper(SourceGrouper):
     def __init__(self, min_separation: float) -> None:
         super().__init__(min_separation)
 
-    def __call__(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def __call__(self, x: np.ndarray, y: np.ndarray,
+                 return_groups_object: bool=False) -> np.ndarray:
         res: np.ndarray = super().__call__(x, y)
         n: int
         if n := sum(np.bincount(res) > self.CRITICAL_VAL): # noqa
@@ -57,7 +60,7 @@ class _Grouper(SourceGrouper):
 
 class PSFPhotRoutine(PSFPhotometry):
     def __init__(
-            self, psf_model: FittableImageModel,
+            self, psf_model: ImagePSF,
             fit_shape: int | tuple[int, int],
             app_hot_r: float = 3.0,
             min_separation: float = 8.0,

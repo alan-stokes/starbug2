@@ -53,6 +53,11 @@ from starbug2.artificialstars import ArtificialStars, compile_results
 from starbug2.utils import (
     printf, p_error, combine_tables, fill_nan,  parse_cmd, usage)
 
+import photutils
+
+# Force photutils to strictly return standard QTables globally
+photutils.future_column_names = True
+
 # globals
 c: np.ndarray = np.array([0, 0, 0], dtype=np.int64)
 share: SharedMemory = shared_memory.SharedMemory(create=True, size=c.nbytes)
