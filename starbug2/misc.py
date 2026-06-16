@@ -18,14 +18,12 @@ Miscellaneous functions...
 """
 
 import os, stat, numpy as np
-from typing import List, Optional, TextIO, Dict, Any
+from typing import List, Optional, TextIO, Dict
 
 from starbug2.constants import (
     FITS_EXTENSION, FILE_NAME, FILTER, OBS, VISIT, DETECTOR, EXPOSURE)
 from astropy.io import fits
-from starbug2.starbug import StarbugBase
-from starbug2.utils import (
-    printf, wget, puts, Loading, p_error, split_file_name)
+from starbug2.utils import printf, p_error, split_file_name
 
 # A clear, Type Alias for the deep data nested structure Format:
 # Dict[KeyType, ValueType], str mapping being FILTER, OBS, VISIT, DETECTOR

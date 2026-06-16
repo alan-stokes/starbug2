@@ -100,8 +100,8 @@ def plot_cmd(
         axis: Axes | None = None,
         col: str | tuple[float, ...] | None = None,
         hess: bool = True,
-        x_lim: tuple[float, float] | list[float] | None = None,
-        y_lim: tuple[float, float] | list[float] | None = None,
+        x_lim: tuple[float, float] | None = None,
+        y_lim: tuple[float, float] | None = None,
         **kwargs: Any) -> Axes:
     """
     Plot a Colour-Magnitude Diagram (CMD) with an optional Hess-based density

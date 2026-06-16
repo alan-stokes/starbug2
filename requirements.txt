@@ -7,3 +7,5 @@ webbpsf==2.0.0
 scikit-image==0.26.0
 matplotlib==3.11
 pytest==9.1.0
+stpsf==2.2.0
+requests==2.34.2

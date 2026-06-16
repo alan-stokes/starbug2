@@ -108,7 +108,8 @@ def _generate_psfs() -> None:
             for det in detectors:
                 load.msg = "%6s %5s" % (filter_string, det)
                 load.show()
-                psf: fits.PrimaryHDU = generate_psf(filter_string, det, None)
+                psf: fits.PrimaryHDU | None = generate_psf(
+                    filter_string, det, None)
                 if psf:
                     psf.writeto(
                         "%s/%s%s.fits" % (
@@ -128,7 +129,7 @@ def _generate_psfs() -> None:
 def generate_psf(
     filter_string: str,
     detector: Optional[str] = None,
-    fov_pixels: Optional[int] = None) -> fits.PrimaryHDU:
+    fov_pixels: Optional[int] = None) -> fits.PrimaryHDU | None:
     # noinspection SpellCheckingInspection
     """
     Generate a single PSF for JWST
@@ -154,6 +155,7 @@ def generate_psf(
 
     if filter_string in list(STAR_BUG_FILTERS.keys()):
         the_filter = STAR_BUG_FILTERS.get(filter_string)
+        assert the_filter is not None
         if detector is None:
             if the_filter.instr == NIRCAM and the_filter.length == SHORT:
                 detector = "NRCA1"

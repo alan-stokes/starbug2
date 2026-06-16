@@ -12,10 +12,10 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-from astropy.io.ascii.cparser import AstropyWarning
+import warnings
+from astropy.utils.exceptions import AstropyWarning, AstropyDeprecationWarning
 
 from starbug2.misc import generate_runscript
-import warnings
 import os, sys
 
 from astropy.io.fits import PrimaryHDU
@@ -25,11 +25,20 @@ from starbug2.matching.generic_match import GenericMatch
 from starbug2.star_bug_config import StarBugMainConfig
 from starbug2.starbug import StarbugBase
 
-# quietens astropy so that it doesn't flood the terminal with warnings.
-# ABS this seems concerning, if they're producing warnings we should be
-# exploring those.
-warnings.simplefilter("ignore", category=AstropyWarning)
-warnings.simplefilter("ignore", category=RuntimeWarning) ## bit dodge that
+# Target-silence only the specific Photutils/Astropy deprecation noise
+# without masking generic Runtime math errors globally.
+warnings.filterwarnings(
+    "ignore", category=AstropyDeprecationWarning)
+warnings.filterwarnings(
+    "ignore", message=".*contains deprecated section.*",
+    category=AstropyWarning)
+
+# Handle RuntimeWarnings elegantly: Ignore expected ones (like NaN comparisons
+# during clipping), but let actual mathematical issues surface.
+warnings.filterwarnings(
+    "ignore", message=".*invalid value encountered.*", category=RuntimeWarning)
+warnings.filterwarnings(
+    "ignore", message=".*divide by zero.*", category=RuntimeWarning)
 
 from starbug2.initialise_psf_data import init_starbug_for_jwst, generate_psf
 
