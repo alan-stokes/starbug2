@@ -18,7 +18,7 @@ from typing import Final
 
 import pytest
 
-from starbug2.constants import FILTER, TableColumn
+from starbug2.constants import HeaderTags, TableColumn
 from starbug2.matching.band_match import BandMatch
 from starbug2.matching.cascade_match import CascadeMatch
 from starbug2.matching.exact_value_match import ExactValueMatch
@@ -80,12 +80,12 @@ def cats():
         np.array(t1),
         names=[TableColumn.RA, TableColumn.DEC, TableColumn.FLUX,
                TableColumn.E_FLUX],
-        meta={FILTER:'a'})
+        meta={HeaderTags.FILTER : 'a'})
     cat2 = Table(
         np.array(t2),
         names=[TableColumn.RA, TableColumn.DEC, TableColumn.FLUX,
                TableColumn.E_FLUX],
-        meta={FILTER:'b'})
+        meta={HeaderTags.FILTER : 'b'})
     return [cat1, cat2]
 
             
@@ -187,7 +187,7 @@ class TestGenericMatch:
             threshold=config.match_threshold_arc_sec_as_an_arc_sec)
         c: Table
         for c in categories:
-            del c.meta[FILTER]
+            del c.meta[HeaderTags.FILTER]
         av: Table = m.finish_matching(m.match([category1, category2]))
         # noinspection SpellCheckingInspection
         assert av.colnames == [
@@ -307,15 +307,18 @@ class TestBandMatch:
             Table(np.array(t1), names=[
                 TableColumn.RA, TableColumn.DEC, "A", TableColumn.NUM,
                 TableColumn.FLAG],
-                  dtype=[f, f, f, f, np.uint16], meta={FILTER: "A"}),
+                  dtype=[f, f, f, f, np.uint16],
+                  meta={HeaderTags.FILTER: "A"}),
             Table(np.array(t2), names=[
                 TableColumn.RA, TableColumn.DEC, "B", TableColumn.NUM,
                 TableColumn.FLAG],
-                  dtype=[f, f, f, f, np.uint16], meta={FILTER: "B"}),
+                  dtype=[f, f, f, f, np.uint16],
+                  meta={HeaderTags.FILTER: "B"}),
             Table(np.array(t3), names=[
                 TableColumn.RA, TableColumn.DEC, "C", TableColumn.NUM,
                 TableColumn.FLAG],
-                  dtype=[f, f, f, f, np.uint16], meta={FILTER: "C"})]
+                  dtype=[f, f, f, f, np.uint16],
+                  meta={HeaderTags.FILTER: "C"})]
 
         bm = BandMatch(fltr=["A", "B", "C"],
                        threshold=[0.1 * units.arcsec, 0.2 * units.arcsec])

@@ -27,7 +27,7 @@ from photutils.aperture import (
 
 from starbug2.constants import (
     SRC_GOOD, DQ_DO_NOT_USE, DQ_SATURATED, SRC_BAD, DQ_JUMP_DET, SRC_JMP,
-    TableColumn, FILTER_LOWER, CLEAR, QTableColNames)
+    TableColumn, HeaderTags, CLEAR, QTableColNames)
 from starbug2.utils import printf, p_error, warn
 
 
@@ -61,8 +61,8 @@ class APPhotRoutine:
         tmp: Table = Table.read(table_f_name, format="fits")
 
         t_ap_corr: Table
-        if FILTER_LOWER in tmp.colnames:
-            t_ap_corr = tmp[(tmp[FILTER_LOWER] == filter_string)]
+        if HeaderTags.FILTER_LOWER in tmp.colnames:
+            t_ap_corr = tmp[(tmp[HeaderTags.FILTER_LOWER] == filter_string)]
         else:
             t_ap_corr = tmp
 
@@ -104,8 +104,8 @@ class APPhotRoutine:
 
         tmp: Table = Table.read(table_f_name, format="fits")
 
-        if FILTER_LOWER in tmp.colnames:
-            t_ap_corr = tmp[(tmp[FILTER_LOWER] == filter_string)]
+        if HeaderTags.FILTER_LOWER in tmp.colnames:
+            t_ap_corr = tmp[(tmp[HeaderTags.FILTER_LOWER] == filter_string)]
         else: t_ap_corr = tmp
 
         line: Row = t_ap_corr[(np.abs(
@@ -137,8 +137,9 @@ class APPhotRoutine:
             raise Exception("invalid col_names size.")
 
         # Crop down table
-        if FILTER_LOWER in t_ap_corr.col_names:
-            t_ap_corr=t_ap_corr[(t_ap_corr[FILTER_LOWER] == filter_string)]
+        if HeaderTags.FILTER_LOWER in t_ap_corr.col_names:
+            t_ap_corr=t_ap_corr[
+                (t_ap_corr[HeaderTags.FILTER_LOWER] == filter_string)]
 
         if TableColumn.PUPIL in t_ap_corr.col_names: # Crop down table
             t_ap_corr=t_ap_corr[ t_ap_corr[TableColumn.PUPIL] == CLEAR]

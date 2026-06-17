@@ -21,7 +21,7 @@ import os, stat, numpy as np
 from typing import List, Optional, TextIO, Dict
 
 from starbug2.constants import (
-    FITS_EXTENSION, FILE_NAME, FILTER, OBS, VISIT, DETECTOR, EXPOSURE)
+    FITS_EXTENSION, FILE_NAME, HeaderTags, OBS, VISIT, DETECTOR, EXPOSURE)
 from astropy.io import fits
 from starbug2.utils import printf, p_error, split_file_name
 
@@ -102,20 +102,20 @@ def sort_exposures(catalogues: List[fits.HDUList]) -> ExposureMapping:
     for cat in catalogues:
         info = exp_info(cat)
 
-        if info[FILTER] not in out.keys():
-            out[info[FILTER]] = {}
+        if info[HeaderTags.FILTER] not in out.keys():
+            out[info[HeaderTags.FILTER]] = {}
 
-        if info[OBS] not in out[info[FILTER]].keys():
-            out[info[FILTER]][info[OBS]] = {}
+        if info[OBS] not in out[info[HeaderTags.FILTER]].keys():
+            out[info[HeaderTags.FILTER]][info[OBS]] = {}
 
-        if info[VISIT] not in out[info[FILTER]][info[OBS]].keys():
-            out[info[FILTER]][info[OBS]][info[VISIT]] = {}
+        if info[VISIT] not in out[info[HeaderTags.FILTER]][info[OBS]].keys():
+            out[info[HeaderTags.FILTER]][info[OBS]][info[VISIT]] = {}
 
         if (info[DETECTOR] not in
-            out[info[FILTER]][info[OBS]][info[VISIT]].keys()):
-            out[info[FILTER]][
+            out[info[HeaderTags.FILTER]][info[OBS]][info[VISIT]].keys()):
+            out[info[HeaderTags.FILTER]][
                 info[OBS]][info[VISIT]][info[DETECTOR]] = []
-        out[info[FILTER]][
+        out[info[HeaderTags.FILTER]][
             info[OBS]][info[VISIT]][info[DETECTOR]].append(cat)
     return out
 
@@ -155,11 +155,11 @@ def exp_info(hdu_list) -> Dict[str, int | None]:
     Get the exposure information about a hdu list
     :param hdu_list: HDUList or ImageHDU or BinTableHDU
     :return: dictionary of relevant information
-    (filter, obs, visit exposure, detector)
+    (HeaderTags.FILTER, obs, visit exposure, detector)
     :rtype dict(str, Optional[int])
     """
     info: Dict[str, int | None] = {
-        FILTER : None,
+        HeaderTags.FILTER : None,
         OBS : 0,
         VISIT : 0,
         EXPOSURE : 0,

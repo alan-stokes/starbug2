@@ -29,10 +29,10 @@ from astropy.stats import sigma_clipped_stats
 from photutils.datasets import make_model_image
 from photutils.psf import ImagePSF
 from starbug2.constants import (
-    FILTER, STAR_BUG, CALIBRATION_LV, DETECTOR, TELESCOPE, INSTRUMENT, BUN_IT,
+    HeaderTags, DETECTOR, TELESCOPE, INSTRUMENT, BUN_IT,
     PIXAR_A2, PIXAR_SR, SCI, BGD, RES, VERBOSE_TAG, AP_FILE, BGD_FILE,
     FITS_EXTENSION, JWST, DQ, AREA, WHT, SHORT, LONG, NIRCAM, STAR_BUG_MIRI,
-    SRC_FIX, DEG, ARCMIN, ARCSEC, DQ_DO_NOT_USE, DQ_SATURATED, NAXIS1, NAXIS2,
+    SRC_FIX, DEG, ARCMIN, ARCSEC, DQ_DO_NOT_USE, DQ_SATURATED,
     ERR, ExitStates, NIRCAM_STRING, STARBUG_DATA_DIR,
     DEFAULT_FULL_WIDTH_HALF_MAX, TableColumn)
 from starbug2.filters import STAR_BUG_FILTERS, FilterStruct
@@ -215,10 +215,10 @@ class StarbugBase(StarBugInterface):
 
                     self._filter = self._config.custom_filter
                     assert self._filter is not None
-                    if ((FILTER in main_image.header) and
-                        (main_image.header[FILTER] in
+                    if ((HeaderTags.FILTER in main_image.header) and
+                        (main_image.header[HeaderTags.FILTER] in
                          STAR_BUG_FILTERS.keys())):
-                        self._filter = main_image.header[FILTER]
+                        self._filter = main_image.header[HeaderTags.FILTER]
                         assert self._filter is not None
                         if self._full_width_half_max < 0:
                             self._full_width_half_max = (STAR_BUG_FILTERS[
@@ -250,8 +250,9 @@ class StarbugBase(StarBugInterface):
                             self._stage = 2.5
                     elif WHT in extension_names:
                         self._stage = 3.0
-                    elif CALIBRATION_LV in self.main_image.header:
-                        self._stage = self.main_image.header[CALIBRATION_LV]
+                    elif HeaderTags.CALIBRATION_LV in self.main_image.header:
+                        self._stage = (
+                            self.main_image.header[HeaderTags.CALIBRATION_LV])
                     else:
                         warn("Unable to determine calibration level, "
                              "assuming stage 3\n")
@@ -673,7 +674,7 @@ class StarbugBase(StarBugInterface):
                          % (detections_length - len(self._detections)))
 
         reindex(self._detections)
-        self._detections.meta[FILTER] = self._filter
+        self._detections.meta[HeaderTags.FILTER] = self._filter
 
         f_name = "%s/%s-ap.fits" % (self._out_dir, self._b_name)
         self.log("--> %s\n" % f_name)
@@ -887,10 +888,10 @@ class StarbugBase(StarBugInterface):
             init_guesses = init_guesses[ init_guesses[TableColumn.Y_INIT] >=0 ]
             init_guesses = init_guesses[
                 init_guesses[TableColumn.X_INIT]
-                < self.main_image.header[NAXIS1]]
+                < self.main_image.header[HeaderTags.NAXIS1]]
             init_guesses=init_guesses[
                 init_guesses[TableColumn.Y_INIT]
-                < self.main_image.header[NAXIS2]]
+                < self.main_image.header[HeaderTags.NAXIS2]]
 
             ######
             # Allow tables that don't have the correct columns through
@@ -1128,10 +1129,10 @@ class StarbugBase(StarBugInterface):
         detections = detections[ detections[TableColumn.Y_CENTROID] >= 0]
         detections = detections[
             detections[TableColumn.X_CENTROID] <
-            self.main_image.header[NAXIS1]]
+            self.main_image.header[HeaderTags.NAXIS1]]
         return detections[
             detections[TableColumn.Y_CENTROID] <
-            self.main_image.header[NAXIS2]]
+            self.main_image.header[HeaderTags.NAXIS2]]
 
     def __getstate__(self) -> dict[str, Any]:
         """
@@ -1167,12 +1168,12 @@ class StarbugBase(StarBugInterface):
         :rtype: Header
         """
         head: Dict[str, str | float] = {
-            STAR_BUG: get_version(),
-            CALIBRATION_LV: self._stage
+            HeaderTags.STAR_BUG: get_version(),
+            HeaderTags.CALIBRATION_LV: self._stage
         }
 
         if self._filter:
-            head[FILTER] = self._filter
+            head[HeaderTags.FILTER] = self._filter
 
         # add the basic params
         for fits_key, (property_name, _) in (
@@ -1203,8 +1204,8 @@ class StarbugBase(StarBugInterface):
         """
         out: dict[str, str] = {}
         keys: list[str] = [
-            FILTER, DETECTOR, TELESCOPE, INSTRUMENT, BUN_IT, PIXAR_A2,
-            PIXAR_SR]
+            HeaderTags.FILTER, DETECTOR, TELESCOPE, INSTRUMENT, BUN_IT,
+            PIXAR_A2, PIXAR_SR]
         if self._image:
             for hdu in self._image:
                 out.update(

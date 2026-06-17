@@ -23,7 +23,7 @@ from typing import override, Final, Any
 import numpy as np
 import astropy.units as u
 from astropy.table import Table, hstack
-from starbug2.constants import FILTER, TableColumn
+from starbug2.constants import HeaderTags, TableColumn
 from starbug2.filters import STAR_BUG_FILTERS
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.utils import (
@@ -107,14 +107,15 @@ class BandMatch(GenericMatch):
 
         sorters = [
             ## META in JWST filters
-            lambda t: list(STAR_BUG_FILTERS.keys()).index(t.meta.get(FILTER)),
+            lambda t: list(STAR_BUG_FILTERS.keys()).index(
+                t.meta.get(HeaderTags.FILTER)),
 
             ## col_names in JWST filters
             lambda t: list(STAR_BUG_FILTERS.keys()).index(
                 (set(t.colnames) & set(STAR_BUG_FILTERS.keys())).pop()),
 
             ## META in self.filters
-            lambda t: filter_list.index(t.meta.get(FILTER)),
+            lambda t: filter_list.index(t.meta.get(HeaderTags.FILTER)),
 
             ## col_names in JWST filters
             lambda t: filter_list.index(
@@ -289,15 +290,16 @@ class BandMatch(GenericMatch):
         tables = np.full(len(STAR_BUG_FILTERS), None)
         mask = np.full(len(STAR_BUG_FILTERS), False)
         for tab in catalogues:
-            if FILTER in tab.meta.keys():
-                if tab.meta[FILTER] in STAR_BUG_FILTERS:
-                    ii = list(STAR_BUG_FILTERS.keys()).index(tab.meta[FILTER])
+            if HeaderTags.FILTER in tab.meta.keys():
+                if tab.meta[HeaderTags.FILTER] in STAR_BUG_FILTERS:
+                    ii = list(STAR_BUG_FILTERS.keys()).index(
+                        tab.meta[HeaderTags.FILTER])
                     tables[ii] = tab
                     mask[ii] = True
                 else:
                     p_error(
                         "Unknown filter '%s' (skipping)..\n" %
-                        tab.meta[FILTER])
+                        tab.meta[HeaderTags.FILTER])
             elif _tmp := set(STAR_BUG_FILTERS.keys()) & set(tab.col_names):
                 ii = list(STAR_BUG_FILTERS.keys()).index(_tmp.pop())
                 tables[ii] = tab

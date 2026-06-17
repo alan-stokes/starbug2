@@ -24,7 +24,7 @@ from astropy import units
 from astropy.units.quantity import Quantity
 from astropy.coordinates import SkyCoord
 from astropy.table import Table, hstack, Column, vstack
-from starbug2.constants import FILTER, SRC_GOOD, SRC_VAR, TableColumn
+from starbug2.constants import HeaderTags, SRC_GOOD, SRC_VAR, TableColumn
 from starbug2.star_bug_config import StarBugMainConfig
 from starbug2.utils import (
     Loading, printf, remove_duplicates, p_error, fill_nan, tab2array,
@@ -246,7 +246,8 @@ class GenericMatch:
             catalogues[n] = catalogue[keep]
 
         if not self._filter:
-            filter_string: str | None = catalogues[0].meta.get(FILTER)
+            filter_string: str | None = (
+                catalogues[0].meta.get(HeaderTags.FILTER))
             if filter_string is None:
                 filter_string = "MAG"
             self._filter = filter_string

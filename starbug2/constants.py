@@ -177,6 +177,10 @@ class TableColumn(str, Enum):
     def __format__(self, format_spec: str) -> str:
         return self.value.__format__(format_spec)
 
+## DEFAULT MATCHING COLS
+MATCH_COLS: List[str] = [
+    TableColumn.RA, TableColumn.DEC, TableColumn.FLAG, TableColumn.FLUX,
+    TableColumn.E_FLUX, TableColumn.NUM]
 
 # Q table col names
 class QTableColNames(str, Enum):
@@ -192,24 +196,28 @@ class QTableColNames(str, Enum):
     def __format__(self, format_spec: str) -> str:
         return self.value.__format__(format_spec)
 
-## DEFAULT MATCHING COLS
-MATCH_COLS: List[str] = [
-    TableColumn.RA, TableColumn.DEC, TableColumn.FLAG, TableColumn.FLUX,
-    TableColumn.E_FLUX, TableColumn.NUM]
-
 # tag for header
-FILTER_LOWER: Final[str] = "filter"
-FILTER: Final[str] = "FILTER"
-EXT: Final[str] = "XTENSION"
-IMAGE: Final[str] = "IMAGE"
-BIN_TABLE: Final[str] = "BINTABLE"
-OUTPUT: Final[str] = "OUTPUT"
-STAR_BUG: Final[str] = "STARBUG"
-CALIBRATION_LV: Final[str] = "CALIBLEVEL"
-NAXIS: Final[str] = "NAXIS"
-NAXIS1: Final[str] = "NAXIS1"
-NAXIS2: Final[str] = "NAXIS2"
-C_TYPE: Final[str] = "CTYPE"
+class HeaderTags(str, Enum):
+    FILTER_LOWER = "filter"
+    FILTER = "FILTER"
+    EXT = "XTENSION"
+    IMAGE = "IMAGE"
+    BIN_TABLE = "BINTABLE"
+    OUTPUT = "OUTPUT"
+    STAR_BUG = "STARBUG"
+    CALIBRATION_LV = "CALIBLEVEL"
+    NAXIS = "NAXIS"
+    NAXIS1 = "NAXIS1"
+    NAXIS2 = "NAXIS2"
+    C_TYPE = "CTYPE"
+
+    # needed as the table system doenst seem to handle enums properly
+    def __str__(self) -> str:
+        return self.value
+
+    # needed as the table system doenst seem to handle enums properly
+    def __format__(self, format_spec: str) -> str:
+        return self.value.__format__(format_spec)
 
 # tags for image header
 DETECTOR: Final[str] = "DETECTOR"

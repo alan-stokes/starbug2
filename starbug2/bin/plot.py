@@ -34,8 +34,7 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.table import Table
 import starbug2
-from starbug2.constants import (
-    ExitStates, TableColumn, FILTER, EXT, IMAGE, BIN_TABLE)
+from starbug2.constants import ExitStates, TableColumn, HeaderTags
 from starbug2.plot import load_style, plot_test, plot_inspect_source
 from starbug2.star_bug_config import StarBugMainConfig
 from starbug2.utils import p_error, warn, parse_cmd, usage
@@ -153,7 +152,7 @@ def plot_main(argv: list[str]) -> ExitStates | None:
     for arg in config.fits_images:
         if os.path.exists(arg):
             fp: fits.HDUList = fits.open(arg)
-            _filter: str = fp[0].header.get(FILTER)
+            _filter: str = fp[0].header.get(HeaderTags.FILTER)
 
             # Use type tracking alias explicitly during extraction loop blocks
             hdu: PrimaryHDU | ImageHDU | BinTableHDU | None = None
@@ -161,14 +160,14 @@ def plot_main(argv: list[str]) -> ExitStates | None:
                 if hdu is None:
                     continue
 
-                if hdu.header.get(EXT) == IMAGE:
+                if hdu.header.get(HeaderTags.EXT) == HeaderTags.IMAGE:
                     images.append(hdu)
                     break
-                if hdu.header.get(EXT) == BIN_TABLE:
+                if hdu.header.get(HeaderTags.EXT) == HeaderTags.BIN_TABLE:
                     tables.append(Table(hdu.data))
                     break
             if hdu is not None:
-                hdu.header[FILTER] = _filter
+                hdu.header[HeaderTags.FILTER] = _filter
 
     fig: plt.Figure | None = None
 

@@ -21,7 +21,7 @@ from typing import Dict, Tuple, Final, Any
 from parse import parse
 
 from starbug2.constants import (
-    SCI, DEFAULT_COLOUR, OUTPUT, AP_FILE, BGD_FILE, PSF_FILE, TableColumn,
+    SCI, DEFAULT_COLOUR, HeaderTags, AP_FILE, BGD_FILE, PSF_FILE, TableColumn,
     STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, PROBLEMATIC_FILTER_ID,
     PROBLEMATIC_FILTER_WARNING, DEFAULT_PARAM_TEMPLATE)
 from starbug2.utils import p_error, get_version, warn
@@ -469,8 +469,8 @@ class StarBugMainConfig:
                 pass
 
             ## Special case environmental variables expansions for paths
-            if key in (OUTPUT, AP_FILE, BGD_FILE, PSF_FILE) and isinstance(
-                    value, str):
+            if (key in (HeaderTags.OUTPUT, AP_FILE, BGD_FILE, PSF_FILE)
+                    and isinstance(value, str)):
                 value = os.path.expandvars(value)
 
             if value == "False":

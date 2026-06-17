@@ -25,9 +25,9 @@ import requests
 from importlib.metadata import PackageNotFoundError
 
 from starbug2.constants import (
-    DEFAULT_COLOUR, TMP_OUT, TMP_FITS, TableColumn,
-    FITS_EXTENSION, FILTER, N_MIS_MATCHES, ExitStates,
-    REST_SUCCESS_CODE, DEG, ARCMIN, ARCSEC, PIX, NAXIS, C_TYPE, BUN_IT,
+    DEFAULT_COLOUR, TMP_OUT, TMP_FITS, TableColumn, HeaderTags,
+    FITS_EXTENSION, N_MIS_MATCHES, ExitStates,
+    REST_SUCCESS_CODE, DEG, ARCMIN, ARCSEC, PIX,  BUN_IT,
     PIXAR_SR)
 from starbug2.filters import STAR_BUG_FILTERS
 
@@ -400,12 +400,12 @@ def import_table(f_name: str, verbose: bool | int = 0) -> Table | None:
             if tab is None:
                 printf(f"table at {f_name} failed to read")
                 return None
-            if not tab.meta.get(FILTER):
+            if not tab.meta.get(HeaderTags.FILTER):
                 if filter_string := find_filter(tab):
-                    tab.meta[FILTER] = filter_string
+                    tab.meta[HeaderTags.FILTER] = filter_string
             if verbose:
                 printf("-> loaded %s (%s:%d)\n" % (
-                    f_name, tab.meta.get(FILTER), len(tab)))
+                    f_name, tab.meta.get(HeaderTags.FILTER), len(tab)))
         else:
             p_error("Table must fits format\n")
     else:
@@ -725,7 +725,7 @@ def find_filter(table: Table) -> str:
     """
     # 1. Check metadata first and return immediately if found
     filter_string: str
-    if filter_string := table.meta.get(FILTER):
+    if filter_string := table.meta.get(HeaderTags.FILTER):
         return filter_string
 
     # 2. Fall back to checking column names
@@ -791,11 +791,11 @@ def crop_hdu(
     for ext in hdu:
         if type(ext) not in (fits.PrimaryHDU, fits.ImageHDU):
             continue
-        if not ext.header[NAXIS]:
+        if not ext.header[HeaderTags.NAXIS]:
             continue
         
-        ctype: str = ext.header.get(C_TYPE)
-        ext.header[C_TYPE] = "%s-SIP" % ctype
+        ctype: str = ext.header.get(HeaderTags.C_TYPE)
+        ext.header[HeaderTags.C_TYPE] = "%s-SIP" % ctype
 
         w: WCS = WCS(ext.header, relax=False)
         ext.data = ext.data[x_limit[0]:x_limit[1], y_limit[0]:y_limit[1]]

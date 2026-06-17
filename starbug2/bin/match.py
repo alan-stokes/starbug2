@@ -49,7 +49,7 @@ from astropy.table import Table, vstack
 from astropy.units import Quantity
 from starbug2 import utils
 from starbug2.constants import (
-    FILTER, STAR_BUG_MIRI, NIRCAM, MATCH_COLS, TableColumn, ExitStates)
+     STAR_BUG_MIRI, NIRCAM, MATCH_COLS, TableColumn, ExitStates, HeaderTags)
 from starbug2.filters import STAR_BUG_FILTERS
 from starbug2.matching.band_match import BandMatch
 from starbug2.matching.cascade_match import CascadeMatch
@@ -101,7 +101,7 @@ def match_full_band_match(
 
     for tab in tables:
         tab: Table
-        filter_string: str = str(tab.meta.get(FILTER))
+        filter_string: str = str(tab.meta.get(HeaderTags.FILTER))
         to_match[STAR_BUG_FILTERS[filter_string].instr].append(tab)
         _col_names += [filter_string, f"e{filter_string}"]
 
