@@ -29,9 +29,8 @@ from astropy.stats import sigma_clipped_stats
 from photutils.datasets import make_model_image
 from photutils.psf import ImagePSF
 from starbug2.constants import (
-    HeaderTags, DETECTOR, TELESCOPE, INSTRUMENT, BUN_IT,
-    PIXAR_A2, PIXAR_SR, SCI, BGD, RES, VERBOSE_TAG, AP_FILE, BGD_FILE,
-    FITS_EXTENSION, JWST, DQ, AREA, WHT, SHORT, LONG, NIRCAM, STAR_BUG_MIRI,
+    HeaderTags, ImageHeaderTags, SCI, BGD, RES, VERBOSE_TAG, AP_FILE, BGD_FILE,
+    FITS_EXTENSION, DQ, AREA, WHT, SHORT, LONG, NIRCAM, STAR_BUG_MIRI,
     SRC_FIX, DEG, ARCMIN, ARCSEC, DQ_DO_NOT_USE, DQ_SATURATED,
     ERR, ExitStates, NIRCAM_STRING, STARBUG_DATA_DIR,
     DEFAULT_FULL_WIDTH_HALF_MAX, TableColumn)
@@ -208,8 +207,9 @@ class StarbugBase(StarBugInterface):
                     if main_image.data is None:
                         warn("Image seems to be empty.\n")
 
-                    if ((val := main_image.header.get(TELESCOPE)) is None
-                            or (val.find(JWST)<0)):
+                    if ((val := main_image.header.get(
+                            ImageHeaderTags.TELESCOPE)) is None
+                            or (val.find(ImageHeaderTags.JWST) < 0)):
                         warn("Telescope not JWST, "
                              "there may be undefined behaviour.\n")
 
@@ -228,14 +228,15 @@ class StarbugBase(StarBugInterface):
                     else:
                         warn("Unable to determine image filter\n")
 
-                    if DETECTOR in self.info.keys():
+                    if ImageHeaderTags.DETECTOR in self.info.keys():
                         self.log(
-                            "-> detector module: %s\n" % self.info[DETECTOR])
+                            "-> detector module: %s\n" %
+                            self.info[ImageHeaderTags.DETECTOR])
                     else:
                         warn("Unable to determine Telescope DETECTOR.\n")
 
-                    if BUN_IT in main_image.header:
-                        self._unit = main_image.header[BUN_IT]
+                    if ImageHeaderTags.BUN_IT in main_image.header:
+                        self._unit = main_image.header[ImageHeaderTags.BUN_IT]
                     else:
                         warn("Unable to determine image BUNIT.\n")
 
@@ -379,7 +380,7 @@ class StarbugBase(StarBugInterface):
             filter_struct: FilterStruct | None = (
                 STAR_BUG_FILTERS.get(self._filter))
             if filter_struct:
-                dt_name: str = self.info[DETECTOR]
+                dt_name: str = self.info[ImageHeaderTags.DETECTOR]
                 if dt_name == "NRCALONG":
                     dt_name = "NRCA5"
                 if dt_name == "NRCBLONG":
@@ -429,7 +430,7 @@ class StarbugBase(StarBugInterface):
 
         # Collect scale factor
         scale_factor: int | float
-        if self.header.get(BUN_IT) == "MJy/sr":
+        if self.header.get(ImageHeaderTags.BUN_IT) == "MJy/sr":
             scale_factor = get_mj_ysr2jy_scale_factor(self.main_image)
             self.log(
                 "-> converting unit from MJy/sr to Jr with factor: %e\n"
@@ -586,10 +587,10 @@ class StarbugBase(StarBugInterface):
         ap_corr_f_name: Optional[str] = None
         if _ap_corr_f_name := self._config.ap_corr_file_override:
             ap_corr_f_name = _ap_corr_f_name
-        elif   self.info.get(INSTRUMENT) == NIRCAM_STRING:
+        elif   self.info.get(ImageHeaderTags.INSTRUMENT) == NIRCAM_STRING:
             ap_corr_f_name = (
                 "%s/apcorr_nircam.fits" % StarbugBase.get_data_path())
-        elif self.info.get(INSTRUMENT) == "MIRI":
+        elif self.info.get(ImageHeaderTags.INSTRUMENT) == "MIRI":
             ap_corr_f_name = (
                 "%s/apcorr_miri.fits" % StarbugBase.get_data_path())
 
@@ -953,14 +954,15 @@ class StarbugBase(StarBugInterface):
                         max_y_dev *= 60
                         unit = ARCSEC
                     if unit == ARCSEC:
-                        if not self.header.get(PIXAR_A2):
+                        if not self.header.get(ImageHeaderTags.PIXAR_A2):
                             warn(
                                 "MAX_XYDEV is units arcseconds, but starbug "
                                 "cannot locate a pixel scale in the header."
                                 " Please use syntax MAX_XYDEV=%sp to set "
                                 "change to pixels\n" % max_y_dev)
                         else:
-                            max_y_dev /= np.sqrt(self.header.get(PIXAR_A2))
+                            max_y_dev /= np.sqrt(
+                                self.header.get(ImageHeaderTags.PIXAR_A2))
 
                 if max_y_dev > 0:
                     self.log(
@@ -1204,8 +1206,10 @@ class StarbugBase(StarBugInterface):
         """
         out: dict[str, str] = {}
         keys: list[str] = [
-            HeaderTags.FILTER, DETECTOR, TELESCOPE, INSTRUMENT, BUN_IT,
-            PIXAR_A2, PIXAR_SR]
+            ImageHeaderTags.FILTER, ImageHeaderTags.DETECTOR,
+            ImageHeaderTags.TELESCOPE, ImageHeaderTags.INSTRUMENT,
+            ImageHeaderTags.BUN_IT, ImageHeaderTags.PIXAR_A2,
+            ImageHeaderTags.PIXAR_SR]
         if self._image:
             for hdu in self._image:
                 out.update(

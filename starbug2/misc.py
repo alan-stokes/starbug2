@@ -21,7 +21,8 @@ import os, stat, numpy as np
 from typing import List, Optional, TextIO, Dict
 
 from starbug2.constants import (
-    FITS_EXTENSION, FILE_NAME, HeaderTags, OBS, VISIT, DETECTOR, EXPOSURE)
+    FITS_EXTENSION, FILE_NAME, HeaderTags, OBS, VISIT, ImageHeaderTags,
+    EXPOSURE)
 from astropy.io import fits
 from starbug2.utils import printf, p_error, split_file_name
 
@@ -111,12 +112,12 @@ def sort_exposures(catalogues: List[fits.HDUList]) -> ExposureMapping:
         if info[VISIT] not in out[info[HeaderTags.FILTER]][info[OBS]].keys():
             out[info[HeaderTags.FILTER]][info[OBS]][info[VISIT]] = {}
 
-        if (info[DETECTOR] not in
+        if (info[ImageHeaderTags.DETECTOR] not in
             out[info[HeaderTags.FILTER]][info[OBS]][info[VISIT]].keys()):
             out[info[HeaderTags.FILTER]][
-                info[OBS]][info[VISIT]][info[DETECTOR]] = []
+                info[OBS]][info[VISIT]][info[ImageHeaderTags.DETECTOR]] = []
         out[info[HeaderTags.FILTER]][
-            info[OBS]][info[VISIT]][info[DETECTOR]].append(cat)
+            info[OBS]][info[VISIT]][info[ImageHeaderTags.DETECTOR]].append(cat)
     return out
 
 
@@ -163,7 +164,7 @@ def exp_info(hdu_list) -> Dict[str, int | None]:
         OBS : 0,
         VISIT : 0,
         EXPOSURE : 0,
-        DETECTOR : None
+        ImageHeaderTags.DETECTOR : None
     }
 
     if type(hdu_list) in (fits.ImageHDU, fits.BinTableHDU):

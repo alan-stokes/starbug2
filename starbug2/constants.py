@@ -220,13 +220,23 @@ class HeaderTags(str, Enum):
         return self.value.__format__(format_spec)
 
 # tags for image header
-DETECTOR: Final[str] = "DETECTOR"
-TELESCOPE: Final[str] = "TELESCOP"
-INSTRUMENT: Final[str] = "INSTRUME"
-BUN_IT: Final[str] = "BUNIT"
-PIXAR_A2: Final[str] = "PIXAR_A2"
-PIXAR_SR: Final[str] = "PIXAR_SR"
-JWST: Final[str] = "JWST"
+class ImageHeaderTags(str, Enum):
+    DETECTOR = "DETECTOR"
+    TELESCOPE = "TELESCOP"
+    INSTRUMENT = "INSTRUME"
+    BUN_IT = "BUNIT"
+    PIXAR_A2 = "PIXAR_A2"
+    PIXAR_SR = "PIXAR_SR"
+    JWST = "JWST"
+    FILTER = "FILTER"
+
+    # needed as the table system doenst seem to handle enums properly
+    def __str__(self) -> str:
+        return self.value
+
+    # needed as the table system doenst seem to handle enums properly
+    def __format__(self, format_spec: str) -> str:
+        return self.value.__format__(format_spec)
 
 # tag used for param file.
 VERBOSE_TAG: Final[str] = "VERBOSE"

@@ -27,8 +27,7 @@ from importlib.metadata import PackageNotFoundError
 from starbug2.constants import (
     DEFAULT_COLOUR, TMP_OUT, TMP_FITS, TableColumn, HeaderTags,
     FITS_EXTENSION, N_MIS_MATCHES, ExitStates,
-    REST_SUCCESS_CODE, DEG, ARCMIN, ARCSEC, PIX,  BUN_IT,
-    PIXAR_SR)
+    REST_SUCCESS_CODE, DEG, ARCMIN, ARCSEC, PIX,  ImageHeaderTags)
 from starbug2.filters import STAR_BUG_FILTERS
 
 # different print methods (why are we not using loggers?)
@@ -708,9 +707,9 @@ def get_mj_ysr2jy_scale_factor(
     :rtype float
     """
     scale_factor: float = 1.0
-    if ext.header.get(BUN_IT) == "MJy/sr":
-        if PIXAR_SR in ext.header:
-            scale_factor = 1e6 * float(ext.header[PIXAR_SR])
+    if ext.header.get(ImageHeaderTags.BUN_IT) == "MJy/sr":
+        if ImageHeaderTags.PIXAR_SR in ext.header:
+            scale_factor = 1e6 * float(ext.header[ImageHeaderTags.PIXAR_SR])
     return scale_factor
 
 
