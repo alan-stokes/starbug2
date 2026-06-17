@@ -49,8 +49,7 @@ from astropy.table import Table, vstack
 from astropy.units import Quantity
 from starbug2 import utils
 from starbug2.constants import (
-    EXIT_EARLY, EXIT_SUCCESS, EXIT_FAIL, FILTER, STAR_BUG_MIRI,
-    NIRCAM, MATCH_COLS, TableColumn)
+    FILTER, STAR_BUG_MIRI, NIRCAM, MATCH_COLS, TableColumn, ExitStates)
 from starbug2.filters import STAR_BUG_FILTERS
 from starbug2.matching.band_match import BandMatch
 from starbug2.matching.cascade_match import CascadeMatch
@@ -138,7 +137,7 @@ def match_full_band_match(
     return matched
 
 
-def match_main(argv: list[str]) -> int:
+def match_main(argv: list[str]) -> ExitStates:
     """
     Main runtime processing loop for executing cross-catalogue astronomical
     source coordinate matching.
@@ -147,7 +146,7 @@ def match_main(argv: list[str]) -> int:
 
     if config.show_match_help:
         usage(__doc__, verbose=config.verbose_logs) # noqa
-        return EXIT_SUCCESS
+        return ExitStates.EXIT_SUCCESS
 
     p_file: str | None = config.param_file
     if not p_file:
@@ -242,7 +241,7 @@ def match_main(argv: list[str]) -> int:
             output = utils.combine_file_names(
                 [name for name in config.fits_images], n_mismatch=100)
             if output is None:
-                return EXIT_FAIL
+                return ExitStates.EXIT_FAIL
 
         d_name: str
         f_name: str
@@ -261,15 +260,15 @@ def match_main(argv: list[str]) -> int:
                 average_table, "%s/%s%s.fits" % (d_name, f_name, suffix))
             utils.printf("-> %s/%s%s.fits\n" % (d_name, f_name, suffix))
 
-        return EXIT_SUCCESS
+        return ExitStates.EXIT_SUCCESS
 
     elif len(tables) == 1:
-        return EXIT_EARLY
+        return ExitStates.EXIT_EARLY
     else:
         utils.p_error("No tables loaded for matching.\n")
-        return EXIT_FAIL
+        return ExitStates.EXIT_FAIL
 
 
-def match_main_entry() -> int:
+def match_main_entry() -> ExitStates:
     """StarbugII-match entry path map setup routing wrapper."""
     return match_main(sys.argv)

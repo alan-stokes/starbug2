@@ -26,7 +26,7 @@ from importlib.metadata import PackageNotFoundError
 
 from starbug2.constants import (
     DEFAULT_COLOUR, TMP_OUT, TMP_FITS, TableColumn,
-    FITS_EXTENSION, FILTER, N_MIS_MATCHES, EXIT_SUCCESS, EXIT_FAIL,
+    FITS_EXTENSION, FILTER, N_MIS_MATCHES, ExitStates,
     REST_SUCCESS_CODE, DEG, ARCMIN, ARCSEC, PIX, NAXIS, C_TYPE, BUN_IT,
     PIXAR_SR)
 from starbug2.filters import STAR_BUG_FILTERS
@@ -631,7 +631,7 @@ def flux_2_ab_mag(
     return flux2mag(flux, flux_err, zp=3631.0)
 
 
-def wget(address: str, f_name: Optional[str] = None) -> int:
+def wget(address: str, f_name: Optional[str] = None) -> ExitStates:
     """
     A really simple "implementation" of wget.
 
@@ -640,7 +640,7 @@ def wget(address: str, f_name: Optional[str] = None) -> int:
     :param f_name: Filename to save output to
     :type f_name: str
     :return: 0 on success, 1 on failure
-    :rtype int
+    :rtype ExitStates
     """
     r: requests.Response = requests.get(address)
     if r.status_code == REST_SUCCESS_CODE:
@@ -648,10 +648,10 @@ def wget(address: str, f_name: Optional[str] = None) -> int:
         with open(f_name, "wb") as fp:
             for chunk in r.iter_content(chunk_size=128):
                 fp.write(chunk)
-        return EXIT_SUCCESS
+        return ExitStates.EXIT_SUCCESS
     else:
         p_error("Unable to download \"%s\"\n" % address)
-        return EXIT_FAIL
+        return ExitStates.EXIT_FAIL
 
 
 def reindex(table: Table) -> Table:

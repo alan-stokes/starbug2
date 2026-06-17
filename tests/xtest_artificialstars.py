@@ -14,13 +14,13 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 from starbug2.bin.ast import ast_main
-from starbug2.constants import EXIT_SUCCESS, EXIT_FAIL
+from starbug2.constants import ExitStates
 from tests.generic import TEST_IMAGE_FITS
 
 run = lambda s : (
     ast_main(["starbug2-afs"] + s.split()))
 
 def _test_run():
-    assert run(TEST_IMAGE_FITS) == EXIT_SUCCESS
-    assert run("nope") == EXIT_FAIL
+    assert run(TEST_IMAGE_FITS) == ExitStates.EXIT_SUCCESS
+    assert run("nope") == ExitStates.EXIT_FAIL
     

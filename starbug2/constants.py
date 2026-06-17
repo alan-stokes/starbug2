@@ -107,10 +107,11 @@ BGD: Final[str] = "BGD"
 RES: Final[str] = "RES"
 
 # test states
-EXIT_SUCCESS: Final[int] = 0
-EXIT_FAIL: Final[int] = 1
-EXIT_EARLY: Final[int] = 2
-EXIT_MIXED: Final[int] = 3
+class ExitStates(int, Enum):
+    EXIT_SUCCESS = 0
+    EXIT_FAIL = 1
+    EXIT_EARLY = 2
+    EXIT_MIXED = 3
 
 # rest success
 REST_SUCCESS_CODE: Final[int] = 200

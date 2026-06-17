@@ -33,7 +33,7 @@ from starbug2.constants import (
     PIXAR_A2, PIXAR_SR, SCI, BGD, RES, VERBOSE_TAG, AP_FILE, BGD_FILE,
     FITS_EXTENSION, JWST, DQ, AREA, WHT, SHORT, LONG, NIRCAM, STAR_BUG_MIRI,
     SRC_FIX, DEG, ARCMIN, ARCSEC, DQ_DO_NOT_USE, DQ_SATURATED, NAXIS1, NAXIS2,
-    ERR, EXIT_SUCCESS, EXIT_FAIL, NIRCAM_STRING, STARBUG_DATA_DIR,
+    ERR, ExitStates, NIRCAM_STRING, STARBUG_DATA_DIR,
     DEFAULT_FULL_WIDTH_HALF_MAX, TableColumn)
 from starbug2.filters import STAR_BUG_FILTERS, FilterStruct
 from starbug2.routines.app_hot_routine import APPhotRoutine
@@ -363,7 +363,7 @@ class StarbugBase(StarBugInterface):
             p_error("BGD_FILE='%s' does not exist\n" % f_name)
 
     # noinspection SpellCheckingInspection
-    def load_psf(self, f_name: Optional[str]=None) -> int:
+    def load_psf(self, f_name: Optional[str]=None) -> ExitStates:
         """
         Load a PSF_FILE to be used during photometry
 
@@ -372,7 +372,7 @@ class StarbugBase(StarBugInterface):
         :return: the status
         :rtype int
         """
-        status: int = EXIT_SUCCESS
+        status: ExitStates = ExitStates.EXIT_SUCCESS
         assert self._filter is not None
         if not f_name:
             filter_struct: FilterStruct | None = (
@@ -397,7 +397,7 @@ class StarbugBase(StarBugInterface):
                 f_name = "%s/%s%s.fits" % (
                     StarbugBase.get_data_path(), self._filter, dt_name)
             else:
-                status = EXIT_FAIL
+                status = ExitStates.EXIT_FAIL
 
         if f_name is not None and os.path.exists(f_name):
             fp: HDUList = open(f_name)
@@ -414,7 +414,7 @@ class StarbugBase(StarBugInterface):
             self.log("loaded PSF_FILE='%s'\n" % f_name)
         else:
             p_error("PSF_FILE='%s' does not exist\n" % f_name)
-            status = EXIT_FAIL
+            status = ExitStates.EXIT_FAIL
         return status
 
     def prepare_image_arrays(self) -> (
@@ -469,15 +469,15 @@ class StarbugBase(StarBugInterface):
 
         return image, error, bgd, mask
 
-    def detect(self) -> int:
+    def detect(self) -> ExitStates:
         """
         Full source detection routine. Saves the result as a table
         self._detections
         :return: status
-        :rtype: int
+        :rtype: ExitStates
         """
         self.log("Detecting Sources\n")
-        status: int = EXIT_SUCCESS
+        status: ExitStates = ExitStates.EXIT_SUCCESS
         assert self._filter is not None
         if self.main_image:
             filter_struct: FilterStruct | None = (
@@ -516,7 +516,7 @@ class StarbugBase(StarBugInterface):
 
             # check for insane states
             if self._detections is None or self._wcs is None:
-                return EXIT_FAIL
+                return ExitStates.EXIT_FAIL
 
             ra: np.ndarray
             dec: np.ndarray
@@ -535,31 +535,31 @@ class StarbugBase(StarBugInterface):
 
         else:
             p_error("Something went wrong.\n")
-            status = EXIT_FAIL
+            status = ExitStates.EXIT_FAIL
         return status
 
 
     # noinspection SpellCheckingInspection
-    def aperture_photometry(self) -> int:
+    def aperture_photometry(self) -> ExitStates:
         """
         executes aperture photometry
         :return: 0 for success 1 for failure
-        :rtype int
+        :rtype ExitStates
         """
         if self._detections is None:
             p_error("No detection source file loaded (-d file-ap.fits)\n")
-            return EXIT_FAIL
+            return ExitStates.EXIT_FAIL
         if self._image is None:
             p_error("No image provided")
-            return EXIT_FAIL
+            return ExitStates.EXIT_FAIL
         if len({TableColumn.X_0, TableColumn.Y_0, TableColumn.X_INIT,
                 TableColumn.Y_INIT, TableColumn.X_CENTROID,
                 TableColumn.Y_CENTROID} & set(self._detections.colnames)) < 2:
             p_error("No pixel coordinates in source file\n")
-            return EXIT_FAIL
+            return ExitStates.EXIT_FAIL
         if self._filter is None:
             p_error("no filter name")
-            return EXIT_FAIL
+            return ExitStates.EXIT_FAIL
 
         new_columns: tuple[str, str, str, str, str, str | None, str] = (
             TableColumn.SMOOTHNESS, TableColumn.FLUX, TableColumn.E_FLUX,
@@ -658,7 +658,7 @@ class StarbugBase(StarBugInterface):
 
         # check for insanitiy
         if self._detections is None:
-            return EXIT_FAIL
+            return ExitStates.EXIT_FAIL
 
         if self._config.clean_sources:
             detections_length = len(self._detections)
@@ -679,18 +679,18 @@ class StarbugBase(StarBugInterface):
         self.log("--> %s\n" % f_name)
         export_table(self._detections, f_name, header=self.header)
 
-        return EXIT_SUCCESS
+        return ExitStates.EXIT_SUCCESS
 
 
-    def bgd_estimate(self) -> int:
+    def bgd_estimate(self) -> ExitStates:
         """
         Estimate the background of the active image
         Saves the result as an ImageHDU self._background
         :return: the status.
-        :rtype: int
+        :rtype: ExitStates
         """
         self.log("\nEstimating Diffuse Background\n")
-        status: int = EXIT_SUCCESS
+        status: ExitStates = ExitStates.EXIT_SUCCESS
         assert self._filter is not None
         if self._detections:
             source_list: Table = self._detections.copy()
@@ -739,7 +739,7 @@ class StarbugBase(StarBugInterface):
 
             # check for insanity
             if self._wcs is None:
-                return EXIT_FAIL
+                return ExitStates.EXIT_FAIL
 
             header.update(self._wcs.to_header())
 
@@ -755,7 +755,7 @@ class StarbugBase(StarBugInterface):
 
             # check for insanity
             if self._background is None:
-                return EXIT_FAIL
+                return ExitStates.EXIT_FAIL
 
             f_name = "%s/%s-bgd.fits"%(self._out_dir, self._b_name)
             self.log("--> %s\n" % f_name)
@@ -763,7 +763,7 @@ class StarbugBase(StarBugInterface):
 
         else:
             p_error("unable to estimate background, no source list loaded\n")
-            status = EXIT_FAIL
+            status = ExitStates.EXIT_FAIL
         return status
 
 
@@ -778,7 +778,7 @@ class StarbugBase(StarBugInterface):
 
         if self._background is None or self._wcs is None:
             p_error("No background array loaded (-b file-bgd.fits)\n")
-            return EXIT_FAIL
+            return ExitStates.EXIT_FAIL
         array: np.ndarray = self.main_image.data - self._background.data
         self._residuals = array
 
@@ -794,7 +794,7 @@ class StarbugBase(StarBugInterface):
             header=header).writeto(
                 "%s/%s-res.fits" % (self._out_dir, self._b_name),
             overwrite=True)
-        return EXIT_SUCCESS
+        return ExitStates.EXIT_SUCCESS
 
     # noinspection SpellCheckingInspection
     def photometry_routine(self) -> int:
@@ -808,7 +808,7 @@ class StarbugBase(StarBugInterface):
         :rtype int
         """
         if self._filter is None or self._wcs is None:
-            return EXIT_FAIL
+            return ExitStates.EXIT_FAIL
 
         if self.main_image:
             self.log("\nRunning PSF Photometry\n")
@@ -836,13 +836,13 @@ class StarbugBase(StarBugInterface):
 
             if self._detections is None:
                 p_error("unable to run photometry: no source list loaded\n")
-                return EXIT_FAIL
+                return ExitStates.EXIT_FAIL
 
             if (self._psf is None
                 and self.load_psf(
                     os.path.expandvars(self._config.psf_file_override))):
                 p_error("unable to run photometry: no PSF loaded\n")
-                return EXIT_FAIL
+                return ExitStates.EXIT_FAIL
 
             psf_mask: np.ndarray = ~np.isfinite(self._psf)
             if psf_mask.sum():
@@ -936,7 +936,7 @@ class StarbugBase(StarBugInterface):
                     mask=mask)
 
                 if not psf_cat:
-                    return EXIT_FAIL
+                    return ExitStates.EXIT_FAIL
 
                 ##################################
                 # Setting position max variation #
@@ -1041,8 +1041,8 @@ class StarbugBase(StarBugInterface):
                     name="RES", header=header).writeto(
                         "%s/%s-res.fits" % (self._out_dir, self._b_name),
                         overwrite=True)
-            return EXIT_SUCCESS
-        return EXIT_FAIL
+            return ExitStates.EXIT_SUCCESS
+        return ExitStates.EXIT_FAIL
 
     def source_geometry(self) -> None:
         """
@@ -1077,23 +1077,23 @@ class StarbugBase(StarBugInterface):
                 f_name, overwrite=True)
 
     # noinspection SpellCheckingInspection
-    def verify(self) -> int:
+    def verify(self) -> ExitStates:
         """
         This simple function verifies that everything necessary has been
         loaded properly
 
         :return: int where 0 on success, 1 on fail
-        :rtype int
+        :rtype ExitStates
         """
 
-        status: int = EXIT_SUCCESS
+        status: ExitStates = ExitStates.EXIT_SUCCESS
         
         self.log("Checking internal systems..\n")
 
         if not self._filter:
             warn("No FILTER set, please set in parameter file or "
                  "use \"-s FILTER=XXX\"\n")
-            status = EXIT_FAIL
+            status = ExitStates.EXIT_FAIL
 
         d_name: str = os.path.expandvars(StarbugBase.get_data_path())
         if not os.path.exists(d_name):
@@ -1101,17 +1101,17 @@ class StarbugBase(StarBugInterface):
 
         if self._out_dir is not None and not os.path.exists(self._out_dir):
             warn("Unable to locate OUTPUT='%s'\n" % self._out_dir)
-            status = EXIT_FAIL
+            status = ExitStates.EXIT_FAIL
         
         if self._image is None or self.main_image.data is None:
             warn("Image did not load correctly\n")
-            status = EXIT_FAIL
+            status = ExitStates.EXIT_FAIL
 
         if self._ap_file and self._detections is not None:
             test = self._filter_detections()
             if not len(test):
                 warn("Detection file empty or no sources overlap the image.\n")
-                status = EXIT_FAIL
+                status = ExitStates.EXIT_FAIL
 
         return status
 

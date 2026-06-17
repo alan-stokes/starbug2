@@ -25,7 +25,7 @@ from scipy.optimize import curve_fit
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
-from starbug2.constants import EXIT_SUCCESS, TableColumn
+from starbug2.constants import ExitStates, TableColumn
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.star_bug_interface import StarBugInterface
 
@@ -71,7 +71,7 @@ class ArtificialStars:
         _ = self._starbug.main_image
         psf_success: int = self._starbug.load_psf()
 
-        if psf_success != EXIT_SUCCESS:
+        if psf_success != ExitStates.EXIT_SUCCESS:
             warn("the psf file was not loaded. Expected failure.")
             raise Exception("the psf file failed to load.")
 
