@@ -26,7 +26,7 @@ from photutils.aperture import (
     CircularAperture, CircularAnnulus, aperture_photometry, ApertureMask)
 
 from starbug2.constants import (
-    DQ_DO_NOT_USE, DQ_SATURATED, DQ_JUMP_DET, SourceFalgs,
+    DQ_DO_NOT_USE, DQ_SATURATED, DQ_JUMP_DET, SourceFlags,
     TableColumn, HeaderTags, CLEAR, QTableColNames)
 from starbug2.utils import printf, p_error, warn
 
@@ -350,7 +350,7 @@ class APPhotRoutine:
             / (phot[QTableColNames.SUM_0] / apertures.area))
 
         col: Column = Column(
-            np.full(len(apertures), SourceFalgs.SRC_GOOD),
+            np.full(len(apertures), SourceFlags.SRC_GOOD),
             dtype=np.uint16, name=TableColumn.FLAG)
         if dq_flags is not None:
             self.log("-> flagging unlikely sources\n")
@@ -361,9 +361,9 @@ class APPhotRoutine:
                 if tmp is not None:
                     dq_dat = np.array(tmp,dtype=np.uint32)
                     if np.sum( dq_dat & (DQ_DO_NOT_USE | DQ_SATURATED)):
-                        col[i] |= SourceFalgs.SRC_BAD
+                        col[i] |= SourceFlags.SRC_BAD
                     if np.sum( dq_dat & DQ_JUMP_DET):
-                        col[i] |= SourceFalgs.SRC_JMP
+                        col[i] |= SourceFlags.SRC_JMP
         self.catalogue.add_column(col)
         return self.catalogue
 

@@ -86,7 +86,7 @@ PSF_FILE: Final[str] = "PSF_FILE"
 DEFAULT_COLOUR: Final[str] = "green"
 
 ## SOURCE FLAGS
-class SourceFalgs(int, Enum):
+class SourceFlags(int, Enum):
     SRC_GOOD = 0
     SRC_BAD = 0x01
     SRC_JMP = 0x02
