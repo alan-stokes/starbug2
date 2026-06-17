@@ -16,7 +16,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 from astropy.io import fits
 from astropy.table import Table
 
-from starbug2.constants import X_CENTROID, Y_CENTROID, SCI
+from starbug2.constants import SCI, TableColumn
 from starbug2.routines.background_estimate_routine import (
     BackGroundEstimateRoutine)
 from starbug2.routines.detection_routines import DetectionRoutine
@@ -26,8 +26,10 @@ from tests.generic import TEST_IMAGE_FITS
 
 class TestDetection:
     im = fits.open(TEST_IMAGE_FITS)[SCI].data
-    a = Table([[0, 10], [0, 10]], names=[X_CENTROID, Y_CENTROID])
-    b = Table([[20, 10, 50], [20, 10, 0]], names=[X_CENTROID, Y_CENTROID])
+    a = Table([[0, 10], [0, 10]],
+              names=[TableColumn.X_CENTROID, TableColumn.Y_CENTROID])
+    b = Table([[20, 10, 50], [20, 10, 0]],
+              names=[TableColumn.X_CENTROID, TableColumn.Y_CENTROID])
 
     def test_detection_routine_none(self):
         dt = DetectionRoutine()

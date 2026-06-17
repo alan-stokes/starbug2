@@ -23,7 +23,7 @@ from typing import override, Final, Any
 import numpy as np
 import astropy.units as u
 from astropy.table import Table, hstack
-from starbug2.constants import FILTER, RA, DEC, FLAG
+from starbug2.constants import FILTER, TableColumn
 from starbug2.filters import STAR_BUG_FILTERS
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.utils import (
@@ -196,7 +196,8 @@ class BandMatch(GenericMatch):
 
         if self._col_names is None:
             self._col_names = [
-                RA, DEC, "flag", "NUM",
+                TableColumn.RA, TableColumn.DEC, TableColumn.FLAG,
+                TableColumn.NUM,
                 *self._filter_list, *["e%s" % f for f in self.filter_list]]
 
         assert self._col_names is not None
@@ -223,26 +224,30 @@ class BandMatch(GenericMatch):
 
             tmp = self.inner_match(base, tab, join_type="or")
 
-            col_names.remove(RA)
-            col_names.remove(DEC)
+            col_names.remove(TableColumn.RA)
+            col_names.remove(TableColumn.DEC)
             base = fill_nan(hstack((base, tmp[col_names])))
             base.rename_columns(
                 col_names, ["%s_%d" % (name, n + 1) for name in col_names])
 
-            if RA not in base.colnames:
-                base = fill_nan(hstack((tmp[RA, DEC], base)))
+            if TableColumn.RA not in base.colnames:
+                base = fill_nan(hstack(
+                    (tmp[TableColumn.RA, TableColumn.DEC], base)))
             elif method == self._FIRST:
-                _mask = np.logical_and(np.isnan(base[RA]), tmp[RA] != np.nan)
-                base[RA][_mask] = tmp[RA][_mask]
-                base[DEC][_mask] = tmp[DEC][_mask]
+                _mask = np.logical_and(np.isnan(
+                    base[TableColumn.RA]), tmp[TableColumn.RA] != np.nan)
+                base[TableColumn.RA][_mask] = tmp[TableColumn.RA][_mask]
+                base[TableColumn.DEC][_mask] = tmp[TableColumn.DEC][_mask]
             elif method == self._LAST:
-                _mask = ~np.isnan(tmp[RA])
-                base[RA][_mask] = tmp[RA][_mask]
-                base[DEC][_mask] = tmp[DEC][_mask]
+                _mask = ~np.isnan(tmp[TableColumn.RA])
+                base[TableColumn.RA][_mask] = tmp[TableColumn.RA][_mask]
+                base[TableColumn.DEC][_mask] = tmp[TableColumn.DEC][_mask]
             elif method == self._BOOT_STRAP:
-                _mask = ~np.isnan(tmp[RA])
-                base.rename_columns((RA, DEC), ("_RA_%d"%n, "_DEC_%d" % n))
-                base = hstack((base, tmp[[RA,DEC]]))
+                _mask = ~np.isnan(tmp[TableColumn.RA])
+                base.rename_columns(
+                    (TableColumn.RA, TableColumn.DEC),
+                    ("_RA_%d"%n, "_DEC_%d" % n))
+                base = hstack((base, tmp[[TableColumn.RA, TableColumn.DEC]]))
 
         # Set threshold back at the end
         self._threshold= _threshold
@@ -265,7 +270,8 @@ class BandMatch(GenericMatch):
         return base
 
 
-    def band_match(self, catalogues, col_names=(RA, DEC)):
+    def band_match(
+            self, catalogues, col_names=(TableColumn.RA, TableColumn.DEC)):
         """
         Given a list of catalogues (with filter names in the metadata), match
         them in order of decreasing astrometric accuracy. If F115W, F444W,
@@ -343,7 +349,7 @@ class BandMatch(GenericMatch):
                     else:
                         tmp.add_row(src[_col_names])
 
-            tmp.rename_column(FLAG, "flag_%s" % filter_string)
+            tmp.rename_column(TableColumn.FLAG, "flag_%s" % filter_string)
             base = hstack((
                 base, tmp[[filter_string, "e%s" % filter_string,
                            "flag_%s" % filter_string]]
@@ -354,18 +360,20 @@ class BandMatch(GenericMatch):
                     .filled(np.nan)) # type: ignore
 
             ### Only keep the most astronomically correct position
-            if RA not in base.col_names:
-                base = hstack((tmp[[RA, DEC]], base))
+            if TableColumn.RA not in base.col_names:
+                base = hstack((tmp[[TableColumn.RA, TableColumn.DEC]], base))
             else:
-                _mask = np.logical_and( np.isnan(base[RA]), tmp[RA] != np.nan)
-                base[RA][_mask] = tmp[RA][_mask]
-                base[DEC][_mask] = tmp[DEC][_mask]
+                _mask = np.logical_and(
+                    np.isnan(base[TableColumn.RA]),
+                    tmp[TableColumn.RA] != np.nan)
+                base[TableColumn.RA][_mask] = tmp[TableColumn.RA][_mask]
+                base[TableColumn.DEC][_mask] = tmp[TableColumn.DEC][_mask]
 
         ## Sort out flags
         flag: np.ndarray = np.zeros(len(base),dtype=np.uint16)
-        for f_col in find_col_names(base, FLAG):
+        for f_col in find_col_names(base, TableColumn.FLAG):
             flag |= base[f_col].value.astype(np.uint16)
             base.remove_column(f_col)
-        base.add_column(flag, name=FLAG)
+        base.add_column(flag, name=TableColumn.FLAG)
 
         return base.filled(np.nan) # type: ignore

@@ -25,7 +25,7 @@ from astropy.visualization import ZScaleInterval
 from astropy.table import Row, Table
 from scipy.interpolate import RegularGridInterpolator
 
-from starbug2.constants import CAT_NUM, URL_DOCS, FILTER
+from starbug2.constants import URL_DOCS, FILTER, TableColumn
 import matplotlib.image as mpimg
 from matplotlib.colors import LinearSegmentedColormap
 
@@ -228,7 +228,7 @@ def plot_inspect_source(
             axis.text(0, 0, im.header.get(FILTER), c="white")
 
         axis.set_axis_off()
-        figure.suptitle(src[CAT_NUM][0])
+        figure.suptitle(src[TableColumn.CAT_NUM][0])
     figure.tight_layout()
         
     return figure

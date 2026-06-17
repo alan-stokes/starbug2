@@ -49,8 +49,8 @@ from astropy.table import Table, vstack
 from astropy.units import Quantity
 from starbug2 import utils
 from starbug2.constants import (
-    EXIT_EARLY, EXIT_SUCCESS, EXIT_FAIL, CAT_NUM, FILTER, STAR_BUG_MIRI,
-    NIRCAM, MATCH_COLS, RA, DEC, FLAG, NUM)
+    EXIT_EARLY, EXIT_SUCCESS, EXIT_FAIL, FILTER, STAR_BUG_MIRI,
+    NIRCAM, MATCH_COLS, TableColumn)
 from starbug2.filters import STAR_BUG_FILTERS
 from starbug2.matching.band_match import BandMatch
 from starbug2.matching.cascade_match import CascadeMatch
@@ -97,7 +97,7 @@ def match_full_band_match(
         NIRCAM: [],
         STAR_BUG_MIRI: []
     }
-    _col_names: list[str] = [RA, DEC, FLAG]
+    _col_names: list[str] = [TableColumn.RA, TableColumn.DEC, TableColumn.FLAG]
     band_matcher: BandMatch = BandMatch(threshold=d_threshold)
 
     for tab in tables:
@@ -130,7 +130,7 @@ def match_full_band_match(
         m: GenericMatch = GenericMatch(threshold=d_threshold, load=load)
         full: Any = m((nir_cam_matched[~mask], miri_matched))
         matched = m.finish_matching(full)
-        matched.remove_column(NUM)
+        matched.remove_column(TableColumn.NUM)
         matched = vstack((matched, nir_cam_matched[mask]))
     else:
         matched = band_matcher.band_match(tables, col_names=_col_names)
@@ -217,7 +217,7 @@ def match_main(argv: list[str]) -> int:
                 )
             elif config.exact_match:
                 matcher = ExactValueMatch(
-                    value=CAT_NUM, colnames=None,
+                    value=TableColumn.CAT_NUM, colnames=None,
                     verbose=config.verbose_logs
                 )
             else:

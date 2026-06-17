@@ -46,7 +46,7 @@ from astropy.table import Table
 from astropy.io.fits import HDUList
 
 from starbug2.constants import (
-    EXIT_EARLY, EXIT_FAIL, EXIT_SUCCESS, FLUX, FLUX_DET)
+    EXIT_EARLY, EXIT_FAIL, EXIT_SUCCESS, TableColumn)
 from starbug2.star_bug_config import StarBugMainConfig
 from starbug2.starbug import StarbugBase
 from starbug2.artificialstars import ArtificialStars, compile_results
@@ -271,7 +271,8 @@ def ast_main(argv: list[str]) -> int:
         if config.verbose_logs:
             printf("-> compiling results\n")
             printf("-> flux recovery: %.2g\n" % (
-                np.nanmean(raw[FLUX] / raw[FLUX_DET])))
+                np.nanmean(raw[TableColumn.FLUX] /
+                           raw[TableColumn.FLUX_DET])))
 
         results: HDUList
         filter_string: str | None = star_bug_base.filter

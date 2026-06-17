@@ -31,7 +31,7 @@ from astropy.units import Quantity
 
 from photutils.background import Background2D
 from photutils.detection import StarFinderBase, DAOStarFinder, find_peaks
-from starbug2.constants import X_CENTROID, Y_CENTROID, Y_PEAK, X_PEAK
+from starbug2.constants import TableColumn
 from starbug2.routines.source_properties import SourceProperties
 from starbug2.utils import printf
 
@@ -189,10 +189,14 @@ class DetectionRoutine(StarFinderBase):
         :rtype: astropy.Table
         """
         base_sky: SkyCoord = SkyCoord(
-            x=base[X_CENTROID], y=base[Y_CENTROID], z=np.zeros(len(base)),
+            x=base[TableColumn.X_CENTROID],
+            y=base[TableColumn.Y_CENTROID],
+            z=np.zeros(len(base)),
             representation_type="cartesian")
         cat_sky: SkyCoord = SkyCoord(
-            x=cat[X_CENTROID], y=cat[Y_CENTROID], z=np.zeros(len(cat)),
+            x=cat[TableColumn.X_CENTROID],
+            y=cat[TableColumn.Y_CENTROID],
+            z=np.zeros(len(cat)),
             representation_type="cartesian")
 
         dist: Quantity
@@ -248,10 +252,11 @@ class DetectionRoutine(StarFinderBase):
             corr: np.ndarray = match_template(conv/np.amax(conv), kernel.array)
             detections: Table = self.detect(corr, method="findpeaks")
             if detections:
-                detections[X_PEAK] += kernel.shape[0] // 2
-                detections[Y_PEAK] += kernel.shape[0] // 2
+                detections[TableColumn.X_PEAK] += kernel.shape[0] // 2
+                detections[TableColumn.Y_PEAK] += kernel.shape[0] // 2
                 detections.rename_columns(
-                    (X_PEAK, Y_PEAK), (X_CENTROID, Y_CENTROID))
+                    (TableColumn.X_PEAK, TableColumn.Y_PEAK),
+                    (TableColumn.X_CENTROID, TableColumn.Y_CENTROID))
                 self.catalogue = self.match(self.catalogue, detections)
             if self.verbose:
                 # noinspection SpellCheckingInspection
@@ -266,17 +271,17 @@ class DetectionRoutine(StarFinderBase):
             self.catalogue = tmp
 
         mask: np.ndarray = (
-            ~np.isnan(self.catalogue[X_CENTROID]) &
-            ~np.isnan(self.catalogue[Y_CENTROID]))
+            ~np.isnan(self.catalogue[TableColumn.X_CENTROID]) &
+            ~np.isnan(self.catalogue[TableColumn.Y_CENTROID]))
 
         if self.clean_src:
             mask &=(
-                (self.catalogue["sharpness"] > self.sharp_lo)
-                & (self.catalogue["sharpness"] < self.sharp_hi)
-                & (self.catalogue["roundness1"] > -self.round_1_hi)
-                & (self.catalogue["roundness1"] < self.round_1_hi)
-                & (self.catalogue["roundness2"] > -self.round_2_hi)
-                & (self.catalogue["roundness2"] < self.round_2_hi))
+                (self.catalogue[TableColumn.SHARPNESS] > self.sharp_lo)
+                & (self.catalogue[TableColumn.SHARPNESS] < self.sharp_hi)
+                & (self.catalogue[TableColumn.ROUNDNESS1] > -self.round_1_hi)
+                & (self.catalogue[TableColumn.ROUNDNESS1] < self.round_1_hi)
+                & (self.catalogue[TableColumn.ROUNDNESS2] > -self.round_2_hi)
+                & (self.catalogue[TableColumn.ROUNDNESS2] < self.round_2_hi))
         if self.verbose:
             printf("-> cleaning %d unlikely point sources\n" % sum(~mask))
         self.catalogue = self.catalogue[mask]

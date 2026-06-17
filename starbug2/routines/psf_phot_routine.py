@@ -24,9 +24,7 @@ from photutils.aperture import (
     CircularAperture, aperture_photometry)
 from photutils.psf import PSFPhotometry, SourceGrouper, ImagePSF
 
-from starbug2.constants import (
-    X_INIT, Y_INIT, X_FIT, Y_FIT, XY_DEV, FLUX_ERR, E_FLUX, FLUX, FLUX_FIT,
-    Q_FIT)
+from starbug2.constants import TableColumn
 from starbug2.utils import printf, p_error, warn
 
 class _Grouper(SourceGrouper):
@@ -155,7 +153,8 @@ class PSFPhotRoutine(PSFPhotometry):
 
         ### Removing completely masked sources
         apertures: CircularAperture = CircularAperture(
-            [(l[X_INIT], l[Y_INIT]) for l in init_params],
+            [(l[TableColumn.X_INIT],
+              l[TableColumn.Y_INIT]) for l in init_params],
             self.aperture_radius)
         ap_masks: QTable = aperture_photometry(~mask, apertures)
         init_params.remove_rows(ap_masks["aperture_sum"] == 0)
@@ -171,20 +170,23 @@ class PSFPhotRoutine(PSFPhotometry):
             image, mask=mask, init_params=init_params, error=error)
 
         d: np.ndarray = np.sqrt((
-            (cat[X_INIT] - cat[X_FIT]) ** 2.0 +
-            (cat[Y_INIT]-cat[Y_FIT]) ** 2.0))
+            (cat[TableColumn.X_INIT] - cat[TableColumn.X_FIT]) ** 2.0 +
+            (cat[TableColumn.Y_INIT] - cat[TableColumn.Y_FIT]) ** 2.0))
 
         # noinspection SpellCheckingInspection
-        cat.add_column(Column(d, name=XY_DEV))
+        cat.add_column(Column(d, name=TableColumn.XY_DEV))
 
-        if FLUX_ERR not in cat.colnames:
-            cat.add_column(Column(np.full(len(cat), np.nan), name=E_FLUX))
+        if TableColumn.FLUX_ERR not in cat.colnames:
+            cat.add_column(
+                Column(np.full(len(cat), np.nan), name=TableColumn.E_FLUX))
             warn("Something went wrong with PSF error fitting\n")
         else:
-            cat.rename_column(FLUX_ERR, E_FLUX)
+            cat.rename_column(TableColumn.FLUX_ERR, TableColumn.E_FLUX)
 
-        cat.rename_column(FLUX_FIT, FLUX)
+        cat.rename_column(TableColumn.FLUX_FIT, TableColumn.FLUX)
 
         # noinspection SpellCheckingInspection
-        keep: list[str] = [X_FIT, Y_FIT, FLUX, E_FLUX, XY_DEV, Q_FIT]
+        keep: list[str] = [
+            TableColumn.X_FIT, TableColumn.Y_FIT, TableColumn.FLUX,
+            TableColumn.E_FLUX, TableColumn.XY_DEV, TableColumn.Q_FIT]
         return hstack((init_params, cat[keep]))

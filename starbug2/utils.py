@@ -25,7 +25,7 @@ import requests
 from importlib.metadata import PackageNotFoundError
 
 from starbug2.constants import (
-    CAT_NUM, DEFAULT_COLOUR, RA, DEC, TMP_OUT, FLUX, TMP_FITS,
+    DEFAULT_COLOUR, TMP_OUT, TMP_FITS, TableColumn,
     FITS_EXTENSION, FILTER, N_MIS_MATCHES, EXIT_SUCCESS, EXIT_FAIL,
     REST_SUCCESS_CODE, DEG, ARCMIN, ARCSEC, PIX, NAXIS, C_TYPE, BUN_IT,
     PIXAR_SR)
@@ -167,8 +167,8 @@ def export_region(
         colour: str = DEFAULT_COLOUR,
         scale_radius: int = 1,
         region_radius: int = 3,
-        x_col: str = RA,
-        y_col: str = DEC,
+        x_col: str = TableColumn.RA,
+        y_col: str = TableColumn.DEC,
         wcs: int = 1,
         f_name: str = TMP_OUT) -> None:
     """
@@ -208,8 +208,8 @@ def export_region(
             wcs = 0
 
     r: np.ndarray
-    if FLUX in tab.colnames and scale_radius:
-        r = (-40.0 / np.log10(tab[FLUX]))
+    if TableColumn.FLUX in tab.colnames and scale_radius:
+        r = (-40.0 / np.log10(tab[TableColumn.FLUX]))
         r[r < region_radius] = region_radius
         r[np.isnan(r)] = region_radius
     else:
@@ -360,10 +360,10 @@ def export_table(table: Table, f_name: Optional[str]=None,
     :return: None
     """
     dtypes: List[Any] = []
-    if CAT_NUM not in table.colnames:
+    if TableColumn.CAT_NUM not in table.colnames:
         table = reindex(table)
     for name in table.colnames:
-        if name == CAT_NUM:
+        if name == TableColumn.CAT_NUM:
             dtypes.append(str)
         elif name == "flag":
             dtypes.append(np.uint16)
@@ -664,10 +664,10 @@ def reindex(table: Table) -> Table:
     :rtype: atrophy.Table
     """
 
-    if CAT_NUM in table.colnames:
-        table.remove_column(CAT_NUM)
+    if TableColumn.CAT_NUM in table.colnames:
+        table.remove_column(TableColumn.CAT_NUM)
     column = Column(
-        ["CN%d" % i for i in range(len(table))], name=CAT_NUM)
+        ["CN%d" % i for i in range(len(table))], name=TableColumn.CAT_NUM)
     table.add_column(column, index=0)
     return table
 

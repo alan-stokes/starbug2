@@ -30,15 +30,11 @@ from photutils.datasets import make_model_image
 from photutils.psf import ImagePSF
 from starbug2.constants import (
     FILTER, STAR_BUG, CALIBRATION_LV, DETECTOR, TELESCOPE, INSTRUMENT, BUN_IT,
-    PIXAR_A2, PIXAR_SR, SCI, BGD, RES, VERBOSE_TAG, AP_FILE,
-    BGD_FILE, FITS_EXTENSION, JWST, DQ, AREA, WHT, RA,
-    DEC, X_CENTROID, Y_CENTROID, SHORT, LONG, NIRCAM, STAR_BUG_MIRI, SRC_FIX,
-    DEG, ARCMIN, ARCSEC, DQ_DO_NOT_USE,
-    DQ_SATURATED, NAXIS1, NAXIS2, ERR, EXIT_SUCCESS, EXIT_FAIL,
-    NIRCAM_STRING,
-    STARBUG_DATA_DIR, FLUX, E_FLUX, X_INIT, Y_INIT,
-    X_DET, Y_DET, FLAG, XY_DEV, X_FIT, Y_FIT, MAG, X_0, Y_0,
-    DEFAULT_FULL_WIDTH_HALF_MAX, FLUX_DET)
+    PIXAR_A2, PIXAR_SR, SCI, BGD, RES, VERBOSE_TAG, AP_FILE, BGD_FILE,
+    FITS_EXTENSION, JWST, DQ, AREA, WHT, SHORT, LONG, NIRCAM, STAR_BUG_MIRI,
+    SRC_FIX, DEG, ARCMIN, ARCSEC, DQ_DO_NOT_USE, DQ_SATURATED, NAXIS1, NAXIS2,
+    ERR, EXIT_SUCCESS, EXIT_FAIL, NIRCAM_STRING, STARBUG_DATA_DIR,
+    DEFAULT_FULL_WIDTH_HALF_MAX, TableColumn)
 from starbug2.filters import STAR_BUG_FILTERS, FilterStruct
 from starbug2.routines.app_hot_routine import APPhotRoutine
 from starbug2.routines.background_estimate_routine import (
@@ -290,41 +286,50 @@ class StarbugBase(StarBugInterface):
             self.log("loaded AP_FILE='%s'\n" % f_name)
 
             if self._config.use_wcs_values:
-                if len(column_names & {RA, DEC}) == 2:
+                if len(column_names & {TableColumn.RA, TableColumn.DEC}) == 2:
                     self.log("-> using RA-DEC coordinates\n")
                     try:
                         xy: Any = self._wcs.all_world2pix(
-                            self._detections[RA], self._detections[DEC], 0)
+                            self._detections[TableColumn.RA],
+                            self._detections[TableColumn.DEC], 0)
                     except (NoConvergence, MemoryError, SingularMatrixError,
                             InconsistentAxisTypesError, ValueError,
                             InvalidTransformError) as e:
                         warn(f"Something went wrong converting WCS to pixels "
                              f"({e}), trying wcs_world2pix next.\n")
                         xy: Any = self._wcs.wcs_world2pix(
-                            self._detections[RA], self._detections[DEC], 0)
-                    if X_CENTROID in column_names: 
-                        self._detections.remove_column(X_CENTROID)
-                    if Y_CENTROID in column_names: 
-                        self._detections.remove_column(Y_CENTROID)
+                            self._detections[TableColumn.RA],
+                            self._detections[TableColumn.DEC], 0)
+                    if TableColumn.X_CENTROID in column_names:
+                        self._detections.remove_column(TableColumn.X_CENTROID)
+                    if TableColumn.Y_CENTROID in column_names:
+                        self._detections.remove_column(TableColumn.Y_CENTROID)
                     self._detections.add_columns(
-                        xy, names=[X_CENTROID, Y_CENTROID], indexes=[0, 0])
+                        xy,
+                        names=[TableColumn.X_CENTROID, TableColumn.Y_CENTROID],
+                        indexes=[0, 0])
                 else:
                     warn("No 'RA' or 'DEC' found in AP_FILE\n")
 
-            elif len({X_0, Y_0} & column_names) == 2:
+            elif len({TableColumn.X_0, TableColumn.Y_0} & column_names) == 2:
                 self._detections.rename_columns(
-                    (X_0, Y_0), (X_CENTROID, Y_CENTROID))
-            elif len({X_INIT, Y_INIT} & column_names) == 2:
+                    (TableColumn.X_0, TableColumn.Y_0),
+                    (TableColumn.X_CENTROID, TableColumn.Y_CENTROID))
+            elif (len({TableColumn.X_INIT, TableColumn.Y_INIT}
+                      & column_names) == 2):
                 self._detections.rename_columns(
-                    (X_INIT, Y_INIT), (X_CENTROID, Y_CENTROID))
+                    (TableColumn.X_INIT, TableColumn.Y_INIT),
+                    (TableColumn.X_CENTROID, TableColumn.Y_CENTROID))
 
-            if len({X_CENTROID, Y_CENTROID} & 
+            if len({TableColumn.X_CENTROID, TableColumn.Y_CENTROID} &
                    set(self._detections.colnames)) == 2:
                 mask: np.ndarray = (
-                    (self._detections[X_CENTROID] >= 0)
-                    & (self._detections[X_CENTROID] < self.main_image.shape[1])
-                    & (self._detections[Y_CENTROID] >= 0)
-                    & (self._detections[Y_CENTROID] < self.main_image.shape[0])
+                    (self._detections[TableColumn.X_CENTROID] >= 0)
+                    & (self._detections[TableColumn.X_CENTROID] <
+                           self.main_image.shape[1])
+                    & (self._detections[TableColumn.Y_CENTROID] >= 0)
+                    & (self._detections[TableColumn.Y_CENTROID] <
+                           self.main_image.shape[0])
                 )
 
                 # cant figure how to resolve this typing
@@ -505,8 +510,9 @@ class StarbugBase(StarBugInterface):
                 verbose=self._verbose)
 
             self._detections = detector(self.main_image.data.copy())[
-                 X_CENTROID, Y_CENTROID, "sharpness", "roundness1",
-                 "roundness2"]
+                TableColumn.X_CENTROID, TableColumn.Y_CENTROID,
+                TableColumn.SHARPNESS, TableColumn.ROUNDNESS1,
+                TableColumn.ROUNDNESS2]
 
             # check for insane states
             if self._detections is None or self._wcs is None:
@@ -515,9 +521,12 @@ class StarbugBase(StarBugInterface):
             ra: np.ndarray
             dec: np.ndarray
             ra, dec = self._wcs.all_pix2world(
-                self._detections[X_CENTROID], self._detections[Y_CENTROID], 0)
-            self._detections.add_column( Column(ra, name=RA), index=2)
-            self._detections.add_column( Column(dec, name=DEC), index=3)
+                self._detections[TableColumn.X_CENTROID],
+                self._detections[TableColumn.Y_CENTROID], 0)
+            self._detections.add_column(
+                Column(ra, name=TableColumn.RA), index=2)
+            self._detections.add_column(
+                Column(dec, name=TableColumn.DEC), index=3)
             self._detections.meta=dict(self.header.items())
 
             # noinspection SpellCheckingInspection
@@ -543,8 +552,9 @@ class StarbugBase(StarBugInterface):
         if self._image is None:
             p_error("No image provided")
             return EXIT_FAIL
-        if len({"x_0", "y_0", "x_init", "y_init", X_CENTROID, Y_CENTROID} &
-               set(self._detections.colnames)) < 2:
+        if len({TableColumn.X_0, TableColumn.Y_0, TableColumn.X_INIT,
+                TableColumn.Y_INIT, TableColumn.X_CENTROID,
+                TableColumn.Y_CENTROID} & set(self._detections.colnames)) < 2:
             p_error("No pixel coordinates in source file\n")
             return EXIT_FAIL
         if self._filter is None:
@@ -552,8 +562,9 @@ class StarbugBase(StarBugInterface):
             return EXIT_FAIL
 
         new_columns: tuple[str, str, str, str, str, str | None, str] = (
-            "smoothness","flux","eflux","sky", "flag",
-            self._filter, "e%s" % self._filter)
+            TableColumn.SMOOTHNESS, TableColumn.FLUX, TableColumn.E_FLUX,
+            TableColumn.SKY, TableColumn.FLAG, self._filter,
+            "e%s" % self._filter)
         self._detections.remove_columns(
             set(new_columns) & set(self._detections.colnames))
 
@@ -633,7 +644,8 @@ class StarbugBase(StarBugInterface):
         # extract magitudes
         mag: float
         mag_err: float
-        mag, mag_err = flux2mag(ap_cat[FLUX], ap_cat[E_FLUX])
+        mag, mag_err = flux2mag(
+            ap_cat[TableColumn.FLUX], ap_cat[TableColumn.E_FLUX])
 
         # add columsn to the catalogue
         ap_cat.add_column(Column(
@@ -652,10 +664,10 @@ class StarbugBase(StarBugInterface):
             detections_length = len(self._detections)
             if (smooth_lo := self._config.smooth_low) != "":
                 self._detections.remove_rows(
-                    self._detections["smoothness"] < smooth_lo)
+                    self._detections[TableColumn.SMOOTHNESS] < smooth_lo)
             if (smooth_hi := self._config.smooth_high) != "":
                 self._detections.remove_rows(
-                    self._detections["smoothness"] > smooth_hi)
+                    self._detections[TableColumn.SMOOTHNESS] > smooth_hi)
             if len(self._detections) != detections_length:
                 self.log("-> removing %d sources outside SMOOTH range\n"
                          % (detections_length - len(self._detections)))
@@ -694,18 +706,24 @@ class StarbugBase(StarBugInterface):
                 full_width_half_max = 2.0
 
             # noinspection DuplicatedCode
-            if X_INIT in source_list.colnames:
-                source_list.rename_column(X_INIT, X_CENTROID)
-            if Y_INIT in source_list.colnames:
-                source_list.rename_column(Y_INIT, Y_CENTROID)
-            if X_DET in source_list.colnames:
-                source_list.rename_column(X_DET, X_CENTROID)
-            if Y_DET in source_list.colnames:
-                source_list.rename_column(Y_DET, Y_CENTROID)
-            if FLUX_DET in source_list.colnames:
-                source_list.rename_column(FLUX_DET, FLUX)
-            mask: np.ndarray = ~(np.isnan(source_list[X_CENTROID])
-                     | np.isnan(source_list[Y_CENTROID]))
+            if TableColumn.X_INIT in source_list.colnames:
+                source_list.rename_column(
+                    TableColumn.X_INIT, TableColumn.X_CENTROID)
+            if TableColumn.Y_INIT in source_list.colnames:
+                source_list.rename_column(
+                    TableColumn.Y_INIT, TableColumn.Y_CENTROID)
+            if TableColumn.X_DET in source_list.colnames:
+                source_list.rename_column(
+                    TableColumn.X_DET, TableColumn.X_CENTROID)
+            if TableColumn.Y_DET in source_list.colnames:
+                source_list.rename_column(
+                    TableColumn.Y_DET, TableColumn.Y_CENTROID)
+            if TableColumn.FLUX_DET in source_list.colnames:
+                source_list.rename_column(
+                    TableColumn.FLUX_DET, TableColumn.FLUX)
+            mask: np.ndarray = ~(
+                np.isnan(source_list[TableColumn.X_CENTROID])
+                | np.isnan(source_list[TableColumn.Y_CENTROID]))
 
 
             bgd: BackGroundEstimateRoutine = BackGroundEstimateRoutine(
@@ -852,34 +870,42 @@ class StarbugBase(StarBugInterface):
             init_guesses: Table = self._detections.copy()
 
             # noinspection DuplicatedCode
-            if X_CENTROID in init_guesses.colnames:
-                init_guesses.rename_column(X_CENTROID, X_INIT)
-            if Y_CENTROID in init_guesses.colnames:
-                init_guesses.rename_column(Y_CENTROID, Y_INIT)
-            if X_DET in init_guesses.colnames:
-                init_guesses.rename_column(X_DET, X_INIT)
-            if Y_DET in init_guesses.colnames:
-                init_guesses.rename_column(Y_DET, Y_INIT)
+            if TableColumn.X_CENTROID in init_guesses.colnames:
+                init_guesses.rename_column(
+                    TableColumn.X_CENTROID, TableColumn.X_INIT)
+            if TableColumn.Y_CENTROID in init_guesses.colnames:
+                init_guesses.rename_column(
+                    TableColumn.Y_CENTROID, TableColumn.Y_INIT)
+            if TableColumn.X_DET in init_guesses.colnames:
+                init_guesses.rename_column(
+                    TableColumn.X_DET, TableColumn.X_INIT)
+            if TableColumn.Y_DET in init_guesses.colnames:
+                init_guesses.rename_column(
+                    TableColumn.Y_DET, TableColumn.Y_INIT)
 
-            init_guesses = init_guesses[ init_guesses[X_INIT] >=0 ]
-            init_guesses = init_guesses[ init_guesses[Y_INIT] >=0 ]
+            init_guesses = init_guesses[ init_guesses[TableColumn.X_INIT] >=0 ]
+            init_guesses = init_guesses[ init_guesses[TableColumn.Y_INIT] >=0 ]
             init_guesses = init_guesses[
-                init_guesses[X_INIT] < self.main_image.header[NAXIS1]]
+                init_guesses[TableColumn.X_INIT]
+                < self.main_image.header[NAXIS1]]
             init_guesses=init_guesses[
-                init_guesses[Y_INIT] < self.main_image.header[NAXIS2]]
+                init_guesses[TableColumn.Y_INIT]
+                < self.main_image.header[NAXIS2]]
 
             ######
             # Allow tables that don't have the correct columns through
             ######
-            required: List[str] = [X_INIT, Y_INIT, FLUX, self._filter, FLAG]
+            required: List[str] = [
+                TableColumn.X_INIT, TableColumn.Y_INIT, TableColumn.FLUX,
+                self._filter, TableColumn.FLAG]
             for notfound in  set(required) - set(init_guesses.colnames):
-                dtype = np.uint16 if notfound == FLAG else float
+                dtype = np.uint16 if notfound == TableColumn.FLAG else float
                 init_guesses.add_column(
                     Column(np.zeros(len(init_guesses)),
                            name=notfound, dtype=dtype))
 
             init_guesses = init_guesses[required]
-            init_guesses.remove_column(FLUX)
+            init_guesses.remove_column(TableColumn.FLUX)
             init_guesses.rename_column(self._filter, "ap_%s" % self._filter)
             
             ###########
@@ -898,7 +924,7 @@ class StarbugBase(StarBugInterface):
                 psf_cat: Table = phot(
                     image, init_params=init_guesses, error=error,
                     mask=mask)
-                psf_cat[FLAG] |= SRC_FIX
+                psf_cat[TableColumn.FLAG] |= SRC_FIX
 
             else:
                 phot: PSFPhotRoutine = PSFPhotRoutine(
@@ -942,15 +968,16 @@ class StarbugBase(StarBugInterface):
                         psf_model, size, min_separation=min_separation,
                         app_hot_r=app_hot_r, background=bgd, force_fit=1,
                         verbose=self._verbose)
-                    ii: bool = psf_cat[XY_DEV] > max_y_dev
+                    ii: bool = psf_cat[TableColumn.XY_DEV] > max_y_dev
                     fixed_centres: Table = psf_cat[ii][
-                        [X_INIT, Y_INIT, "ap_%s" % self._filter, FLAG]]
+                        [TableColumn.X_INIT, TableColumn.Y_INIT,
+                         "ap_%s" % self._filter, TableColumn.FLAG]]
                     if len(fixed_centres):
                         self.log("-> forcing positions for deviant sources\n")
                         fixed_cat: Table = phot(
                             image, init_params=fixed_centres,
                             error=error, mask=mask)
-                        fixed_cat[FLAG] |= SRC_FIX
+                        fixed_cat[TableColumn.FLAG] |= SRC_FIX
                         psf_cat.remove_rows(ii)
                         psf_cat = vstack((psf_cat, fixed_cat))
                     else:
@@ -958,15 +985,17 @@ class StarbugBase(StarBugInterface):
             ra: np.ndarray
             dec: np.ndarray
             ra, dec = self._wcs.all_pix2world(
-                psf_cat[X_FIT], psf_cat[Y_FIT], 0)
-            psf_cat.add_column(Column(ra, name=RA), index=2)
-            psf_cat.add_column(Column(dec, name=DEC), index=3)
+                psf_cat[TableColumn.X_FIT], psf_cat[TableColumn.Y_FIT], 0)
+            psf_cat.add_column(Column(ra, name=TableColumn.RA), index=2)
+            psf_cat.add_column(Column(dec, name=TableColumn.DEC), index=3)
 
             mag: float
             mag_error: float
-            mag, mag_err = flux2mag(psf_cat[FLUX],psf_cat[E_FLUX])
+            mag, mag_err = flux2mag(
+                psf_cat[TableColumn.FLUX], psf_cat[TableColumn.E_FLUX])
 
-            filter_string: str = self._filter if self._filter else MAG
+            filter_string: str = (
+                self._filter if self._filter else TableColumn.MAG)
             psf_cat.add_column(
                 mag + self._config.zero_point_magnitude, name=filter_string)
             psf_cat.add_column(mag_err, name="e%s" % filter_string)
@@ -994,8 +1023,12 @@ class StarbugBase(StarBugInterface):
 
             if self._config.generate_residual_image:
                 self.log("-> generating residual\n")
-                _tmp: Table = psf_cat[X_FIT, Y_FIT, FLUX].copy()
-                _tmp.rename_columns( (X_FIT, Y_FIT), (X_0, Y_0))
+                _tmp: Table = psf_cat[
+                    TableColumn.X_FIT, TableColumn.Y_FIT,
+                    TableColumn.FLUX].copy()
+                _tmp.rename_columns(
+                    (TableColumn.X_FIT, TableColumn.Y_FIT),
+                    (TableColumn.X_0, TableColumn.Y_0))
                 stars: np.ndarray = make_model_image(
                     image.shape, psf_model, _tmp, model_shape=(size,size))
                 residual: np.ndarray = image - (bgd + stars)
@@ -1089,13 +1122,16 @@ class StarbugBase(StarBugInterface):
         :return: the filtered detections
         """
         assert self._detections is not None
-        detections: Table = self._detections[[X_CENTROID,Y_CENTROID]].copy()
-        detections = detections[ detections[X_CENTROID]>=0 ]
-        detections = detections[ detections[Y_CENTROID]>=0 ]
+        detections: Table = self._detections[
+            [TableColumn.X_CENTROID,TableColumn.Y_CENTROID]].copy()
+        detections = detections[ detections[TableColumn.X_CENTROID] >= 0]
+        detections = detections[ detections[TableColumn.Y_CENTROID] >= 0]
         detections = detections[
-            detections[X_CENTROID] < self.main_image.header[NAXIS1]]
-        return detections[detections[Y_CENTROID] <
-                self.main_image.header[NAXIS2]]
+            detections[TableColumn.X_CENTROID] <
+            self.main_image.header[NAXIS1]]
+        return detections[
+            detections[TableColumn.Y_CENTROID] <
+            self.main_image.header[NAXIS2]]
 
     def __getstate__(self) -> dict[str, Any]:
         """

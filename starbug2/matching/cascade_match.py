@@ -15,7 +15,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 from typing import override, Any
 from astropy.table import Table
-from starbug2.constants import CAT_NUM
+from starbug2.constants import TableColumn
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.utils import h_cascade, fill_nan
 
@@ -42,8 +42,8 @@ class CascadeMatch(GenericMatch):
         :rtype: astropy.table.Table
         """
         catalogues = self.init_catalogues(catalogues)
-        if self._col_names and CAT_NUM in self._col_names:
-            self._col_names.remove(CAT_NUM)
+        if self._col_names and TableColumn.CAT_NUM in self._col_names:
+            self._col_names.remove(TableColumn.CAT_NUM)
 
         base: Table = self.build_meta(catalogues)
 

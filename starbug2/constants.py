@@ -15,6 +15,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 # noinspection SpellCheckingInspection
 from typing import List, Final
+from enum import Enum
 
 # the filter id which we've had to adjsut the bin size to allow it to
 # initilise without errors.
@@ -114,48 +115,67 @@ EXIT_MIXED: Final[int] = 3
 # rest success
 REST_SUCCESS_CODE: Final[int] = 200
 
-# tag used table col names
-CAT_NUM: Final[str] = "Catalogue_Number"
-RA: Final[str] = "RA"
-DEC: Final[str] = "DEC"
-FLUX: Final[str] = "flux"
-E_FLUX: Final[str] = "eflux"
-FLUX_2: Final[str] = "flux_2"
-X_CENTROID: Final[str] = "x_centroid"
-Y_CENTROID: Final[str] = "y_centroid"
-X_PEAK: Final[str] = "x_peak"
-Y_PEAK: Final[str] = "y_peak"
-EE_FRACTION: Final[str] = "eefraction"
-RADIUS: Final[str] = "radius"
-AP_CORR: Final[str] = "apcorr"
-STD_FLUX: Final[str] = "stdflux"
-NUM: Final[str] = "NUM"
-FLAG: Final[str] = "flag"
-FLUX_DET: Final[str] = "flux_det"
-FLUX_FIT: Final[str] = "flux_fit"
-FLUX_ERR: Final[str] = "flux_err"
-OUT_FLUX: Final[str] = "outflux"
-X_0: Final[str] = "x_0"
-Y_0: Final[str] = "y_0"
-X_DET: Final[str] = "x_det"
-Y_DET: Final[str] = "y_det"
-ID: Final[str] = "id"
-MAG: Final[str] = "mag"
-STATUS: Final[str] = "status"
-REC: Final[str] = "rec"
-PARAM: Final[str] = "PARAM"
-X_INIT: Final[str] = "x_init"
-Y_INIT: Final[str] = "y_init"
-XY_DEV: Final[str] = "xydev"
-XY_DEV_: Final[str] = "_xydev"
-ERR_LOWER: Final[str] = "err"
-OFF: Final[str] = "off"
-X_FIT: Final[str] = "x_fit"
-Y_FIT: Final[str] = "y_fit"
-Q_FIT: Final[str] = "qfit"
-PUPIL: Final[str] = "pupil"
-SKY: Final[str] = "sky"
-SMOOTHNESS: Final[str] = "smoothness"
+# table column enum to be used to amtch table col names
+class TableColumn(str, Enum):
+    """Table column names used across the pipeline."""
+
+    CAT_NUM = "Catalogue_Number"
+    RA = "RA"
+    DEC = "DEC"
+    FLUX = "flux"
+    E_FLUX = "eflux"
+    FLUX_2 = "flux_2"
+    X_CENTROID = "x_centroid"
+    Y_CENTROID = "y_centroid"
+    X_PEAK = "x_peak"
+    Y_PEAK = "y_peak"
+    EE_FRACTION = "eefraction"
+    RADIUS = "radius"
+    AP_CORR = "apcorr"
+    STD_FLUX = "stdflux"
+    NUM = "NUM"
+    FLAG = "flag"
+    FLUX_DET = "flux_det"
+    FLUX_FIT = "flux_fit"
+    FLUX_ERR = "flux_err"
+    OUT_FLUX = "outflux"
+    X_0 = "x_0"
+    Y_0 = "y_0"
+    X_DET = "x_det"
+    Y_DET = "y_det"
+    ID = "id"
+    MAG = "mag"
+    MAG_UPPER = "MAG"
+    ERROR_MAG = "eMAG"
+    STATUS = "status"
+    REC = "rec"
+    PARAM = "PARAM"
+    X_INIT = "x_init"
+    Y_INIT = "y_init"
+    XY_DEV = "xydev"
+    XY_DEV_ = "_xydev"
+    ERR_LOWER = "err"
+    OFF = "off"
+    X_FIT = "x_fit"
+    Y_FIT = "y_fit"
+    Q_FIT = "qfit"
+    PUPIL = "pupil"
+    SKY = "sky"
+    SMOOTHNESS = "smoothness"
+    SHARPNESS = "sharpness"
+    ROUNDNESS1 = "roundness1"
+    ROUNDNESS2 = "roundness2"
+    RA_1 = "RA_1"
+    RA_2 = "RA_2"
+
+    # needed as the table system doenst seem to handle enums properly
+    def __str__(self) -> str:
+        return self.value
+
+    # needed as the table system doenst seem to handle enums properly
+    def __format__(self, format_spec: str) -> str:
+        return self.value.__format__(format_spec)
+
 
 # Q table col names
 SUM_ERR_0: Final[str] = "aperture_sum_err_0"
@@ -163,7 +183,9 @@ SUM_0: Final[str] = "aperture_sum_0"
 SUM_1: Final[str] = "aperture_sum_1"
 
 ## DEFAULT MATCHING COLS
-MATCH_COLS: List[str] = [RA, DEC, FLAG, FLUX, E_FLUX, NUM]
+MATCH_COLS: List[str] = [
+    TableColumn.RA, TableColumn.DEC, TableColumn.FLAG, TableColumn.FLUX,
+    TableColumn.E_FLUX, TableColumn.NUM]
 
 # tag for header
 FILTER_LOWER: Final[str] = "filter"
