@@ -25,9 +25,8 @@ import requests
 from importlib.metadata import PackageNotFoundError
 
 from starbug2.constants import (
-    DEFAULT_COLOUR, TMP_OUT, TMP_FITS, TableColumn, HeaderTags,
-    FITS_EXTENSION, N_MIS_MATCHES, ExitStates,
-    REST_SUCCESS_CODE, DEG, ARCMIN, ARCSEC, PIX,  ImageHeaderTags)
+    DEFAULT_COLOUR, TMP_OUT, TMP_FITS, TableColumn, HeaderTags, FITS_EXTENSION,
+    N_MIS_MATCHES, ExitStates, REST_SUCCESS_CODE, Units,  ImageHeaderTags)
 from starbug2.filters import STAR_BUG_FILTERS
 
 # different print methods (why are we not using loggers?)
@@ -279,10 +278,10 @@ def parse_unit(raw: str) -> Tuple[float | None, int | None]:
     """
 
     recognised: Dict[str, int] = {
-        'p': PIX,
-        's': ARCSEC,
-        'm': ARCMIN,
-        'd': DEG}
+        'p': Units.PIX,
+        's': Units.ARCSEC,
+        'm': Units.ARCMIN,
+        'd': Units.DEG}
     value: float | None = None
     unit: int | None = None
     if raw:

@@ -43,8 +43,7 @@ warnings.filterwarnings(
 from starbug2.initialise_psf_data import init_starbug_for_jwst, generate_psf
 
 from starbug2.constants import (
-    DETECTION, BACKGROUND, APP_HOT, PSFP_HOT, MATCH_OUTPUTS, LOGO,
-    HELP_STRINGS, ExitStates, READ_THE_DOCS_URL, FITS_EXTENSION)
+    Modes, LOGO, HELP_STRINGS, ExitStates, READ_THE_DOCS_URL, FITS_EXTENSION)
 from starbug2.utils import (
     p_error, printf, warn, split_file_name, export_region,
     combine_file_names, export_table, puts, parse_cmd,
@@ -144,15 +143,15 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> ExitStates:
         usage(__doc__, verbose=config.verbose_logs)
 
         if config.do_star_detection:
-            p_error(HELP_STRINGS[DETECTION])
+            p_error(HELP_STRINGS[Modes.DETECTION])
         if config.do_bgd_estimate:
-            p_error(HELP_STRINGS[BACKGROUND])
+            p_error(HELP_STRINGS[Modes.BACKGROUND])
         if config.do_aperture_photometry:
-            p_error(HELP_STRINGS[APP_HOT])
+            p_error(HELP_STRINGS[Modes.APP_HOT])
         if config.do_photometry_routine:
-            p_error(HELP_STRINGS[PSFP_HOT])
+            p_error(HELP_STRINGS[Modes.PSFP_HOT])
         if config.do_matching:
-            p_error(HELP_STRINGS[MATCH_OUTPUTS])
+            p_error(HELP_STRINGS[Modes.MATCH_OUTPUTS])
         return ExitStates.EXIT_EARLY
 
     ## Load parameter files for onetime runs

@@ -21,8 +21,7 @@ import os, stat, numpy as np
 from typing import List, Optional, TextIO, Dict
 
 from starbug2.constants import (
-    FITS_EXTENSION, FILE_NAME, HeaderTags, OBS, VISIT, ImageHeaderTags,
-    EXPOSURE)
+    FITS_EXTENSION, FILE_NAME, HeaderTags, ImageHeaderTags)
 from astropy.io import fits
 from starbug2.utils import printf, p_error, split_file_name
 
@@ -106,18 +105,23 @@ def sort_exposures(catalogues: List[fits.HDUList]) -> ExposureMapping:
         if info[HeaderTags.FILTER] not in out.keys():
             out[info[HeaderTags.FILTER]] = {}
 
-        if info[OBS] not in out[info[HeaderTags.FILTER]].keys():
-            out[info[HeaderTags.FILTER]][info[OBS]] = {}
+        if info[HeaderTags.OBS] not in out[info[HeaderTags.FILTER]].keys():
+            out[info[HeaderTags.FILTER]][info[HeaderTags.OBS]] = {}
 
-        if info[VISIT] not in out[info[HeaderTags.FILTER]][info[OBS]].keys():
-            out[info[HeaderTags.FILTER]][info[OBS]][info[VISIT]] = {}
+        if (info[HeaderTags.VISIT] not in
+            out[info[HeaderTags.FILTER]][info[HeaderTags.OBS]].keys()):
+            out[info[HeaderTags.FILTER]][
+                info[HeaderTags.OBS]][info[HeaderTags.VISIT]] = {}
 
         if (info[ImageHeaderTags.DETECTOR] not in
-            out[info[HeaderTags.FILTER]][info[OBS]][info[VISIT]].keys()):
+            out[info[HeaderTags.FILTER]][info[HeaderTags.OBS]][
+                info[HeaderTags.VISIT]].keys()):
             out[info[HeaderTags.FILTER]][
-                info[OBS]][info[VISIT]][info[ImageHeaderTags.DETECTOR]] = []
+                info[HeaderTags.OBS]][info[HeaderTags.VISIT]][
+                info[ImageHeaderTags.DETECTOR]] = []
         out[info[HeaderTags.FILTER]][
-            info[OBS]][info[VISIT]][info[ImageHeaderTags.DETECTOR]].append(cat)
+            info[HeaderTags.OBS]][info[HeaderTags.VISIT]][
+            info[ImageHeaderTags.DETECTOR]].append(cat)
     return out
 
 
@@ -161,9 +165,9 @@ def exp_info(hdu_list) -> Dict[str, int | None]:
     """
     info: Dict[str, int | None] = {
         HeaderTags.FILTER : None,
-        OBS : 0,
-        VISIT : 0,
-        EXPOSURE : 0,
+        HeaderTags.OBS : 0,
+        HeaderTags.VISIT : 0,
+        HeaderTags.EXPOSURE : 0,
         ImageHeaderTags.DETECTOR : None
     }
 

@@ -30,9 +30,8 @@ from photutils.datasets import make_model_image
 from photutils.psf import ImagePSF
 from starbug2.constants import (
     HeaderTags, ImageHeaderTags, SCI, BGD, RES, VERBOSE_TAG, AP_FILE, BGD_FILE,
-    FITS_EXTENSION, DQ, AREA, WHT, SHORT, LONG, NIRCAM, STAR_BUG_MIRI,
-    SourceFlags, DEG, ARCMIN, ARCSEC, DQ_DO_NOT_USE, DQ_SATURATED,
-    ERR, ExitStates, NIRCAM_STRING, STARBUG_DATA_DIR,
+    FITS_EXTENSION, DQ, AREA, WHT, NIRCAM, STAR_BUG_MIRI, SourceFlags, DQFlags,
+    DetectorLengths, Units, ERR, ExitStates, NIRCAM_STRING, STARBUG_DATA_DIR,
     DEFAULT_FULL_WIDTH_HALF_MAX, TableColumn)
 from starbug2.filters import STAR_BUG_FILTERS, FilterStruct
 from starbug2.routines.app_hot_routine import APPhotRoutine
@@ -387,10 +386,10 @@ class StarbugBase(StarBugInterface):
                     dt_name = "NRCB5"
                 if dt_name == "MULTIPLE":
                     if (filter_struct.instr == NIRCAM
-                            and filter_struct.length == SHORT):
+                            and filter_struct.length == DetectorLengths.SHORT):
                         dt_name = "NRCA1"
                     elif (filter_struct.instr == NIRCAM and
-                          filter_struct.length == LONG):
+                          filter_struct.length == DetectorLengths.LONG):
                         dt_name = "NRCA5"
                     elif filter_struct.instr == STAR_BUG_MIRI:
                         dt_name = ""
@@ -457,7 +456,9 @@ class StarbugBase(StarBugInterface):
         # create mask
         mask: np.ndarray
         if DQ in extension_names:
-            mask = self._image[DQ].data & (DQ_DO_NOT_USE | DQ_SATURATED)
+            mask = (
+                self._image[DQ].data
+                & (DQFlags.DQ_DO_NOT_USE | DQFlags.DQ_SATURATED))
             mask = mask.astype(bool)
         else:
             mask = (np.isnan(image) | np.isnan(error))
@@ -947,13 +948,13 @@ class StarbugBase(StarBugInterface):
                 unit: int
                 max_y_dev, unit = parse_unit(self._config.max_xy_deviation)
                 if unit is not None:
-                    if unit == DEG:
+                    if unit == Units.DEG:
                         max_y_dev *= 60
-                        unit = ARCMIN
-                    if unit == ARCMIN:
+                        unit = Units.ARCMIN
+                    if unit == Units.ARCMIN:
                         max_y_dev *= 60
-                        unit = ARCSEC
-                    if unit == ARCSEC:
+                        unit = Units.ARCSEC
+                    if unit == Units.ARCSEC:
                         if not self.header.get(ImageHeaderTags.PIXAR_A2):
                             warn(
                                 "MAX_XYDEV is units arcseconds, but starbug "

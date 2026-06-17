@@ -4,7 +4,7 @@ from typing import List, Optional, Any, Final
 from starbug2.constants import (
     JWST_MIRI_APCORR_0010_FITS_URL, JWST_NIRCAM_APCORR_0004_FITS_URL,
     JWST_MIRI_ABVEGA_OFFSET_URL, JWST_NIRCAM_ABVEGA_OFFSET_URL, NIRCAM,
-    SHORT, WEBBPSF_PATH_ENV_VAR, LONG, STARBUG_DATA_DIR)
+    WEBBPSF_PATH_ENV_VAR, DetectorLengths, STARBUG_DATA_DIR)
 from starbug2.constants import STAR_BUG_MIRI
 from starbug2.filters import STAR_BUG_FILTERS, FilterStruct
 from astropy.io import fits
@@ -97,7 +97,7 @@ def _generate_psfs() -> None:
 
         for filter_string, filter_data in STAR_BUG_FILTERS.items():
             if filter_data.instr == NIRCAM:
-                if filter_data.length == SHORT:
+                if filter_data.length == DetectorLengths.SHORT:
                     detectors: List[Optional[str]] = NIRCAM_SHORT_DETECTORS
                 else:
                     detectors = NIRCAM_LONG_DETECTORS
@@ -157,9 +157,11 @@ def generate_psf(
         the_filter = STAR_BUG_FILTERS.get(filter_string)
         assert the_filter is not None
         if detector is None:
-            if the_filter.instr == NIRCAM and the_filter.length == SHORT:
+            if (the_filter.instr == NIRCAM
+                    and the_filter.length == DetectorLengths.SHORT):
                 detector = "NRCA1"
-            elif the_filter.instr == NIRCAM and the_filter.length == LONG:
+            elif (the_filter.instr == NIRCAM
+                    and the_filter.length == DetectorLengths.LONG):
                 detector = "NRCA5"
             elif the_filter.instr == STAR_BUG_MIRI:
                 detector = "MIRIM"

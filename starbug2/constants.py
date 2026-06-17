@@ -30,14 +30,21 @@ WEBBPSF_PATH_ENV_VAR: Final[str] = "WEBBPSF_PATH"
 STAR_BUG_PARAMS: Final[str] = "STARBUGII PARAMETERS"
 STAR_BUG_TEST_DAT_ENV: Final[str] = "STARBUG_TEST_DIR"
 
-# default value for full width half max when nothing sets it
+# default values
 DEFAULT_FULL_WIDTH_HALF_MAX = 2.0
 DEFAULT_PSF_FILE_NAME = "psf.fits"
+DEFAULT_COLOUR: Final[str] = "green"
+# how many characters we will allow by default.
+N_MIS_MATCHES: Final[int] = 10
+
+# rest success
+REST_SUCCESS_CODE: Final[int] = 200
 
 # url to docs
 URL_DOCS: Final[str] = (
     "https://raw.githubusercontent.com/conornally/starbug2/"
     "refs/heads/main/docs/source/_static/images/starbug.png")
+
 READ_THE_DOCS_URL: Final[str] = "https://starbug2.readthedocs.io/en/latest/"
 
 # fit urls
@@ -64,9 +71,6 @@ JWST_NIRCAM_ABVEGA_OFFSET_URL: Final[str] = (
 TMP_OUT: Final[str] = "/tmp/out.reg"
 TMP_FITS: Final[str] = "/tmp/starbug.fits"
 
-# default Full width 1/2 max when not set by param / options
-DEFAULT_FWHM: Final[float] = 2.0
-
 # the fits file extension
 FITS_EXTENSION: Final[str] = ".fits"
 FILE_NAME: Final[str] = "FILENAME"
@@ -82,9 +86,6 @@ AP_FILE: Final[str] = "AP_FILE"
 BGD_FILE: Final[str] = "BGD_FILE"
 PSF_FILE: Final[str] = "PSF_FILE"
 
-# colours
-DEFAULT_COLOUR: Final[str] = "green"
-
 ## SOURCE FLAGS
 class SourceFlags(int, Enum):
     SRC_GOOD = 0
@@ -98,9 +99,10 @@ class SourceFlags(int, Enum):
     SRC_UKN = 0x10
 
 ##DQ FLAGS
-DQ_DO_NOT_USE: Final[int] = 0x01
-DQ_SATURATED: Final[int] = 0x02
-DQ_JUMP_DET: Final[int] = 0x04
+class DQFlags(int, Enum):
+    DQ_DO_NOT_USE = 0x01
+    DQ_SATURATED = 0x02
+    DQ_JUMP_DET = 0x04
 
 # e name common names
 SCI: Final[str] = "SCI"
@@ -113,9 +115,6 @@ class ExitStates(int, Enum):
     EXIT_FAIL = 1
     EXIT_EARLY = 2
     EXIT_MIXED = 3
-
-# rest success
-REST_SUCCESS_CODE: Final[int] = 200
 
 # table column enum to be used to amtch table col names
 class TableColumn(str, Enum):
@@ -211,6 +210,9 @@ class HeaderTags(str, Enum):
     NAXIS1 = "NAXIS1"
     NAXIS2 = "NAXIS2"
     C_TYPE = "CTYPE"
+    OBS = "OBSERVTN"
+    VISIT = "VISIT"
+    EXPOSURE = "EXPOSURE"
 
     # needed as the table system doenst seem to handle enums properly
     def __str__(self) -> str:
@@ -243,17 +245,13 @@ class ImageHeaderTags(str, Enum):
 VERBOSE_TAG: Final[str] = "VERBOSE"
 
 # mode labels.
-DETECTION: Final[str] = "DETECTION"
-BACKGROUND: Final[str] = "BACKGROUND"
-APP_HOT: Final[str] = "APPHOT"
-PSFP_HOT: Final[str] = "PSFPHOT"
-MATCH_OUTPUTS: Final[str] = "MATCHOUTPUTS"
-CLEAR: Final[str] = "CLEAR"
-
-#info tags / keys for catalogue fields.
-OBS: Final[str] = "OBSERVTN"
-VISIT: Final[str] = "VISIT"
-EXPOSURE: Final[str] = "EXPOSURE"
+class Modes(str, Enum):
+    DETECTION = "DETECTION"
+    BACKGROUND = "BACKGROUND"
+    APP_HOT = "APPHOT"
+    PSFP_HOT = "PSFPHOT"
+    MATCH_OUTPUTS = "MATCHOUTPUTS"
+    CLEAR = "CLEAR"
 
 
 ## HASHDEFS
@@ -261,19 +259,17 @@ STAR_BUG_MIRI: Final[int] = 1
 NIRCAM: Final[int] = 2
 NIRCAM_STRING: Final[str] = "NIRCAM"
 
-NULL: Final[int] = 0
-LONG: Final[int] = 1
-SHORT: Final[int] = 2
+class DetectorLengths(int, Enum):
+    NULL = 0
+    LONG = 1
+    SHORT = 2
 
 # enum unit
-PIX: Final[int] = 0
-ARCSEC: Final[int] = 1
-ARCMIN: Final[int] = 2
-DEG: Final[int] = 3
-
-
-# how many characters we will allow by default.
-N_MIS_MATCHES: Final[int] = 10
+class Units(int, Enum):
+    PIX = 0
+    ARCSEC = 1
+    ARCMIN = 2
+    DEG = 3
 
 # text based logo (using raw string to bypass escape characters)
 LOGO: Final[str] = r"""
@@ -291,7 +287,7 @@ LOGO: Final[str] = r"""
 # dictionary of help strings for specific modes (
 # DETECTION, BACKGROUND, APPHOT, PSFPHOT, MATCHOUTPUTS).
 HELP_STRINGS = {
-    DETECTION :
+    Modes.DETECTION :
         """
             Source Detection
             ----------------
@@ -315,7 +311,7 @@ HELP_STRINGS = {
         
             Full documentation is at https://starbug2.readthedocs.io
         """,
-    BACKGROUND:
+    Modes.BACKGROUND:
         """
             Diffuse Background Estimations
             ------------------------------
@@ -346,7 +342,7 @@ HELP_STRINGS = {
         
             Full documentation is at https://starbug2.readthedocs.io
         """,
-    APP_HOT:
+    Modes.APP_HOT:
         """
             Aperture Photometry
             -------------------
@@ -373,7 +369,7 @@ HELP_STRINGS = {
         
             Full documentation is at https://starbug2.readthedocs.io
         """,
-    PSFP_HOT:
+    Modes.PSFP_HOT:
         """
             PSF Photometry
             --------------
@@ -399,7 +395,7 @@ HELP_STRINGS = {
         
             Full documentation is at https://starbug2.readthedocs.io
         """,
-    MATCH_OUTPUTS:
+    Modes.MATCH_OUTPUTS:
         """
             Match Outputs
             -------------

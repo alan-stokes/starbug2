@@ -20,8 +20,7 @@ import sys
 
 import numpy as np
 from astropy.table import Column, hstack, Table, QTable
-from photutils.aperture import (
-    CircularAperture, aperture_photometry)
+from photutils.aperture import CircularAperture, aperture_photometry
 from photutils.psf import PSFPhotometry, SourceGrouper, ImagePSF
 
 from starbug2.constants import TableColumn

@@ -26,8 +26,7 @@ from photutils.aperture import (
     CircularAperture, CircularAnnulus, aperture_photometry, ApertureMask)
 
 from starbug2.constants import (
-    DQ_DO_NOT_USE, DQ_SATURATED, DQ_JUMP_DET, SourceFlags,
-    TableColumn, HeaderTags, CLEAR, QTableColNames)
+    SourceFlags, DQFlags, TableColumn, HeaderTags, Modes, QTableColNames)
 from starbug2.utils import printf, p_error, warn
 
 
@@ -68,7 +67,7 @@ class APPhotRoutine:
 
 
         if TableColumn.PUPIL in t_ap_corr.colnames:
-            t_ap_corr = t_ap_corr[ t_ap_corr[TableColumn.PUPIL] == CLEAR]
+            t_ap_corr = t_ap_corr[t_ap_corr[TableColumn.PUPIL] == Modes.CLEAR]
 
         ap_corr: float = float(np.interp(
             radius, t_ap_corr[TableColumn.RADIUS],
@@ -138,11 +137,11 @@ class APPhotRoutine:
 
         # Crop down table
         if HeaderTags.FILTER_LOWER in t_ap_corr.col_names:
-            t_ap_corr=t_ap_corr[
+            t_ap_corr = t_ap_corr[
                 (t_ap_corr[HeaderTags.FILTER_LOWER] == filter_string)]
 
         if TableColumn.PUPIL in t_ap_corr.col_names: # Crop down table
-            t_ap_corr=t_ap_corr[ t_ap_corr[TableColumn.PUPIL] == CLEAR]
+            t_ap_corr = t_ap_corr[t_ap_corr[TableColumn.PUPIL] == Modes.CLEAR]
 
         return float(
             np.interp(
@@ -360,9 +359,10 @@ class APPhotRoutine:
                 tmp: np.ndarray = ap_mask.multiply(dq_flags)
                 if tmp is not None:
                     dq_dat = np.array(tmp,dtype=np.uint32)
-                    if np.sum( dq_dat & (DQ_DO_NOT_USE | DQ_SATURATED)):
+                    if np.sum( dq_dat & (
+                            DQFlags.DQ_DO_NOT_USE | DQFlags.DQ_SATURATED)):
                         col[i] |= SourceFlags.SRC_BAD
-                    if np.sum( dq_dat & DQ_JUMP_DET):
+                    if np.sum( dq_dat & DQFlags.DQ_JUMP_DET):
                         col[i] |= SourceFlags.SRC_JMP
         self.catalogue.add_column(col)
         return self.catalogue
