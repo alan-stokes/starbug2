@@ -27,7 +27,7 @@ from photutils.aperture import (
 
 from starbug2.constants import (
     SRC_GOOD, DQ_DO_NOT_USE, DQ_SATURATED, SRC_BAD, DQ_JUMP_DET, SRC_JMP,
-    TableColumn, FILTER_LOWER, CLEAR, SUM_ERR_0, SUM_0, SUM_1)
+    TableColumn, FILTER_LOWER, CLEAR, QTableColNames)
 from starbug2.utils import printf, p_error, warn
 
 
@@ -325,7 +325,7 @@ class APPhotRoutine:
             np.ma.median(clipped_dat, axis=1).filled(fill_value=0))
         std: np.ndarray = np.ma.std(clipped_dat, axis=1)
 
-        e_poisson: np.ndarray = phot[SUM_ERR_0]
+        e_poisson: np.ndarray = phot[QTableColNames.SUM_ERR_0]
         esky_scatter: np.ndarray = apertures.area * std ** 2
         esky_mean: np.ndarray = (
             (std ** 2 * apertures.area ** 2) / annulus_aperture.area)
@@ -333,7 +333,7 @@ class APPhotRoutine:
         self.catalogue[TableColumn.E_FLUX] = np.sqrt(
             e_poisson ** 2 + esky_scatter ** 2 + esky_mean ** 2)
         self.catalogue[TableColumn.FLUX] = (
-            ap_corr * (phot[SUM_0] - (
+            ap_corr * (phot[QTableColNames.SUM_0] - (
                 self.catalogue[TableColumn.SKY] * apertures.area)))
 
         self.catalogue[TableColumn.FLUX][
@@ -345,8 +345,8 @@ class APPhotRoutine:
         ######################
 
         self.catalogue[TableColumn.SMOOTHNESS] = (
-            (phot[SUM_1] / smooth_apertures.area)
-            / (phot[SUM_0] / apertures.area))
+            (phot[QTableColNames.SUM_1] / smooth_apertures.area)
+            / (phot[QTableColNames.SUM_0] / apertures.area))
 
         col: Column = Column(
             np.full(len(apertures), SRC_GOOD),

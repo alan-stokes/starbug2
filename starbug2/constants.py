@@ -179,9 +179,18 @@ class TableColumn(str, Enum):
 
 
 # Q table col names
-SUM_ERR_0: Final[str] = "aperture_sum_err_0"
-SUM_0: Final[str] = "aperture_sum_0"
-SUM_1: Final[str] = "aperture_sum_1"
+class QTableColNames(str, Enum):
+    SUM_ERR_0 = "aperture_sum_err_0"
+    SUM_0 = "aperture_sum_0"
+    SUM_1 = "aperture_sum_1"
+
+    # needed as the table system doenst seem to handle enums properly
+    def __str__(self) -> str:
+        return self.value
+
+    # needed as the table system doenst seem to handle enums properly
+    def __format__(self, format_spec: str) -> str:
+        return self.value.__format__(format_spec)
 
 ## DEFAULT MATCHING COLS
 MATCH_COLS: List[str] = [
