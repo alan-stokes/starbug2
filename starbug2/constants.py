@@ -86,15 +86,16 @@ PSF_FILE: Final[str] = "PSF_FILE"
 DEFAULT_COLOUR: Final[str] = "green"
 
 ## SOURCE FLAGS
-SRC_GOOD: Final[int] = 0
-SRC_BAD: Final[int] = 0x01
-SRC_JMP: Final[int] = 0x02
-##source frame mean >5% different from median
-SRC_VAR: Final[int] = 0x04
-##psf fit with fixed centroid
-SRC_FIX: Final[int] = 0x08
-##source unknown (this isnt used anywhere!)
-SRC_UKN: Final[int] = 0x10
+class SourceFalgs(int, Enum):
+    SRC_GOOD = 0
+    SRC_BAD = 0x01
+    SRC_JMP = 0x02
+    ##source frame mean >5% different from median
+    SRC_VAR = 0x04
+    ##psf fit with fixed centroid
+    SRC_FIX = 0x08
+    ##source unknown (this isnt used anywhere!)
+    SRC_UKN = 0x10
 
 ##DQ FLAGS
 DQ_DO_NOT_USE: Final[int] = 0x01

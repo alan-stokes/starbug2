@@ -31,7 +31,7 @@ from photutils.psf import ImagePSF
 from starbug2.constants import (
     HeaderTags, ImageHeaderTags, SCI, BGD, RES, VERBOSE_TAG, AP_FILE, BGD_FILE,
     FITS_EXTENSION, DQ, AREA, WHT, SHORT, LONG, NIRCAM, STAR_BUG_MIRI,
-    SRC_FIX, DEG, ARCMIN, ARCSEC, DQ_DO_NOT_USE, DQ_SATURATED,
+    SourceFalgs, DEG, ARCMIN, ARCSEC, DQ_DO_NOT_USE, DQ_SATURATED,
     ERR, ExitStates, NIRCAM_STRING, STARBUG_DATA_DIR,
     DEFAULT_FULL_WIDTH_HALF_MAX, TableColumn)
 from starbug2.filters import STAR_BUG_FILTERS, FilterStruct
@@ -926,7 +926,7 @@ class StarbugBase(StarBugInterface):
                 psf_cat: Table = phot(
                     image, init_params=init_guesses, error=error,
                     mask=mask)
-                psf_cat[TableColumn.FLAG] |= SRC_FIX
+                psf_cat[TableColumn.FLAG] |= SourceFalgs.SRC_FIX
 
             else:
                 phot: PSFPhotRoutine = PSFPhotRoutine(
@@ -980,7 +980,10 @@ class StarbugBase(StarBugInterface):
                         fixed_cat: Table = phot(
                             image, init_params=fixed_centres,
                             error=error, mask=mask)
-                        fixed_cat[TableColumn.FLAG] |= SRC_FIX
+                        # ABS. why are we using such an aggressive type check
+                        # here?
+                        fixed_cat[TableColumn.FLAG] |= (
+                            np.uint16(SourceFalgs.SRC_FIX))
                         psf_cat.remove_rows(ii)
                         psf_cat = vstack((psf_cat, fixed_cat))
                     else:

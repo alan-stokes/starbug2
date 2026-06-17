@@ -24,7 +24,7 @@ from astropy import units
 from astropy.units.quantity import Quantity
 from astropy.coordinates import SkyCoord
 from astropy.table import Table, hstack, Column, vstack
-from starbug2.constants import HeaderTags, SRC_GOOD, SRC_VAR, TableColumn
+from starbug2.constants import HeaderTags, SourceFalgs, TableColumn
 from starbug2.star_bug_config import StarBugMainConfig
 from starbug2.utils import (
     Loading, printf, remove_duplicates, p_error, fill_nan, tab2array,
@@ -417,7 +417,8 @@ class GenericMatch:
             return Table(None)
 
         # have working table
-        flags: np.ndarray = np.full(len(tab), SRC_GOOD, dtype=np.uint16)
+        flags: np.ndarray = np.full(
+            len(tab), SourceFalgs.SRC_GOOD, dtype=np.uint16)
         average_table: Table = Table(None)
 
         if col_names is None:
@@ -443,8 +444,11 @@ class GenericMatch:
                                        name=TableColumn.STD_FLUX),
                                 index=ii + 1)
                         ## if median and mean are >5% different, flag as
-                        # SRC_VAR
-                        flags[np.abs(mean - col) > (col / 5.0)] |= SRC_VAR
+                        # SRC_VAR.
+                        # ABS. why are we using such an aggressive type check
+                        # here?
+                        flags[np.abs(mean - col) > (col / 5.0)] |= np.uint16(
+                            SourceFalgs.SRC_VAR)
                     elif name == TableColumn.E_FLUX:
                         col = Column(
                             np.sqrt(np.nansum(ar * ar, axis=1)), name=name)
