@@ -761,8 +761,15 @@ def remove_duplicates[T](seq: List[T]) -> List[T]:
     :return: A copy of the list with the duplicate elements removed
     :rtype list of <T>
     """
-    seen = set()
-    return [x for x in seq if not (x in seen or seen.add(x))] # noqa
+    seen: set[T] = set()
+    seen.update(seq)
+    to_return: list[T] = []
+    value: T
+    for value in seq:
+        if value in seen:
+            to_return.append(value)
+            seen.remove(value)
+    return to_return
 
 
 def crop_hdu(

@@ -190,9 +190,12 @@ class BandMatch(GenericMatch):
                 np.full(len(catalogues) - 1, self._threshold) * u.arcsec)
 
         assert self._threshold is not None
-        threshold_strs = [f"{
-            g.value if hasattr(g, 'value') else g:g}\""
-                          for g in self._threshold]
+        threshold_strs: list[str] = []
+        for threshold in self._threshold:
+            if hasattr(threshold, 'value'):
+                threshold_strs.append(f"{threshold.value}")
+            else:
+                threshold_strs.append(f"{threshold}")
         printf(f"Thresholds: {', '.join(threshold_strs)}\n")
 
         if self._col_names is None:

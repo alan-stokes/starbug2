@@ -14,15 +14,24 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 import os
+from multiprocessing import shared_memory
+from multiprocessing.shared_memory import SharedMemory
 from typing import Final
 
+import numpy as np
 import pytest
 from starbug2.bin.ast import ast_main
 from starbug2.constants import ExitStates
 from tests.generic import TEST_IMAGE_FITS, clean
 
 # main ast run
-run = lambda s: ast_main(s.split() + [TEST_IMAGE_FITS])
+c: np.ndarray = np.array([0, 0, 0], dtype=np.int64)
+share_memory: SharedMemory = (
+    shared_memory.SharedMemory(create=True, size=c.nbytes))
+loading_buffer: np.ndarray = np.ndarray(
+    c.shape, dtype=c.dtype, buffer=share_memory.buf)
+run = lambda s: ast_main(
+    s.split() + [TEST_IMAGE_FITS], share_memory, loading_buffer)
 TEST_FILTER_STRING: Final[str] = "-s FILTER=F444W"
 
 

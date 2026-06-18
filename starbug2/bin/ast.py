@@ -57,25 +57,19 @@ import photutils
 # Force photutils to strictly return standard QTables globally
 photutils.future_column_names = True
 
-# globals
-c: np.ndarray = np.array([0, 0, 0], dtype=np.int64)
-share: SharedMemory = shared_memory.SharedMemory(create=True, size=c.nbytes)
-buffer: np.ndarray = np.ndarray(c.shape, dtype=c.dtype, buffer=share.buf)
 
-
-def load() -> None:
+def load(loading_buffer: np.ndarray) -> None:
     """
     A loading bar that should be run in a subprocess
     It sits and watches the shared memory buffer and periodically
     prints out a progress bar
     """
-    global buffer
-    while buffer[0] < buffer[1]:
+    while loading_buffer[0] < loading_buffer[1]:
         sleep(1)
-        p: np.ndarray = buffer[0] / buffer[1]
-        msg: str = f"recovering:{buffer[2]}%"
+        p: np.ndarray = loading_buffer[0] / loading_buffer[1]
+        msg: str = f"recovering:{loading_buffer[2]}%"
         s: str = "\x1b[2K%s|%-40s|%d/%d\r" % (
-            msg, int(p*40)*'=', int(buffer[0]), int(buffer[1]))
+            msg, int(p*40)*'=', int(loading_buffer[0]), int(loading_buffer[1]))
         printf(s)
         sys.stdout.flush()
     printf("\n")
@@ -101,6 +95,7 @@ def ast_parse_argv(argv: list[str]) -> StarBugMainConfig:
     config.populate_params(
         argv, short_definition, long_definition, config.AST_FLAG_MAP)
     return config
+
 
 def ast_one_time_runs(config: StarBugMainConfig) -> ExitStates:
     """
@@ -141,9 +136,11 @@ def ast_one_time_runs(config: StarBugMainConfig) -> ExitStates:
             p_error("No files found to recover\n")
     return ExitStates.EXIT_SUCCESS
 
+
 def execute_artificial_stars(
         f_name: str, config: StarBugMainConfig, verbose: bool,
-        index: int, test_count: int, ast_auto_save: int) -> Table | None:
+        index: int, test_count: int, ast_auto_save: int,
+        loading_buffer: np.ndarray) -> Table | None:
     """
     Multiprocessing worker function to run artificial star tests on a given
     file.
@@ -159,11 +156,12 @@ def execute_artificial_stars(
     :type test_count: int
     :param ast_auto_save: how many tests between saves
     :type ast_auto_save: int.
+    :param loading_buffer: the loading buffer
+    :type loading_buffer: np.ndarray
     :return: The generated artificial stars recovery catalogue table, or
              None if the file doesn't exist.
     :rtype: astropy.table.Table or None.
     """
-    global buffer
     out: Table | None = None
     if os.path.exists(f_name):
         star_bug_base: StarbugBase = StarbugBase(
@@ -176,7 +174,7 @@ def execute_artificial_stars(
             mag_range=(
                 config.test_magnitude_bright_limit,
                 config.test_magnitude_faint_limit),
-            loading_buffer=buffer,
+            loading_buffer=loading_buffer,
             autosave=ast_auto_save,
             skip_phot=config.ast_no_psf_phot,
             skip_background=config.ast_no_background,
@@ -184,8 +182,10 @@ def execute_artificial_stars(
             sub_image_size=config.sub_image_crop_size)
     return out
 
-def ast_main(argv: list[str]) -> ExitStates:
-    global buffer, share
+
+def ast_main(
+        argv: list[str], share_memory: SharedMemory,
+        loading_buffer: np.ndarray) -> ExitStates:
 
     options: int
     set_opt: dict[str, int | str | float]
@@ -195,7 +195,7 @@ def ast_main(argv: list[str]) -> ExitStates:
 
     if config.use_ast_one_time_runs():
         if exit_code := ast_one_time_runs(config):
-            share.unlink()
+            share_memory.unlink()
             return exit_code
     config.freeze()
 
@@ -219,9 +219,9 @@ def ast_main(argv: list[str]) -> ExitStates:
             if config.ast_no_background:
                 printf("-> skipping background estimation step\n")
 
-        buffer[0] = 0
-        buffer[1] = n_tests
-        loading: Process = Process(target=load, args=())
+        loading_buffer[0] = 0
+        loading_buffer[1] = n_tests
+        loading: Process = Process(target=load, args=[loading_buffer])
         loading.start()
 
         # Initialise output container tracking tables
@@ -233,7 +233,8 @@ def ast_main(argv: list[str]) -> ExitStates:
             config.freeze()
             outs = ([execute_artificial_stars(
                 f_name, config, config.verbose_logs, index,
-                config.artificial_star_tests_count, config.ast_auto_save)
+                config.artificial_star_tests_count, config.ast_auto_save,
+                loading_buffer)
                     for index, f_name in enumerate(config.fits_images)])
         else:
             n_cores: int = int(min(n_cores, n_tests))
@@ -243,7 +244,7 @@ def ast_main(argv: list[str]) -> ExitStates:
 
             worker_tasks = [
                 (file_name, config, index == 0, index, per_process_n_test,
-                 per_process_tests_per_save)
+                 per_process_tests_per_save, loading_buffer)
                 for index, file_name in enumerate(config.fits_images)
             ]
 
@@ -253,7 +254,7 @@ def ast_main(argv: list[str]) -> ExitStates:
             pool.join()
 
         #force finish
-        buffer[0] = buffer[1]
+        loading_buffer[0] = loading_buffer[1]
         loading.join()
         
         #############################
@@ -304,12 +305,19 @@ def ast_main(argv: list[str]) -> ExitStates:
 
     # Wrapped fix to handle rapid multiprocess teardowns safely
     try:
-        share.unlink()
+        share_memory.unlink()
     except FileNotFoundError:
         # The memory handle was already unlinked safely by another thread
         pass
     return exit_code
 
+
 def ast_main_entry() -> ExitStates:
     """Command line entry point"""
-    return ast_main(sys.argv)
+    # globals
+    c: np.ndarray = np.array([0, 0, 0], dtype=np.int64)
+    share_memory: SharedMemory = (
+        shared_memory.SharedMemory(create=True, size=c.nbytes))
+    loading_buffer: np.ndarray = np.ndarray(
+        c.shape, dtype=c.dtype, buffer=share_memory.buf)
+    return ast_main(sys.argv, share_memory, loading_buffer)
