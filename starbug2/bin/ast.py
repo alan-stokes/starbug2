@@ -33,8 +33,8 @@ usage: starbug2-ast [-vhR] [-N ntests] [-n ncores] [-p file.param] [-S nstars]
         --no-background : turn off background estimation routine
         --no-psfphot    : turn off psf photometry routine
 """
-
-import os,sys
+import os
+import sys
 from multiprocessing.shared_memory import SharedMemory
 from multiprocessing import Pool, Process, shared_memory
 from multiprocessing.pool import Pool as PoolType

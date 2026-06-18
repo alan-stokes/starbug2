@@ -33,7 +33,8 @@ from starbug2.star_bug_interface import StarBugInterface
 try:
     import matplotlib.pyplot as plt
 except ImportError:
-    import matplotlib; matplotlib.use("TkAgg")
+    import matplotlib
+    matplotlib.use("TkAgg")
     import matplotlib.pyplot as plt
 
 from starbug2.utils import (
@@ -65,8 +66,8 @@ class ArtificialStars:
     """
     def __init__(self,
                  starbug: StarBugInterface,
-                 index: int =-1) -> None:
-        ## Initials the starbug instance
+                 index: int = -1) -> None:
+        # Initials the starbug instance
         self._starbug: StarBugInterface = starbug
         _ = self._starbug.main_image
         psf_success: int = self._starbug.load_psf()
@@ -88,7 +89,7 @@ class ArtificialStars:
             autosave: int = -1,
             skip_phot: bool | int = 0,
             skip_background: bool | int = 0,
-            zp_mag: float = 0.0) ->  Table | None:
+            zp_mag: float = 0.0) -> Table | None:
         """
         The main entry point into the artificial star test.
         This handles everything except the results compilation at the end.
@@ -190,20 +191,21 @@ class ArtificialStars:
             sub_image_size = min(base_shape)
             p_error("sub image size greater than image size, setting to "
                     "'safe' value %d.\n" % sub_image_size)
-            
+
         for test in range(1, int(n_tests) + 1):
             image: fits.HDUList = base_image.__deepcopy__()
 
             shape: list[int, int] = image[self._starbug.n_hdu].shape # noqa
 
             source_list: QTable = make_random_models_table(
-                stars_per_test,
-                { TableColumn.X_0 : [buffer, shape[0] - buffer],
-                  TableColumn.Y_0 : [buffer, shape[1] - buffer],
-                  TableColumn.MAG :  mag_range
-                })
+                stars_per_test, {
+                    TableColumn.X_0: [buffer, shape[0] - buffer],
+                    TableColumn.Y_0: [buffer, shape[1] - buffer],
+                    TableColumn.MAG:  mag_range
+                }
+            )
             source_list.add_column(
-                10.0 ** ( (zp_mag - source_list[TableColumn.MAG]) / 2.5 ) ,
+                10.0 ** ((zp_mag - source_list[TableColumn.MAG]) / 2.5),
                 name=TableColumn.FLUX)
             source_list.remove_column(TableColumn.ID)
 
@@ -240,8 +242,8 @@ class ArtificialStars:
         return test_result
 
     def single_test(
-            self, contains: Table, skip_phot: bool | int=0,
-            skip_background: bool | int=0) -> Table:
+            self, contains: Table, skip_phot: bool | int = 0,
+            skip_background: bool | int = 0) -> Table:
         """
         Conduct a single test on an image with a set of initial source
         properties.
@@ -268,25 +270,25 @@ class ArtificialStars:
 
         threshold: Quantity = 2 * units.arcsec
 
-        #Run detection on the image
+        # Run detection on the image
         if not self._starbug.detect():
             assert self._starbug is not None
             det: Table | None = self._starbug.detections
             assert det is not None
 
-            #Check for detection in output
-            for i, src in enumerate(contains): # type: ignore
+            # Check for detection in output
+            for i, src in enumerate(contains):  # type: ignore
                 separations: np.ndarray = np.sqrt(
                     (src[TableColumn.X_0] - det[TableColumn.X_CENTROID]) ** 2
                     + (src[TableColumn.Y_0] -
                        det[TableColumn.Y_CENTROID]) ** 2) * threshold.unit
-                best_match: int = np.argmin(separations) # noqa
+                best_match: int = np.argmin(separations)  # noqa
                 if separations[best_match] < threshold:
                     test_result[TableColumn.X_DET][i] = (
                         det[TableColumn.X_CENTROID][best_match])
                     test_result[TableColumn.Y_DET][i] = (
                         det[TableColumn.Y_CENTROID][best_match])
-                    test_result[TableColumn.FLUX_DET][i] =(
+                    test_result[TableColumn.FLUX_DET][i] = (
                         det[TableColumn.FLUX][best_match])
                     test_result[TableColumn.STATUS][i] = self.DETECT
                 else:
@@ -338,21 +340,20 @@ def get_completeness(test_result: Table) -> Table:
     errors: np.ndarray = np.zeros(len(bins))
     offsets: np.ndarray = np.zeros(len(bins))
     means: np.ndarray = np.zeros(len(bins))
-    
+
     i_bins: np.ndarray = np.asarray(np.digitize(
         test_result[TableColumn.MAG], bins=bins))
     for i in range(max(i_bins)):
-        binned: Table = test_result[ (i_bins==i) ]
+        binned: Table = test_result[(i_bins == i)]
         if binned:
             percents[i] = float(sum(binned[TableColumn.STATUS])) / len(binned)
 
         mag_inj: np.ndarray = -2.5 * np.log10(binned[TableColumn.FLUX])
         mag_det: np.ndarray = -2.5 * np.log10(binned[TableColumn.FLUX_DET])
-        errors[i] = np.nanstd( mag_inj - mag_det )
-        means[i] = np.nanmean( mag_inj - mag_det )
+        errors[i] = np.nanstd(mag_inj - mag_det)
+        means[i] = np.nanmean(mag_inj - mag_det)
         offsets[i] = np.nanmedian(
             binned[TableColumn.FLUX] / binned[TableColumn.FLUX_DET])
-
 
     out: Table = Table(
         [bins, percents, errors, offsets],
@@ -361,9 +362,10 @@ def get_completeness(test_result: Table) -> Table:
         dtype=(float, float, float, float))
     return out
 
+
 def get_spatial_completeness(
         test_result: Table, image: np.ndarray | None,
-        res: int=10) -> np.ndarray | None:
+        res: int = 10) -> np.ndarray | None:
     """
     Produce an image array showing the spatially dependent recovery fraction.
 
@@ -405,6 +407,7 @@ def get_spatial_completeness(
                     float(np.sum(binned[TableColumn.STATUS])) / len(binned))
     return percents
 
+
 def estimate_completeness_mag(ast: Table) -> (
         Tuple[Optional[Tuple[float, float, float]],
               Optional[Tuple[float, float, float]]]):
@@ -426,7 +429,7 @@ def estimate_completeness_mag(ast: Table) -> (
 
     # Syntax: Callable[[Param1Type, Param2Type, ...], ReturnType]
     fn_i: Callable[[float, float, float, float], float] = (
-        lambda y, l, k, xo: xo - (np.log((l / y) - 1) / k)
+        lambda y, limit, k, xo: xo - (np.log((limit / y) - 1) / k)
     )
 
     if len(set(ast.colnames) & {TableColumn.MAG, TableColumn.REC}) == 2:
@@ -444,6 +447,7 @@ def estimate_completeness_mag(ast: Table) -> (
     else:
         p_error("Input table must have columns 'mag' and 'rec'\n")
     return fit, completeness
+
 
 def scurve(x: np.ndarray, l: float, k: float, xo: float) -> float | np.ndarray:
     """
@@ -467,11 +471,12 @@ def scurve(x: np.ndarray, l: float, k: float, xo: float) -> float | np.ndarray:
     """
     return l / (1 + np.exp(-k * (x - xo)))
 
+
 def compile_results(
         raw: Table,
         image: np.ndarray | None = None,
-        plot_ast:Optional[str] = None,
-        filter_string: str="m") -> fits.HDUList:
+        plot_ast: Optional[str] = None,
+        filter_string: str = "m") -> fits.HDUList:
     """
     Compile all the raw data into usable results
 
@@ -491,12 +496,12 @@ def compile_results(
     cfit: Tuple[float, float, float]
     completeness: Tuple[float, float, float]
     cfit, completeness = estimate_completeness_mag(completeness_raw)
-    spatial_completeness: np.ndarray | None= (
+    spatial_completeness: np.ndarray | None = (
         get_spatial_completeness(raw, image, res=10))
 
     head: Dict[str, str | float] = {
-        "COMPLETE_FN":"F(x)=l/(1+exp(-k(x-xo)))", "l":cfit[0], "k":cfit[1],
-        "xo":cfit[2] }
+        "COMPLETE_FN": "F(x)=l/(1+exp(-k(x-xo)))", "l": cfit[0],
+        "k": cfit[1], "xo": cfit[2]}
     for i, frac in enumerate((90, 70, 50)):
         if completeness[i] and not np.isnan(completeness[i]):
             printf(
@@ -515,7 +520,7 @@ def compile_results(
     if plot_ast:
         fig: Figure
         ax: Axes
-        fig, ax = plt.subplots(1, figsize=(3.5,3), dpi=300)
+        fig, ax = plt.subplots(1, figsize=(3.5, 3), dpi=300)
         ax.scatter(
             completeness_raw[TableColumn.MAG],
             completeness_raw[TableColumn.REC], c='k', lw=0, s=8)
@@ -538,7 +543,7 @@ def compile_results(
         ax.set_title("Artificial Star Test")
         ax.set_xlabel(filter_string)
         ax.set_ylabel("Fraction Recovered")
-        ax.set_yticks([0,.25,.5,.75,1])
+        ax.set_yticks([0, .25, .5, .75, 1])
         ax.legend(loc="lower left", frameon=False, fontsize=8)
         plt.tight_layout()
         fig.savefig(plot_ast, dpi=300)
