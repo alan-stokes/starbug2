@@ -20,7 +20,8 @@
       runs-on: ubuntu-latest
       env:
         STARBUG_TEST_DIR: ${{ github.workspace }}/tests/dat
-        WEBBPSF_PATH: ${{ github.workspace }}/tests/
+        WEBBPSF_PATH: ${{ github.workspace }}/webbpsf_cache
+        STARBUG_DATDIR: ${{ github.workspace }}/starbug_data
 
       strategy:
         matrix:
@@ -31,6 +32,12 @@
       steps:
         # Upgraded to v4 for speed and security
         - uses: actions/checkout@v4
+
+        # create directories for these dependency folders in envs
+        - name: Create DAta and Cache Directories
+          run: |
+            mkdir -p ${{ github.workspace }}/webbpsf_cache
+            mkdir -p ${{github.workspace }}/starbug_data
 
         # Upgraded to v5 and added automatic pip caching to speed up builds
         - name: Set up Python ${{ matrix.python-version }}
@@ -60,6 +67,12 @@
             # exit-zero treats all errors as warnings. The GitHub editor is
             # 127 chars wide
             flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+        - name: Pre-test Filter PSF setup
+          run: |
+            echo "Starting pre test filter psf setup"
+            starbug2 --init -s FILTER=F444W
+            echo "Command completed successfully!"
 
         - name: Test with pytest
           run: |

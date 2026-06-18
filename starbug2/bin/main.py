@@ -181,7 +181,7 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> ExitStates:
 
     ## Initialise or update starbug
     if config.execute_jwst_initialisation:
-        init_starbug_for_jwst()
+        init_starbug_for_jwst(config)
 
     ## Generate a single PSF
     if config.generate_psf:
