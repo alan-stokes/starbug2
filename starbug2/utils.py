@@ -13,28 +13,44 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
-import time
-import os, sys, numpy as np
 from importlib import metadata
-from typing import Tuple, Dict, Optional, List, Union, Any
-
-from astropy.table import Table, hstack, Column, MaskedColumn, vstack
-from astropy.io import fits
-from astropy.wcs import WCS
-import requests
 from importlib.metadata import PackageNotFoundError
+import os
+import sys
+import time
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+from astropy.io import fits
+from astropy.table import Column, MaskedColumn, Table, hstack, vstack
+from astropy.wcs import WCS
+import numpy as np
+import requests
 
 from starbug2.constants import (
     DEFAULT_COLOUR, TMP_OUT, TMP_FITS, TableColumn, HeaderTags, FITS_EXTENSION,
-    N_MIS_MATCHES, ExitStates, REST_SUCCESS_CODE, Units,  ImageHeaderTags)
+    N_MIS_MATCHES, ExitStates, REST_SUCCESS_CODE, Units, ImageHeaderTags)
 from starbug2.filters import STAR_BUG_FILTERS
 
+
 # different print methods (why are we not using loggers?)
-printf = lambda s: sys.stdout.write(s)
-p_error = lambda s: sys.stderr.write(s)
-puts = lambda s:printf("%s\n"%s)
-s_bold = lambda s: "\x1b[1m%s\x1b[0m" % s
-warn = lambda s:p_error("%s%s" % (s_bold("Warning: "), s))
+def printf(s: str) -> int:
+    return sys.stdout.write(s)
+
+
+def p_error(s: str) -> int:
+    return sys.stderr.write(s)
+
+
+def puts(s: str) -> int:
+    return printf("%s\n" % s)
+
+
+def s_bold(s: str) -> str:
+    return "\x1b[1m%s\x1b[0m" % s
+
+
+def warn(s: str) -> int:
+    return p_error("%s%s" % (s_bold("Warning: "), s))
 
 
 def append_chars(s: str, n: int, c: str) -> str:
@@ -88,6 +104,7 @@ def split_file_name(file_path: str | None) -> Tuple[str, str, str]:
         folder = '.'
     return folder, file_name, ext
 
+
 class Loading(object):
     # how long the bar is
     bar = 40
@@ -99,35 +116,32 @@ class Loading(object):
     length = 1
 
     # loading bar message
-    msg=""
+    msg = ""
 
-    def __init__(self, length: int, msg: Optional[str]="",
-                 res: Optional[int]=1) -> None:
+    def __init__(self, length: int, msg: Optional[str] = "",
+                 res: Optional[int] = 1) -> None:
         self.set_len(length)
         self.msg = msg
         self.start_time = time.time()
         self.res = res
 
-
     def set_len(self, length: int) -> None:
         self.length = abs(length)
-
 
     def __call__(self) -> bool:
         self.n += 1
         return self.n <= self.length
 
-
     def show(self) -> None:
         dec: int = int(self.n / self.length)
-        ## only show once per self.res loads
+        # only show once per self.res loads
         if (dec == 1) or (not self.n % self.res):
             out: str = "%s|" % self.msg
             i: int
             for i in range(self.bar + 0):
-                out += ('=' if (i < (self.bar*dec)) else ' ')
+                out += ('=' if (i < (self.bar * dec)) else ' ')
             out += "|%.0f%%" % (100 * dec)
-            
+
             if self.n:
                 etc: float = (
                     (time.time() - self.start_time) *
@@ -150,25 +164,25 @@ class Loading(object):
             printf("\n")
 
 
-def combine_tables(base: Table| None, tab: Table | None) -> Table | None:
+def combine_tables(base: Table | None, tab: Table | None) -> Table | None:
     """
     Is this the same as vstack?
     """
     if not base:
         return tab
     else:
-        return vstack([base,tab])
+        return vstack([base, tab])
 
 
 def export_region(
-        tab: Table,
-        colour: str = DEFAULT_COLOUR,
-        scale_radius: int = 1,
-        region_radius: int = 3,
-        x_col: str = TableColumn.RA,
-        y_col: str = TableColumn.DEC,
-        wcs: int = 1,
-        f_name: str = TMP_OUT) -> None:
+    tab: Table,
+    colour: str = DEFAULT_COLOUR,
+    scale_radius: int = 1,
+    region_radius: int = 3,
+    x_col: str = TableColumn.RA,
+    y_col: str = TableColumn.DEC,
+    wcs: int = 1,
+    f_name: str = TMP_OUT) -> None:
     """
     A handy function to convert the detections in a DS9 region file
 
@@ -218,7 +232,7 @@ def export_region(
     with open(f_name, 'w') as fp:
         fp.write("global color=%s width=2\n" % colour)
         if tab:
-            for src, ri in zip([tab], r[r>0]):
+            for src, ri in zip([tab], r[r > 0]):
                 fp.write("%scircle %f %f %fi\n" % (
                     prefix, src[x_col], src[y_col], ri))
         else:
@@ -226,8 +240,8 @@ def export_region(
 
 
 def translate_param_float(
-        opt: str, opt_arg: str, set_opt: Dict[str, float],
-        options: int, kill_option: int) -> Tuple[int, Dict[str, float]]:
+    opt: str, opt_arg: str, set_opt: Dict[str, float],
+    options: int, kill_option: int) -> Tuple[int, Dict[str, float]]:
     """
     converts an opt param into a float.
     :param opt: the opt string
@@ -285,7 +299,7 @@ def parse_unit(raw: str) -> Tuple[float | None, int | None]:
     value: float | None = None
     unit: int | None = None
     if raw:
-        try: 
+        try:
             value = float(raw)
             unit = None
         except ValueError:
@@ -297,7 +311,7 @@ def parse_unit(raw: str) -> Tuple[float | None, int | None]:
     return value, unit
 
 
-def tab2array(tab: Table, col_names: Optional[List[str]]=None) -> np.ndarray:
+def tab2array(tab: Table, col_names: Optional[List[str]] = None) -> np.ndarray:
     # noinspection SpellCheckingInspection
     """
     Returns the contents of the table as a normal 2D numpy array
@@ -319,6 +333,7 @@ def tab2array(tab: Table, col_names: Optional[List[str]]=None) -> np.ndarray:
     else:
         col_names = remove_duplicates(col_names)
     return np.array(tab[col_names].as_array().tolist())
+
 
 def collapse_header(header) -> fits.Header:
     # noinspection SpellCheckingInspection
@@ -344,8 +359,8 @@ def collapse_header(header) -> fits.Header:
     return out
 
 
-def export_table(table: Table, f_name: Optional[str]=None,
-                 header: Optional[fits.Header]=None) -> None:
+def export_table(table: Table, f_name: Optional[str] = None,
+                 header: Optional[fits.Header] = None) -> None:
     """
     Export table with correct dtypes
 
@@ -377,6 +392,7 @@ def export_table(table: Table, f_name: Optional[str]=None,
 
     fits.BinTableHDU(data=table, header=fits_header).writeto(
         f_name, overwrite=True, output_verify="fix")
+
 
 def import_table(f_name: str, verbose: bool | int = 0) -> Table | None:
     """
@@ -454,12 +470,12 @@ def find_col_names(tab: Table, basename: str) -> List[str]:
     """
     return [
         col_name for col_name in tab.colnames
-            if col_name[:len(basename)] == basename]
+        if col_name[:len(basename)] == basename]
 
 
 def combine_file_names(
-        f_names: List[str | None],
-        n_mismatch: int=N_MIS_MATCHES) -> str | None:
+    f_names: List[str | None],
+    n_mismatch: int = N_MIS_MATCHES) -> str | None:
     """
     when matching catalogues, combines the file names into an appropriate
     combination of all the inputs.
@@ -475,31 +491,33 @@ def combine_file_names(
     trys: int = 0
     f_name: str = ""
     d_name: str
-    ext : str
+    ext: str
 
     if f_names is None:
         return None
 
     d_name, _, ext = split_file_name(f_names[0])
-    f_names: List[str] = [split_file_name(name)[1] for name in f_names]
+    f_names_split: List[str] = [split_file_name(name)[1] for name in f_names]
 
     i: int
-    for i in range(len(f_names[0])):
-        chars: List[str] = [name[i] for name in f_names if len(name) > i]
+    for i in range(len(f_names_split[0])):
+        chars: List[str] = [
+            name[i] for name in f_names_split if len(name) > i
+        ]
         if len(set(chars)) == 1:
             f_name += chars[0]
-        else: 
+        else:
             f_name += "(%s)" % "".join(sorted(set(chars)))
             trys += 1
         if trys > n_mismatch:
             return None
     while ")(" in f_name:
-        f_name = f_name.replace(")(","")
+        f_name = f_name.replace(")(", "")
     return "%s/%s%s" % (d_name, f_name, ext)
 
 
 def h_cascade(
-        tables: List[Table], col_names: Optional[List[str]] = None) -> Table:
+    tables: List[Table], col_names: Optional[List[str]] = None) -> Table:
     # noinspection SpellCheckingInspection
     """
     Similar use as hstack Except rather than adding a full new column,
@@ -526,13 +544,13 @@ def h_cascade(
             move = 0
             n: int
             for n in range(len(cols) - 1, 0, -1):
-                ##everything that has a value
+                # everything that has a value
                 curr_mask: np.ndarray = np.invert(np.isnan(tab[cols[n]]))
 
-                ##everything empty in left neighbouring column
+                # everything empty in left neighbouring column
                 left_mask: np.ndarray = np.isnan(tab[cols[n - 1]])
 
-                ##cur has value and left is empty
+                # cur has value and left is empty
                 mask: np.ndarray = np.logical_and(curr_mask, left_mask)
 
                 tab[cols[n]] = MaskedColumn(tab[cols[n]])
@@ -572,11 +590,12 @@ def ext_names(hdu_list: fits.HDUList | None) -> List[str]:
     ext: fits.PrimaryHDU | fits.ImageHDU
     return list(ext.name for ext in hdu_list)
 
+
 # noinspection SpellCheckingInspection
 def flux2mag(
-        raw_flux: np.ndarray | float,
-        flux_err: Column | None | np.ndarray | int | float = None,
-        zp: float=1.0) -> Tuple[np.ndarray, np.ndarray]:
+    raw_flux: np.ndarray | float,
+    flux_err: Column | None | np.ndarray | int | float = None,
+    zp: float = 1.0) -> Tuple[np.ndarray, np.ndarray]:
     """
     Convert flux to magnitude in an arbitrary system using the Pogsons relation
 
@@ -607,15 +626,17 @@ def flux2mag(
         mask: np.ndarray = mask_flux & mask_f_err
 
         mag[mask_flux] = -2.5 * np.log10(flux[mask_flux] / zp)
-        mag_err[mask] = 2.5 * np.log10(1.0 + (flux_err_arr[mask] / flux[mask]))
+        mag_err[mask] = 2.5 * np.log10(
+            1.0 + (flux_err_arr[mask] / flux[mask])
+        )
     mag[flux == np.inf] = -np.inf
 
     return mag, mag_err
 
 
 def flux_2_ab_mag(
-        flux: float, flux_err: Column | None = None) -> (
-            Tuple[np.ndarray, np.ndarray]):
+    flux: float, flux_err: Column | None = None) -> (
+    Tuple[np.ndarray, np.ndarray]):
     """
     Convert flux to AB magnitudes
 
@@ -695,7 +716,7 @@ def colour_index(table: Table, keys: List[str]) -> Table:
 
 
 def get_mj_ysr2jy_scale_factor(
-        ext: fits.PrimaryHDU | fits.ImageHDU | fits.BinTableHDU) -> float:
+    ext: fits.PrimaryHDU | fits.ImageHDU | fits.BinTableHDU) -> float:
     """
     Find the unit scale factor to convert an image from MJy/sr to Jy
     Header file must contain the keyword "PIXAR_SR"
@@ -746,7 +767,7 @@ def get_version() -> str:
     try:
         version = metadata.version("starbug2")
     except (AttributeError, TypeError, PackageNotFoundError):
-        ## GitHub pytest work around for now
+        # GitHub pytest work around for now
         version = "UNKNOWN"
     return version
 
@@ -773,9 +794,9 @@ def remove_duplicates[T](seq: List[T]) -> List[T]:
 
 
 def crop_hdu(
-        hdu: fits.HDUList,
-        x_limit: Tuple[int, int] | None = None,
-        y_limit: Tuple[int, int] | None = None) -> fits.HDUList | None:
+    hdu: fits.HDUList,
+    x_limit: Tuple[int, int] | None = None,
+    y_limit: Tuple[int, int] | None = None) -> fits.HDUList | None:
     """
     Crop an image with multiple extensions. Retaining the extensions
 
@@ -792,13 +813,13 @@ def crop_hdu(
         return None
 
     ext: Union[fits.PrimaryHDU, fits.ImageHDU, fits.BinTableHDU,
-               fits.GroupsHDU]
+    fits.GroupsHDU]
     for ext in hdu:
         if type(ext) not in (fits.PrimaryHDU, fits.ImageHDU):
             continue
         if not ext.header[HeaderTags.NAXIS]:
             continue
-        
+
         ctype: str = ext.header.get(HeaderTags.C_TYPE)
         ext.header[HeaderTags.C_TYPE] = "%s-SIP" % ctype
 
@@ -809,7 +830,7 @@ def crop_hdu(
     return hdu
 
 
-def usage(docstring: str | None, verbose: bool | int=0) -> int:
+def usage(docstring: str | None, verbose: bool | int = 0) -> int:
     """
     outputs the usage.
     :param docstring: the doc string to output
@@ -844,5 +865,3 @@ if __name__ == "__main__":
     print(parse_unit("10 D"))
     print(parse_unit("10"))
     print(parse_unit("p10"))
-
-
