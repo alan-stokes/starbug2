@@ -19,6 +19,7 @@ import sys
 import warnings
 
 from astropy.io.fits import PrimaryHDU
+from astropy.io.fits.verify import VerifyWarning
 from astropy.io.fits.header import Header
 from astropy.table import Table
 from astropy.utils.exceptions import AstropyDeprecationWarning, AstropyWarning
@@ -50,6 +51,15 @@ warnings.filterwarnings(
     "ignore", message=".*invalid value encountered.*", category=RuntimeWarning)
 warnings.filterwarnings(
     "ignore", message=".*divide by zero.*", category=RuntimeWarning)
+
+# --- FITS IO FORMATTING NOISE ---
+# These suppress warnings about FITS header compliance
+# (e.g., truncated comments) that do not affect scientific output.
+warnings.filterwarnings(
+    "ignore",
+    category=VerifyWarning,
+    message=".*Card is too long.*"
+)
 
 # Force photutils to strictly return standard QTables globally
 photutils.future_column_names = True
