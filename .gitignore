@@ -141,4 +141,3 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-/star_bug_env/
