@@ -118,8 +118,6 @@ class StarBugMainConfig:
         ('d', 'style', str): 'plot_style',
     }
 
-
-
     # Comprehensive mapping configuration linking keys to internal
     # properties and types
     # noinspection SpellCheckingInspection
@@ -292,7 +290,7 @@ class StarBugMainConfig:
         # param file defaults. These constants do not have justifications yet.
         self._output_file: str | None = None
         self._hdu_name: str = SCI
-        self._filter: str| None = None
+        self._filter: str | None = None
         self._full_width_half_max: float = -1.0
         self._sigma_sky: float = 2.0
         self._sigma_source: float = 5.0
@@ -310,12 +308,12 @@ class StarBugMainConfig:
         self._encircled_energy_fraction: float = -1.0
         self._sky_annulus_inner_radius: float = 3.0
         self._sky_annulus_outer_radius: float = 4.5
-        self._ap_corr_file_override: str| None = None
+        self._ap_corr_file_override: str | None = None
         self._bgd_radius: float = 0.0
         self._profile_scaling_factor: float = 1.0
         self._profile_slope: float = 0.5
         self._background_box_size: int = 2
-        self._bgd_check_file: str| None = None
+        self._bgd_check_file: str | None = None
         self._psf_file_override: str = DEFAULT_PSF_FILE_NAME
         self._use_wcs_values: bool = True
         self._zero_point_magnitude: float = 8.9
@@ -330,7 +328,7 @@ class StarBugMainConfig:
         self._extra_match_columns: str | None = None
         self._exposure_count_threshold: int = -1
         self._signal_to_noise_threshold: float = -1.0
-        self._bridge_band_column: str| None = None
+        self._bridge_band_column: str | None = None
         self._artificial_star_tests_count: int = 100
         self._stars_per_artificial_test: int = 10
         self._sub_image_crop_size: int = 500
@@ -346,7 +344,7 @@ class StarBugMainConfig:
         self._param_tag: str = STAR_BUG_PARAMS
 
         # generate psf variables
-        self._detector_name: str| None = None
+        self._detector_name: str | None = None
 
         # target images
         self._fits_images: list[str] = []
@@ -386,7 +384,6 @@ class StarBugMainConfig:
         """
         return cls._generate_get_opt_definitions(cls.MAIN_FLAG_MAP)
 
-
     @classmethod
     def generate_ast_get_opt_definitions(cls) -> Tuple[str, list[str]]:
         # noinspection SpellCheckingInspection
@@ -422,7 +419,6 @@ class StarBugMainConfig:
         :return: the inputs to gnu_getopt.
         """
         return cls._generate_get_opt_definitions(cls.PLOT_FLAG_MAP)
-
 
     @staticmethod
     def parse_param(line: str) -> Dict[str, int | float | str]:
@@ -468,7 +464,7 @@ class StarBugMainConfig:
                 # If conversion fails, value remains a string
                 pass
 
-            ## Special case environmental variables expansions for paths
+            # Special case environmental variables expansions for paths
             if (key in (HeaderTags.OUTPUT, AP_FILE, BGD_FILE, PSF_FILE)
                     and isinstance(value, str)):
                 value = os.path.expandvars(value)
@@ -502,7 +498,6 @@ class StarBugMainConfig:
                     "default config instead" % f_name)
         return config
 
-
     def populate_params(
             self, argv: list[str], short_definition: str,
             long_definition: list[str],
@@ -521,10 +516,11 @@ class StarBugMainConfig:
             argv, short_definition, long_definition)
 
         for opt, opt_arg in opts:
-            clean_opt = opt.lstrip('-') # strip down to raw option label text
+            # strip down to raw option label text
+            clean_opt = opt.lstrip('-')
 
             for (short_flag, long_flag, data_type), property_name in (
-                param_map.items()):
+                    param_map.items()):
                 if clean_opt in (short_flag, long_flag):
                     if data_type is bool:
                         setattr(self, property_name, True)
@@ -547,7 +543,6 @@ class StarBugMainConfig:
         return (self._filter != "" and self._detector_name != ""
                 and self._psf_fit_size != -1)
 
-
     def use_main_one_time_runs(self) -> bool:
         """
         check for any of the one-off runs.
@@ -568,7 +563,6 @@ class StarBugMainConfig:
         """
         return self._show_ast_help or self._ast_recover
 
-
     def generate_default_param_file_text(self, version_str: str) -> str:
         """
         Dynamically constructs the entire default configuration string template
@@ -586,7 +580,6 @@ class StarBugMainConfig:
         return DEFAULT_PARAM_TEMPLATE.format(
             version_str=version_str, **format_dictionary)
 
-
     def do_generate_local_param_file(self) -> None:
         """
         writes a local param file based off the state of this config.
@@ -594,7 +587,6 @@ class StarBugMainConfig:
         """
         with open("starbug.param", "w") as fp:
             fp.write(self.generate_default_param_file_text(get_version()))
-
 
     def update(self, update_values: dict[str, str | int | float]) -> None:
         """
@@ -622,8 +614,8 @@ class StarBugMainConfig:
                 setattr(self, property_name, target_type(raw_value))
 
     def _normalize_threshold(
-            self, threshold: float | int | np.ndarray | list | Quantity)-> (
-                None | np.ndarray | Quantity):
+            self, threshold: float | int | np.ndarray | list | Quantity) -> (
+            None | np.ndarray | Quantity):
         """
         Normalises threshold inputs to ensure they possess the 'arcsec' unit.
         - Unitless Quantities -> scaled to arcsec
@@ -653,7 +645,6 @@ class StarBugMainConfig:
         if isinstance(threshold, (int, float, np.number)):
             return threshold * units.arcsec
         return None
-
 
     def freeze(self) -> None:
         """
@@ -701,7 +692,6 @@ class StarBugMainConfig:
         assert isinstance(normalised_threshold, np.ndarray)
         return normalised_threshold
 
-
     # ==========================================
     # BELOW HERE ARE GETTERS AND SETTERS FOR EVERYTHING
     # ==========================================
@@ -714,26 +704,21 @@ class StarBugMainConfig:
     def show_help(self) -> bool:
         return self._show_help
 
-
     @show_help.setter
     def show_help(self, value: bool) -> None:
         self._show_help = value
-
 
     @property
     def verbose_logs(self) -> bool:
         return self._verbose_logs
 
-
     @verbose_logs.setter
     def verbose_logs(self, value: bool) -> None:
         self._verbose_logs = value
 
-
     @property
     def show_version(self) -> bool:
         return self._show_version
-
 
     @show_version.setter
     def show_version(self, value: bool) -> None:
@@ -743,71 +728,57 @@ class StarBugMainConfig:
     # MAIN ACTIONS
     # ==========================================
 
-
     @property
     def do_aperture_photometry(self) -> bool:
         return self._do_aperture_photometry
-
 
     @do_aperture_photometry.setter
     def do_aperture_photometry(self, value: bool) -> None:
         self._do_aperture_photometry = value
 
-
     @property
     def do_bgd_estimate(self) -> bool:
         return self._do_bgd_estimate
-
 
     @do_bgd_estimate.setter
     def do_bgd_estimate(self, value: bool) -> None:
         self._do_bgd_estimate = value
 
-
     @property
     def do_star_detection(self) -> bool:
         return self._do_star_detection
-
 
     @do_star_detection.setter
     def do_star_detection(self, value: bool) -> None:
         self._do_star_detection = value
 
-
     @property
     def do_source_geometry(self) -> bool:
         return self._do_source_geometry
-
 
     @do_source_geometry.setter
     def do_source_geometry(self, value: bool) -> None:
         self._do_source_geometry = value
 
-
     @property
     def do_matching(self) -> bool:
         return self._do_matching
-
 
     @do_matching.setter
     def do_matching(self, value: bool) -> None:
         self._do_matching = value
 
-
     @property
     def do_photometry_routine(self) -> bool:
         return self._do_photometry_routine
-
 
     @do_photometry_routine.setter
     def do_photometry_routine(self, value: bool) -> None:
         self._do_photometry_routine = value
 
-
     @property
     def do_bgd_subtraction(self) -> bool:
         return self._do_bgd_subtraction
-
 
     @do_bgd_subtraction.setter
     def do_bgd_subtraction(self, value: bool) -> None:
@@ -817,51 +788,41 @@ class StarBugMainConfig:
     # OTHER ACTIONS
     # ==========================================
 
-
     @property
     def generate_psf(self) -> bool:
         return self._generate_psf
-
 
     @generate_psf.setter
     def generate_psf(self, value: bool) -> None:
         self._generate_psf = value
 
-
     @property
     def generate_run(self) -> bool:
         return self._generate_run
-
 
     @generate_run.setter
     def generate_run(self, value: bool) -> None:
         self._generate_run = value
 
-
     @property
     def generate_region(self) -> bool:
         return self._generate_region
-
 
     @generate_region.setter
     def generate_region(self, value: bool) -> None:
         self._generate_region = value
 
-
     @property
     def generate_local_param_file(self) -> bool:
         return self._generate_local_param_file
-
 
     @generate_local_param_file.setter
     def generate_local_param_file(self, value: bool) -> None:
         self._generate_local_param_file = value
 
-
     @property
     def update_param(self) -> bool:
         return self._update_param
-
 
     @update_param.setter
     def update_param(self, value: bool) -> None:
@@ -871,21 +832,17 @@ class StarBugMainConfig:
     # PARAMETERS
     # ==========================================
 
-
     @property
     def param_file(self) -> str | None:
         return self._param_file
-
 
     @param_file.setter
     def param_file(self, value: str | None) -> None:
         self._param_file = value
 
-
     @property
     def ap_file(self) -> str | None:
         return self._ap_file
-
 
     @ap_file.setter
     def ap_file(self, value: str | None) -> None:
@@ -894,11 +851,9 @@ class StarBugMainConfig:
         else:
             p_error("AP_FILE \"%s\" does not exist\n" % value)
 
-
     @property
     def background_file(self) -> str | None:
         return self._background_file
-
 
     @background_file.setter
     def background_file(self, value: str | None) -> None:
@@ -907,21 +862,17 @@ class StarBugMainConfig:
         else:
             p_error("BGD_FILE \"%s\" does not exist\n" % value)
 
-
     @property
     def find_file(self) -> bool:
         return self._find_file
-
 
     @find_file.setter
     def find_file(self, value: bool) -> None:
         self._find_file = value
 
-
     @property
     def n_cores(self) -> int:
         return self._n_cores
-
 
     @n_cores.setter
     def n_cores(self, value: int) -> None:
@@ -931,31 +882,25 @@ class StarBugMainConfig:
     # DYNAMIC PARAM FILE PROPERTIES (MONSTER EXTRAS)
     # ==========================================
 
-
     @property
     def output_file(self) -> str | None:
         return self._output_file
-
 
     @output_file.setter
     def output_file(self, value: str) -> None:
         self._output_file = value
 
-
     @property
     def hdu_name(self) -> str:
         return self._hdu_name
-
 
     @hdu_name.setter
     def hdu_name(self, value: str) -> None:
         self._hdu_name = value
 
-
     @property
     def custom_filter(self) -> str | None:
         return self._filter
-
 
     @custom_filter.setter
     def custom_filter(self, value: str) -> None:
@@ -968,336 +913,269 @@ class StarBugMainConfig:
         if self._filter == PROBLEMATIC_FILTER_ID:
             warn(PROBLEMATIC_FILTER_WARNING)
 
-
     @property
     def full_width_half_max(self) -> float:
         return self._full_width_half_max
-
 
     @full_width_half_max.setter
     def full_width_half_max(self, value: float) -> None:
         self._full_width_half_max = value
 
-
     @property
     def sigma_sky(self) -> float:
         return self._sigma_sky
-
 
     @sigma_sky.setter
     def sigma_sky(self, value: float) -> None:
         self._sigma_sky = value
 
-
     @property
     def sigma_source(self) -> float:
         return self._sigma_source
-
 
     @sigma_source.setter
     def sigma_source(self, value: float) -> None:
         self._sigma_source = value
 
-
     @property
     def do_bgd_2d(self) -> bool:
         return self._do_bgd_2d
-
 
     @do_bgd_2d.setter
     def do_bgd_2d(self, value: bool) -> None:
         self._do_bgd_2d = value
 
-
     @property
     def do_convolution(self) -> bool:
         return self._do_convolution
-
 
     @do_convolution.setter
     def do_convolution(self, value: bool) -> None:
         self._do_convolution = value
 
-
     @property
     def clean_sources(self) -> bool:
         return self._clean_sources
-
 
     @clean_sources.setter
     def clean_sources(self, value: bool) -> None:
         self._clean_sources = value
 
-
     @property
     def sharp_cutoff_low(self) -> float:
         return self._sharp_cutoff_low
-
 
     @sharp_cutoff_low.setter
     def sharp_cutoff_low(self, value: float) -> None:
         self._sharp_cutoff_low = value
 
-
     @property
     def sharp_cutoff_high(self) -> float:
         return self._sharp_cutoff_high
-
 
     @sharp_cutoff_high.setter
     def sharp_cutoff_high(self, value: float) -> None:
         self._sharp_cutoff_high = value
 
-
     @property
     def round1_cutoff_high(self) -> float:
         return self._round1_cutoff_high
-
 
     @round1_cutoff_high.setter
     def round1_cutoff_high(self, value: float) -> None:
         self._round1_cutoff_high = value
 
-
     @property
     def round2_cutoff_high(self) -> float:
         return self._round2_cutoff_high
-
 
     @round2_cutoff_high.setter
     def round2_cutoff_high(self, value: float) -> None:
         self._round2_cutoff_high = value
 
-
     @property
     def smooth_low(self) -> float:
         return self._smooth_low
-
 
     @smooth_low.setter
     def smooth_low(self, value: float) -> None:
         self._smooth_low = value
 
-
     @property
     def smooth_high(self) -> float:
         return self._smooth_high
-
 
     @smooth_high.setter
     def smooth_high(self, value: float) -> None:
         self._smooth_high = value
 
-
     @property
     def ricker_wavelet_radius(self) -> float:
         return self._ricker_wavelet_radius
-
 
     @ricker_wavelet_radius.setter
     def ricker_wavelet_radius(self, value: float) -> None:
         self._ricker_wavelet_radius = value
 
-
     @property
     def aperture_phot_radius(self) -> float:
         return self._aperture_phot_radius
-
 
     @aperture_phot_radius.setter
     def aperture_phot_radius(self, value: float) -> None:
         self._aperture_phot_radius = value
 
-
     @property
     def encircled_energy_fraction(self) -> float:
         return self._encircled_energy_fraction
-
 
     @encircled_energy_fraction.setter
     def encircled_energy_fraction(self, value: float) -> None:
         self._encircled_energy_fraction = value
 
-
     @property
     def sky_annulus_inner_radius(self) -> float:
         return self._sky_annulus_inner_radius
-
 
     @sky_annulus_inner_radius.setter
     def sky_annulus_inner_radius(self, value: float) -> None:
         self._sky_annulus_inner_radius = value
 
-
     @property
     def sky_annulus_outer_radius(self) -> float:
         return self._sky_annulus_outer_radius
-
 
     @sky_annulus_outer_radius.setter
     def sky_annulus_outer_radius(self, value: float) -> None:
         self._sky_annulus_outer_radius = value
 
-
     @property
     def ap_corr_file_override(self) -> str | None:
         return self._ap_corr_file_override
-
 
     @ap_corr_file_override.setter
     def ap_corr_file_override(self, value: str) -> None:
         self._ap_corr_file_override = value
 
-
     @property
     def bgd_radius(self) -> float:
         return self._bgd_radius
-
 
     @bgd_radius.setter
     def bgd_radius(self, value: float) -> None:
         self._bgd_radius = value
 
-
     @property
     def profile_scaling_factor(self) -> float:
         return self._profile_scaling_factor
-
 
     @profile_scaling_factor.setter
     def profile_scaling_factor(self, value: float) -> None:
         self._profile_scaling_factor = value
 
-
     @property
     def profile_slope(self) -> float:
         return self._profile_slope
-
 
     @profile_slope.setter
     def profile_slope(self, value: float) -> None:
         self._profile_slope = value
 
-
     @property
     def background_box_size(self) -> int:
         return self._background_box_size
-
 
     @background_box_size.setter
     def background_box_size(self, value: int) -> None:
         self._background_box_size = value
 
-
     @property
     def bgd_check_file(self) -> str | None:
         return self._bgd_check_file
-
 
     @bgd_check_file.setter
     def bgd_check_file(self, value: str) -> None:
         self._bgd_check_file = value
 
-
     @property
     def psf_file_override(self) -> str:
         return self._psf_file_override
-
 
     @psf_file_override.setter
     def psf_file_override(self, value: str) -> None:
         self._psf_file_override = value
 
-
     @property
     def use_wcs_values(self) -> bool:
         return self._use_wcs_values
-
 
     @use_wcs_values.setter
     def use_wcs_values(self, value: bool) -> None:
         self._use_wcs_values = value
 
-
     @property
     def zero_point_magnitude(self) -> float:
         return self._zero_point_magnitude
-
 
     @zero_point_magnitude.setter
     def zero_point_magnitude(self, value: float) -> None:
         self._zero_point_magnitude = value
 
-
     @property
     def critical_separation(self) -> float:
         return self._critical_separation
-
 
     @critical_separation.setter
     def critical_separation(self, value: float) -> None:
         self._critical_separation = value
 
-
     @property
     def force_centroid_position(self) -> bool:
         return self._force_centroid_position
-
 
     @force_centroid_position.setter
     def force_centroid_position(self, value: bool) -> None:
         self._force_centroid_position = value
 
-
     @property
     def max_xy_deviation(self) -> str:
         return self._max_xy_deviation
-
 
     @max_xy_deviation.setter
     def max_xy_deviation(self, value: str) -> None:
         self._max_xy_deviation = value
 
-
     @property
     def psf_fit_size(self) -> int:
         return self._psf_fit_size
-
 
     @psf_fit_size.setter
     def psf_fit_size(self, value: int) -> None:
         self._psf_fit_size = value
 
-
     @property
     def generate_residual_image(self) -> bool:
         return self._generate_residual_image
-
 
     @generate_residual_image.setter
     def generate_residual_image(self, value: bool) -> None:
         self._generate_residual_image = value
 
-
     @property
     def calculate_crowding_metric(self) -> bool:
         return self._calculate_crowding_metric
-
 
     @calculate_crowding_metric.setter
     def calculate_crowding_metric(self, value: bool) -> None:
         self._calculate_crowding_metric = value
 
-
     @property
     def match_threshold_arc_sec(self) -> str:
         return self._match_threshold_arc_sec
 
-
     @match_threshold_arc_sec.setter
     def match_threshold_arc_sec(self, value: str) -> None:
         self._match_threshold_arc_sec = value
-
 
     @property
     def extra_match_columns(self) -> str:
@@ -1305,21 +1183,17 @@ class StarBugMainConfig:
             return ""
         return self._extra_match_columns
 
-
     @extra_match_columns.setter
     def extra_match_columns(self, value: str) -> None:
         self._extra_match_columns = value
-
 
     @property
     def exposure_count_threshold(self) -> int:
         return self._exposure_count_threshold
 
-
     @exposure_count_threshold.setter
     def exposure_count_threshold(self, value: int) -> None:
         self._exposure_count_threshold = value
-
 
     @property
     def bridge_band_column(self) -> str:
@@ -1327,151 +1201,121 @@ class StarBugMainConfig:
             return ""
         return self._bridge_band_column
 
-
     @bridge_band_column.setter
     def bridge_band_column(self, value: str) -> None:
         self._bridge_band_column = value
-
 
     @property
     def artificial_star_tests_count(self) -> int:
         return self._artificial_star_tests_count
 
-
     @artificial_star_tests_count.setter
     def artificial_star_tests_count(self, value: int) -> None:
         self._artificial_star_tests_count = value
-
 
     @property
     def stars_per_artificial_test(self) -> int:
         return self._stars_per_artificial_test
 
-
     @stars_per_artificial_test.setter
     def stars_per_artificial_test(self, value: int) -> None:
         self._stars_per_artificial_test = value
-
 
     @property
     def sub_image_crop_size(self) -> int:
         return self._sub_image_crop_size
 
-
     @sub_image_crop_size.setter
     def sub_image_crop_size(self, value: int) -> None:
         self._sub_image_crop_size = value
-
 
     @property
     def test_magnitude_bright_limit(self) -> int:
         return self._test_magnitude_bright_limit
 
-
     @test_magnitude_bright_limit.setter
     def test_magnitude_bright_limit(self, value: int) -> None:
         self._test_magnitude_bright_limit = value
-
 
     @property
     def test_magnitude_faint_limit(self) -> int:
         return self._test_magnitude_faint_limit
 
-
     @test_magnitude_faint_limit.setter
     def test_magnitude_faint_limit(self, value: int) -> None:
         self._test_magnitude_faint_limit = value
-
 
     @property
     def ast_plot_filename(self) -> str | None:
         return self._ast_plot_filename
 
-
     @ast_plot_filename.setter
     def ast_plot_filename(self, value: str) -> None:
         self._ast_plot_filename = value
-
 
     @property
     def region_colour(self) -> str:
         return self._region_colour
 
-
     @region_colour.setter
     def region_colour(self, value: str) -> None:
         self._region_colour = value
-
 
     @property
     def region_scale(self) -> bool:
         return self._region_scale
 
-
     @region_scale.setter
     def region_scale(self, value: bool) -> None:
         self._region_scale = value
-
 
     @property
     def region_radius(self) -> int:
         return self._region_radius
 
-
     @region_radius.setter
     def region_radius(self, value: int) -> None:
         self._region_radius = value
-
 
     @property
     def region_x_column_name(self) -> str:
         return self._region_x_column_name
 
-
     @region_x_column_name.setter
     def region_x_column_name(self, value: str) -> None:
         self._region_x_column_name = value
-
 
     @property
     def region_y_column_name(self) -> str:
         return self._region_y_column_name
 
-
     @region_y_column_name.setter
     def region_y_column_name(self, value: str) -> None:
         self._region_y_column_name = value
-
 
     @property
     def region_uses_wcs(self) -> bool:
         return self._region_uses_wcs
 
-
     @region_uses_wcs.setter
     def region_uses_wcs(self, value: bool) -> None:
         self._region_uses_wcs = value
-
 
     @property
     def execute_jwst_initialisation(self) -> bool:
         return self._execute_jwst_initialisation
 
-
     @execute_jwst_initialisation.setter
     def execute_jwst_initialisation(self, value: bool) -> None:
         self._execute_jwst_initialisation = value
-
 
     @property
     def detector_name(self) -> str | None:
         return self._detector_name
 
-
     @detector_name.setter
     def detector_name(self, value: str) -> None:
         self._detector_name = value
-
 
     @property
     def region_file(self) -> str | None:
@@ -1507,54 +1351,45 @@ class StarBugMainConfig:
     def param_tag(self, value) -> None:
         self._param_tag = value
 
-    #===============================
+    # ===============================
     # AST properties
-    #===============================
+    # ===============================
 
     @property
     def show_ast_help(self) -> bool:
         return self._show_ast_help
 
-
     @show_ast_help.setter
     def show_ast_help(self, value) -> None:
         self._show_ast_help = value
-
 
     @property
     def ast_recover(self) -> bool:
         return self._ast_recover
 
-
     @ast_recover.setter
     def ast_recover(self, value: bool) -> None:
         self._ast_recover = value
-
 
     @property
     def ast_auto_save(self) -> int:
         return self._ast_auto_save
 
-
     @ast_auto_save.setter
     def ast_auto_save(self, value: int) -> None:
         self._ast_auto_save = value
-
 
     @property
     def ast_no_background(self) -> bool:
         return self._ast_no_background
 
-
     @ast_no_background.setter
     def ast_no_background(self, value: bool) -> None:
         self._ast_no_background = value
 
-
     @property
     def ast_no_psf_phot(self) -> bool:
         return self._ast_no_psf_phot
-
 
     @ast_no_psf_phot.setter
     def ast_no_psf_phot(self, value: bool) -> None:
@@ -1568,96 +1403,77 @@ class StarBugMainConfig:
     def do_band_processing(self) -> bool:
         return self._do_band_processing
 
-
     @do_band_processing.setter
     def do_band_processing(self, value: bool) -> None:
         self._do_band_processing = value
-
 
     @property
     def do_cascade(self) -> bool:
         return self._do_cascade
 
-
     @do_cascade.setter
     def do_cascade(self, value: bool) -> None:
         self._do_cascade = value
-
 
     @property
     def use_dither(self) -> bool:
         return self._use_dither
 
-
     @use_dither.setter
     def use_dither(self, value: bool) -> None:
         self._use_dither = value
-
 
     @property
     def exact_match(self) -> bool:
         return self._exact_match
 
-
     @exact_match.setter
     def exact_match(self, value: bool) -> None:
         self._exact_match = value
-
 
     @property
     def full_run(self) -> bool:
         return self._full_run
 
-
     @full_run.setter
     def full_run(self, value: bool) -> None:
         self._full_run = value
-
 
     @property
     def generic_mode(self) -> bool:
         return self._generic_mode
 
-
     @generic_mode.setter
     def generic_mode(self, value: bool) -> None:
         self._generic_mode = value
-
 
     @property
     def show_match_help(self) -> bool:
         return self._show_match_help
 
-
     @show_match_help.setter
     def show_match_help(self, value: bool) -> None:
         self._show_match_help = value
-
 
     @property
     def band_deprecated(self) -> bool:
         return self._band_deprecated
 
-
     @band_deprecated.setter
     def band_deprecated(self, value: bool) -> None:
         self._band_deprecated = value
-
 
     @property
     def error_col(self) -> str:
         return self._error_col
 
-
     @error_col.setter
     def error_col(self, value: str) -> None:
         self._error_col = value
 
-
     @property
     def mask_eval(self) -> str | None:
         return self._mask_eval
-
 
     @mask_eval.setter
     def mask_eval(self, value: str | None) -> None:
@@ -1671,51 +1487,41 @@ class StarBugMainConfig:
     def show_plot_help(self) -> bool:
         return self._show_plot_help
 
-
     @show_plot_help.setter
     def show_plot_help(self, value: bool) -> None:
         self._show_plot_help = value
-
 
     @property
     def test_mode(self) -> bool:
         return self._test_mode
 
-
     @test_mode.setter
     def test_mode(self, value: bool) -> None:
         self._test_mode = value
-
 
     @property
     def dark_mode(self) -> bool:
         return self._dark_frame_correction
 
-
     @dark_mode.setter
     def dark_mode(self, value: bool) -> None:
         self._dark_frame_correction = value
-
 
     @property
     def inspect_parameter(self) -> str | None:
         return self._inspect_parameter
 
-
     @inspect_parameter.setter
     def inspect_parameter(self, value: str | None) -> None:
         self._inspect_parameter = value
-
 
     @property
     def plot_style(self) -> str | None:
         return self._plot_style
 
-
     @plot_style.setter
     def plot_style(self, value: str | None) -> None:
         self._plot_style = value
-
 
     def __setattr__(self, key: str, value: Any) -> None:
         # Check if the class is frozen, allowing the internal '_frozen'
@@ -1737,7 +1543,8 @@ class StarBugMainConfig:
                         f"Param '{param_key}' passed via -s/--set is not a "
                         f"valid Starbug2 parameter. Please check spelling")
 
-                property_name, target_type = self.MAIN_PARAM_FILE_MAP[param_key]
+                property_name, target_type = (
+                    self.MAIN_PARAM_FILE_MAP[param_key])
 
                 # Convert empty arguments or strings to standard configurations
                 if val_str == "" or val_str.lower() == "none":

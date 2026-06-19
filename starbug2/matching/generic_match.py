@@ -12,12 +12,6 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-
-"""
-Starbug matching functions
-Primarily this is the main routines for dither/band/generic matching which are
- at the core of starbug2 and starbug2-match
-"""
 from typing import Any
 import numpy as np
 from astropy import units

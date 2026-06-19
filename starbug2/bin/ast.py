@@ -12,27 +12,6 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-
-# noinspection SpellCheckingInspection
-
-"""
-StarbugII Artificial Star Testing
-usage: starbug2-ast [-vhR] [-N ntests] [-n ncores] [-p file.param] [-S nstars]
-                    [-s opt=val] image.fits ...
-    -h  --help          : show help screen
-    -N  --ntests    num : number of tests to run
-    -n  --ncores  cores : number of cores to split the tests over
-    -o  --output output : output directory or filename to export results to
-    -p  --param    file : load a parameter file
-    -R  --recover       : recover incomplete test autosave files
-    -S  --nstars    num : number of stars to inject per test
-    -s  --set    option : set parameter at runtime with syntax "-s KEY=VALUE"
-    -v  --verbose       : show verbose stdout output
-
-        --autosave freq : frequency of quick save outputs
-        --no-background : turn off background estimation routine
-        --no-psfphot    : turn off psf photometry routine
-"""
 import os
 import sys
 from multiprocessing.shared_memory import SharedMemory

@@ -12,12 +12,6 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-
-"""
-Starbug matching functions
-Primarily this is the main routines for dither/band/generic matching which are
- at the core of starbug2 and starbug2-match
-"""
 from typing import override, Final, Any
 
 import numpy as np
@@ -66,8 +60,8 @@ class BandMatch(GenericMatch):
     def __init__(self, **kwargs: Any) -> None:
         if BandMatch.FILTER in kwargs:
             if not isinstance(kwargs[BandMatch.FILTER], list):
-                warn("{} input should be a list, "
-                     "there may be unexpected behaviour\n", self.FILTER)
+                warn(f"{self.FILTER} input should be a list, "
+                     "there may be unexpected behaviour\n")
                 self._filter_list: list[str] = [kwargs[BandMatch.FILTER]]
             else:
                 self._filter_list: list[str] = kwargs[BandMatch.FILTER]

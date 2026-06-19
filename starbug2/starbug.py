@@ -73,8 +73,8 @@ class StarbugBase(StarBugInterface):
 
     @staticmethod
     def sort_output_names(
-        f_name: str, param_output: Optional[str] = None) -> (
-        Tuple[str, str, str]):
+        f_name: str, param_output: Optional[str] = None
+    ) -> Tuple[str, str, str]:
         """
         This is a useful function that looks at both an input file and a set
         output and figures out how to name output files. If param_output looks
@@ -111,9 +111,10 @@ class StarbugBase(StarBugInterface):
 
     def __init__(
         self, f_name: str, config: StarBugMainConfig,
-        ap_file: Optional[str], bkg_file: Optional[str], verbose: Any) -> None:
+        ap_file: Optional[str], bkg_file: Optional[str], verbose: Any
+    ) -> None:
         """
-        Star bug initialization.
+        Star bug initialisation.
 
         :param f_name: FITS image file name
         :type f_name: str
@@ -152,11 +153,11 @@ class StarbugBase(StarBugInterface):
         self._full_width_half_max = config.full_width_half_max
 
         # Process options
-        ## Load the fits image
+        # Load the fits image
         self.load_image(f_name)
 
         if ap_file is not None:
-            ## Load the source list if given
+            # Load the source list if given
             self.load_ap_file(ap_file)
         if bkg_file is not None:
             self.load_bgd_file(bkg_file)
@@ -185,9 +186,7 @@ class StarbugBase(StarBugInterface):
         """
         self._f_name = f_name
         if f_name:
-            #########################################
             # Sorting out the file names and what not
-            #########################################
             extension: str
             self._out_dir, self._b_name, extension = self.sort_output_names(
                 f_name, self._config.output_file)
@@ -197,7 +196,7 @@ class StarbugBase(StarBugInterface):
                     self.log("loaded: \"%s\"\n" % f_name)
                     self._image = open(f_name)
 
-                    ## Force assigning _nHDU
+                    # Force assigning _nHDU
                     main_image: ImageHDU | PrimaryHDU = self.main_image
                     self._header = main_image.header
 
@@ -209,8 +208,8 @@ class StarbugBase(StarBugInterface):
                         warn("Image seems to be empty.\n")
 
                     if ((val := main_image.header.get(
-                        ImageHeaderTags.TELESCOPE)) is None
-                        or (val.find(ImageHeaderTags.JWST) < 0)):
+                            ImageHeaderTags.TELESCOPE)) is None
+                            or (val.find(ImageHeaderTags.JWST) < 0)):
                         warn("Telescope not JWST, "
                              "there may be undefined behaviour.\n")
 
@@ -244,7 +243,7 @@ class StarbugBase(StarBugInterface):
 
                     self._wcs = WCS(self.main_image.header)
 
-                    ## Determine calculation stage level
+                    # Determine calculation stage level
                     extension_names: List[str] = ext_names(self._image)
                     if DQ in extension_names:
                         if AREA in extension_names:
@@ -337,7 +336,7 @@ class StarbugBase(StarBugInterface):
                 )
 
                 # cant figure how to resolve this typing
-                self._detections.remove_rows(~mask) # noqa
+                self._detections.remove_rows(~mask)  # noqa
                 self.log(
                     "-> loaded %d sources from AP_FILE\n" %
                     len(self._detections))
@@ -389,7 +388,7 @@ class StarbugBase(StarBugInterface):
                     dt_name = "NRCB5"
                 if dt_name == "MULTIPLE":
                     if (filter_struct.instr == NIRCAM
-                        and filter_struct.length == DetectorLengths.SHORT):
+                            and filter_struct.length == DetectorLengths.SHORT):
                         dt_name = "NRCA1"
                     elif (filter_struct.instr == NIRCAM and
                           filter_struct.length == DetectorLengths.LONG):
@@ -421,7 +420,7 @@ class StarbugBase(StarBugInterface):
         return status
 
     def prepare_image_arrays(self) -> (
-        Tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray]):
+            Tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray]):
         """
         Make a copy of the original image, and prepare the other image arrays.
 
@@ -445,7 +444,7 @@ class StarbugBase(StarBugInterface):
         extension_names: list[str] = ext_names(self._image)
         assert self._image is not None
         if AREA in extension_names:
-            ## AREA distortion correction
+            # AREA distortion correction
             image *= self._image[AREA].data
 
         # Collect and scale error
@@ -544,7 +543,6 @@ class StarbugBase(StarBugInterface):
             status = ExitStates.EXIT_FAIL
         return status
 
-
     # noinspection SpellCheckingInspection
     def aperture_photometry(self) -> ExitStates:
         """
@@ -575,9 +573,7 @@ class StarbugBase(StarBugInterface):
         self._detections.remove_columns(
             set(new_columns) & set(self._detections.colnames))
 
-        #######################
-        # APERTURE PHOTOMETRY #
-        #######################
+        # APERTURE PHOTOMETRY
         self.log("\nRunning Aperture Photometry\n")
 
         image: np.ndarray
@@ -585,9 +581,7 @@ class StarbugBase(StarBugInterface):
         mask: np.ndarray
         image, error, _, mask = self.prepare_image_arrays()
 
-        #######################
-        # Aperture Correction #
-        #######################
+        # Aperture Correction
         ap_corr_f_name: Optional[str] = None
         if _ap_corr_f_name := self._config.ap_corr_file_override:
             ap_corr_f_name = _ap_corr_f_name
@@ -628,9 +622,7 @@ class StarbugBase(StarBugInterface):
             self._filter, radius, table_f_name=ap_corr_f_name,
             verbose=self._verbose)
 
-        ##################
-        # Run Photometry #
-        ##################
+        # Run Photometry
         app_hot: APPhotRoutine = APPhotRoutine(
             radius, sky_in, sky_out, verbose=bool(self._verbose))
 
@@ -684,7 +676,6 @@ class StarbugBase(StarBugInterface):
         export_table(self._detections, f_name, header=self.header)
 
         return ExitStates.EXIT_SUCCESS
-
 
     def bgd_estimate(self) -> ExitStates:
         """
@@ -797,9 +788,11 @@ class StarbugBase(StarBugInterface):
 
         try:
             hdu_output.writeto(f_name, overwrite=True)
-            self.log("--> Background subtracted image written to %s\n" % f_name)
+            self.log(
+                "--> Background subtracted image written to %s\n" % f_name)
         except Exception as e:
-            p_error("Failed to write background-subtracted file: %s\n" % str(e))
+            p_error(
+                "Failed to write background-subtracted file: %s\n" % str(e))
             return ExitStates.EXIT_FAIL
 
         return ExitStates.EXIT_SUCCESS
@@ -838,10 +831,7 @@ class StarbugBase(StarBugInterface):
                     "clipped median\n")
             assert bgd is not None
 
-            ###################################
-            # Collect relevant files and data #
-            ###################################
-
+            # Collect relevant files and data
             if self._detections is None:
                 p_error("unable to run photometry: no source list loaded\n")
                 return ExitStates.EXIT_FAIL
@@ -868,9 +858,7 @@ class StarbugBase(StarBugInterface):
                 size -= 1
             self.log("-> psf size: %d\n" % size)
 
-            #########################
-            # Sort out Init guesses #
-            #########################
+            # Sort out Init guesses
             app_hot_r: float = float(self._config.aperture_phot_radius)
             if not app_hot_r or app_hot_r <= 0:
                 app_hot_r = 3.0
@@ -891,22 +879,20 @@ class StarbugBase(StarBugInterface):
                 init_guesses.rename_column(
                     TableColumn.Y_DET, TableColumn.Y_INIT)
 
-            init_guesses = init_guesses[ init_guesses[TableColumn.X_INIT] >=0 ]
-            init_guesses = init_guesses[ init_guesses[TableColumn.Y_INIT] >=0 ]
+            init_guesses = init_guesses[init_guesses[TableColumn.X_INIT] >= 0]
+            init_guesses = init_guesses[init_guesses[TableColumn.Y_INIT] >= 0]
             init_guesses = init_guesses[
                 init_guesses[TableColumn.X_INIT]
                 < self.main_image.header[HeaderTags.NAXIS1]]
-            init_guesses=init_guesses[
+            init_guesses = init_guesses[
                 init_guesses[TableColumn.Y_INIT]
                 < self.main_image.header[HeaderTags.NAXIS2]]
 
-            ######
             # Allow tables that don't have the correct columns through
-            ######
             required: List[str] = [
                 TableColumn.X_INIT, TableColumn.Y_INIT, TableColumn.FLUX,
                 self._filter, TableColumn.FLAG]
-            for notfound in  set(required) - set(init_guesses.colnames):
+            for notfound in set(required) - set(init_guesses.colnames):
                 dtype = np.uint16 if notfound == TableColumn.FLAG else float
                 init_guesses.add_column(
                     Column(np.zeros(len(init_guesses)),
@@ -916,10 +902,7 @@ class StarbugBase(StarBugInterface):
             init_guesses.remove_column(TableColumn.FLUX)
             init_guesses.rename_column(self._filter, "ap_%s" % self._filter)
 
-            ###########
-            # Run Fit #
-            ###########
-
+            # Run Fit
             min_separation: float = self._config.critical_separation
             if not min_separation:
                 min_separation = min(5.0, 2.5 * self._full_width_half_max)
@@ -935,20 +918,18 @@ class StarbugBase(StarBugInterface):
                 psf_cat[TableColumn.FLAG] |= SourceFlags.SRC_FIX
 
             else:
-                phot: PSFPhotRoutine = PSFPhotRoutine(
+                phot = PSFPhotRoutine(
                     psf_model, size, min_separation=min_separation,
                     app_hot_r=app_hot_r, background=bgd, force_fit=0,
                     verbose=self._verbose)
-                psf_cat: Table = phot(
+                psf_cat = phot(
                     image, init_params=init_guesses, error=error,
                     mask=mask)
 
                 if not psf_cat:
                     return ExitStates.EXIT_FAIL
 
-                ##################################
-                # Setting position max variation #
-                ##################################
+                # Setting position max variation
                 max_y_dev: float
                 unit: int
                 max_y_dev, unit = parse_unit(self._config.max_xy_deviation)
@@ -973,11 +954,11 @@ class StarbugBase(StarBugInterface):
                 if max_y_dev > 0:
                     self.log(
                         "-> position fit threshold: %.2gpix\n" % max_y_dev)
-                    phot: PSFPhotRoutine = PSFPhotRoutine(
+                    phot = PSFPhotRoutine(
                         psf_model, size, min_separation=min_separation,
                         app_hot_r=app_hot_r, background=bgd, force_fit=1,
                         verbose=self._verbose)
-                    ii: bool = psf_cat[TableColumn.XY_DEV] > max_y_dev
+                    ii: np.ndarray = psf_cat[TableColumn.XY_DEV] > max_y_dev
                     fixed_centres: Table = psf_cat[ii][
                         [TableColumn.X_INIT, TableColumn.Y_INIT,
                          "ap_%s" % self._filter, TableColumn.FLAG]]
@@ -990,7 +971,7 @@ class StarbugBase(StarBugInterface):
                         # here?
                         fixed_cat[TableColumn.FLAG] |= (
                             np.uint16(SourceFlags.SRC_FIX))
-                        psf_cat.remove_rows(ii)
+                        psf_cat.remove_rows(ii.tolist())
                         psf_cat = vstack((psf_cat, fixed_cat))
                     else:
                         self.log("-> no deviant sources\n")
@@ -1002,7 +983,7 @@ class StarbugBase(StarBugInterface):
             psf_cat.add_column(Column(dec, name=TableColumn.DEC), index=3)
 
             mag: float
-            mag_error: float
+            mag_err: float
             mag, mag_err = flux2mag(
                 psf_cat[TableColumn.FLUX], psf_cat[TableColumn.E_FLUX])
 
@@ -1017,8 +998,8 @@ class StarbugBase(StarBugInterface):
             assert self._psf_catalogue is not None
 
             self._psf_catalogue.meta = dict(self.header.items())
-            self._psf_catalogue.meta[AP_FILE]=self._ap_file
-            self._psf_catalogue.meta[BGD_FILE]=self._background_file
+            self._psf_catalogue.meta[AP_FILE] = self._ap_file
+            self._psf_catalogue.meta[BGD_FILE] = self._background_file
 
             reindex(self._psf_catalogue)
 
@@ -1029,10 +1010,7 @@ class StarbugBase(StarBugInterface):
                 data=self._psf_catalogue,
                 header=self.header).writeto(file_name, overwrite=True)
 
-            ##################
-            # Residual Image #
-            ##################
-
+            # Residual Image
             if self._config.generate_residual_image:
                 self.log("-> generating residual\n")
                 _tmp: Table = psf_cat[
@@ -1042,7 +1020,7 @@ class StarbugBase(StarBugInterface):
                     (TableColumn.X_FIT, TableColumn.Y_FIT),
                     (TableColumn.X_0, TableColumn.Y_0))
                 stars: np.ndarray = make_model_image(
-                    image.shape, psf_model, _tmp, model_shape=(size,size))
+                    image.shape, psf_model, _tmp, model_shape=(size, size))
                 residual: np.ndarray = image - (bgd + stars)
                 self._residuals = (
                     residual / get_mj_ysr2jy_scale_factor(self.main_image))
@@ -1127,7 +1105,6 @@ class StarbugBase(StarBugInterface):
 
         return status
 
-
     def _filter_detections(self) -> Table:
         """
         filters the detections based on some fixed constraints.
@@ -1135,9 +1112,9 @@ class StarbugBase(StarBugInterface):
         """
         assert self._detections is not None
         detections: Table = self._detections[
-            [TableColumn.X_CENTROID,TableColumn.Y_CENTROID]].copy()
-        detections = detections[ detections[TableColumn.X_CENTROID] >= 0]
-        detections = detections[ detections[TableColumn.Y_CENTROID] >= 0]
+            [TableColumn.X_CENTROID, TableColumn.Y_CENTROID]].copy()
+        detections = detections[detections[TableColumn.X_CENTROID] >= 0]
+        detections = detections[detections[TableColumn.Y_CENTROID] >= 0]
         detections = detections[
             detections[TableColumn.X_CENTROID] <
             self.main_image.header[HeaderTags.NAXIS1]]
@@ -1153,11 +1130,11 @@ class StarbugBase(StarBugInterface):
         """
         assert self._image is not None
         self._image.close()
-        state:  dict[str, Any] = self.__dict__.copy()
+        state: dict[str, Any] = self.__dict__.copy()
         if "_image" in state:
-            ##Sorry but we cant have that
+            # Sorry but we cant have that
             del state["_image"]
-            ## This currently doesnt get reloaded
+            # This currently doesnt get reloaded
         if "_background" in state:
             del state["_background"]
 
@@ -1165,7 +1142,7 @@ class StarbugBase(StarBugInterface):
 
     def __setstate__(self, state) -> None:
         self.__dict__.update(state)
-        v:  int = int(self._verbose)
+        v: int = int(self._verbose)
         self._verbose = 0
         self.load_image(self._f_name)
         self._verbose = v
@@ -1178,7 +1155,7 @@ class StarbugBase(StarBugInterface):
         :return:  Header file containing a series of relevant information
         :rtype: Header
         """
-        head: Dict[str, str | float| None] = {
+        head: Dict[str, str | float | None] = {
             HeaderTags.STAR_BUG: get_version(),
             HeaderTags.CALIBRATION_LV: self._stage
         }
@@ -1204,7 +1181,6 @@ class StarbugBase(StarBugInterface):
         head.update(self.info)
         return collapse_header(head)
 
-
     @property
     def info(self) -> dict[str, str]:
         """
@@ -1222,8 +1198,8 @@ class StarbugBase(StarBugInterface):
         if self._image:
             for hdu in self._image:
                 out.update(
-                    { (key,hdu.header[key]) for key in keys
-                      if key in hdu.header})
+                    {(key, hdu.header[key]) for key in keys
+                     if key in hdu.header})
         return out
 
     @property
@@ -1247,26 +1223,26 @@ class StarbugBase(StarBugInterface):
             return self._image[self._n_hdu]
         e_names: list[str] = ext_names(self._image)
 
-        ## HDU_NAME in param file
+        # HDU_NAME in param file
         n: str = str(self._config.hdu_name)
         if n and n in e_names:
             self._n_hdu = e_names.index(n)
             return self._image[n]
 
-        ##index?
+        # index?
         if isinstance(n, (int, float, np.number)):
             self._n_hdu = int(n)
             return self._image[self._n_hdu]
 
-        ## SCI, BGD, RES (common names)
+        # SCI, BGD, RES (common names)
         for name in (SCI, BGD, RES):
             name: str
             if name in e_names:
                 self._n_hdu = e_names.index(name)
                 return self._image[name]
 
-        ## First ImageHDU
-        #ABS ARE WE SURE WE WANT TO LOOK FOR A INDEX WITH A ENUMERATE INDEX?
+        # First ImageHDU
+        # ABS ARE WE SURE WE WANT TO LOOK FOR A INDEX WITH A ENUMERATE INDEX?
         assert self._image is not None
         for index, hdu in enumerate(self._image):
             index: int

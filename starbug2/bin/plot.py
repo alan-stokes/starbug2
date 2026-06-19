@@ -12,21 +12,6 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-
-# noinspection SpellCheckingInspection
-"""StarbugII Plotting Scripts
-usage: starbug2-plot [-vhX] [-I CN000] [-o outfile] images.fits
-    -h  --help           : show help screen
-    -o  --output   f_name : output filename
-    -v  --verbose        : verbose mode
-
-    -I  --inspect  CN000 : inspect a source in an array of images
-    -X  --test           : plot a test image
-
-        --style    f_name : load a custom pyplot style sheet
-        --dark           : plot in dark mode
-    -apfile              : ?????
-"""
 import os, sys
 
 import numpy as np

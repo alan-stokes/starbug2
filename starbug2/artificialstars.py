@@ -12,7 +12,6 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-
 import numpy as np
 from typing import cast, Any, Final, List, Tuple, Optional, Callable, Dict
 from photutils.datasets import make_model_image, make_random_models_table
