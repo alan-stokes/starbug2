@@ -48,6 +48,7 @@ def test_run_basic():
         f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS
     clean()
 
+
 @pytest.mark.skipif(
     os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") is None or
     os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") == "false",
@@ -70,6 +71,7 @@ def test_run_harsh_inputs():
         f"starbug2-ast -N1000 -S1000 -n1000"
         f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS
     clean()
+
 
 if __name__ == "__main__":
     # This allows you to run the harsh test directly.

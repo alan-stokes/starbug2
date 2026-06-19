@@ -1178,7 +1178,7 @@ class StarbugBase(StarBugInterface):
         :return:  Header file containing a series of relevant information
         :rtype: Header
         """
-        head: Dict[str, str | float] = {
+        head: Dict[str, str | float| None] = {
             HeaderTags.STAR_BUG: get_version(),
             HeaderTags.CALIBRATION_LV: self._stage
         }
@@ -1195,15 +1195,9 @@ class StarbugBase(StarBugInterface):
             else:
                 head[fits_key] = value
 
-        # ensure lack of none
-        ap_file: str | None = self._ap_file
-        assert ap_file is not None
-        background_file: str | None = self._background_file
-        assert background_file is not None
-
         # add the changed ones
-        head[AP_FILE] = ap_file
-        head[BGD_FILE] = background_file
+        head[AP_FILE] = self._ap_file
+        head[BGD_FILE] = self._background_file
         head[VERBOSE_TAG] = self._verbose
 
         # add info

@@ -22,14 +22,20 @@ from starbug2.constants import ExitStates
 from tests.generic import (
     clean, TEST_IMAGE_FITS, TEST_FILTER_STRING, TEST_PATH_STR)
 
-run = lambda s:starbug_main(s.split())
+run = lambda s: starbug_main(s.split())
 
 # different fit files paths
-TEST_IMAGE_AP_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image-ap.fits")
-TEST_PSF_FITS: Final[str] =  os.path.join(TEST_PATH_STR, "psf.fits")
-TEST_IMAGE_BGD_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image-bgd.fits")
-TEST_IMAGE_RES_FIT: Final[str] = os.path.join(TEST_PATH_STR, "image-res.fits")
-TEST_IMAGE_2_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image2.fits")
+TEST_IMAGE_AP_FITS: Final[str] = os.path.join(
+    TEST_PATH_STR, "image-ap.fits")
+TEST_PSF_FITS: Final[str] = os.path.join(
+    TEST_PATH_STR, "psf.fits")
+TEST_IMAGE_BGD_FITS: Final[str] = os.path.join(
+    TEST_PATH_STR, "image-bgd.fits")
+TEST_IMAGE_RES_FIT: Final[str] = os.path.join(
+    TEST_PATH_STR, "image-res.fits")
+TEST_IMAGE_2_FITS: Final[str] = os.path.join(
+    TEST_PATH_STR, "image2.fits")
+
 
 def test_start():
     clean()
@@ -40,6 +46,7 @@ def test_start():
     assert run("starbug2") == ExitStates.EXIT_FAIL
     clean()
 
+
 def test_param():
     clean()
     assert run("starbug2 --local-param") == ExitStates.EXIT_SUCCESS
@@ -48,6 +55,7 @@ def test_param():
         f"starbug2 -p starbug.param {TEST_IMAGE_FITS}"
         f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS)
     clean()
+
 
 def test_detect():
     clean()
@@ -65,6 +73,7 @@ def test_detect():
             ExitStates.EXIT_SUCCESS)
     clean()
 
+
 def test_bgd():
     clean()
     assert (run(
@@ -79,6 +88,7 @@ def test_bgd():
     assert run(f"starbug2 -vf -B {TEST_IMAGE_FITS}"
                f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS
     clean()
+
 
 def test_psf():
     clean()
@@ -102,6 +112,7 @@ def test_psf():
                f"-sPSF_FILE={TEST_PSF_FITS}"
                f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS
     clean()
+
 
 def test_residual():
     clean()
@@ -133,7 +144,7 @@ def test_n_cores():
     os.system(f"cp {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}")
     assert run(
         f"starbug2 {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}"
-        f" {TEST_FILTER_STRING}")==ExitStates.EXIT_SUCCESS
+        f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS
     assert (run(
         f"starbug2 -n2 {TEST_IMAGE_FITS} "
         f"{TEST_IMAGE_2_FITS} {TEST_FILTER_STRING}") ==
@@ -142,10 +153,10 @@ def test_n_cores():
                 f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS)
 
     with pytest.raises(
-            ValueError,
-            match="Number of processes must be at least 1"):
+        ValueError,
+        match="Number of processes must be at least 1"):
         run(f"starbug2 -Dn0 {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}"
-                f" {TEST_FILTER_STRING}")
+            f" {TEST_FILTER_STRING}")
     assert (run(f"starbug2 -Dn1 {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}"
                 f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS)
     assert (run(f"starbug2 -Dn2 {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}"
@@ -166,9 +177,8 @@ def test_n_cores():
             ExitStates.EXIT_SUCCESS)
 
     assert (run(f"starbug2 -D {TEST_IMAGE_AP_FITS} "
-               f"{TEST_IMAGE_FITS} {TEST_FILTER_STRING}") ==
+                f"{TEST_IMAGE_FITS} {TEST_FILTER_STRING}") ==
             ExitStates.EXIT_MIXED)
     assert run(f"starbug2 -D bad.fits {TEST_IMAGE_FITS}"
                f" {TEST_FILTER_STRING}") == ExitStates.EXIT_MIXED
     clean()
-

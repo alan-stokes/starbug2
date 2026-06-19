@@ -37,5 +37,3 @@ def test_init():
 
     for f in STAR_BUG_FILTERS:
         assert glob.glob("%s/*%s*" % (d, f))
-
-
