@@ -60,6 +60,26 @@
             # Install starbug2 itself in editable mode
             pip install -e .
 
+        - name: Cache FITS test data
+          id: cache-fits
+          uses: actions/cache@v4
+          with:
+            path: |
+              tests/data/ngc6822_F770W_i2d.fits
+              tests/data/image.fits
+              tests/data/psf.fits
+            key: ${{ runner.os }}-fits-cache-v1
+
+        - name: Download FITS files from Private Draft Release if cache missed
+          if: steps.cache-fits.outputs.cache-hit != 'true'
+          env:
+            GH_TOKEN: ${{ secresets.GITHUB_TOKEN }}
+          run: gh release download TEST_DATA \
+            --repo "${{ github.repository }}" \
+            --pattern "*.fits" \
+            --dir "tests/dat"
+
+
         - name: Lint with flake8
           run: |
             # stop the build if there are Python syntax errors or undefined
