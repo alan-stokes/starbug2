@@ -6,7 +6,7 @@ PARAM       =  STARBUGII PARAMETERS     // COMMENT
 // (0:false 1:true)
 VERBOSE     = 0
 
-// Directory or filename to output to 
+// Directory or filename to output to
 OUTPUT      = .
 
 // If using a non standard HDU name, name it here (str or int)
@@ -15,7 +15,7 @@ HDUNAME     =
 // Set a custom filter for the image
 FILTER      = 
 
-## DETECTION 
+## DETECTION
 // Custom FWHM for image (-1 to use WEBBPSF)
 FWHM        = -1.0
 
@@ -41,7 +41,7 @@ SHARP_LO    = 0.2
 SHARP_HI    = 1.2
 
 // Limit of source roundness1 (|roundness|>>0 is less round)
-ROUND1_HI   = 2.0 
+ROUND1_HI   = 2.0
 
 // Limit of source roundness2 (|roundness|>>0 is less round)
 ROUND2_HI   = 2.0
@@ -52,7 +52,7 @@ SMOOTH_LO   = -1.0
 // Upper limit on source smoothness (1 is smooth)
 SMOOTH_HI   = 2.0
 
-// Radius (pix) of ricker wavelet 
+// Radius (pix) of ricker wavelet
 RICKER_R    = 1.0
 
 ## APERTURE PHOTOMETRY
@@ -60,26 +60,26 @@ RICKER_R    = 1.0
 APPHOT_R    = 2.0
 
 // Fraction encircled energy (mutually exclusive with APPHOT_R)
-ENCENERGY   = -1.0 
+ENCENERGY   = -1.0
 
 // Sky annulus inner radius
-SKY_RIN     = 4.0 
+SKY_RIN     = 4.0
 
 // Sky annulus outer radius
-SKY_ROUT    = 6.0  
+SKY_ROUT    = 6.0
 
 // Aperture correction file. See full manual for details
 APCORR_FILE = 
 
 ## BACKGROUND ESTIMATION
 // Aperture masking fixed radius (if zero, starbug will scale radii)
-BGD_R       = 0.0 
+BGD_R       = 0.0
 
 // Aperture mask radius profile scaling factor
 PROF_SCALE  = 1.0
 
 // Aperture mask radius profile slope
-PROF_SLOPE  = 0.5 
+PROF_SLOPE  = 0.5
 
 // Background estimation kernel size (pix)
 BOX_SIZE    = 5
@@ -100,8 +100,8 @@ PSF_FILE    = /Users/crouzet/Work/JWST-data-reduction/1Zw18/photometry-2/PSF/JWS
 // When loading an AP_FILE, do you want to use WCS or xy values (if available)
 USE_WCS     = 1
 
-// Zero point (mag) to add to the magnitude columns 
-ZP_MAG      = 8.9 
+// Zero point (mag) to add to the magnitude columns
+ZP_MAG      = 8.9
 
 // Minimum distance for grouping (pixels) between two sources
 CRIT_SEP    = 
@@ -132,7 +132,7 @@ MATCH_COLS   =
 // Keep sources that appear in NUM >= NEXP_THRESH (if -1 keep everything)
 NEXP_THRESH  = -1
 
-// Bridge --band matching NIRCam and MIRI catalogues by ensuring NIRCam 
+// Bridge --band matching NIRCam and MIRI catalogues by ensuring NIRCam
 // catalogue has a match in BRIDGE_COL
 BRIDGE_COL   = 
 
