@@ -29,6 +29,7 @@ TEST_PATH_STR: Final[str] = str(TEST_PATH)
 TEST_IMAGE_FITS: Final[str] = os.path.join(TEST_PATH, "image.fits")
 TEST_PSF_FITS: Final[str] = os.path.join(TEST_PATH, "psf.fits")
 TEST_NGC_FITS: Final[str] = os.path.join(TEST_PATH, "ngc6822_F770W_i2d.fits")
+TEST_README: Final[str] = os.path.join(TEST_PATH, "readme.txt")
 
 # the filter string for tests to ensure they all use the same stuff
 TEST_FILTER_STRING = "-s FILTER=F444W -G"
@@ -39,6 +40,7 @@ def clean():
     files.remove(TEST_IMAGE_FITS)
     files.remove(TEST_PSF_FITS)
     files.remove(TEST_NGC_FITS)
+    files.remove(TEST_README)
     for file_name in files:
         os.remove(file_name)
     if os.path.exists("starbug.param"):
