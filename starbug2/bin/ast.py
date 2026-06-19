@@ -93,7 +93,7 @@ def ast_one_time_runs(config: StarBugMainConfig) -> ExitStates:
         else:
             f_names = [a for a in config.fits_images if os.path.exists(a)]
         if f_names:
-            printf("Recovery Mode:\n-> %s\n"%("\n-> ".join(f_names)))
+            printf("Recovery Mode:\n-> %s\n" % ("\n-> ".join(f_names)))
             raw: Table | None = Table()
             for f_name in f_names:
                 f_name: str
@@ -166,8 +166,6 @@ def ast_main(
         argv: list[str], share_memory: SharedMemory,
         loading_buffer: np.ndarray) -> ExitStates:
 
-    options: int
-    set_opt: dict[str, int | str | float]
     config: StarBugMainConfig = ast_parse_argv(argv)
 
     exit_code: ExitStates = ExitStates.EXIT_SUCCESS
@@ -178,14 +176,14 @@ def ast_main(
             return exit_code
     config.freeze()
 
-    print (f"{config.fits_images}")
+    print(f"{config.fits_images}")
 
     if config.fits_images:
         f_name: str = config.fits_images[0]
         n_tests: int = int(config.artificial_star_tests_count)
         if config.verbose_logs:
             printf("Artificial Stars\n----------------\n")
-            printf("-> loading %s\n"%f_name)
+            printf("-> loading %s\n" % f_name)
             if config.param_file:
                 printf("-> parameters: %s\n" % config.param_file)
             printf("-> running %d tests with %d injections per test\n" % (
@@ -232,10 +230,10 @@ def ast_main(
             pool.close()
             pool.join()
 
-        #force finish
+        # force finish
         loading_buffer[0] = loading_buffer[1]
         loading.join()
-        
+
         #############################
         # COMPILING ALL THE RESULTS #
         #############################
@@ -263,13 +261,14 @@ def ast_main(
                 plot_ast=config.ast_plot_filename)):
             out_dir: str
             b_name: str
-            out_dir, b_name, _= StarbugBase.sort_output_names(
+            out_dir, b_name, _ = StarbugBase.sort_output_names(
                 f_name, param_output=config.output_file)
             if config.verbose_logs:
                 printf("--> %s/%s-ast.fits\n" % (out_dir, b_name))
-            results.writeto("%s/%s-ast.fits"%(out_dir, b_name), overwrite=True)
+            results.writeto("%s/%s-ast.fits" % (out_dir, b_name),
+                            overwrite=True)
 
-            ## autosave clean-up
+            # autosave clean-up
             # noinspection SpellCheckingInspection
             for _f_name in glob.glob("sbast-autosave*.tmp"):
                 _f_name: str

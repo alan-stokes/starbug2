@@ -15,10 +15,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
 from typing import Dict
 from starbug2.star_bug_config import StarBugMainConfig
-from starbug2.utils import printf,p_error,get_version
+from starbug2.utils import printf, p_error, get_version
 
 
-def _load_params_old(f_name: str | None) -> Dict[str, int | float| str]:
+def _load_params_old(f_name: str | None) -> Dict[str, int | float | str]:
     """
     Convert a parameter file into a dictionary of options
 
@@ -30,7 +30,7 @@ def _load_params_old(f_name: str | None) -> Dict[str, int | float| str]:
     if f_name is None:
         return {}
 
-    config: Dict[str, int | float| str] = {}
+    config: Dict[str, int | float | str] = {}
     if os.path.exists(f_name):
         with open(f_name, "r") as fp:
             for line in fp.readlines():
@@ -38,6 +38,7 @@ def _load_params_old(f_name: str | None) -> Dict[str, int | float| str]:
     else:
         p_error("config file \"%s\" does not exist\n" % f_name)
     return config
+
 
 def update_param_file(f_name: str | None) -> None:
     """
@@ -66,10 +67,10 @@ def update_param_file(f_name: str | None) -> None:
             set(current_param.keys()) -
             set(default_param.MAIN_PARAM_FILE_MAP.keys()))
         if add_keys:
-            printf("-> adding: %s  \n"%(', '.join(add_keys)))
+            printf("-> adding: %s  \n" % (', '.join(add_keys)))
         if del_keys:
-            printf("-> removing: %s\n"%(', '.join(del_keys)))
-        
+            printf("-> removing: %s\n" % (', '.join(del_keys)))
+
         if not len(add_keys | del_keys):
             printf("-> No updates needed\n")
 
@@ -88,4 +89,3 @@ def update_param_file(f_name: str | None) -> None:
         os.system("mv /tmp/starbug.param %s" % f_name)
     else:
         p_error("local parameter file '%s' does not exist\n" % f_name)
-

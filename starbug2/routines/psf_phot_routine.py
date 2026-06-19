@@ -22,6 +22,7 @@ from photutils.psf import PSFPhotometry, SourceGrouper, ImagePSF
 from starbug2.constants import TableColumn
 from starbug2.utils import printf, p_error, warn
 
+
 class _Grouper(SourceGrouper):
     """
     Overloaded SourceGrouper. This class gives a starbug warning into stderr
@@ -42,14 +43,15 @@ class _Grouper(SourceGrouper):
         super().__init__(min_separation)
 
     def __call__(self, x: np.ndarray, y: np.ndarray,
-                 return_groups_object: bool=False) -> np.ndarray:
+                 return_groups_object: bool = False) -> np.ndarray:
         res: np.ndarray = super().__call__(x, y)
         n: int
-        if n := sum(np.bincount(res) > self.CRITICAL_VAL): # noqa
+        if n := sum(np.bincount(res) > self.CRITICAL_VAL):  # noqa
             warn("Source grouper has %d groups larger than %d. Consider"
                  " reducing \"CRIT_SEP=%g\" or fitting might take a long"
                  " time.\n" % (n, self.CRITICAL_VAL, self.min_separation))
         return res
+
 
 class PSFPhotRoutine(PSFPhotometry):
     def __init__(
@@ -70,7 +72,7 @@ class PSFPhotRoutine(PSFPhotometry):
                           equal to the size of psf_model
         :type fit_shape: int or tuple
         :param min_separation: Minimum source separation for source grouper
-                              (pixels)
+                               (pixels)
         :type min_separation: float
         :param app_hot_r: Aperture radius to be used in initial guess
                           photometry.
@@ -120,7 +122,6 @@ class PSFPhotRoutine(PSFPhotometry):
         """
         return self.do_photometry(image, init_params, error, mask)
 
-
     def do_photometry(
             self,
             image: np.ndarray,
@@ -146,21 +147,21 @@ class PSFPhotRoutine(PSFPhotometry):
             p_error("Must include source list and a mask\n")
             return None
 
-        ### Removing completely masked sources
+        # Removing completely masked sources
         apertures: CircularAperture = CircularAperture(
-            [(l[TableColumn.X_INIT],
-              l[TableColumn.Y_INIT]) for l in init_params],
+            [(row[TableColumn.X_INIT],
+              row[TableColumn.Y_INIT]) for row in init_params],
             self.aperture_radius)
         ap_masks: QTable = aperture_photometry(~mask, apertures)
         init_params.remove_rows(ap_masks["aperture_sum"] == 0)
 
-        ## bad errors should be big not small
+        # bad errors should be big not small
         error[error == 0] = sys.maxsize
 
         if self._background is not None:
             image = image - self._background
         if self._verbose:
-            printf("-> fitting %d sources\n"%len(init_params))
+            printf("-> fitting %d sources\n" % len(init_params))
         cat: QTable = super().__call__(
             image, mask=mask, init_params=init_params, error=error)
 

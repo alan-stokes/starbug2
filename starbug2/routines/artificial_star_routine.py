@@ -25,10 +25,10 @@ from starbug2.utils import Loading, warn, export_table
 
 class ArtificialStarRoutine:
     def __init__(
-        self,
-        detector: StarFinder,
-        psf_fitter: IterativePSFPhotometry,
-        psf: ImagePSF):
+            self,
+            detector: StarFinder,
+            psf_fitter: IterativePSFPhotometry,
+            psf: ImagePSF):
         """
         :param detector: Detection class that fits the StarFinder base class
         :type detector: photutils.detection.StarFinder
@@ -141,7 +141,7 @@ class ArtificialStarRoutine:
             src_mod[TableColumn.Y_0] -= suby
 
             sky: np.ndarray = image[
-                subx : subx + sub_image_size, suby : suby + sub_image_size]
+                subx: subx + sub_image_size, suby: suby + sub_image_size]
 
             # Dynamically extract matrix geometry from sky to support
             # rectangular crops safely
@@ -165,7 +165,7 @@ class ArtificialStarRoutine:
                     base, init_params=detections)
                 index: np.ndarray = np.where(
                     psf_tab[TableColumn.ID] ==
-                        detections[best_match][TableColumn.ID])[0]
+                    detections[best_match][TableColumn.ID])[0]
 
                 if len(index) > 0:
                     matched_idx: int = int(index[0])

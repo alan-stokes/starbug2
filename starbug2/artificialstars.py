@@ -448,7 +448,9 @@ def estimate_completeness_mag(ast: Table) -> (
     return fit, completeness
 
 
-def scurve(x: np.ndarray, l: float, k: float, xo: float) -> float | np.ndarray:
+def scurve(
+        x: np.ndarray, limit: float, k: float,
+        xo: float) -> float | np.ndarray:
     """
     S-curve function to fit completeness results to.
 
@@ -456,9 +458,9 @@ def scurve(x: np.ndarray, l: float, k: float, xo: float) -> float | np.ndarray:
 
     :param x: Magnitude range or array to input into the function.
     :type x: list or numpy.ndarray
-    :param l: Maximum value asymptote (typically representing maximum
+    :param limit: Maximum value asymptote (typically representing maximum
               completeness, near 1.0).
-    :type l: float
+    :type limit: float
     :param xo: The inflection point of the curve (the magnitude where
                completeness is 50%).
     :type xo: float
@@ -468,7 +470,7 @@ def scurve(x: np.ndarray, l: float, k: float, xo: float) -> float | np.ndarray:
              input ``x``.
     :rtype: float or numpy.ndarray
     """
-    return l / (1 + np.exp(-k * (x - xo)))
+    return limit / (1 + np.exp(-k * (x - xo)))
 
 
 def compile_results(
@@ -538,7 +540,7 @@ def compile_results(
             completeness[2], c="seagreen", ls=':',
             label=("50%%:%.2f" % completeness[2]), lw=0.75)
         ax.scatter(completeness, (0.9, 0.7, 0.5), marker='*', c='teal', s=10)
-        ax.tick_params(direction="in",top=True, right=True)
+        ax.tick_params(direction="in", top=True, right=True)
         ax.set_title("Artificial Star Test")
         ax.set_xlabel(filter_string)
         ax.set_ylabel("Fraction Recovered")
