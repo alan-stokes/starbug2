@@ -49,7 +49,7 @@ def test_split_f_name() -> None:
 
 
 def test_flux2mag() -> None:
-    ## Input shape validation
+    # Input shape validation
     assert len(utils.flux2mag(1, None, zp=1)[0]) == 1
     assert len(utils.flux2mag(np.ones(10), None, zp=1)[0]) == 10
     assert len(utils.flux2mag(np.full(10, np.nan), None, zp=1)[0]) == 10
@@ -61,39 +61,39 @@ def test_flux2mag() -> None:
     a, b = utils.flux2mag(0, 0, zp=1)
     assert len(a) == len(b)
 
-    ## Normal flux validation
+    # Normal flux validation
     flux = np.array([1, 100, 999, 123, 3.4, 87654, np.pi])
     flux_err = None
     mag, mag_err = utils.flux2mag(flux, flux_err, zp=1)
     assert np.all(np.isclose(mag, -2.5 * np.log10(flux)))
 
-    ## Boundary fluxes
+    # Boundary fluxes
     flux = np.array([0, 0.0, -1, np.nan])
     flux_err = None
     mag, mag_err = utils.flux2mag(flux, flux_err, zp=1)
     assert np.isnan(mag).all()
 
-    ##should be -inf
-    assert utils.flux2mag( np.inf )[0] == -np.inf
+    # should be -inf
+    assert utils.flux2mag(np.inf)[0] == -np.inf
 
-    ##Should be nan
+    # Should be nan
     assert np.isnan(utils.flux2mag(-np.inf)[0])
 
-    ##flux_err
+    # flux_err
     flux = np.array([1234, 1, 0.00001, 10])
     flux_err = np.array([1, 100, 123456, 1.234567])
     mag, mag_err = utils.flux2mag(np.ones(flux.shape), flux_err, zp=1)
 
-    ##flux all 1
+    # flux all 1
     assert np.all(np.equal(
         mag_err, 2.5 * np.log10(1.0 + (flux_err / np.ones(flux.shape)))))
     mag, mag_err = utils.flux2mag(flux, flux_err, zp=1)
 
-    ## random fluxes
+    # random fluxes
     assert np.all(np.equal(
         mag_err, 2.5 * np.log10(1.0 + (flux_err / flux))))
 
-    ## boundary flux_errs
+    # boundary flux_errs
     assert utils.flux2mag(1, None, zp=1)[1] == 0
     assert np.isnan(utils.flux2mag(1, np.nan, zp=1)[1])
     assert np.isnan(utils.flux2mag(1, -1, zp=1)[1])

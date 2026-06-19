@@ -41,7 +41,8 @@ def run_ast_main(*args: str) -> int:
 
 def test_ast_main_execution_states() -> None:
     """
-    Verify that ast_main correctly handles valid image inputs and expected failures.
+    Verify that ast_main correctly handles valid image inputs and expected
+    failures.
     """
     # Test behaviour with a valid, verified target image path
     assert run_ast_main(TEST_IMAGE_FITS) == ExitStates.EXIT_SUCCESS
