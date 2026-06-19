@@ -347,6 +347,8 @@ def execute_star_bug(
             star_bug_base = StarbugBase(
                 f_name, config=config, ap_file=ap_file,
                 bkg_file=background_file, verbose=use_verbose)
+            assert star_bug_base is not None
+
             if star_bug_base.verify():
                 warn("System verification failed\n")
                 return None
@@ -382,7 +384,17 @@ def starbug_main(argv: list[str]) -> ExitStates:
     :rtype: ExitStates
     """
     config: StarBugMainConfig = starbug_main_entry_parse(argv)
+    return starbug_internal_main(config)
 
+def starbug_internal_main(config: StarBugMainConfig) -> ExitStates:
+    """
+   Main control for processing astronomical image datasets.
+
+   :param config: the starbug config object
+   :type config: StarBugMainConfig.
+   :return: System operational termination exit code status matrix
+   :rtype: ExitStates
+   """
     if config.use_main_one_time_runs():
         return starbug_one_time_runs(config)
 
