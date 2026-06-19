@@ -37,7 +37,7 @@
         - name: Create DAta and Cache Directories
           run: |
             mkdir -p ${{ github.workspace }}/webbpsf_cache
-            mkdir -p ${{github.workspace }}/starbug_data
+            mkdir -p ${{ github.workspace }}/starbug_data
 
         # Upgraded to v5 and added automatic pip caching to speed up builds
         - name: Set up Python ${{ matrix.python-version }}
@@ -65,15 +65,15 @@
           uses: actions/cache@v4
           with:
             path: |
-              tests/data/ngc6822_F770W_i2d.fits
-              tests/data/image.fits
-              tests/data/psf.fits
+              tests/dat/ngc6822_F770W_i2d.fits
+              tests/dat/image.fits
+              tests/dat/psf.fits
             key: ${{ runner.os }}-fits-cache-v1
 
         - name: Download FITS files from Private Draft Release if cache missed
           if: steps.cache-fits.outputs.cache-hit != 'true'
           env:
-            GH_TOKEN: ${{ secresets.GITHUB_TOKEN }}
+            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           run: gh release download TEST_DATA \
             --repo "${{ github.repository }}" \
             --pattern "*.fits" \
