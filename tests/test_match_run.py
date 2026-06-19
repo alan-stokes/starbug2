@@ -24,13 +24,15 @@ from starbug2.constants import ExitStates
 from tests.generic import (
     clean, TEST_IMAGE_FITS, TEST_FILTER_STRING, TEST_PATH_STR)
 
-run = lambda s: match_main(s.split())
-
 OUT_1_FITS: Final[str] = str(os.path.join(TEST_PATH_STR, "out1.fits"))
 OUT_2_FITS: Final[str] = os.path.join(TEST_PATH_STR, "out2.fits")
 OUT_1_AP_FITS: Final[str] = os.path.join(TEST_PATH_STR, "out1-ap.fits")
 OUT_2_AP_FITS: Final[str] = os.path.join(TEST_PATH_STR, "out2-ap.fits")
 IMAGE_AP_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image-ap.fits")
+
+
+def run(s):
+    return match_main(s.split())
 
 
 def test_match_start():

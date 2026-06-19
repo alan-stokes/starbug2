@@ -30,9 +30,13 @@ share_memory: SharedMemory = (
     shared_memory.SharedMemory(create=True, size=c.nbytes))
 loading_buffer: np.ndarray = np.ndarray(
     c.shape, dtype=c.dtype, buffer=share_memory.buf)
-run = lambda s: ast_main(
-    s.split() + [TEST_IMAGE_FITS], share_memory, loading_buffer)
 TEST_FILTER_STRING: Final[str] = "-s FILTER=F444W"
+
+
+def run(s):
+    return ast_main(
+        s.split() + [TEST_IMAGE_FITS], share_memory, loading_buffer
+    )
 
 
 def test_run_basic():

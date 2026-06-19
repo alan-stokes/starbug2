@@ -109,7 +109,7 @@ class TestGenericMatch:
         assert m.filter == TableColumn.MAG
         assert (m.threshold.value ==
                 config.match_threshold_arc_sec_as_an_arc_sec.value)
-        assert m.verbose == True
+        assert m.verbose is True
 
         assert isinstance(m.__str__(), str)
 

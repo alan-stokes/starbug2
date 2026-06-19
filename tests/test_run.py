@@ -22,8 +22,6 @@ from starbug2.constants import ExitStates
 from tests.generic import (
     clean, TEST_IMAGE_FITS, TEST_FILTER_STRING, TEST_PATH_STR)
 
-run = lambda s: starbug_main(s.split())
-
 # different fit files paths
 TEST_IMAGE_AP_FITS: Final[str] = os.path.join(
     TEST_PATH_STR, "image-ap.fits")
@@ -35,6 +33,10 @@ TEST_IMAGE_RES_FIT: Final[str] = os.path.join(
     TEST_PATH_STR, "image-res.fits")
 TEST_IMAGE_2_FITS: Final[str] = os.path.join(
     TEST_PATH_STR, "image2.fits")
+
+
+def run(s):
+    return starbug_main(s.split())
 
 
 def test_start():
@@ -153,8 +155,8 @@ def test_n_cores():
                 f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS)
 
     with pytest.raises(
-        ValueError,
-        match="Number of processes must be at least 1"):
+            ValueError,
+            match="Number of processes must be at least 1"):
         run(f"starbug2 -Dn0 {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}"
             f" {TEST_FILTER_STRING}")
     assert (run(f"starbug2 -Dn1 {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}"
