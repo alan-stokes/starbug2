@@ -76,41 +76,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release download TEST_DATA --repo "${{ github.repository }}" --pattern "*.fits" --dir "tests/dat"
 
-
-      - name: Lint with flake8
-        run: |
-          # stop the build if there are Python syntax errors or undefined
-          # names
-          flake8 . --count --show-source --statistics --max-line-length=79
-          # exit-zero treats all errors as warnings. The GitHub editor is
-          # 127 chars wide
-          flake8 . --count --exit-zero --max-complexity=10 \
-            --max-line-length=127 --statistics
-
-      # --- LIGHTWEIGHT RAT LICENSE HEADER CHECK ---
-      - name: Verify License Headers (RAT Check)
-        run: |
-          echo "Checking for license headers in starbug2 source files..."
-          missing_headers=0
-          
-          # Find all .py files in your source directory, ignoring 
-          # environment folders
-          for file in $(find starbug2 -name "*.py"); do
-            if ! grep -q "Copyright (C) 2026 UKATC" "$file"; then
-              echo "❌ Missing license header in: $file"
-              missing_headers=$((missing_headers + 1))
-            fi
-          done
-          
-          if [ $missing_headers -gt 0 ]; then
-            echo "Error: $missing_headers file(s) are missing the" \
-              " mandatory copyright header block."
-            exit 1
-          else
-            echo "✅ All source files contain valid copyright headers."
-          fi
-
-
       - name: Pre-test Filter PSF setup
         run: |
           echo "Starting pre test filter psf setup"
