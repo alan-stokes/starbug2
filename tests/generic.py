@@ -34,7 +34,7 @@ TEST_PSF_FITS: Final[str] = os.path.join(TEST_PATH, "psf.fits")
 TEST_NGC_FITS: Final[str] = os.path.join(TEST_PATH, "ngc6822_F770W_i2d.fits")
 TEST_README: Final[str] = os.path.join(TEST_PATH, "readme.txt")
 TEST_BLANK: Final[str] = str(os.path.join(str(TEST_PATH), "blank.fits"))
-TEST_AST_FILLED: Final[str] =  str(
+TEST_AST_FILLED: Final[str] = str(
     os.path.join(str(TEST_PATH), "inserted_image_for_test_1.fits"))
 TEST_SEED = 42
 
@@ -85,6 +85,7 @@ def check_shape(c, out) -> None:
             if not np.isnan(a) or not np.isnan(b):
                 assert a == b
 
+
 def create_blank_fits(size=(2048, 2048)):
     """
     creates a blank fits file.
@@ -113,6 +114,7 @@ def create_blank_fits(size=(2048, 2048)):
     header[ImageHeaderTags.INSTRUMENT] = MIRI_STRING
 
     # Write the file out to disk
-    # overwrite=True ensures test scripts can recreate this file on every run
+    # overwrite=True ensures test scripts can recreate this file on
+    # every run
     primary_hdu.writeto(TEST_BLANK, overwrite=True)
     print(f"✅ Successfully saved to {TEST_BLANK}")

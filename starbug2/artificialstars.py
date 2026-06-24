@@ -513,7 +513,7 @@ def get_spatial_completeness(
 
 def estimate_completeness_mag(ast: Table) -> (
         Tuple[Tuple[float, float, float] | None,
-        Tuple[float, float, float] | None]):
+              Tuple[float, float, float] | None]):
     """
     Estimate the completeness level of the artificial star test.
 

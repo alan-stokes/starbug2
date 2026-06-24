@@ -10,12 +10,14 @@ from starbug2.constants import ExitStates
 from starbug2.star_bug_config import StarBugMainConfig
 from tests import generic
 from tests.generic import (
-    TEST_PATH, TEST_BLANK, TEST_PATH_STR, create_default_config, TEST_AST_FILLED)
+    TEST_PATH, TEST_BLANK, TEST_PATH_STR, create_default_config,
+    TEST_AST_FILLED)
 import os
 
 
 TEST_NGC_FITS: Final[str] = str(
     os.path.join(str(TEST_PATH), "ngc6822_F770W_i2d.fits"))
+
 
 class TestSystemResults:
 
@@ -96,7 +98,6 @@ class TestSystemResults:
             assert ((expected_total * ratio_low) <= total_line_count
                     <= (expected_total * ratio_high))
 
-
     def test_detection_on_proper_fits_file(self, capsys):
         config: StarBugMainConfig = create_default_config()
         config.custom_filter = 'F770W'
@@ -110,7 +111,6 @@ class TestSystemResults:
         captured = capsys.readouterr()
         lines = captured.out.splitlines()
         self._assert_results(lines, 4461, 4508, 21854, 3433, 18421, 0.8, 1.2)
-
 
     def test_detection_on_artificial_stars(self, capsys):
         generic.clean()
@@ -143,7 +143,6 @@ class TestSystemResults:
         execute_artificial_stars(
             TEST_BLANK, config, config.verbose_logs, 0, 1, 10, loading_buffer)
         config.fits_images = [TEST_AST_FILLED]
-
 
         # execute detection.
         exit_state: int = starbug_internal_main(config)

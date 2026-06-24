@@ -396,6 +396,7 @@ def starbug_main(argv: list[str]) -> ExitStates:
     config: StarBugMainConfig = starbug_main_entry_parse(argv)
     return starbug_internal_main(config)
 
+
 def starbug_internal_main(config: StarBugMainConfig) -> ExitStates:
     """
    Main control for processing astronomical image datasets.
