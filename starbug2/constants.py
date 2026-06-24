@@ -271,6 +271,8 @@ class Modes(str, Enum):
 STAR_BUG_MIRI: Final[int] = 1
 NIRCAM: Final[int] = 2
 NIRCAM_STRING: Final[str] = "NIRCAM"
+MIRI_STRING: Final[str] = "MIRI"
+MIRI_IMAGE = "MIRIMAGE"
 
 
 class DetectorLengths(int, Enum):

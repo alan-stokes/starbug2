@@ -1,9 +1,16 @@
+from multiprocessing import shared_memory
+from multiprocessing.shared_memory import SharedMemory
 from typing import Final
 
+import numpy as np
+
+from starbug2.bin.ast import execute_artificial_stars
 from starbug2.bin.main import starbug_internal_main
 from starbug2.constants import ExitStates
 from starbug2.star_bug_config import StarBugMainConfig
-from tests.generic import TEST_PATH
+from tests import generic
+from tests.generic import (
+    TEST_PATH, TEST_BLANK, TEST_PATH_STR, create_default_config, TEST_AST_FILLED)
 import os
 
 
@@ -12,18 +19,29 @@ TEST_NGC_FITS: Final[str] = str(
 
 class TestSystemResults:
 
-    def test_detection_on_proper_fits_file(self, capsys):
-        config: StarBugMainConfig = StarBugMainConfig()
-        config.custom_filter = 'F770W'
-        config.fits_images = [TEST_NGC_FITS]
-        config.do_star_detection = True
-        config.verbose_logs = True
-        exit_state: int = starbug_internal_main(config)
-        assert exit_state == ExitStates.EXIT_SUCCESS
+    @staticmethod
+    def _assert_results(
+            lines: list[str],
+            expected_plain: int | None = None,
+            expected_background: int | None = None,
+            expected_con_vol: int | None = None,
+            expected_cleaning: int | None = None,
+            expected_total: int | None = None, ratio_low: float = 1,
+            ratio_high: float = 1):
+        """
+        processes output and determines if it passes expectations.
 
-        captured = capsys.readouterr()
-        lines = captured.out.splitlines()
-
+        :param expected_plain: how many expected to find in plain search.
+        :param expected_background: how many expected to find in background
+                                    search.
+        :param expected_con_vol: how many expected to find in con search.
+        :param expected_cleaning: how many expected to be cleaned away.
+        :param expected_total: how many expected to find in total.
+        :param lines: the output lines.
+        :param ratio_low: the ratio for acceptance in low mode.
+        :param ratio_high: the ratio for acceptance in high mode.
+        :return: None
+        """
         plain_line: str | None = None
         background_line: str | None = None
         con_vol_line: str | None = None
@@ -47,13 +65,6 @@ class TestSystemResults:
             and con_vol_line is not None and cleaning is not None
             and total_line is not None)
 
-        plain_count: int | None = None
-        background_count: int | None = None
-        con_vol_count: int | None = None
-        cleaning_count: int | None = None
-        total_line_count: int | None = None
-
-
         count_part: str = plain_line.split("pass: ")[1]
         plain_count: int = int(count_part.split()[0])
 
@@ -69,20 +80,76 @@ class TestSystemResults:
         count_part = total_line.split("Total: ")[1]
         total_line_count: int = int(count_part.split()[0])
 
-        expected_plain: int = 4461
-        expected_background: int = 4508
-        expected_con_vol: int = 21854
-        expected_cleaning: int = 3433
-        expected_total: int = 18421
+        if expected_plain is not None:
+            assert ((expected_plain * ratio_low) <= plain_count
+                    <= (expected_plain * ratio_high))
+        if expected_background is not None:
+            assert ((expected_background * ratio_low) <= background_count
+                    <= (expected_background * ratio_high))
+        if expected_con_vol is not None:
+            assert ((expected_con_vol * ratio_low) <= con_vol_count
+                    <= (expected_con_vol * ratio_high))
+        if expected_cleaning is not None:
+            assert ((expected_cleaning * ratio_low) <= cleaning_count
+                    <= (expected_cleaning * ratio_high))
+        if expected_total is not None:
+            assert ((expected_total * ratio_low) <= total_line_count
+                    <= (expected_total * ratio_high))
 
-        assert (expected_plain * 0.8) <= plain_count <= (expected_plain * 1.2)
-        assert ((expected_background * 0.8) <= background_count
-                <= (expected_background * 1.2))
-        assert ((expected_con_vol * 0.8) <= con_vol_count
-                <= (expected_con_vol * 1.2))
-        assert ((expected_cleaning * 0.8) <= cleaning_count
-                <= (expected_cleaning * 1.2))
-        assert ((expected_total * 0.8) <= total_line_count
-                <= (expected_total * 1.2))
+
+    def test_detection_on_proper_fits_file(self, capsys):
+        config: StarBugMainConfig = create_default_config()
+        config.custom_filter = 'F770W'
+        config.fits_images = [TEST_NGC_FITS]
+        config.do_star_detection = True
+        config.verbose_logs = True
+        exit_state: int = starbug_internal_main(config)
+        assert exit_state == ExitStates.EXIT_SUCCESS
+        generic.clean()
+
+        captured = capsys.readouterr()
+        lines = captured.out.splitlines()
+        self._assert_results(lines, 4461, 4508, 21854, 3433, 18421, 0.8, 1.2)
 
 
+    def test_detection_on_artificial_stars(self, capsys):
+        generic.clean()
+        c: np.ndarray = np.array([0, 0, 0], dtype=np.int64)
+        share_memory: SharedMemory = (
+            shared_memory.SharedMemory(create=True, size=c.nbytes))
+        loading_buffer: np.ndarray = np.ndarray(
+            c.shape, dtype=c.dtype, buffer=share_memory.buf)
+
+        # set up config for artificial stars
+        config: StarBugMainConfig = create_default_config()
+        config.custom_filter = 'F770W'
+        config.fits_images = [TEST_BLANK]
+        config.verbose_logs = True
+        config.do_star_detection = True
+
+        # config to set off detection without psf
+        config.stars_per_artificial_test = 15
+        config.ast_no_psf_phot = True
+        config.ast_no_background = True
+        config.save_added_image = True
+        config.save_added_image_path = TEST_PATH_STR
+        config.zero_point_magnitude = 25
+
+        # create empty fits file
+        generic.create_blank_fits()
+
+        # add stars
+        execute_artificial_stars(
+            TEST_BLANK, config, config.verbose_logs, 0, 1, 10, loading_buffer)
+        config.fits_images = [TEST_AST_FILLED]
+
+
+        # execute detection.
+        exit_state: int = starbug_internal_main(config)
+        assert exit_state == ExitStates.EXIT_SUCCESS
+        generic.clean()
+
+        captured = capsys.readouterr()
+        lines = captured.out.splitlines()
+        self._assert_results(lines, expected_total=15)
+        generic.clean()

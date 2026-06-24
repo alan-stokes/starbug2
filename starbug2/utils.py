@@ -18,7 +18,7 @@ import sys
 import time
 from importlib import metadata
 from importlib.metadata import PackageNotFoundError
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 from astropy.io import fits
 from astropy.table import Column, MaskedColumn, Table, hstack, vstack
@@ -124,9 +124,7 @@ class Loading(object):
     # loading bar message
     msg = ""
 
-    def __init__(
-        self, length: int, msg: Optional[str] = "", res: Optional[int] = 1
-    ) -> None:
+    def __init__(self, length: int, msg: str = "", res: int = 1) -> None:
         self.set_len(length)
         self.msg = msg
         self.start_time = time.time()
@@ -322,7 +320,7 @@ def parse_unit(raw: str) -> Tuple[float | None, int | None]:
     return value, unit
 
 
-def tab2array(tab: Table, col_names: Optional[List[str]] = None) -> np.ndarray:
+def tab2array(tab: Table, col_names: List[str] | None = None) -> np.ndarray:
     """Returns the contents of the table as a normal 2D numpy array.
 
     NB: this is different from Table.asarray(), which returns an array of
@@ -370,8 +368,8 @@ def collapse_header(header) -> fits.Header:
 
 def export_table(
     table: Table,
-    f_name: Optional[str] = None,
-    header: Optional[fits.Header] = None,
+    f_name: str | None = None,
+    header: fits.Header | None = None,
 ) -> None:
     """Export table with correct dtypes.
 
@@ -527,7 +525,7 @@ def combine_file_names(
 
 
 def h_cascade(
-    tables: List[Table], col_names: Optional[List[str]] = None
+    tables: List[Table], col_names: List[str] | None = None
 ) -> Table:
     """Similar use as hstack.
 
@@ -645,7 +643,7 @@ def flux_2_ab_mag(
     return flux2mag(flux, flux_err, zp=3631.0)
 
 
-def wget(address: str, f_name: Optional[str] = None) -> ExitStates:
+def wget(address: str, f_name: str | None = None) -> ExitStates:
     """A really simple "implementation" of wget.
 
     :param address: URL to download

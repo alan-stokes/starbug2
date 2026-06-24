@@ -16,7 +16,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
 import sys
 from os import getenv
-from typing import Final, Optional, Tuple, Dict, List, cast, Any
+from typing import Final, Tuple, Dict, List, cast, Any
 
 from astropy.wcs import (
     WCS, NoConvergence, SingularMatrixError, InconsistentAxisTypesError,
@@ -30,9 +30,9 @@ from photutils.datasets import make_model_image
 from photutils.psf import ImagePSF
 from starbug2.constants import (
     HeaderTags, ImageHeaderTags, SCI, BGD, RES, VERBOSE_TAG, AP_FILE, BGD_FILE,
-    FITS_EXTENSION, DQ, AREA, WHT, NIRCAM, STAR_BUG_MIRI, SourceFlags, DQFlags,
+    FITS_EXTENSION, DQ, AREA, WHT, NIRCAM, SourceFlags, DQFlags,
     DetectorLengths, Units, ERR, ExitStates, NIRCAM_STRING, STARBUG_DATA_DIR,
-    DEFAULT_FULL_WIDTH_HALF_MAX, TableColumn)
+    DEFAULT_FULL_WIDTH_HALF_MAX, TableColumn, MIRI_STRING, MIRI_IMAGE)
 from starbug2.filters import STAR_BUG_FILTERS, FilterStruct
 from starbug2.routines.app_hot_routine import APPhotRoutine
 from starbug2.routines.background_estimate_routine import (
@@ -73,7 +73,7 @@ class StarbugBase(StarBugInterface):
 
     @staticmethod
     def sort_output_names(
-        f_name: str, param_output: Optional[str] = None
+        f_name: str, param_output: str | None = None
     ) -> Tuple[str, str, str]:
         """
         This is a useful function that looks at both an input file and a set
@@ -111,7 +111,7 @@ class StarbugBase(StarBugInterface):
 
     def __init__(
         self, f_name: str, config: StarBugMainConfig,
-        ap_file: Optional[str], bkg_file: Optional[str], verbose: Any
+        ap_file: str | None, bkg_file: str | None, verbose: Any
     ) -> None:
         """
         Star bug initialisation.
@@ -129,22 +129,22 @@ class StarbugBase(StarBugInterface):
         """
         # Defaults
         self._config = config
-        self._f_name: Optional[str] = None
-        self._out_dir: Optional[str] = None
-        self._b_name: Optional[str] = None
-        self._image: Optional[HDUList] = None
+        self._f_name: str | None = None
+        self._out_dir: str | None = None
+        self._b_name: str | None = None
+        self._image: HDUList | None = None
         self._filter: str | None = None
         self._header: Header | None = None
-        self._wcs: Optional[WCS] = None
+        self._wcs: WCS | None = None
         self._stage: float = 0.0
-        self._detections: Optional[Table] = None
+        self._detections: Table | None = None
         self._n_hdu: int = -1
-        self._unit: Optional[str] = None
-        self._background: Optional[ImageHDU | PrimaryHDU] = None
+        self._unit: str | None = None
+        self._background: ImageHDU | PrimaryHDU | None = None
         self._residuals: np.ndarray | None = None
-        self._psf_catalogue: Optional[Table] = None
-        self._source_stats: Optional[np.ndarray] = None
-        self._psf: Optional[np.ndarray] = None
+        self._psf_catalogue: Table | None = None
+        self._source_stats: np.ndarray | None = None
+        self._psf: np.ndarray | None = None
 
         # Overridden configs
         self._ap_file = ap_file
@@ -266,7 +266,7 @@ class StarbugBase(StarBugInterface):
             else:
                 warn("included file must be FITS format\n")
 
-    def load_ap_file(self, f_name: Optional[str] = None) -> None:
+    def load_ap_file(self, f_name: str | None = None) -> None:
         """
         Load an AP_FILE to be used during photometry.
 
@@ -346,7 +346,7 @@ class StarbugBase(StarBugInterface):
         else:
             p_error("AP_FILE='%s' does not exist\n" % f_name)
 
-    def load_bgd_file(self, f_name: Optional[str] = None) -> None:
+    def load_bgd_file(self, f_name: str | None = None) -> None:
         """
         Load a BGD_FILE to be used during photometry.
 
@@ -366,7 +366,7 @@ class StarbugBase(StarBugInterface):
             p_error("BGD_FILE='%s' does not exist\n" % f_name)
 
     # noinspection SpellCheckingInspection
-    def load_psf(self, f_name: Optional[str] = None) -> ExitStates:
+    def load_psf(self, f_name: str | None = None) -> ExitStates:
         """
         Load a PSF_FILE to be used during photometry.
 
@@ -393,9 +393,9 @@ class StarbugBase(StarBugInterface):
                     elif (filter_struct.instr == NIRCAM and
                           filter_struct.length == DetectorLengths.LONG):
                         dt_name = "NRCA5"
-                    elif filter_struct.instr == STAR_BUG_MIRI:
+                    elif filter_struct.instr == MIRI_STRING:
                         dt_name = ""
-                if dt_name == "MIRIMAGE":
+                if dt_name == MIRI_IMAGE:
                     dt_name = ""
                 f_name = "%s/%s%s.fits" % (
                     StarbugBase.get_data_path(), self._filter, dt_name)
@@ -514,7 +514,25 @@ class StarbugBase(StarBugInterface):
                 clean_src=self._config.clean_sources,
                 verbose=self._verbose)
 
-            self._detections = detector(self.main_image.data.copy())[
+            self._detections = detector(self.main_image.data.copy())
+            assert self._detections is not None
+
+            # check we have columns we need
+            if not (TableColumn.X_CENTROID in self._detections.colnames and
+                    TableColumn.Y_CENTROID in self._detections.colnames and
+                    TableColumn.SHARPNESS in self._detections.colnames and
+                    TableColumn.ROUNDNESS1 in self._detections.colnames and
+                    TableColumn.ROUNDNESS2 in self._detections.colnames):
+                printf(
+                    f"dont have the pre-requisite columns. Please ensure "
+                    f"that the detections table has columns named the "
+                    f"following: {TableColumn.X_CENTROID}, "
+                    f"{TableColumn.Y_CENTROID}, {TableColumn.SHARPNESS}, "
+                    f"{TableColumn.ROUNDNESS1}, {TableColumn.ROUNDNESS2}.")
+                return ExitStates.EXIT_FAIL
+
+            # filter to just the fields we need
+            self._detections = self._detections[
                 TableColumn.X_CENTROID, TableColumn.Y_CENTROID,
                 TableColumn.SHARPNESS, TableColumn.ROUNDNESS1,
                 TableColumn.ROUNDNESS2]
@@ -537,7 +555,6 @@ class StarbugBase(StarBugInterface):
             # noinspection SpellCheckingInspection
             self._detections.meta.update({"ROUNTINE": "DETECT"})
             self.aperture_photometry()
-
         else:
             p_error("Something went wrong.\n")
             status = ExitStates.EXIT_FAIL
@@ -582,13 +599,13 @@ class StarbugBase(StarBugInterface):
         image, error, _, mask = self.prepare_image_arrays()
 
         # Aperture Correction
-        ap_corr_f_name: Optional[str] = None
+        ap_corr_f_name: str | None = None
         if _ap_corr_f_name := self._config.ap_corr_file_override:
             ap_corr_f_name = _ap_corr_f_name
         elif self.info.get(ImageHeaderTags.INSTRUMENT) == NIRCAM_STRING:
             ap_corr_f_name = (
                 "%s/apcorr_nircam.fits" % StarbugBase.get_data_path())
-        elif self.info.get(ImageHeaderTags.INSTRUMENT) == "MIRI":
+        elif self.info.get(ImageHeaderTags.INSTRUMENT) == MIRI_STRING:
             ap_corr_f_name = (
                 "%s/apcorr_miri.fits" % StarbugBase.get_data_path())
 

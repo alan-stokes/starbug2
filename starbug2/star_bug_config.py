@@ -23,7 +23,7 @@ from parse import parse
 from starbug2.constants import (
     SCI, DEFAULT_COLOUR, HeaderTags, AP_FILE, BGD_FILE, PSF_FILE, TableColumn,
     STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, PROBLEMATIC_FILTER_ID,
-    PROBLEMATIC_FILTER_WARNING, DEFAULT_PARAM_TEMPLATE)
+    PROBLEMATIC_FILTER_WARNING, DEFAULT_PARAM_TEMPLATE, STARBUG_DATA_DIR)
 from starbug2.utils import p_error, get_version, warn
 
 
@@ -82,6 +82,9 @@ class StarBugMainConfig:
         (None, 'autosave', int): "ast_auto_save",
         (None, 'no-background', bool): "ast_no_background",
         (None, 'no-psfphot', bool): "ast_no_psf_phot",
+        (None, 'save_added_image', bool): "save_added_image",
+        (None, 'save_added_image_path', str): "save_added_image_path",
+        (None, 'seed', int): "ast_seed"
     }
 
     # noinspection SpellCheckingInspection
@@ -267,6 +270,9 @@ class StarBugMainConfig:
         self._ast_auto_save: int = 100
         self._ast_no_background: bool = False
         self._ast_no_psf_phot: bool = False
+        self._save_added_image: bool = False
+        self._save_added_image_path: str = ""
+        self._ast_seed: int | None = None
 
         # matching params
         self._do_band_processing: bool = False
@@ -288,7 +294,7 @@ class StarBugMainConfig:
         self._plot_style: str | None = None
 
         # param file defaults. These constants do not have justifications yet.
-        self._output_file: str | None = None
+        self._output_file: str | None = os.getenv(STARBUG_DATA_DIR)
         self._hdu_name: str = SCI
         self._filter: str | None = None
         self._full_width_half_max: float = -1.0
@@ -1356,11 +1362,35 @@ class StarBugMainConfig:
     # ===============================
 
     @property
+    def ast_seed(self) -> int | None:
+        return self._ast_seed
+
+    @ast_seed.setter
+    def ast_seed(self, value: int | None) -> None:
+        self._ast_seed = value
+
+    @property
+    def save_added_image_path(self) -> str:
+        return self._save_added_image_path
+
+    @save_added_image_path.setter
+    def save_added_image_path(self, value: str) -> None:
+        self._save_added_image_path = value
+
+    @property
+    def save_added_image(self) -> bool:
+        return self._save_added_image
+
+    @save_added_image.setter
+    def save_added_image(self, value: bool) -> None:
+        self._save_added_image = value
+
+    @property
     def show_ast_help(self) -> bool:
         return self._show_ast_help
 
     @show_ast_help.setter
-    def show_ast_help(self, value) -> None:
+    def show_ast_help(self, value: bool) -> None:
         self._show_ast_help = value
 
     @property
