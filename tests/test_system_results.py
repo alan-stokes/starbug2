@@ -129,11 +129,12 @@ class TestSystemResults:
 
         # config to set off detection without psf
         config.stars_per_artificial_test = 15
-        config.ast_no_psf_phot = True
-        config.ast_no_background = True
         config.save_added_image = True
         config.save_added_image_path = TEST_PATH_STR
         config.zero_point_magnitude = 25
+        config.sigma_source = 50
+        config.test_magnitude_bright_limit = 15
+        config.test_magnitude_faint_limit = 16
 
         # create empty fits file
         generic.create_blank_fits()
@@ -147,8 +148,8 @@ class TestSystemResults:
         # execute detection.
         exit_state: int = starbug_internal_main(config)
         assert exit_state == ExitStates.EXIT_SUCCESS
-        generic.clean()
 
+        # check results.
         captured = capsys.readouterr()
         lines = captured.out.splitlines()
         self._assert_results(lines, expected_total=15)

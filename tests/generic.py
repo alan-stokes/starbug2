@@ -36,6 +36,7 @@ TEST_README: Final[str] = os.path.join(TEST_PATH, "readme.txt")
 TEST_BLANK: Final[str] = str(os.path.join(str(TEST_PATH), "blank.fits"))
 TEST_AST_FILLED: Final[str] =  str(
     os.path.join(str(TEST_PATH), "inserted_image_for_test_1.fits"))
+TEST_SEED = 42
 
 # the filter string for tests to ensure they all use the same stuff
 TEST_FILTER_STRING = "-s FILTER=F444W -G"
@@ -95,10 +96,14 @@ def create_blank_fits(size=(2048, 2048)):
     # Create a 2D numpy array of zeros (using float32 for standard precision)
     blank_data = np.zeros(size, dtype=np.float32)
 
-    # 2. Wrap the data inside a Primary HDU
-    primary_hdu = fits.PrimaryHDU(data=blank_data)
+    # Create background noise: mean of 10.0 counts, standard deviation of 1.0
+    rng = np.random.default_rng(seed=TEST_SEED)
+    background_noise = rng.normal(loc=10.0, scale=1.0, size=blank_data.shape)
 
-    # 3. Add essential metadata headers so pipeline loaders don't choke
+    # Wrap the data inside a Primary HDU
+    primary_hdu = fits.PrimaryHDU(data=background_noise)
+
+    # Add essential metadata headers so pipeline loaders don't choke
     header = primary_hdu.header
     header["EXTNAME"] = "PRIMARY"
     header["OBJECT"] = "BLANK_SPACE_CI"
@@ -107,7 +112,7 @@ def create_blank_fits(size=(2048, 2048)):
     header[ImageHeaderTags.DETECTOR] = MIRI_IMAGE
     header[ImageHeaderTags.INSTRUMENT] = MIRI_STRING
 
-    # 4. Write the file out to disk
+    # Write the file out to disk
     # overwrite=True ensures test scripts can recreate this file on every run
     primary_hdu.writeto(TEST_BLANK, overwrite=True)
     print(f"✅ Successfully saved to {TEST_BLANK}")
