@@ -293,8 +293,8 @@ class DetectionRoutine(StarFinderBase):
 
     def _update_mask_for_cleaning_src(self, mask: np.ndarray) -> np.ndarray:
         if (TableColumn.SHARPNESS in self.catalogue.colnames and
-            TableColumn.ROUNDNESS1 in self.catalogue.colnames and
-            TableColumn.ROUNDNESS2 in self.catalogue.colnames):
+                TableColumn.ROUNDNESS1 in self.catalogue.colnames and
+                TableColumn.ROUNDNESS2 in self.catalogue.colnames):
             mask &= (
                 (self.catalogue[TableColumn.SHARPNESS] > self.sharp_lo)
                 & (self.catalogue[TableColumn.SHARPNESS] < self.sharp_hi)
