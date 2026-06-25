@@ -49,7 +49,9 @@ REQUIRED_FILES = ["image.fits", "psf.fits", "ngc6822_F770W_i2d.fits"]
 
 def verify_test_data_exists() -> None:
     # Check if the specific FITS file is missing
-    if not os.path.exists(TEST_IMAGE_FITS):
+    if not (os.path.exists(TEST_IMAGE_FITS)
+            and os.path.exists(TEST_PSF_FITS)
+            and os.path.exists(TEST_NGC_FITS)):
         print(
             "\n⚠️ Test file missing due to merge. "
             "Downloading all from GitHub Releases...")

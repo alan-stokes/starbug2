@@ -21,6 +21,7 @@ from starbug2.filters import STAR_BUG_FILTERS
 from starbug2.constants import STARBUG_DATA_DIR
 from starbug2.initialise_psf_data import init_starbug_for_jwst
 from starbug2.star_bug_config import StarBugMainConfig
+from tests.generic import verify_test_data_exists
 
 
 @pytest.mark.skipif(
@@ -31,6 +32,7 @@ from starbug2.star_bug_config import StarBugMainConfig
            " the machine."
 )
 def test_init():
+    verify_test_data_exists()
     os.environ[STARBUG_DATA_DIR] = "/tmp/starbug"
     d = os.getenv(STARBUG_DATA_DIR)
     init_starbug_for_jwst(StarBugMainConfig())

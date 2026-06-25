@@ -19,13 +19,14 @@ from typing import Final
 import pytest
 from starbug2.constants import STAR_BUG_PARAMS, PROBLEMATIC_FILTER_WARNING
 from starbug2.star_bug_config import StarBugMainConfig
-from tests.generic import TEST_PATH_STR
+from tests.generic import TEST_PATH_STR, verify_test_data_exists
 
 TEST_PARAM_PATH: Final[str] = os.path.join(
     TEST_PATH_STR, "../param_files/old_format.param")
 
 
 def test_parse_param():
+    verify_test_data_exists()
     assert type(StarBugMainConfig.parse_param("A=1//.")) == dict
 
     assert StarBugMainConfig.parse_param("A = 1 //.") == {'A': 1}

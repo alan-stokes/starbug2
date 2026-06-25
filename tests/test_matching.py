@@ -33,7 +33,7 @@ from astropy.units import Quantity
 
 from tests.generic import (
     TEST_IMAGE_FITS, check_shape, clean, TEST_FILTER_STRING,
-    TEST_PATH_STR, TEST_PATH)
+    TEST_PATH_STR, TEST_PATH, verify_test_data_exists)
 
 IMAGE_2_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image2.fits")
 IMAGE_AP_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image-ap.fits")
@@ -42,7 +42,7 @@ IMAGE_2_AP_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image2-ap.fits")
 
 @pytest.fixture(autouse=True)
 def init():
-
+    verify_test_data_exists()
     clean()
     # noinspection SpellCheckingInspection
     starbug_main(
