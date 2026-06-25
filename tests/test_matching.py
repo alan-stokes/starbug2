@@ -46,7 +46,7 @@ def init():
     clean()
     # noinspection SpellCheckingInspection
     starbug_main(
-        f"starbug2 -Ds SIGSRC=10 {TEST_FILTER_STRING} --output={TEST_PATH}"
+        f"starbug2 -Ds SIGSRC=5 {TEST_FILTER_STRING} --output={TEST_PATH}"
         f" {TEST_IMAGE_FITS}".split())
     # noinspection SpellCheckingInspection
     starbug_main(
@@ -94,6 +94,7 @@ def cats():
 class TestGenericMatch:
 
     def test_initialing(self):
+        clean()
         config = StarBugMainConfig()
 
         m = GenericMatch()
@@ -142,6 +143,7 @@ class TestGenericMatch:
         print(out)
         assert len(out) <= len(category1)
         assert len(out) <= len(category2)
+        clean()
 
     def test_generic_match2(self):
         categories = [import_table(f) for f in (
@@ -154,6 +156,7 @@ class TestGenericMatch:
         out = m(categories)
 
         assert out.colnames == [TableColumn.RA_1, TableColumn.RA_2]
+        clean()
 
     def test_finish_matching(self):
         categories: list[Table | None] = [import_table(f) for f in (
@@ -195,6 +198,7 @@ class TestGenericMatch:
             TableColumn.RA, TableColumn.DEC, TableColumn.FLUX,
             TableColumn.STD_FLUX, TableColumn.FLAG, TableColumn.MAG_UPPER,
             TableColumn.ERROR_MAG, TableColumn.NUM]
+        clean()
 
     def test_vals(self):
         config = StarBugMainConfig()
@@ -214,6 +218,7 @@ class TestGenericMatch:
                 "RA_1", "DEC_1", "flux_1", "eflux_1", "RA_2", "DEC_2",
                 "flux_2", "eflux_2"])
         check_shape(c, out)
+        clean()
 
 
 class TestCascade:
@@ -221,6 +226,7 @@ class TestCascade:
         [import_table(f) for f in (f"{IMAGE_AP_FITS}", f"{IMAGE_2_AP_FITS}")]
         config = StarBugMainConfig()
         CascadeMatch(threshold=config.match_threshold_arc_sec_as_an_arc_sec)
+        clean()
 
     def test_vals(self):
         t = [[0.0, 0.0, 1.0, 0.1,   0.0, 0.0, 1.1, 0.1],
@@ -239,10 +245,12 @@ class TestCascade:
         print(out)
 
         check_shape(c, out)
+        clean()
 
 
 class TestBandMatch:
     def test_init(self):
+        clean()
         filters = ["a", "b", "c"]
         m = BandMatch(fltr=filters)
         assert m.filter_list == ["a", "b", "c"]
@@ -256,6 +264,7 @@ class TestBandMatch:
         assert m.filter is None
         assert m.order_catalogues([a, c, b]) == [a, b, c]
         assert m.filter_list == ["F115W", "F187N", "F770W"]
+        clean()
 
     def test_order_catalogue_jwst_col_names(self):
         a = Table(None, names=['F115W'])
@@ -266,6 +275,7 @@ class TestBandMatch:
         assert m.filter is None
         assert m.order_catalogues([a, c, b]) == [a, b, c]
         assert m.filter_list == ["F115W", "F187N", "F770W"]
+        clean()
 
     def test_order_catalogue_filter_meta(self):
         a = Table(None, meta={"FILTER": 'a'})
@@ -274,6 +284,7 @@ class TestBandMatch:
 
         m = BandMatch(fltr=["a", "b", "c"])
         assert m.order_catalogues([a, c, b]) == [a, b, c]
+        clean()
 
     def test_order_catalogue_filter_col_names(self):
         a = Table(None, names=['a'])
@@ -282,6 +293,7 @@ class TestBandMatch:
 
         m = BandMatch(fltr=["a", "b", "c"])
         assert m.order_catalogues([a, c, b]) == [a, b, c]
+        clean()
 
     def test_match(self):
         t1 = [[1., 1., 1, 1, 0],
@@ -322,10 +334,11 @@ class TestBandMatch:
             TableColumn.RA, TableColumn.DEC, TableColumn.NUM,
             TableColumn.FLAG, "A", "B", "C"]
         bm(categories, method="bootstrap")
-
+        clean()
 
 def test_parse_mask():
     import_table(f"{IMAGE_AP_FITS}")
+    clean()
 
 
 def test_match_with_masks():
@@ -356,6 +369,7 @@ def test_match_with_masks():
         threshold=config.match_threshold_arc_sec_as_an_arc_sec
     ).match([cat1, cat2, cat3], mask=mask)
     print(res)
+    clean()
 
 
 def test_exact_match():
@@ -383,6 +397,7 @@ def test_exact_match():
                        name="CN", index=0)
     res = ExactValueMatch(value="CN").match([cat1, cat2, cat3])
     assert all(res == fill_nan(correct))  # type: ignore
+    clean()
 
 
 if __name__ == "__main__":
