@@ -336,6 +336,7 @@ class TestBandMatch:
         bm(categories, method="bootstrap")
         clean()
 
+
 def test_parse_mask():
     import_table(f"{IMAGE_AP_FITS}")
     clean()
