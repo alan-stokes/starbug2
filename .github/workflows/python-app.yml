@@ -1,8 +1,8 @@
-#This workflow will install Python dependencies, run tests and lint with
-#  multiple versions of Python
-# For more information see:
-# (https://help.github.com/actions/language-and-framework-guides/
-#  using-python-with-github-actions)
+  #This workflow will install Python dependencies, run tests and lint with
+  #  multiple versions of Python
+  # For more information see:
+  # (https://help.github.com/actions/language-and-framework-guides/
+  #  using-python-with-github-actions)
 
   name: Python application
 
@@ -37,7 +37,7 @@
         - name: Create DAta and Cache Directories
           run: |
             mkdir -p ${{ github.workspace }}/webbpsf_cache
-            mkdir -p ${{github.workspace }}/starbug_data
+            mkdir -p ${{ github.workspace }}/starbug_data
 
         # Upgraded to v5 and added automatic pip caching to speed up builds
         - name: Set up Python ${{ matrix.python-version }}
@@ -59,6 +59,23 @@
             
             # Install starbug2 itself in editable mode
             pip install -e .
+
+        - name: Cache FITS test data
+          id: cache-fits
+          uses: actions/cache@v4
+          with:
+            path: |
+              tests/dat/ngc6822_F770W_i2d.fits
+              tests/dat/image.fits
+              tests/dat/psf.fits
+            key: ${{ runner.os }}-fits-cache-v1
+
+        - name: Download FITS files from Private Draft Release if cache missed
+          if: steps.cache-fits.outputs.cache-hit != 'true'
+          env:
+            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          run: gh release download TEST_DATA --repo "${{ github.repository }}" --pattern "*.fits" --dir "tests/dat"
+
 
         - name: Lint with flake8
           run: |
