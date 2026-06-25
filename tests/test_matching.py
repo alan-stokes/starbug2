@@ -32,7 +32,8 @@ from astropy import units
 from astropy.units import Quantity
 
 from tests.generic import (
-    TEST_IMAGE_FITS, check_shape, clean, TEST_FILTER_STRING, TEST_PATH_STR, TEST_PATH)
+    TEST_IMAGE_FITS, check_shape, clean, TEST_FILTER_STRING,
+    TEST_PATH_STR, TEST_PATH)
 
 IMAGE_2_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image2.fits")
 IMAGE_AP_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image-ap.fits")
