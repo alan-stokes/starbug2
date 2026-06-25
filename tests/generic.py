@@ -15,9 +15,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 import os
 import glob
+from urllib import request
 from typing import Final
 
 import numpy as np
+import pytest
 from astropy.io import fits
 
 from starbug2.constants import (
@@ -40,6 +42,27 @@ TEST_SEED = 42
 
 # the filter string for tests to ensure they all use the same stuff
 TEST_FILTER_STRING = "-s FILTER=F444W -G"
+GITHUB_RELEASE_URL = (
+    "https://github.com/alan-stokes/starbug2/releases/download/TEST_DATA/")
+REQUIRED_FILES = ["image.fits", "psf.fits", "ngc6822_F770W_i2d.fits"]
+
+def verify_test_data_exists() -> None:
+    # Check if the specific FITS file is missing
+    if not os.path.exists(TEST_IMAGE_FITS):
+        print(
+            f"\n⚠️ Test file missing due to merge. "
+            f"Downloading all from GitHub Releases...")
+
+        for filename in REQUIRED_FILES:
+            file_path = os.path.join(str(TEST_PATH), filename)
+            url = f"{GITHUB_RELEASE_URL}/{filename}"
+            if not os.path.exists(file_path):
+                try:
+                    request.urlretrieve(url, file_path)
+                except Exception as e:
+                    pytest.fail(
+                        f"Failed to download test asset from GitHub "
+                        f"Release: {e}")
 
 
 def create_default_config() -> StarBugMainConfig:
