@@ -24,9 +24,7 @@ from astropy import units
 from astropy.units.quantity import Quantity
 from astropy.coordinates import SkyCoord
 from astropy.table import Table, hstack, Column, vstack
-from starbug2.constants import (
-    CAT_NUM, FILTER, RA, DEC, SRC_GOOD, SRC_VAR,
-    STD_FLUX, E_FLUX, FLUX, FLAG, NUM)
+from starbug2.constants import HeaderTags, SourceFlags, TableColumn
 from starbug2.star_bug_config import StarBugMainConfig
 from starbug2.utils import (
     Loading, printf, remove_duplicates, p_error, fill_nan, tab2array,
@@ -94,9 +92,9 @@ class GenericMatch:
         :rtype: SkyCoord.
         """
         ra_cols: list[str] = list(
-            name for name in base.colnames if RA in name)
+            name for name in base.colnames if TableColumn.RA in name)
         dec_cols: list[str] = list(
-            name for name in base.colnames if DEC in name)
+            name for name in base.colnames if TableColumn.DEC in name)
         ra: np.ndarray = np.nanmean(
             tab2array(base, col_names=ra_cols), axis=1)
         dec: np.ndarray = np.nanmean(
@@ -248,7 +246,8 @@ class GenericMatch:
             catalogues[n] = catalogue[keep]
 
         if not self._filter:
-            filter_string: str | None = catalogues[0].meta.get(FILTER)
+            filter_string: str | None = (
+                catalogues[0].meta.get(HeaderTags.FILTER))
             if filter_string is None:
                 filter_string = "MAG"
             self._filter = filter_string
@@ -284,8 +283,8 @@ class GenericMatch:
         :rtype: astropy.table.Table
         """
         catalogues = self.init_catalogues(catalogues)
-        if self._col_names and CAT_NUM in self._col_names:
-            self._col_names.remove(CAT_NUM)
+        if self._col_names and TableColumn.CAT_NUM in self._col_names:
+            self._col_names.remove(TableColumn.CAT_NUM)
 
         masked: Table = self.mask_catalogues(catalogues, mask)
         base: Table = self.build_meta(catalogues)
@@ -389,7 +388,7 @@ class GenericMatch:
     def finish_matching(
         self,
         tab: Table | None,
-        error_column: str = E_FLUX,
+        error_column: str = TableColumn.E_FLUX,
         num_thresh: int = -1,
         zp_mag: float = 0.0,
         col_names: list[str] | None = None) -> Table:
@@ -418,7 +417,8 @@ class GenericMatch:
             return Table(None)
 
         # have working table
-        flags: np.ndarray = np.full(len(tab), SRC_GOOD, dtype=np.uint16)
+        flags: np.ndarray = np.full(
+            len(tab), SourceFlags.SRC_GOOD, dtype=np.uint16)
         average_table: Table = Table(None)
 
         if col_names is None:
@@ -432,30 +432,36 @@ class GenericMatch:
                 # only go forward if both tables have a common column name to
                 # compare
                 if ar.shape[1] > 1:
-                    if name == FLUX:
+                    if name == TableColumn.FLUX:
                         col = Column(np.nanmedian(ar, axis=1), name=name)
                         mean: np.ndarray = np.nanmean(ar, axis=1)
 
-                        if self._col_names and STD_FLUX not in self._col_names:
+                        if (self._col_names
+                                and TableColumn.STD_FLUX not in
+                                    self._col_names):
                             average_table.add_column(
-                                Column(np.nanstd(ar, axis=1), name=STD_FLUX),
+                                Column(np.nanstd(ar, axis=1),
+                                       name=TableColumn.STD_FLUX),
                                 index=ii + 1)
                         ## if median and mean are >5% different, flag as
-                        # SRC_VAR
-                        flags[np.abs(mean - col) > (col / 5.0)] |= SRC_VAR
-                    elif name == E_FLUX:
+                        # SRC_VAR.
+                        # ABS. why are we using such an aggressive type check
+                        # here?
+                        flags[np.abs(mean - col) > (col / 5.0)] |= np.uint16(
+                            SourceFlags.SRC_VAR)
+                    elif name == TableColumn.E_FLUX:
                         col = Column(
                             np.sqrt(np.nansum(ar * ar, axis=1)), name=name)
-                    elif name == STD_FLUX:
+                    elif name == TableColumn.STD_FLUX:
                         col = Column(np.nanmedian(ar, axis=1), name=name)
-                    elif name == FLAG:
+                    elif name == TableColumn.FLAG:
                         col = Column(flags, name=name)
                         f_col: np.ndarray
                         for f_col in ar.T:
                             flags |= f_col.astype(np.uint16)
-                    elif name == NUM:
+                    elif name == TableColumn.NUM:
                         col = Column(np.nansum(ar, axis=1), name=name)
-                    elif name == CAT_NUM:
+                    elif name == TableColumn.CAT_NUM:
                         col = Column(all_cols[0], name=name)
                     else:
                         col = Column(np.nanmedian(ar, axis=1), name=name)
@@ -464,14 +470,15 @@ class GenericMatch:
                     col.name = name
                 average_table.add_column(col, index=ii)
 
-        average_table[FLAG] = Column(flags, name=FLAG)
-        if FLUX in average_table.colnames:
+        average_table[TableColumn.FLAG] = Column(flags, name=TableColumn.FLAG)
+        if TableColumn.FLUX in average_table.colnames:
             ecol: Column | None = (
                 average_table[error_column]
                 if error_column in average_table.colnames else None)
             mag: np.ndarray
             mag_err: np.ndarray
-            mag, mag_err = flux2mag(average_table[FLUX], flux_err=ecol)
+            mag, mag_err = flux2mag(
+                average_table[TableColumn.FLUX], flux_err=ecol)
             mag += zp_mag
 
             if self._filter in average_table.colnames:
@@ -481,13 +488,15 @@ class GenericMatch:
             average_table.add_column(mag, name=str(self._filter))
             average_table.add_column(mag_err, name=f"e{self._filter}")
 
-        if NUM not in average_table.colnames:
+        if TableColumn.NUM not in average_table.colnames:
             narr: np.ndarray = np.nansum(np.invert(
-                np.isnan(tab2array(tab, find_col_names(tab, RA)))), axis=1)
-            average_table.add_column(Column(narr, name=NUM))
+                np.isnan(tab2array(
+                    tab, find_col_names(tab, TableColumn.RA)))), axis=1)
+            average_table.add_column(Column(narr, name=TableColumn.NUM))
 
             if num_thresh > 0:
-                average_table.remove_rows(average_table[NUM] < num_thresh)
+                average_table.remove_rows(
+                    average_table[TableColumn.NUM] < num_thresh)
         return average_table
 
     @property

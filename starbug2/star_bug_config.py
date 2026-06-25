@@ -21,8 +21,8 @@ from typing import Dict, Tuple, Final, Any
 from parse import parse
 
 from starbug2.constants import (
-    DEC, RA, SCI, DEFAULT_COLOUR, OUTPUT, AP_FILE, BGD_FILE, PSF_FILE,
-    STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, E_FLUX, PROBLEMATIC_FILTER_ID,
+    SCI, DEFAULT_COLOUR, HeaderTags, AP_FILE, BGD_FILE, PSF_FILE, TableColumn,
+    STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, PROBLEMATIC_FILTER_ID,
     PROBLEMATIC_FILTER_WARNING, DEFAULT_PARAM_TEMPLATE)
 from starbug2.utils import p_error, get_version, warn
 
@@ -279,7 +279,7 @@ class StarBugMainConfig:
         self._generic_mode: bool = False
         self._show_match_help: bool = False
         self._band_deprecated: bool = False
-        self._error_col: str = E_FLUX
+        self._error_col: str = TableColumn.E_FLUX
         self._mask_eval: str | None = None
 
         # plot params
@@ -340,8 +340,8 @@ class StarBugMainConfig:
         self._region_colour: str = DEFAULT_COLOUR
         self._region_scale: bool = True
         self._region_radius: int = 3
-        self._region_x_column_name: str = RA
-        self._region_y_column_name: str = DEC
+        self._region_x_column_name: str = TableColumn.RA
+        self._region_y_column_name: str = TableColumn.DEC
         self._region_uses_wcs: bool = True
         self._param_tag: str = STAR_BUG_PARAMS
 
@@ -469,8 +469,8 @@ class StarBugMainConfig:
                 pass
 
             ## Special case environmental variables expansions for paths
-            if key in (OUTPUT, AP_FILE, BGD_FILE, PSF_FILE) and isinstance(
-                    value, str):
+            if (key in (HeaderTags.OUTPUT, AP_FILE, BGD_FILE, PSF_FILE)
+                    and isinstance(value, str)):
                 value = os.path.expandvars(value)
 
             if value == "False":

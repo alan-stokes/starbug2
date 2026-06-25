@@ -15,6 +15,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 # noinspection SpellCheckingInspection
 from typing import List, Final
+from enum import Enum
 
 # the filter id which we've had to adjsut the bin size to allow it to
 # initilise without errors.
@@ -29,14 +30,21 @@ WEBBPSF_PATH_ENV_VAR: Final[str] = "WEBBPSF_PATH"
 STAR_BUG_PARAMS: Final[str] = "STARBUGII PARAMETERS"
 STAR_BUG_TEST_DAT_ENV: Final[str] = "STARBUG_TEST_DIR"
 
-# default value for full width half max when nothing sets it
+# default values
 DEFAULT_FULL_WIDTH_HALF_MAX = 2.0
 DEFAULT_PSF_FILE_NAME = "psf.fits"
+DEFAULT_COLOUR: Final[str] = "green"
+# how many characters we will allow by default.
+N_MIS_MATCHES: Final[int] = 10
+
+# rest success
+REST_SUCCESS_CODE: Final[int] = 200
 
 # url to docs
 URL_DOCS: Final[str] = (
     "https://raw.githubusercontent.com/conornally/starbug2/"
     "refs/heads/main/docs/source/_static/images/starbug.png")
+
 READ_THE_DOCS_URL: Final[str] = "https://starbug2.readthedocs.io/en/latest/"
 
 # fit urls
@@ -63,9 +71,6 @@ JWST_NIRCAM_ABVEGA_OFFSET_URL: Final[str] = (
 TMP_OUT: Final[str] = "/tmp/out.reg"
 TMP_FITS: Final[str] = "/tmp/starbug.fits"
 
-# default Full width 1/2 max when not set by param / options
-DEFAULT_FWHM: Final[float] = 2.0
-
 # the fits file extension
 FITS_EXTENSION: Final[str] = ".fits"
 FILE_NAME: Final[str] = "FILENAME"
@@ -81,24 +86,23 @@ AP_FILE: Final[str] = "AP_FILE"
 BGD_FILE: Final[str] = "BGD_FILE"
 PSF_FILE: Final[str] = "PSF_FILE"
 
-# colours
-DEFAULT_COLOUR: Final[str] = "green"
-
 ## SOURCE FLAGS
-SRC_GOOD: Final[int] = 0
-SRC_BAD: Final[int] = 0x01
-SRC_JMP: Final[int] = 0x02
-##source frame mean >5% different from median
-SRC_VAR: Final[int] = 0x04
-##psf fit with fixed centroid
-SRC_FIX: Final[int] = 0x08
-##source unknown (this isnt used anywhere!)
-SRC_UKN: Final[int] = 0x10
+class SourceFlags(int, Enum):
+    SRC_GOOD = 0
+    SRC_BAD = 0x01
+    SRC_JMP = 0x02
+    ##source frame mean >5% different from median
+    SRC_VAR = 0x04
+    ##psf fit with fixed centroid
+    SRC_FIX = 0x08
+    ##source unknown (this isnt used anywhere!)
+    SRC_UKN = 0x10
 
 ##DQ FLAGS
-DQ_DO_NOT_USE: Final[int] = 0x01
-DQ_SATURATED: Final[int] = 0x02
-DQ_JUMP_DET: Final[int] = 0x04
+class DQFlags(int, Enum):
+    DQ_DO_NOT_USE = 0x01
+    DQ_SATURATED = 0x02
+    DQ_JUMP_DET = 0x04
 
 # e name common names
 SCI: Final[str] = "SCI"
@@ -106,103 +110,148 @@ BGD: Final[str] = "BGD"
 RES: Final[str] = "RES"
 
 # test states
-EXIT_SUCCESS: Final[int] = 0
-EXIT_FAIL: Final[int] = 1
-EXIT_EARLY: Final[int] = 2
-EXIT_MIXED: Final[int] = 3
+class ExitStates(int, Enum):
+    EXIT_SUCCESS = 0
+    EXIT_FAIL = 1
+    EXIT_EARLY = 2
+    EXIT_MIXED = 3
 
-# rest success
-REST_SUCCESS_CODE: Final[int] = 200
+# table column enum to be used to amtch table col names
+class TableColumn(str, Enum):
+    """Table column names used across the pipeline."""
 
-# tag used table col names
-CAT_NUM: Final[str] = "Catalogue_Number"
-RA: Final[str] = "RA"
-DEC: Final[str] = "DEC"
-FLUX: Final[str] = "flux"
-E_FLUX: Final[str] = "eflux"
-FLUX_2: Final[str] = "flux_2"
-X_CENTROID: Final[str] = "x_centroid"
-Y_CENTROID: Final[str] = "y_centroid"
-X_PEAK: Final[str] = "x_peak"
-Y_PEAK: Final[str] = "y_peak"
-EE_FRACTION: Final[str] = "eefraction"
-RADIUS: Final[str] = "radius"
-AP_CORR: Final[str] = "apcorr"
-STD_FLUX: Final[str] = "stdflux"
-NUM: Final[str] = "NUM"
-FLAG: Final[str] = "flag"
-FLUX_DET: Final[str] = "flux_det"
-FLUX_FIT: Final[str] = "flux_fit"
-FLUX_ERR: Final[str] = "flux_err"
-OUT_FLUX: Final[str] = "outflux"
-X_0: Final[str] = "x_0"
-Y_0: Final[str] = "y_0"
-X_DET: Final[str] = "x_det"
-Y_DET: Final[str] = "y_det"
-ID: Final[str] = "id"
-MAG: Final[str] = "mag"
-STATUS: Final[str] = "status"
-REC: Final[str] = "rec"
-PARAM: Final[str] = "PARAM"
-X_INIT: Final[str] = "x_init"
-Y_INIT: Final[str] = "y_init"
-XY_DEV: Final[str] = "xydev"
-XY_DEV_: Final[str] = "_xydev"
-ERR_LOWER: Final[str] = "err"
-OFF: Final[str] = "off"
-X_FIT: Final[str] = "x_fit"
-Y_FIT: Final[str] = "y_fit"
-Q_FIT: Final[str] = "qfit"
-PUPIL: Final[str] = "pupil"
-SKY: Final[str] = "sky"
-SMOOTHNESS: Final[str] = "smoothness"
+    CAT_NUM = "Catalogue_Number"
+    RA = "RA"
+    DEC = "DEC"
+    FLUX = "flux"
+    E_FLUX = "eflux"
+    FLUX_2 = "flux_2"
+    X_CENTROID = "x_centroid"
+    Y_CENTROID = "y_centroid"
+    X_PEAK = "x_peak"
+    Y_PEAK = "y_peak"
+    EE_FRACTION = "eefraction"
+    RADIUS = "radius"
+    AP_CORR = "apcorr"
+    STD_FLUX = "stdflux"
+    NUM = "NUM"
+    FLAG = "flag"
+    FLUX_DET = "flux_det"
+    FLUX_FIT = "flux_fit"
+    FLUX_ERR = "flux_err"
+    OUT_FLUX = "outflux"
+    X_0 = "x_0"
+    Y_0 = "y_0"
+    X_DET = "x_det"
+    Y_DET = "y_det"
+    ID = "id"
+    MAG = "mag"
+    MAG_UPPER = "MAG"
+    ERROR_MAG = "eMAG"
+    STATUS = "status"
+    REC = "rec"
+    PARAM = "PARAM"
+    X_INIT = "x_init"
+    Y_INIT = "y_init"
+    XY_DEV = "xydev"
+    XY_DEV_ = "_xydev"
+    ERR_LOWER = "err"
+    OFF = "off"
+    X_FIT = "x_fit"
+    Y_FIT = "y_fit"
+    Q_FIT = "qfit"
+    PUPIL = "pupil"
+    SKY = "sky"
+    SMOOTHNESS = "smoothness"
+    SHARPNESS = "sharpness"
+    ROUNDNESS1 = "roundness1"
+    ROUNDNESS2 = "roundness2"
+    RA_1 = "RA_1"
+    RA_2 = "RA_2"
 
-# Q table col names
-SUM_ERR_0: Final[str] = "aperture_sum_err_0"
-SUM_0: Final[str] = "aperture_sum_0"
-SUM_1: Final[str] = "aperture_sum_1"
+    # needed as the table system doenst seem to handle enums properly
+    def __str__(self) -> str:
+        return self.value
+
+    # needed as the table system doenst seem to handle enums properly
+    def __format__(self, format_spec: str) -> str:
+        return self.value.__format__(format_spec)
 
 ## DEFAULT MATCHING COLS
-MATCH_COLS: List[str] = [RA, DEC, FLAG, FLUX, E_FLUX, NUM]
+MATCH_COLS: List[str] = [
+    TableColumn.RA, TableColumn.DEC, TableColumn.FLAG, TableColumn.FLUX,
+    TableColumn.E_FLUX, TableColumn.NUM]
+
+# Q table col names
+class QTableColNames(str, Enum):
+    SUM_ERR_0 = "aperture_sum_err_0"
+    SUM_0 = "aperture_sum_0"
+    SUM_1 = "aperture_sum_1"
+
+    # needed as the table system doenst seem to handle enums properly
+    def __str__(self) -> str:
+        return self.value
+
+    # needed as the table system doenst seem to handle enums properly
+    def __format__(self, format_spec: str) -> str:
+        return self.value.__format__(format_spec)
 
 # tag for header
-FILTER_LOWER: Final[str] = "filter"
-FILTER: Final[str] = "FILTER"
-EXT: Final[str] = "XTENSION"
-IMAGE: Final[str] = "IMAGE"
-BIN_TABLE: Final[str] = "BINTABLE"
-OUTPUT: Final[str] = "OUTPUT"
-STAR_BUG: Final[str] = "STARBUG"
-CALIBRATION_LV: Final[str] = "CALIBLEVEL"
-NAXIS: Final[str] = "NAXIS"
-NAXIS1: Final[str] = "NAXIS1"
-NAXIS2: Final[str] = "NAXIS2"
-C_TYPE: Final[str] = "CTYPE"
+class HeaderTags(str, Enum):
+    FILTER_LOWER = "filter"
+    FILTER = "FILTER"
+    EXT = "XTENSION"
+    IMAGE = "IMAGE"
+    BIN_TABLE = "BINTABLE"
+    OUTPUT = "OUTPUT"
+    STAR_BUG = "STARBUG"
+    CALIBRATION_LV = "CALIBLEVEL"
+    NAXIS = "NAXIS"
+    NAXIS1 = "NAXIS1"
+    NAXIS2 = "NAXIS2"
+    C_TYPE = "CTYPE"
+    OBS = "OBSERVTN"
+    VISIT = "VISIT"
+    EXPOSURE = "EXPOSURE"
+
+    # needed as the table system doenst seem to handle enums properly
+    def __str__(self) -> str:
+        return self.value
+
+    # needed as the table system doenst seem to handle enums properly
+    def __format__(self, format_spec: str) -> str:
+        return self.value.__format__(format_spec)
 
 # tags for image header
-DETECTOR: Final[str] = "DETECTOR"
-TELESCOPE: Final[str] = "TELESCOP"
-INSTRUMENT: Final[str] = "INSTRUME"
-BUN_IT: Final[str] = "BUNIT"
-PIXAR_A2: Final[str] = "PIXAR_A2"
-PIXAR_SR: Final[str] = "PIXAR_SR"
-JWST: Final[str] = "JWST"
+class ImageHeaderTags(str, Enum):
+    DETECTOR = "DETECTOR"
+    TELESCOPE = "TELESCOP"
+    INSTRUMENT = "INSTRUME"
+    BUN_IT = "BUNIT"
+    PIXAR_A2 = "PIXAR_A2"
+    PIXAR_SR = "PIXAR_SR"
+    JWST = "JWST"
+    FILTER = "FILTER"
+
+    # needed as the table system doenst seem to handle enums properly
+    def __str__(self) -> str:
+        return self.value
+
+    # needed as the table system doenst seem to handle enums properly
+    def __format__(self, format_spec: str) -> str:
+        return self.value.__format__(format_spec)
 
 # tag used for param file.
 VERBOSE_TAG: Final[str] = "VERBOSE"
 
 # mode labels.
-DETECTION: Final[str] = "DETECTION"
-BACKGROUND: Final[str] = "BACKGROUND"
-APP_HOT: Final[str] = "APPHOT"
-PSFP_HOT: Final[str] = "PSFPHOT"
-MATCH_OUTPUTS: Final[str] = "MATCHOUTPUTS"
-CLEAR: Final[str] = "CLEAR"
-
-#info tags / keys for catalogue fields.
-OBS: Final[str] = "OBSERVTN"
-VISIT: Final[str] = "VISIT"
-EXPOSURE: Final[str] = "EXPOSURE"
+class Modes(str, Enum):
+    DETECTION = "DETECTION"
+    BACKGROUND = "BACKGROUND"
+    APP_HOT = "APPHOT"
+    PSFP_HOT = "PSFPHOT"
+    MATCH_OUTPUTS = "MATCHOUTPUTS"
+    CLEAR = "CLEAR"
 
 
 ## HASHDEFS
@@ -210,19 +259,17 @@ STAR_BUG_MIRI: Final[int] = 1
 NIRCAM: Final[int] = 2
 NIRCAM_STRING: Final[str] = "NIRCAM"
 
-NULL: Final[int] = 0
-LONG: Final[int] = 1
-SHORT: Final[int] = 2
+class DetectorLengths(int, Enum):
+    NULL = 0
+    LONG = 1
+    SHORT = 2
 
 # enum unit
-PIX: Final[int] = 0
-ARCSEC: Final[int] = 1
-ARCMIN: Final[int] = 2
-DEG: Final[int] = 3
-
-
-# how many characters we will allow by default.
-N_MIS_MATCHES: Final[int] = 10
+class Units(int, Enum):
+    PIX = 0
+    ARCSEC = 1
+    ARCMIN = 2
+    DEG = 3
 
 # text based logo (using raw string to bypass escape characters)
 LOGO: Final[str] = r"""
@@ -240,7 +287,7 @@ LOGO: Final[str] = r"""
 # dictionary of help strings for specific modes (
 # DETECTION, BACKGROUND, APPHOT, PSFPHOT, MATCHOUTPUTS).
 HELP_STRINGS = {
-    DETECTION :
+    Modes.DETECTION :
         """
             Source Detection
             ----------------
@@ -264,7 +311,7 @@ HELP_STRINGS = {
         
             Full documentation is at https://starbug2.readthedocs.io
         """,
-    BACKGROUND:
+    Modes.BACKGROUND:
         """
             Diffuse Background Estimations
             ------------------------------
@@ -295,7 +342,7 @@ HELP_STRINGS = {
         
             Full documentation is at https://starbug2.readthedocs.io
         """,
-    APP_HOT:
+    Modes.APP_HOT:
         """
             Aperture Photometry
             -------------------
@@ -322,7 +369,7 @@ HELP_STRINGS = {
         
             Full documentation is at https://starbug2.readthedocs.io
         """,
-    PSFP_HOT:
+    Modes.PSFP_HOT:
         """
             PSF Photometry
             --------------
@@ -348,7 +395,7 @@ HELP_STRINGS = {
         
             Full documentation is at https://starbug2.readthedocs.io
         """,
-    MATCH_OUTPUTS:
+    Modes.MATCH_OUTPUTS:
         """
             Match Outputs
             -------------

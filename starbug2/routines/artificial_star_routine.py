@@ -23,9 +23,7 @@ from photutils.datasets import make_model_image, make_random_models_table
 from photutils.detection import StarFinder
 from photutils.psf import IterativePSFPhotometry, ImagePSF
 
-from starbug2.constants import (
-    X_CENTROID, Y_CENTROID, OUT_FLUX, FLUX, X_0, Y_0, X_DET, Y_DET, FLUX_FIT,
-    ID, STATUS)
+from starbug2.constants import TableColumn
 from starbug2.utils import Loading, warn, export_table
 
 
@@ -102,14 +100,19 @@ class ArtificialStarRoutine:
             ]
             sources = make_random_models_table(
                 int(n_tests),
-                {X_0: x_range, Y_0: y_range, FLUX: flux_range},
+                {TableColumn.X_0: x_range, TableColumn.Y_0: y_range,
+                 TableColumn.FLUX: flux_range},
                 seed=int(time.time()))
 
         # noinspection SpellCheckingInspection
-        sources.add_column(Column(np.zeros(len(sources)), name=OUT_FLUX))
-        sources.add_column(Column(np.zeros(len(sources)), name=X_DET))
-        sources.add_column(Column(np.zeros(len(sources)), name=Y_DET))
-        sources.add_column(Column(np.zeros(len(sources)), name=STATUS))
+        sources.add_column(
+            Column(np.zeros(len(sources)), name=TableColumn.OUT_FLUX))
+        sources.add_column(
+            Column(np.zeros(len(sources)), name=TableColumn.X_DET))
+        sources.add_column(
+            Column(np.zeros(len(sources)), name=TableColumn.Y_DET))
+        sources.add_column(
+            Column(np.zeros(len(sources)), name=TableColumn.STATUS))
 
         load: Loading = Loading(len(sources), msg="artificial star tests")
         load.show()
@@ -124,19 +127,22 @@ class ArtificialStarRoutine:
             if sub_image_size > 0:
                 subx = int(np.random.randint(
                     max(0,
-                        src[X_0] + (2 * full_width_half_max) - sub_image_size),
-                    np.min(shape[0] - sub_image_size,
-                           src[X_0] - (2 * full_width_half_max))))
+                        src[TableColumn.X_0] +
+                        (2 * full_width_half_max) - sub_image_size),
+                    np.min(
+                        shape[0] - sub_image_size,
+                        src[TableColumn.X_0] - (2 * full_width_half_max))))
                 suby = int(np.random.randint(
                     max(0,
-                        src[Y_0] + (2 * full_width_half_max) - sub_image_size),
+                        src[TableColumn.Y_0] +
+                        (2 * full_width_half_max) - sub_image_size),
                     np.min(shape[1] - sub_image_size,
-                           src[Y_0] - (2 * full_width_half_max))))
+                           src[TableColumn.Y_0] - (2 * full_width_half_max))))
 
             # src mod translates the position within the sub-image
             src_mod: Table = Table(src)
-            src_mod[X_0] -= subx
-            src_mod[Y_0] -= suby
+            src_mod[TableColumn.X_0] -= subx
+            src_mod[TableColumn.Y_0] -= suby
 
             sky: np.ndarray = image[
                 subx : subx + sub_image_size, suby : suby + sub_image_size]
@@ -148,13 +154,13 @@ class ArtificialStarRoutine:
             )
 
             detections: Table = self._detector(base)
-            detections.rename_column(X_CENTROID, X_0)
-            detections.rename_column(Y_CENTROID, Y_0)
+            detections.rename_column(TableColumn.X_CENTROID, TableColumn.X_0)
+            detections.rename_column(TableColumn.Y_CENTROID, TableColumn.Y_0)
 
             # Check positional matches
             separations: np.ndarray = (
-                (src_mod[X_0] - detections[X_0]) ** 2
-                + (src_mod[Y_0] - detections[Y_0]) ** 2
+                (src_mod[TableColumn.X_0] - detections[TableColumn.X_0]) ** 2
+                + (src_mod[TableColumn.Y_0] - detections[TableColumn.Y_0]) ** 2
             )
             best_match: int = int(np.argmin(separations))
 
@@ -162,16 +168,21 @@ class ArtificialStarRoutine:
                 psf_tab: Table = self._psf_fitter(
                     base, init_params=detections)
                 index: np.ndarray = np.where(
-                    psf_tab[ID] == detections[best_match][ID])[0]
+                    psf_tab[TableColumn.ID] ==
+                        detections[best_match][TableColumn.ID])[0]
 
                 if len(index) > 0:
                     matched_idx: int = int(index[0])
-                    sources[n][OUT_FLUX] = psf_tab[matched_idx][FLUX_FIT]
-                    sources[n][X_DET] = psf_tab[matched_idx][X_0] + subx
-                    sources[n][Y_DET] = psf_tab[matched_idx][Y_0] + suby
+                    sources[n][TableColumn.OUT_FLUX] = (
+                        psf_tab)[matched_idx][TableColumn.FLUX_FIT]
+                    sources[n][TableColumn.X_DET] = (
+                        psf_tab[matched_idx][TableColumn.X_0] + subx)
+                    sources[n][TableColumn.Y_DET] = (
+                        psf_tab[matched_idx][TableColumn.Y_0] + suby)
 
-                    if (abs(sources[n][OUT_FLUX] - sources[n][FLUX])
-                            < (sources[n][FLUX] / 100.0)):
+                    if (abs(sources[n][TableColumn.OUT_FLUX] -
+                            sources[n][TableColumn.FLUX])
+                            < (sources[n][TableColumn.FLUX] / 100.0)):
                         # star matched
                         sources[n]["status"] = 1
             load()

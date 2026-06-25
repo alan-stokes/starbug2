@@ -25,7 +25,7 @@ from astropy.visualization import ZScaleInterval
 from astropy.table import Row, Table
 from scipy.interpolate import RegularGridInterpolator
 
-from starbug2.constants import CAT_NUM, URL_DOCS, FILTER
+from starbug2.constants import URL_DOCS, HeaderTags, TableColumn
 import matplotlib.image as mpimg
 from matplotlib.colors import LinearSegmentedColormap
 
@@ -198,7 +198,7 @@ def plot_inspect_source(
         axs = [axs]  # noqa
     images: List[ImageHDU | PrimaryHDU | BinTableHDU | None] = sorted(
         images, key=lambda a:
-            list(STAR_BUG_FILTERS.keys()).index(a.header[FILTER]))
+            list(STAR_BUG_FILTERS.keys()).index(a.header[HeaderTags.FILTER]))
 
     #arcsec?
     size: float = 0.1
@@ -225,10 +225,10 @@ def plot_inspect_source(
               min(x_min, x_max): max(x_min, x_max)]
         if all(dat.shape):
             axis.imshow(ZScaleInterval()(dat), cmap="Greys_r", origin="lower")
-            axis.text(0, 0, im.header.get(FILTER), c="white")
+            axis.text(0, 0, im.header.get(HeaderTags.FILTER), c="white")
 
         axis.set_axis_off()
-        figure.suptitle(src[CAT_NUM][0])
+        figure.suptitle(src[TableColumn.CAT_NUM][0])
     figure.tight_layout()
         
     return figure

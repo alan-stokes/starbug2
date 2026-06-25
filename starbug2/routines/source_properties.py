@@ -22,7 +22,7 @@ import numpy as np
 from astropy.table import Table, QTable, hstack
 from photutils.detection import DAOStarFinder
 
-from starbug2.constants import X_CENTROID, Y_CENTROID, X_0, Y_0
+from starbug2.constants import TableColumn
 from starbug2.utils import Loading, printf, p_error
 
 
@@ -47,14 +47,19 @@ class SourceProperties:
         self._verbose: int | bool = verbose
 
         if source_list and type(source_list) in (Table, QTable):
-            if len({X_CENTROID, Y_CENTROID} & set(source_list.colnames)) == 2:
+            if (len({TableColumn.X_CENTROID, TableColumn.Y_CENTROID} &
+                    set(source_list.colnames)) == 2):
                 self._source_list = (
-                    Table(source_list[[X_CENTROID, Y_CENTROID]]))
-            elif len({X_0, Y_0} & set(source_list.colnames)) == 2:
-                self._source_list = Table(source_list[[X_0, Y_0]])
+                    Table(source_list[
+                        [TableColumn.X_CENTROID, TableColumn.Y_CENTROID]]))
+            elif (len({TableColumn.X_0, TableColumn.Y_0} &
+                      set(source_list.colnames)) == 2):
+                self._source_list = (
+                    Table(source_list[[TableColumn.X_0, TableColumn.Y_0]]))
                 assert self._source_list is not None
                 self._source_list.rename_columns(
-                    (X_0, Y_0), (X_CENTROID, Y_CENTROID))
+                    (TableColumn.X_0, TableColumn.Y_0),
+                    (TableColumn.X_CENTROID, TableColumn.Y_CENTROID))
             else:
                 p_error("no positional columns in source list\n")
         else:
@@ -105,8 +110,10 @@ class SourceProperties:
             i: int
             src: Table
             dist: np.ndarray = np.sqrt(
-                (src[X_CENTROID] - self._source_list[X_CENTROID]) ** 2
-                + (src[Y_CENTROID] - self._source_list[Y_CENTROID]) ** 2)
+                (src[TableColumn.X_CENTROID] -
+                 self._source_list[TableColumn.X_CENTROID]) ** 2
+                + (src[TableColumn.Y_CENTROID] -
+                   self._source_list[TableColumn.Y_CENTROID]) ** 2)
             dist.sort()
             crowd[i]= sum( dist[1 : n_closest_sources])
             load()
@@ -130,7 +137,8 @@ class SourceProperties:
         if self._verbose:
             printf("-> measuring source geometry\n")
         xy_coords: np.ndarray = np.array(
-            (self._source_list[X_CENTROID], self._source_list[Y_CENTROID])).T
+            (self._source_list[TableColumn.X_CENTROID],
+             self._source_list[TableColumn.Y_CENTROID])).T
 
         dao_find: DAOStarFinder = DAOStarFinder(
             -np.inf, full_width_half_max, sharplo=-np.inf, sharphi=np.inf,

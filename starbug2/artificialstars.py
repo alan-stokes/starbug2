@@ -25,10 +25,7 @@ from scipy.optimize import curve_fit
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
-from starbug2.constants import (
-    X_0, Y_0, MAG, FLUX, X_DET, Y_DET, FLUX_DET, STATUS, ID,
-    X_CENTROID, Y_CENTROID, REC, EXIT_SUCCESS, XY_DEV, Y_INIT, X_INIT,
-    XY_DEV_, FLUX_2, ERR_LOWER, OFF)
+from starbug2.constants import ExitStates, TableColumn
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.star_bug_interface import StarBugInterface
 
@@ -55,7 +52,9 @@ class ArtificialStars:
 
     # the column names of the table
     TEST_TABLE_COLUMN_NAMES: Final[List[str]] = [
-        X_0, Y_0, MAG, FLUX, X_DET, Y_DET, FLUX_DET, STATUS]
+        TableColumn.X_0, TableColumn.Y_0, TableColumn.MAG, TableColumn.FLUX,
+        TableColumn.X_DET, TableColumn.Y_DET, TableColumn.FLUX_DET,
+        TableColumn.STATUS]
 
     # mag ranges
     MAG_RANGE_LOW: Final[int] = 18
@@ -72,7 +71,7 @@ class ArtificialStars:
         _ = self._starbug.main_image
         psf_success: int = self._starbug.load_psf()
 
-        if psf_success != EXIT_SUCCESS:
+        if psf_success != ExitStates.EXIT_SUCCESS:
             warn("the psf file was not loaded. Expected failure.")
             raise Exception("the psf file failed to load.")
 
@@ -199,13 +198,14 @@ class ArtificialStars:
 
             source_list: QTable = make_random_models_table(
                 stars_per_test,
-                { X_0 : [buffer, shape[0] - buffer],
-                  Y_0 : [buffer, shape[1] - buffer],
-                  MAG :  mag_range
+                { TableColumn.X_0 : [buffer, shape[0] - buffer],
+                  TableColumn.Y_0 : [buffer, shape[1] - buffer],
+                  TableColumn.MAG :  mag_range
                 })
             source_list.add_column(
-                10.0 ** ( (zp_mag - source_list[MAG]) / 2.5 ) , name=FLUX)
-            source_list.remove_column(ID)
+                10.0 ** ( (zp_mag - source_list[TableColumn.MAG]) / 2.5 ) ,
+                name=TableColumn.FLUX)
+            source_list.remove_column(TableColumn.ID)
 
             star_overlay: np.ndarray = (
                 make_model_image(
@@ -219,7 +219,7 @@ class ArtificialStars:
                 source_list, skip_phot=skip_phot,
                 skip_background=skip_background)
 
-            passed += sum(result[STATUS])
+            passed += sum(result[TableColumn.STATUS])
             test_result[
                 (test - 1) * stars_per_test:
                 test * stars_per_test] = result
@@ -263,7 +263,8 @@ class ArtificialStars:
         """
         test_result: Table = Table(
             np.full((len(contains), 4), np.nan),
-            names=[X_DET, Y_DET, FLUX_DET, STATUS])
+            names=[TableColumn.X_DET, TableColumn.Y_DET, TableColumn.FLUX_DET,
+                   TableColumn.STATUS])
 
         threshold: Quantity = 2 * units.arcsec
 
@@ -276,19 +277,23 @@ class ArtificialStars:
             #Check for detection in output
             for i, src in enumerate(contains): # type: ignore
                 separations: np.ndarray = np.sqrt(
-                    (src[X_0] - det[X_CENTROID]) ** 2
-                    + (src[Y_0] - det[Y_CENTROID]) ** 2) * threshold.unit
+                    (src[TableColumn.X_0] - det[TableColumn.X_CENTROID]) ** 2
+                    + (src[TableColumn.Y_0] -
+                       det[TableColumn.Y_CENTROID]) ** 2) * threshold.unit
                 best_match: int = np.argmin(separations) # noqa
                 if separations[best_match] < threshold:
-                    test_result[X_DET][i] = det[X_CENTROID][best_match]
-                    test_result[Y_DET][i] = det[Y_CENTROID][best_match]
-                    test_result[FLUX_DET][i] = det[FLUX][best_match]
-                    test_result[STATUS][i] = self.DETECT
+                    test_result[TableColumn.X_DET][i] = (
+                        det[TableColumn.X_CENTROID][best_match])
+                    test_result[TableColumn.Y_DET][i] = (
+                        det[TableColumn.Y_CENTROID][best_match])
+                    test_result[TableColumn.FLUX_DET][i] =(
+                        det[TableColumn.FLUX][best_match])
+                    test_result[TableColumn.STATUS][i] = self.DETECT
                 else:
-                    test_result[STATUS][i] = self.NULL
+                    test_result[TableColumn.STATUS][i] = self.NULL
 
             # Run background
-            if (sum(test_result[STATUS])
+            if (sum(test_result[TableColumn.STATUS])
                 and (skip_background
                      or not self._starbug.bgd_estimate())):
 
@@ -301,13 +306,15 @@ class ArtificialStars:
                     psf_catalogue = self._starbug.psf_catalogue
                     assert psf_catalogue is not None
                     psf_catalogue.rename_columns(
-                        (X_INIT, Y_INIT, XY_DEV),
-                        (X_INIT, Y_INIT, XY_DEV_))
+                        (TableColumn.X_INIT, TableColumn.Y_INIT,
+                         TableColumn.XY_DEV),
+                        (TableColumn.X_INIT, TableColumn.Y_INIT,
+                         TableColumn.XY_DEV_))
                     matched: Table = GenericMatch(threshold=threshold)(
                         [contains, psf_catalogue],
                         cartesian=True)
-                    test_result[FLUX_DET] = (
-                        matched[:len(test_result)][FLUX_2])
+                    test_result[TableColumn.FLUX_DET] = (
+                        matched[:len(test_result)][TableColumn.FLUX_2])
         return hstack((contains, test_result))
 
 
@@ -324,30 +331,33 @@ def get_completeness(test_result: Table) -> Table:
     """
 
     bins: np.ndarray = np.arange(
-        np.floor(np.nanmin(test_result[MAG])),
-        np.ceil(np.nanmax(test_result[MAG])),
+        np.floor(np.nanmin(test_result[TableColumn.MAG])),
+        np.ceil(np.nanmax(test_result[TableColumn.MAG])),
         0.1)
     percents: np.ndarray = np.zeros(len(bins))
     errors: np.ndarray = np.zeros(len(bins))
     offsets: np.ndarray = np.zeros(len(bins))
     means: np.ndarray = np.zeros(len(bins))
     
-    i_bins: np.ndarray = np.asarray(np.digitize( test_result[MAG], bins=bins))
+    i_bins: np.ndarray = np.asarray(np.digitize(
+        test_result[TableColumn.MAG], bins=bins))
     for i in range(max(i_bins)):
         binned: Table = test_result[ (i_bins==i) ]
         if binned:
-            percents[i] = float(sum(binned[STATUS])) / len(binned)
+            percents[i] = float(sum(binned[TableColumn.STATUS])) / len(binned)
 
-        mag_inj: np.ndarray = -2.5 * np.log10(binned[FLUX])
-        mag_det: np.ndarray = -2.5 * np.log10(binned[FLUX_DET])
+        mag_inj: np.ndarray = -2.5 * np.log10(binned[TableColumn.FLUX])
+        mag_det: np.ndarray = -2.5 * np.log10(binned[TableColumn.FLUX_DET])
         errors[i] = np.nanstd( mag_inj - mag_det )
         means[i] = np.nanmean( mag_inj - mag_det )
-        offsets[i] = np.nanmedian(binned[FLUX] / binned[FLUX_DET])
+        offsets[i] = np.nanmedian(
+            binned[TableColumn.FLUX] / binned[TableColumn.FLUX_DET])
 
 
     out: Table = Table(
         [bins, percents, errors, offsets],
-        names=(MAG, REC, ERR_LOWER, OFF),
+        names=(TableColumn.MAG, TableColumn.REC, TableColumn.ERR_LOWER,
+               TableColumn.OFF),
         dtype=(float, float, float, float))
     return out
 
@@ -371,9 +381,11 @@ def get_spatial_completeness(
         return None
 
     x_bins: np.ndarray = np.arange(
-        min(test_result[X_0]), max(test_result[X_0]), int(res))
+        min(test_result[TableColumn.X_0]),
+        max(test_result[TableColumn.X_0]), int(res))
     y_bins: np.ndarray = np.arange(
-        min(test_result[Y_0]),max(test_result[Y_0]), int(res))
+        min(test_result[TableColumn.Y_0]),
+        max(test_result[TableColumn.Y_0]), int(res))
     percents: np.ndarray = np.zeros(image.shape)
 
     xi: int
@@ -383,14 +395,14 @@ def get_spatial_completeness(
         for yi in y_bins[:-1]:
             yo: int = yi + res
             mask: np.ndarray = (
-                (test_result[X_0] >= xi) &
-                (test_result[X_0] < xo) &
-                (test_result[Y_0] >= yi) &
-                (test_result[Y_0] < yo))
+                (test_result[TableColumn.X_0] >= xi) &
+                (test_result[TableColumn.X_0] < xo) &
+                (test_result[TableColumn.Y_0] >= yi) &
+                (test_result[TableColumn.Y_0] < yo))
             binned: Table = test_result[mask]
             if len(binned):
                 percents[int(xi): int(xo), int(yi): int(yo)] = (
-                    float(np.sum(binned[STATUS])) / len(binned))
+                    float(np.sum(binned[TableColumn.STATUS])) / len(binned))
     return percents
 
 def estimate_completeness_mag(ast: Table) -> (
@@ -417,13 +429,14 @@ def estimate_completeness_mag(ast: Table) -> (
         lambda y, l, k, xo: xo - (np.log((l / y) - 1) / k)
     )
 
-    if len(set(ast.colnames) & {MAG, REC}) == 2:
+    if len(set(ast.colnames) & {TableColumn.MAG, TableColumn.REC}) == 2:
         try:
             # need the *_ as the return tuple can be multiple sizes. The *_
             # allows the IDE to not freak out, especially as we don't care
             # about the rest of the return values.
             fit, *_ = curve_fit(
-                scurve, ast[MAG], ast[REC], [1, -1, np.median(ast[MAG])])
+                scurve, ast[TableColumn.MAG], ast[TableColumn.REC],
+                [1, -1, np.median(ast[TableColumn.MAG])])
             assert fit is not None
             completeness = (fn_i(0.9, *fit), fn_i(0.7, *fit), fn_i(0.5, *fit))
         except (RuntimeError, ValueError) as e:
@@ -504,8 +517,10 @@ def compile_results(
         ax: Axes
         fig, ax = plt.subplots(1, figsize=(3.5,3), dpi=300)
         ax.scatter(
-            completeness_raw[MAG], completeness_raw[REC], c='k', lw=0, s=8)
-        ax.plot(completeness_raw[MAG], scurve(completeness_raw[MAG], *cfit),
+            completeness_raw[TableColumn.MAG],
+            completeness_raw[TableColumn.REC], c='k', lw=0, s=8)
+        ax.plot(completeness_raw[TableColumn.MAG],
+                scurve(completeness_raw[TableColumn.MAG], *cfit),
                 c='g',
                 label=r"$f(x)=\frac{%.2f}{1+e^{%.2f("r"x-%.2f)}}$" % (
                     cfit[0], cfit[1], cfit[2]))

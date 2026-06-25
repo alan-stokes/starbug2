@@ -25,10 +25,8 @@ import requests
 from importlib.metadata import PackageNotFoundError
 
 from starbug2.constants import (
-    CAT_NUM, DEFAULT_COLOUR, RA, DEC, TMP_OUT, FLUX, TMP_FITS,
-    FITS_EXTENSION, FILTER, N_MIS_MATCHES, EXIT_SUCCESS, EXIT_FAIL,
-    REST_SUCCESS_CODE, DEG, ARCMIN, ARCSEC, PIX, NAXIS, C_TYPE, BUN_IT,
-    PIXAR_SR)
+    DEFAULT_COLOUR, TMP_OUT, TMP_FITS, TableColumn, HeaderTags, FITS_EXTENSION,
+    N_MIS_MATCHES, ExitStates, REST_SUCCESS_CODE, Units,  ImageHeaderTags)
 from starbug2.filters import STAR_BUG_FILTERS
 
 # different print methods (why are we not using loggers?)
@@ -167,8 +165,8 @@ def export_region(
         colour: str = DEFAULT_COLOUR,
         scale_radius: int = 1,
         region_radius: int = 3,
-        x_col: str = RA,
-        y_col: str = DEC,
+        x_col: str = TableColumn.RA,
+        y_col: str = TableColumn.DEC,
         wcs: int = 1,
         f_name: str = TMP_OUT) -> None:
     """
@@ -208,8 +206,8 @@ def export_region(
             wcs = 0
 
     r: np.ndarray
-    if FLUX in tab.colnames and scale_radius:
-        r = (-40.0 / np.log10(tab[FLUX]))
+    if TableColumn.FLUX in tab.colnames and scale_radius:
+        r = (-40.0 / np.log10(tab[TableColumn.FLUX]))
         r[r < region_radius] = region_radius
         r[np.isnan(r)] = region_radius
     else:
@@ -280,10 +278,10 @@ def parse_unit(raw: str) -> Tuple[float | None, int | None]:
     """
 
     recognised: Dict[str, int] = {
-        'p': PIX,
-        's': ARCSEC,
-        'm': ARCMIN,
-        'd': DEG}
+        'p': Units.PIX,
+        's': Units.ARCSEC,
+        'm': Units.ARCMIN,
+        'd': Units.DEG}
     value: float | None = None
     unit: int | None = None
     if raw:
@@ -360,10 +358,10 @@ def export_table(table: Table, f_name: Optional[str]=None,
     :return: None
     """
     dtypes: List[Any] = []
-    if CAT_NUM not in table.colnames:
+    if TableColumn.CAT_NUM not in table.colnames:
         table = reindex(table)
     for name in table.colnames:
-        if name == CAT_NUM:
+        if name == TableColumn.CAT_NUM:
             dtypes.append(str)
         elif name == "flag":
             dtypes.append(np.uint16)
@@ -400,12 +398,12 @@ def import_table(f_name: str, verbose: bool | int = 0) -> Table | None:
             if tab is None:
                 printf(f"table at {f_name} failed to read")
                 return None
-            if not tab.meta.get(FILTER):
+            if not tab.meta.get(HeaderTags.FILTER):
                 if filter_string := find_filter(tab):
-                    tab.meta[FILTER] = filter_string
+                    tab.meta[HeaderTags.FILTER] = filter_string
             if verbose:
                 printf("-> loaded %s (%s:%d)\n" % (
-                    f_name, tab.meta.get(FILTER), len(tab)))
+                    f_name, tab.meta.get(HeaderTags.FILTER), len(tab)))
         else:
             p_error("Table must fits format\n")
     else:
@@ -631,7 +629,7 @@ def flux_2_ab_mag(
     return flux2mag(flux, flux_err, zp=3631.0)
 
 
-def wget(address: str, f_name: Optional[str] = None) -> int:
+def wget(address: str, f_name: Optional[str] = None) -> ExitStates:
     """
     A really simple "implementation" of wget.
 
@@ -640,7 +638,7 @@ def wget(address: str, f_name: Optional[str] = None) -> int:
     :param f_name: Filename to save output to
     :type f_name: str
     :return: 0 on success, 1 on failure
-    :rtype int
+    :rtype ExitStates
     """
     r: requests.Response = requests.get(address)
     if r.status_code == REST_SUCCESS_CODE:
@@ -648,10 +646,10 @@ def wget(address: str, f_name: Optional[str] = None) -> int:
         with open(f_name, "wb") as fp:
             for chunk in r.iter_content(chunk_size=128):
                 fp.write(chunk)
-        return EXIT_SUCCESS
+        return ExitStates.EXIT_SUCCESS
     else:
         p_error("Unable to download \"%s\"\n" % address)
-        return EXIT_FAIL
+        return ExitStates.EXIT_FAIL
 
 
 def reindex(table: Table) -> Table:
@@ -664,10 +662,10 @@ def reindex(table: Table) -> Table:
     :rtype: atrophy.Table
     """
 
-    if CAT_NUM in table.colnames:
-        table.remove_column(CAT_NUM)
+    if TableColumn.CAT_NUM in table.colnames:
+        table.remove_column(TableColumn.CAT_NUM)
     column = Column(
-        ["CN%d" % i for i in range(len(table))], name=CAT_NUM)
+        ["CN%d" % i for i in range(len(table))], name=TableColumn.CAT_NUM)
     table.add_column(column, index=0)
     return table
 
@@ -708,9 +706,9 @@ def get_mj_ysr2jy_scale_factor(
     :rtype float
     """
     scale_factor: float = 1.0
-    if ext.header.get(BUN_IT) == "MJy/sr":
-        if PIXAR_SR in ext.header:
-            scale_factor = 1e6 * float(ext.header[PIXAR_SR])
+    if ext.header.get(ImageHeaderTags.BUN_IT) == "MJy/sr":
+        if ImageHeaderTags.PIXAR_SR in ext.header:
+            scale_factor = 1e6 * float(ext.header[ImageHeaderTags.PIXAR_SR])
     return scale_factor
 
 
@@ -725,7 +723,7 @@ def find_filter(table: Table) -> str:
     """
     # 1. Check metadata first and return immediately if found
     filter_string: str
-    if filter_string := table.meta.get(FILTER):
+    if filter_string := table.meta.get(HeaderTags.FILTER):
         return filter_string
 
     # 2. Fall back to checking column names
@@ -791,11 +789,11 @@ def crop_hdu(
     for ext in hdu:
         if type(ext) not in (fits.PrimaryHDU, fits.ImageHDU):
             continue
-        if not ext.header[NAXIS]:
+        if not ext.header[HeaderTags.NAXIS]:
             continue
         
-        ctype: str = ext.header.get(C_TYPE)
-        ext.header[C_TYPE] = "%s-SIP" % ctype
+        ctype: str = ext.header.get(HeaderTags.C_TYPE)
+        ext.header[HeaderTags.C_TYPE] = "%s-SIP" % ctype
 
         w: WCS = WCS(ext.header, relax=False)
         ext.data = ext.data[x_limit[0]:x_limit[1], y_limit[0]:y_limit[1]]

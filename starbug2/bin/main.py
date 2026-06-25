@@ -43,9 +43,7 @@ warnings.filterwarnings(
 from starbug2.initialise_psf_data import init_starbug_for_jwst, generate_psf
 
 from starbug2.constants import (
-    DETECTION, BACKGROUND, APP_HOT, PSFP_HOT, MATCH_OUTPUTS, LOGO,
-    HELP_STRINGS,  EXIT_EARLY, EXIT_SUCCESS, EXIT_FAIL, EXIT_MIXED,
-    READ_THE_DOCS_URL, FITS_EXTENSION)
+    Modes, LOGO, HELP_STRINGS, ExitStates, READ_THE_DOCS_URL, FITS_EXTENSION)
 from starbug2.utils import (
     p_error, printf, warn, split_file_name, export_region,
     combine_file_names, export_table, puts, parse_cmd,
@@ -133,7 +131,7 @@ def starbug_parse_argv(argv: list[str]) -> StarBugMainConfig:
         argv, short_definition, long_definition, config.MAIN_FLAG_MAP)
     return config
 
-def starbug_one_time_runs(config: StarBugMainConfig) -> int:
+def starbug_one_time_runs(config: StarBugMainConfig) -> ExitStates:
     """
     Options set, verify/run one time functions
     """
@@ -145,16 +143,16 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> int:
         usage(__doc__, verbose=config.verbose_logs)
 
         if config.do_star_detection:
-            p_error(HELP_STRINGS[DETECTION])
+            p_error(HELP_STRINGS[Modes.DETECTION])
         if config.do_bgd_estimate:
-            p_error(HELP_STRINGS[BACKGROUND])
+            p_error(HELP_STRINGS[Modes.BACKGROUND])
         if config.do_aperture_photometry:
-            p_error(HELP_STRINGS[APP_HOT])
+            p_error(HELP_STRINGS[Modes.APP_HOT])
         if config.do_photometry_routine:
-            p_error(HELP_STRINGS[PSFP_HOT])
+            p_error(HELP_STRINGS[Modes.PSFP_HOT])
         if config.do_matching:
-            p_error(HELP_STRINGS[MATCH_OUTPUTS])
-        return EXIT_EARLY
+            p_error(HELP_STRINGS[Modes.MATCH_OUTPUTS])
+        return ExitStates.EXIT_EARLY
 
     ## Load parameter files for onetime runs
     if not config.update_param:
@@ -168,7 +166,7 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> int:
         config.load_params(parameter_file)
     else:
         param.update_param_file(config.param_file)
-        return EXIT_SUCCESS
+        return ExitStates.EXIT_SUCCESS
 
     output: int | float | str
     if _output := config.output_file:
@@ -239,7 +237,7 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> int:
     if config.generate_local_param_file:
         config.do_generate_local_param_file()
 
-    return EXIT_SUCCESS
+    return ExitStates.EXIT_SUCCESS
 
 
 def starbug_match_outputs(
@@ -375,7 +373,7 @@ def execute_star_bug(
     return star_bug_base
 
 
-def starbug_main(argv: list[str]) -> int:
+def starbug_main(argv: list[str]) -> ExitStates:
     """
     Command-line execution orchestrator for processing astronomical image
     datasets.
@@ -383,7 +381,7 @@ def starbug_main(argv: list[str]) -> int:
     :param argv: System arguments mapping configurations and input filenames
     :type argv: list of str
     :return: System operational termination exit code status matrix
-    :rtype: int
+    :rtype: ExitStates
     """
     config: StarBugMainConfig = starbug_parse_argv(argv)
 
@@ -400,7 +398,7 @@ def starbug_main(argv: list[str]) -> int:
         config.freeze()
 
         puts(LOGO % READ_THE_DOCS_URL)
-        exit_code: int = EXIT_SUCCESS
+        exit_code: ExitStates = ExitStates.EXIT_SUCCESS
         starbugs: list[StarbugBase | None]
 
         if ((n_cores := config.n_cores) is None
@@ -432,12 +430,12 @@ def starbug_main(argv: list[str]) -> int:
             if not sb: 
                 p_error("FAILED: %s\n" % config.fits_images[n])
                 to_remove.append(sb)
-                exit_code = EXIT_MIXED
+                exit_code = ExitStates.EXIT_MIXED
         for sb in to_remove:
             starbugs.remove(sb)
 
         if not starbug2:
-            exit_code = EXIT_FAIL
+            exit_code = ExitStates.EXIT_FAIL
 
             
         if config.do_matching and len(starbugs) > 1:
@@ -446,7 +444,7 @@ def starbug_main(argv: list[str]) -> int:
 
     else:
         p_error("fits image file must be included\n")
-        exit_code = EXIT_FAIL
+        exit_code = ExitStates.EXIT_FAIL
 
     return exit_code
 

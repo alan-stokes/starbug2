@@ -23,7 +23,7 @@ from typing import override, Any
 import numpy as np
 from astropy.table import Table, hstack, vstack
 
-from starbug2.constants import CAT_NUM
+from starbug2.constants import TableColumn
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.utils import p_error, fill_nan
 
@@ -35,7 +35,8 @@ class ExactValueMatch(GenericMatch):
     value.
     """
 
-    def __init__(self, value: str = CAT_NUM, **kwargs: Any) -> None:
+    def __init__(
+            self, value: str = TableColumn.CAT_NUM, **kwargs: Any) -> None:
         """
         Setup method.
 

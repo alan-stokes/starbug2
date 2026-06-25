@@ -45,8 +45,7 @@ from time import sleep
 from astropy.table import Table
 from astropy.io.fits import HDUList
 
-from starbug2.constants import (
-    EXIT_EARLY, EXIT_FAIL, EXIT_SUCCESS, FLUX, FLUX_DET)
+from starbug2.constants import ExitStates, TableColumn
 from starbug2.star_bug_config import StarBugMainConfig
 from starbug2.starbug import StarbugBase
 from starbug2.artificialstars import ArtificialStars, compile_results
@@ -103,14 +102,14 @@ def ast_parse_argv(argv: list[str]) -> StarBugMainConfig:
         argv, short_definition, long_definition, config.AST_FLAG_MAP)
     return config
 
-def ast_one_time_runs(config: StarBugMainConfig) -> int:
+def ast_one_time_runs(config: StarBugMainConfig) -> ExitStates:
     """
     Set options, verify run and execute one time functions
     """
 
     if config.show_ast_help:
         usage(__doc__, verbose=config.verbose_logs)
-        return EXIT_EARLY
+        return ExitStates.EXIT_EARLY
 
     if config.ast_recover:
         f_names: list[str] | None
@@ -127,7 +126,7 @@ def ast_one_time_runs(config: StarBugMainConfig) -> int:
                 read_table: Table | None = Table.read(f_name)
                 if read_table is None:
                     p_error(f"failed to read table at path {f_name}")
-                    return EXIT_FAIL
+                    return ExitStates.EXIT_FAIL
                 raw = combine_tables(raw, read_table)
             results: HDUList
             assert raw is not None
@@ -140,7 +139,7 @@ def ast_one_time_runs(config: StarBugMainConfig) -> int:
                 p_error("something went wrong\n")
         else:
             p_error("No files found to recover\n")
-    return EXIT_SUCCESS
+    return ExitStates.EXIT_SUCCESS
 
 def execute_artificial_stars(
         f_name: str, config: StarBugMainConfig, verbose: bool,
@@ -185,14 +184,14 @@ def execute_artificial_stars(
             sub_image_size=config.sub_image_crop_size)
     return out
 
-def ast_main(argv: list[str]) -> int:
+def ast_main(argv: list[str]) -> ExitStates:
     global buffer, share
 
     options: int
     set_opt: dict[str, int | str | float]
     config: StarBugMainConfig = ast_parse_argv(argv)
 
-    exit_code: int = EXIT_SUCCESS
+    exit_code: ExitStates = ExitStates.EXIT_SUCCESS
 
     if config.use_ast_one_time_runs():
         if exit_code := ast_one_time_runs(config):
@@ -271,7 +270,8 @@ def ast_main(argv: list[str]) -> int:
         if config.verbose_logs:
             printf("-> compiling results\n")
             printf("-> flux recovery: %.2g\n" % (
-                np.nanmean(raw[FLUX] / raw[FLUX_DET])))
+                np.nanmean(raw[TableColumn.FLUX] /
+                           raw[TableColumn.FLUX_DET])))
 
         results: HDUList
         filter_string: str | None = star_bug_base.filter
@@ -300,7 +300,7 @@ def ast_main(argv: list[str]) -> int:
 
     else:
         p_error("must include a fits image to work on\n")
-        exit_code = EXIT_FAIL
+        exit_code = ExitStates.EXIT_FAIL
 
     # Wrapped fix to handle rapid multiprocess teardowns safely
     try:
@@ -310,6 +310,6 @@ def ast_main(argv: list[str]) -> int:
         pass
     return exit_code
 
-def ast_main_entry() -> int:
+def ast_main_entry() -> ExitStates:
     """Command line entry point"""
     return ast_main(sys.argv)

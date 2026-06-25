@@ -34,8 +34,7 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.table import Table
 import starbug2
-from starbug2.constants import (
-    EXIT_EARLY, EXIT_SUCCESS, CAT_NUM, FILTER, EXT, IMAGE, BIN_TABLE)
+from starbug2.constants import ExitStates, TableColumn, HeaderTags
 from starbug2.plot import load_style, plot_test, plot_inspect_source
 from starbug2.star_bug_config import StarBugMainConfig
 from starbug2.utils import p_error, warn, parse_cmd, usage
@@ -66,7 +65,7 @@ def starbug_parse_argv(argv: list[str]) -> StarBugMainConfig:
     return config
 
 
-def plot_one_time_runs(config: StarBugMainConfig) -> int:
+def plot_one_time_runs(config: StarBugMainConfig) -> ExitStates:
     """
     Handles initialisation routines such as style sheet distribution or
      help menu warnings.
@@ -75,14 +74,14 @@ def plot_one_time_runs(config: StarBugMainConfig) -> int:
         usage(__doc__, verbose=bool(config.verbose_logs))
         if config.inspect_parameter:
             p_error(str(fn_pinspect.__doc__))
-        return EXIT_EARLY
+        return ExitStates.EXIT_EARLY
 
     # Only throw an error if files are missing when they are explicitly
     # required
     if not config.test_mode and len(config.fits_images) == 0:
         p_error(
             "Error: Image or catalogue argument targets must be provided.\n")
-        return EXIT_EARLY
+        return ExitStates.EXIT_EARLY
 
     if config.plot_style is not None:
         load_style(str(config.plot_style))
@@ -90,7 +89,7 @@ def plot_one_time_runs(config: StarBugMainConfig) -> int:
     if config.dark_mode:
         load_style(f"{starbug2.__path__[0]}/extras/dark.style")
 
-    return EXIT_SUCCESS
+    return ExitStates.EXIT_SUCCESS
 
 
 def fn_pinspect(
@@ -120,19 +119,20 @@ def fn_pinspect(
     fig: plt.Figure | None = None
 
     if inspect_string and images and tables and len(tables) > 0:
-        if (CAT_NUM in tables[0].colnames
-                and inspect_string in tables[0][CAT_NUM]):
-            i: np.ndarray = np.where(tables[0][CAT_NUM] == inspect_string)[0]
+        if (TableColumn.CAT_NUM in tables[0].colnames
+                and inspect_string in tables[0][TableColumn.CAT_NUM]):
+            i: np.ndarray = np.where(
+                tables[0][TableColumn.CAT_NUM] == inspect_string)[0]
             fig = plot_inspect_source(tables[0][i], images)
     else:
         p_error(
-            f"Must include the source {CAT_NUM}, "
+            f"Must include the source {TableColumn.CAT_NUM}, "
             f"a list of images and a source list \n"
         )
     return fig
 
 
-def plot_main(argv: list[str]) -> int | None:
+def plot_main(argv: list[str]) -> ExitStates | None:
     """
     Main runtime entry path configuration structure for
     data visualisation parsing loops.
@@ -143,8 +143,8 @@ def plot_main(argv: list[str]) -> int | None:
 
     load_style(f"{starbug2.__path__[0]}/extras/starbug.style")
 
-    if exit_code := plot_one_time_runs(config) != EXIT_SUCCESS:
-        return exit_code
+    if plot_one_time_runs(config) == ExitStates.EXIT_EARLY:
+        return ExitStates.EXIT_EARLY
 
     images: list[PrimaryHDU | ImageHDU | BinTableHDU | None] = []
     tables: list[Table] = []
@@ -152,7 +152,7 @@ def plot_main(argv: list[str]) -> int | None:
     for arg in config.fits_images:
         if os.path.exists(arg):
             fp: fits.HDUList = fits.open(arg)
-            _filter: str = fp[0].header.get(FILTER)
+            _filter: str = fp[0].header.get(HeaderTags.FILTER)
 
             # Use type tracking alias explicitly during extraction loop blocks
             hdu: PrimaryHDU | ImageHDU | BinTableHDU | None = None
@@ -160,14 +160,14 @@ def plot_main(argv: list[str]) -> int | None:
                 if hdu is None:
                     continue
 
-                if hdu.header.get(EXT) == IMAGE:
+                if hdu.header.get(HeaderTags.EXT) == HeaderTags.IMAGE:
                     images.append(hdu)
                     break
-                if hdu.header.get(EXT) == BIN_TABLE:
+                if hdu.header.get(HeaderTags.EXT) == HeaderTags.BIN_TABLE:
                     tables.append(Table(hdu.data))
                     break
             if hdu is not None:
-                hdu.header[FILTER] = _filter
+                hdu.header[HeaderTags.FILTER] = _filter
 
     fig: plt.Figure | None = None
 
@@ -187,9 +187,9 @@ def plot_main(argv: list[str]) -> int | None:
         else:
             plt.show()
 
-    return EXIT_SUCCESS
+    return ExitStates.EXIT_SUCCESS
 
 
-def plot_main_entry() -> int | None:
+def plot_main_entry() -> ExitStates | None:
     """Command Line package gateway binary endpoint entry pointer mapper."""
     return plot_main(sys.argv)

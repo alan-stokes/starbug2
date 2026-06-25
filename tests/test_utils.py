@@ -18,7 +18,7 @@ import numpy as np
 from astropy.table import Table
 from astropy.io import fits
 
-from starbug2.constants import PIX, ARCSEC, ARCMIN, DEG
+from starbug2.constants import Units
 from tests.generic import check_shape
 
 
@@ -124,14 +124,14 @@ def test_tab_append():
 
 
 def test_parse_unit():
-    assert utils.parse_unit("10p") == (10, PIX)
-    assert utils.parse_unit("10s") == (10, ARCSEC)
-    assert utils.parse_unit("10m") == (10, ARCMIN)
-    assert utils.parse_unit("10d") == (10, DEG)
+    assert utils.parse_unit("10p") == (10, Units.PIX)
+    assert utils.parse_unit("10s") == (10, Units.ARCSEC)
+    assert utils.parse_unit("10m") == (10, Units.ARCMIN)
+    assert utils.parse_unit("10d") == (10, Units.DEG)
 
-    assert utils.parse_unit("10.1s") == (10.1, ARCSEC)
-    assert utils.parse_unit("-10.1s") == (-10.1, ARCSEC)
-    assert utils.parse_unit("0s") == (0, ARCSEC)
+    assert utils.parse_unit("10.1s") == (10.1, Units.ARCSEC)
+    assert utils.parse_unit("-10.1s") == (-10.1, Units.ARCSEC)
+    assert utils.parse_unit("0s") == (0, Units.ARCSEC)
     assert utils.parse_unit("0") == (0, None)
 
     assert utils.parse_unit("") == (None, None)
