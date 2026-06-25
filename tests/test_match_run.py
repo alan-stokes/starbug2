@@ -36,16 +36,16 @@ def run(s):
 
 
 def test_match_start():
-    assert run("starbug2-match") == ExitStates.EXIT_FAIL
+    assert run("starbug2-match") == ExitStates.EXIT_EARLY
     assert run("starbug2-match -h") == ExitStates.EXIT_SUCCESS
     assert run("starbug2-match -vh") == ExitStates.EXIT_SUCCESS
 
 
 def test_match_bad_input():
-    assert run("starbug2-match ") == ExitStates.EXIT_FAIL
+    assert run("starbug2-match ") == ExitStates.EXIT_EARLY
     assert run(f"starbug2-match {TEST_IMAGE_FITS}") == ExitStates.EXIT_EARLY
-    assert run("starbug2-match badinput.fits") == ExitStates.EXIT_FAIL
-    assert run("starbug2-match badinput.txt") == ExitStates.EXIT_FAIL
+    assert run("starbug2-match badinput.fits") == ExitStates.EXIT_EARLY
+    assert run("starbug2-match badinput.txt") == ExitStates.EXIT_EARLY
     starbug_main(
         f"starbug2 -D {TEST_IMAGE_FITS} {TEST_FILTER_STRING}".split())
     assert run(f"starbug2-match {IMAGE_AP_FITS}") == ExitStates.EXIT_EARLY

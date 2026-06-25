@@ -45,7 +45,7 @@ def init():
     clean()
     # noinspection SpellCheckingInspection
     starbug_main(
-        f"starbug2 -Ds SIGSRC=10 {TEST_IMAGE_FITS}"
+        f"starbug2 -Ds SIGSRC=10 -o {TEST_IMAGE_FITS}"
         f" {TEST_FILTER_STRING}".split())
     # noinspection SpellCheckingInspection
     starbug_main(
