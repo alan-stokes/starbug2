@@ -25,7 +25,7 @@ from astropy.visualization import ZScaleInterval
 from astropy.table import Row, Table
 from scipy.interpolate import RegularGridInterpolator
 
-from starbug2.constants import CAT_NUM, URL_DOCS, FILTER, PLOT_MAIN_TABLE_PATH
+from starbug2.constants import CAT_NUM, URL_DOCS, FILTER
 import matplotlib.image as mpimg
 from matplotlib.colors import LinearSegmentedColormap
 
@@ -165,16 +165,16 @@ def plot_cmd(
         col = [f([X,Y]) for X,Y in zip(cc, mm)]
     pyplot_kw: dict[str, int] = {"lw": 0, "s": 3}
     pyplot_kw.update(kwargs)
-    ax.scatter(cc, mm, c=col, cmap=cmap, **pyplot_kw)
+    axis.scatter(cc, mm, c=col, cmap=cmap, **pyplot_kw)
 
-    ax.set_xlabel(colour)
-    ax.set_ylabel(mag)
-    ax.set_xlim(x_lim) # noqa
+    axis.set_xlabel(colour)
+    axis.set_ylabel(mag)
+    axis.set_xlim(x_lim)
 
     # Invert the Y-axis because brighter astronomical magnitudes have
     # lower values
-    ax.set_ylim(*y_lim[::-1])
-    return ax
+    axis.set_ylim(*y_lim[::-1])
+    return axis
 
 
 def plot_inspect_source(
@@ -232,13 +232,3 @@ def plot_inspect_source(
     figure.tight_layout()
         
     return figure
-
-
-if __name__=="__main__":
-    from astropy.table import Table
-    fig: Figure
-    ax: Axes
-    fig, ax = plt.subplots(1)
-    t: Table = Table().read(PLOT_MAIN_TABLE_PATH)
-    plot_cmd(t, "F115W-F200W","F200W", ax=ax)
-    plt.show()

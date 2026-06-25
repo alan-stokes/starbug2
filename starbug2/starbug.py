@@ -220,13 +220,13 @@ class StarbugBase(StarBugInterface):
                     self._filter = self._config.custom_filter
                     assert self._filter is not None
                     if ((FILTER in main_image.header) and
-                            (main_image.header[FILTER] in
-                                STAR_BUG_FILTERS.keys())):
+                        (main_image.header[FILTER] in
+                         STAR_BUG_FILTERS.keys())):
                         self._filter = main_image.header[FILTER]
                         assert self._filter is not None
                         if self._full_width_half_max < 0:
-                            self._full_width_half_max = (
-                                STAR_BUG_FILTERS[self._filter].pFWHM)
+                            self._full_width_half_max = (STAR_BUG_FILTERS[
+                                self._filter].full_width_half_max)
                     if self._filter:
                         self.log("-> photometric band: %s\n" % self._filter)
                     else:
@@ -326,7 +326,7 @@ class StarbugBase(StarBugInterface):
                     & (self._detections[Y_CENTROID] >= 0)
                     & (self._detections[Y_CENTROID] < self.main_image.shape[0])
                 )
-                
+
                 # cant figure how to resolve this typing
                 self._detections.remove_rows(~mask) # noqa
                 self.log(
@@ -482,7 +482,7 @@ class StarbugBase(StarBugInterface):
             if self._full_width_half_max > 0:
                 full_width_half_max = self._full_width_half_max
             elif filter_struct:
-                full_width_half_max = filter_struct.pFWHM
+                full_width_half_max = filter_struct.full_width_half_max
             else:
                 full_width_half_max = DEFAULT_FULL_WIDTH_HALF_MAX
 
@@ -507,7 +507,7 @@ class StarbugBase(StarBugInterface):
             self._detections = detector(self.main_image.data.copy())[
                  X_CENTROID, Y_CENTROID, "sharpness", "roundness1",
                  "roundness2"]
-            
+
             # check for insane states
             if self._detections is None or self._wcs is None:
                 return EXIT_FAIL
@@ -643,7 +643,7 @@ class StarbugBase(StarBugInterface):
 
         # update detections
         self._detections = hstack((self._detections, ap_cat))
-        
+
         # check for insanitiy
         if self._detections is None:
             return EXIT_FAIL
@@ -689,7 +689,7 @@ class StarbugBase(StarBugInterface):
             if self._full_width_half_max > 0:
                 full_width_half_max = self._config.full_width_half_max
             elif filter_struct:
-                full_width_half_max = filter_struct.pFWHM
+                full_width_half_max = filter_struct.full_width_half_max
             else:
                 full_width_half_max = 2.0
 
@@ -718,11 +718,11 @@ class StarbugBase(StarBugInterface):
                 profile_slope=self._config.profile_slope,
                 verbose=self._verbose)
             header: Header = self.header
-            
+
             # check for insanity
             if self._wcs is None:
                 return EXIT_FAIL
-            
+
             header.update(self._wcs.to_header())
 
             # get image data
@@ -1031,7 +1031,8 @@ class StarbugBase(StarBugInterface):
             self.main_image.data, slist,
             verbose=self._verbose)
         stat: Table = sp(
-            full_width_half_max=STAR_BUG_FILTERS[self._filter].pFWHM,
+            full_width_half_max=STAR_BUG_FILTERS[
+                self._filter].full_width_half_max,
             do_crowd=self._config.calculate_crowding_metric)
 
         self._source_stats = hstack((slist, stat))

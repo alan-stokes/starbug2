@@ -16,6 +16,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 # noinspection SpellCheckingInspection
 from typing import List, Final
 
+# the filter id which we've had to adjsut the bin size to allow it to
+# initilise without errors.
+PROBLEMATIC_FILTER_ID = "F150W2"
+PROBLEMATIC_FILTER_WARNING = (
+    "Caution needed with F150W2 photometric accuracy. More info"
+    "can be found in ("
+    "https://github.com/alan-stokes/starbug2/issues/2)")
+
 STARBUG_DATA_DIR: Final[str] = "STARBUG_DATDIR"
 WEBBPSF_PATH_ENV_VAR: Final[str] = "WEBBPSF_PATH"
 STAR_BUG_PARAMS: Final[str] = "STARBUGII PARAMETERS"
@@ -51,16 +59,12 @@ JWST_NIRCAM_ABVEGA_OFFSET_URL: Final[str] = (
     "jwst_nircam_abvegaoffset_0002.asdf"
 )
 
-
-# problematic paths
-PLOT_MAIN_TABLE_PATH: Final[str] = (
-    "/home/conor/sci/proj/ngc6822/overview/dat/ngc6822.fits")
-MASK_MAIN_TABLE_PATH: Final[str] = (
-    "/home/conor/sci/proj/ngc6822/paper1/dat/ngc6822.fits")
-
 # paths to temp files.
 TMP_OUT: Final[str] = "/tmp/out.reg"
 TMP_FITS: Final[str] = "/tmp/starbug.fits"
+
+# default Full width 1/2 max when not set by param / options
+DEFAULT_FWHM: Final[float] = 2.0
 
 # the fits file extension
 FITS_EXTENSION: Final[str] = ".fits"

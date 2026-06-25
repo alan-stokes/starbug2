@@ -34,6 +34,16 @@ from starbug2.utils import (
 _OBS: Final[str] = "OBSERVTN"
 _VISIT: Final[str] = "VISIT"
 _EXPOSURE: Final[str] = "EXPOSURE"
+_DEFAULT: Final[str] = "DEFAULT"
+
+# Hard coding separations for now #
+_SEPARATION_VALUES: Final[dict[str, float]] = {
+    "F277W": 0.1,
+    "F560W": 0.15,
+    "F1000W": 0.2,
+    "F1500W": 0.25,
+    _DEFAULT: 0.06,
+}
 
 
 class BandMatch(GenericMatch):
@@ -318,16 +328,8 @@ class BandMatch(GenericMatch):
 
                 ###################################
                 # Hard coding separations for now #
-                separation = 0.06
-                f_id = list(STAR_BUG_FILTERS.keys()).index(filter_string)
-                if f_id >= list(STAR_BUG_FILTERS.keys()).index("F277W"):
-                    separation = 0.10
-                if f_id >= list(STAR_BUG_FILTERS.keys()).index("F560W"):
-                    separation = 0.15
-                if f_id >= list(STAR_BUG_FILTERS.keys()).index("F1000W"):
-                    separation = 0.20
-                if f_id >= list(STAR_BUG_FILTERS.keys()).index("F1500W"):
-                    separation = 0.25
+                separation = _SEPARATION_VALUES.get(
+                    filter_string, _SEPARATION_VALUES[_DEFAULT])
 
                 for ii, (src, IDX, sep) in enumerate(zip(tab, idx, d2d)):
                     load.msg = (

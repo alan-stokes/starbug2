@@ -12,6 +12,37 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+from astropy.io.ascii.cparser import AstropyWarning
+
+from starbug2.misc import generate_runscript
+import warnings
+import os, sys
+
+from astropy.io.fits import PrimaryHDU
+from astropy.io.fits.header import Header
+
+from starbug2.matching.generic_match import GenericMatch
+from starbug2.star_bug_config import StarBugMainConfig
+from starbug2.starbug import StarbugBase
+
+# quietens astropy so that it doesn't flood the terminal with warnings.
+# ABS this seems concerning, if they're producing warnings we should be
+# exploring those.
+warnings.simplefilter("ignore", category=AstropyWarning)
+warnings.simplefilter("ignore", category=RuntimeWarning) ## bit dodge that
+
+from starbug2.initialise_psf_data import init_starbug_for_jwst, generate_psf
+
+from starbug2.constants import (
+    DETECTION, BACKGROUND, APP_HOT, PSFP_HOT, MATCH_OUTPUTS, LOGO,
+    HELP_STRINGS,  EXIT_EARLY, EXIT_SUCCESS, EXIT_FAIL, EXIT_MIXED,
+    READ_THE_DOCS_URL, FITS_EXTENSION)
+from starbug2.utils import (
+    p_error, printf, warn, split_file_name, export_region,
+    combine_file_names, export_table, puts, parse_cmd,
+    usage, get_version)
+from starbug2 import param
+from astropy.table import Table
 
 # noinspection SpellCheckingInspection
 """StarbugII - JWST PSF photometry
@@ -64,33 +95,6 @@ To see more detailed information on an option, run [OPTION] --help:
 See https://starbug2.readthedocs.io for full documentation.
 
 """
-import warnings
-import os, sys
-
-from astropy.utils.exceptions import AstropyWarning
-from astropy.io.fits import PrimaryHDU
-from astropy.io.fits.header import Header
-
-from starbug2.matching.generic_match import GenericMatch
-from starbug2.star_bug_config import StarBugMainConfig
-from starbug2.starbug import StarbugBase
-
-# quietens astropy so that it doesn't flood the terminal with warnings.
-# ABS this seems concerning, if they're producing warnings we should be
-# exploring those.
-warnings.simplefilter("ignore", category=AstropyWarning)
-warnings.simplefilter("ignore", category=RuntimeWarning) ## bit dodge that
-
-from starbug2.constants import (
-    DETECTION, BACKGROUND, APP_HOT, PSFP_HOT, MATCH_OUTPUTS, LOGO,
-    HELP_STRINGS,  EXIT_EARLY, EXIT_SUCCESS, EXIT_FAIL, EXIT_MIXED,
-    READ_THE_DOCS_URL, FITS_EXTENSION)
-from starbug2.utils import (
-    p_error, printf, warn, split_file_name, export_region,
-    combine_file_names, export_table, puts, parse_cmd,
-    usage, get_version)
-from starbug2 import param
-from astropy.table import Table
 
 # noinspection SpellCheckingInspection
 sys.stdout.write("\x1b[1mlaunching \x1b[36mstarbug\x1b[0m\n")
@@ -119,9 +123,6 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> int:
     """
     Options set, verify/run one time functions
     """
-
-    # ABS why are we only importing these here?
-    from starbug2.misc import init_starbug, generate_psf, generate_runscript
 
     if config.show_version:
         printf(get_version())
@@ -168,12 +169,13 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> int:
 
     ## Initialise or update starbug
     if config.execute_jwst_initialisation:
-        init_starbug()
+        init_starbug_for_jwst()
 
     ## Generate a single PSF
     if config.generate_psf:
         if config.got_valid_psf_generation_params():
             filter_string: str | None = config.custom_filter
+            assert filter_string is not None
             detector: str| None = config.detector_name
             psf_size: int = config.psf_fit_size
             printf(

@@ -22,8 +22,8 @@ from parse import parse
 
 from starbug2.constants import (
     DEC, RA, SCI, DEFAULT_COLOUR, OUTPUT, AP_FILE, BGD_FILE, PSF_FILE,
-    STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, E_FLUX)
-from starbug2.utils import p_error, get_version
+    STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, E_FLUX, PROBLEMATIC_FILTER_ID, PROBLEMATIC_FILTER_WARNING)
+from starbug2.utils import p_error, get_version, warn
 
 
 class StarBugMainConfig:
@@ -1125,7 +1125,14 @@ REGION_TAB = {format_val("REGION_TAB")}
 
     @custom_filter.setter
     def custom_filter(self, value: str) -> None:
+        # added warning if we're planning on using F150W2 filter, as currently
+        # issue arises that we've had to 1/2 the resolution to allow it to
+        # pass init. see https://github.com/alan-stokes/starbug2/issues/2
+        # for more details.
         self._filter = value
+
+        if self._filter == PROBLEMATIC_FILTER_ID:
+            warn(PROBLEMATIC_FILTER_WARNING)
 
 
     @property
