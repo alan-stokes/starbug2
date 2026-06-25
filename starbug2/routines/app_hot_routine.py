@@ -12,7 +12,6 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-
 import os
 import sys
 from typing import Tuple
@@ -26,10 +25,7 @@ from photutils.aperture import (
     CircularAperture, CircularAnnulus, aperture_photometry, ApertureMask)
 
 from starbug2.constants import (
-    SRC_GOOD, DQ_DO_NOT_USE, DQ_SATURATED, SRC_BAD, DQ_JUMP_DET, SRC_JMP,
-    X_CENTROID, Y_CENTROID, E_FLUX, FLUX, FILTER_LOWER, EE_FRACTION,
-    RADIUS, AP_CORR, PUPIL, CLEAR, SKY, Y_INIT, X_INIT, Y_0, X_0, SMOOTHNESS,
-    SUM_ERR_0, SUM_0, SUM_1, FLAG)
+    SourceFlags, DQFlags, TableColumn, HeaderTags, Modes, QTableColNames)
 from starbug2.utils import printf, p_error, warn
 
 
@@ -63,26 +59,25 @@ class APPhotRoutine:
         tmp: Table = Table.read(table_f_name, format="fits")
 
         t_ap_corr: Table
-        if FILTER_LOWER in tmp.colnames:
-            t_ap_corr = tmp[(tmp[FILTER_LOWER] == filter_string)]
+        if HeaderTags.FILTER_LOWER in tmp.colnames:
+            t_ap_corr = tmp[(tmp[HeaderTags.FILTER_LOWER] == filter_string)]
         else:
             t_ap_corr = tmp
 
-
-        if PUPIL in t_ap_corr.colnames:
-            t_ap_corr = t_ap_corr[ t_ap_corr[PUPIL] == CLEAR]
+        if TableColumn.PUPIL in t_ap_corr.colnames:
+            t_ap_corr = t_ap_corr[t_ap_corr[TableColumn.PUPIL] == Modes.CLEAR]
 
         ap_corr: float = float(np.interp(
-            radius, t_ap_corr[RADIUS], t_ap_corr[AP_CORR]))
+            radius, t_ap_corr[TableColumn.RADIUS],
+            t_ap_corr[TableColumn.AP_CORR]))
         if verbose:
             printf("-> estimating aperture correction: %.3g\n" % ap_corr)
         return ap_corr
 
-
     @staticmethod
     def ap_corr_from_enc_energy(
             filter_string: str, encircled_energy: np.ndarray,
-            table_f_name: str | None=None, verbose: int | bool=0) -> (
+            table_f_name: str | None = None, verbose: int | bool = 0) -> (
                 Tuple[np.ndarray, np.ndarray]):
         """
         Rather than fitting radius to the AP_CORR CRDS, use the closes
@@ -105,21 +100,23 @@ class APPhotRoutine:
 
         tmp: Table = Table.read(table_f_name, format="fits")
 
-        if FILTER_LOWER in tmp.colnames:
-            t_ap_corr = tmp[(tmp[FILTER_LOWER] == filter_string)]
-        else: t_ap_corr = tmp
+        if HeaderTags.FILTER_LOWER in tmp.colnames:
+            t_ap_corr = tmp[(tmp[HeaderTags.FILTER_LOWER] == filter_string)]
+        else:
+            t_ap_corr = tmp
 
-        line: Row = t_ap_corr[
-            (np.abs(t_ap_corr[EE_FRACTION] - encircled_energy)).argmin()]
+        line: Row = t_ap_corr[(np.abs(
+            t_ap_corr[TableColumn.EE_FRACTION] - encircled_energy)).argmin()]
         if verbose:
             printf(
                 "-> best matching encircled energy %.1f,"
                 " with radius %g pixels\n" % (
-                    line[EE_FRACTION], line[RADIUS]))
-            printf("-> using aperture correction: %f\n" % line[AP_CORR])
+                    line[TableColumn.EE_FRACTION], line[TableColumn.RADIUS]))
+            printf(
+                "-> using aperture correction: %f\n" %
+                line[TableColumn.AP_CORR])
 
-        return line[AP_CORR], line[RADIUS]
-
+        return line[TableColumn.AP_CORR], line[TableColumn.RADIUS]
 
     @staticmethod
     def radius_from_enc_energy(
@@ -131,22 +128,27 @@ class APPhotRoutine:
             raise FileNotFoundError("cannot find table f name")
         t_ap_corr = Table.read(table_f_name, format="fits")
 
-        if len({EE_FRACTION, RADIUS} & set(t_ap_corr.col_names)) != 2:
+        if (len({TableColumn.EE_FRACTION, TableColumn.RADIUS} &
+                set(t_ap_corr.col_names)) != 2):
             raise Exception("invalid col_names size.")
 
         # Crop down table
-        if FILTER_LOWER in t_ap_corr.col_names:
-            t_ap_corr=t_ap_corr[(t_ap_corr[FILTER_LOWER] == filter_string)]
+        if HeaderTags.FILTER_LOWER in t_ap_corr.col_names:
+            t_ap_corr = t_ap_corr[
+                (t_ap_corr[HeaderTags.FILTER_LOWER] == filter_string)]
 
-        if PUPIL in t_ap_corr.col_names: # Crop down table
-            t_ap_corr=t_ap_corr[ t_ap_corr[PUPIL] == CLEAR]
+        # Crop down table
+        if TableColumn.PUPIL in t_ap_corr.col_names:
+            t_ap_corr = t_ap_corr[t_ap_corr[TableColumn.PUPIL] == Modes.CLEAR]
 
         return float(
-            np.interp(ee_frac, t_ap_corr[EE_FRACTION], t_ap_corr[RADIUS]))
+            np.interp(
+                ee_frac, t_ap_corr[TableColumn.EE_FRACTION],
+                t_ap_corr[TableColumn.RADIUS]))
 
     def __init__(
             self, radius: float, sky_in: float, sky_out: float,
-            verbose: int | bool=0) -> None:
+            verbose: int | bool = 0) -> None:
         """
         Aperture photometry called by starbug
 
@@ -235,12 +237,20 @@ class APPhotRoutine:
         :rtype: astropy.table.Table
         """
         pos: list[tuple[Table | Row, Table | Row]]
-        if len({X_CENTROID, Y_CENTROID} & set(detections.colnames)) == 2:
-            pos = [(line[X_CENTROID],line[Y_CENTROID]) for line in detections]
-        elif len({X_0, Y_0} & set(detections.colnames)) == 2:
-            pos = [(line[X_0], line[Y_0]) for line in detections]
-        elif len({X_INIT, Y_INIT} & set(detections.colnames)) == 2:
-            pos=[(line[X_INIT], line[Y_INIT]) for line in detections]
+        if (len({TableColumn.X_CENTROID, TableColumn.Y_CENTROID} &
+                set(detections.colnames)) == 2):
+            pos = [(line[TableColumn.X_CENTROID],
+                    line[TableColumn.Y_CENTROID]) for line in detections]
+        elif (len({TableColumn.X_0, TableColumn.Y_0} &
+                  set(detections.colnames)) == 2):
+            pos = [
+                (line[TableColumn.X_0],
+                 line[TableColumn.Y_0]) for line in detections]
+        elif (len({TableColumn.X_INIT, TableColumn.Y_INIT} &
+                  set(detections.colnames)) == 2):
+            pos = [
+                (line[TableColumn.X_INIT],
+                 line[TableColumn.Y_INIT]) for line in detections]
         else:
             p_error(
                 "Cannot identify position in detection catalogue ("
@@ -266,7 +276,8 @@ class APPhotRoutine:
             image, (apertures, smooth_apertures), error=error, mask=mask)
         self.catalogue = (
             Table(np.full((len(pos), 4), np.nan),
-                  names=(SMOOTHNESS, FLUX, E_FLUX, SKY)))
+                  names=(TableColumn.SMOOTHNESS, TableColumn.FLUX,
+                         TableColumn.E_FLUX, TableColumn.SKY)))
 
         self.log("-> calculating sky values\n")
         masks_raw = annulus_aperture.to_mask(method="center")
@@ -277,14 +288,14 @@ class APPhotRoutine:
 
         # generate dat_list.
         dat_list: list[np.ndarray | None] = list(
-            map(lambda a : a.multiply(image), masks))
+            map(lambda a: a.multiply(image), masks))
         dat: np.ndarray
 
         try:
             dat = np.array(dat_list).astype(float)
         except (ValueError, TypeError) as e:
-            ## Cases where the array is inhomogeneous
-            ## If annulus reaches the edge of the image, it will create a
+            # Cases where the array is inhomogeneous
+            # If annulus reaches the edge of the image, it will create a
             # mask the wrong shape. If for whatever reason the point lies
             # outside the image, it will have None in the list, this needs
             # to be caught too
@@ -308,34 +319,37 @@ class APPhotRoutine:
         mask = (dat > 0 & np.isfinite(dat))
         dat[~mask] = np.nan
         clipped_dat: np.ma.MaskedArray = np.ma.MaskedArray(sigma_clip(
-            dat.reshape(dat.shape[0],-1), sigma=sig_sky, axis=1))
-        self.catalogue[SKY] = (
+            dat.reshape(dat.shape[0], -1), sigma=sig_sky, axis=1))
+        self.catalogue[TableColumn.SKY] = (
             np.ma.median(clipped_dat, axis=1).filled(fill_value=0))
         std: np.ndarray = np.ma.std(clipped_dat, axis=1)
 
-        e_poisson: np.ndarray = phot[SUM_ERR_0]
+        e_poisson: np.ndarray = phot[QTableColNames.SUM_ERR_0]
         esky_scatter: np.ndarray = apertures.area * std ** 2
         esky_mean: np.ndarray = (
             (std ** 2 * apertures.area ** 2) / annulus_aperture.area)
 
-        self.catalogue[E_FLUX] = np.sqrt(
+        self.catalogue[TableColumn.E_FLUX] = np.sqrt(
             e_poisson ** 2 + esky_scatter ** 2 + esky_mean ** 2)
-        self.catalogue[FLUX] = (
-            ap_corr * (phot[SUM_0] - (self.catalogue[SKY] * apertures.area)))
+        self.catalogue[TableColumn.FLUX] = (
+            ap_corr * (phot[QTableColNames.SUM_0] - (
+                self.catalogue[TableColumn.SKY] * apertures.area)))
 
-        self.catalogue[FLUX][self.catalogue[FLUX] == 0] = np.nan
+        self.catalogue[TableColumn.FLUX][
+            self.catalogue[TableColumn.FLUX] == 0] = np.nan
 
         ######################
         # Source "smoothness", the gradient of median pixel values within the
         # two test apertures
         ######################
 
-        self.catalogue[SMOOTHNESS] = (
-            (phot[SUM_1] / smooth_apertures.area)
-            / (phot[SUM_0] / apertures.area))
+        self.catalogue[TableColumn.SMOOTHNESS] = (
+            (phot[QTableColNames.SUM_1] / smooth_apertures.area)
+            / (phot[QTableColNames.SUM_0] / apertures.area))
 
         col: Column = Column(
-            np.full(len(apertures), SRC_GOOD), dtype=np.uint16, name=FLAG)
+            np.full(len(apertures), SourceFlags.SRC_GOOD),
+            dtype=np.uint16, name=TableColumn.FLAG)
         if dq_flags is not None:
             self.log("-> flagging unlikely sources\n")
             for i, ap_mask in enumerate(apertures.to_mask(method="center")):
@@ -343,14 +357,14 @@ class APPhotRoutine:
                 ap_mask: ApertureMask
                 tmp: np.ndarray = ap_mask.multiply(dq_flags)
                 if tmp is not None:
-                    dq_dat = np.array(tmp,dtype=np.uint32)
-                    if np.sum( dq_dat & (DQ_DO_NOT_USE | DQ_SATURATED)):
-                        col[i] |= SRC_BAD
-                    if np.sum( dq_dat & DQ_JUMP_DET):
-                        col[i] |= SRC_JMP
+                    dq_dat = np.array(tmp, dtype=np.uint32)
+                    if np.sum(dq_dat & (
+                            DQFlags.DQ_DO_NOT_USE | DQFlags.DQ_SATURATED)):
+                        col[i] |= SourceFlags.SRC_BAD
+                    if np.sum(dq_dat & DQFlags.DQ_JUMP_DET):
+                        col[i] |= SourceFlags.SRC_JMP
         self.catalogue.add_column(col)
         return self.catalogue
-
 
     def log(self, msg: str) -> None:
         """

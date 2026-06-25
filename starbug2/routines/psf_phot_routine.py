@@ -12,20 +12,16 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-
-"""
-Core routines for StarbugII.
-"""
 import sys
 
 import numpy as np
 from astropy.table import Column, hstack, Table, QTable
-from photutils.aperture import (
-    CircularAperture, aperture_photometry)
-from photutils.psf import PSFPhotometry, SourceGrouper, FittableImageModel
+from photutils.aperture import CircularAperture, aperture_photometry
+from photutils.psf import PSFPhotometry, SourceGrouper, ImagePSF
 
-from starbug2.constants import X_INIT, Y_INIT, X_FIT, Y_FIT, XY_DEV, FLUX_ERR, E_FLUX, FLUX, FLUX_FIT, Q_FIT
+from starbug2.constants import TableColumn
 from starbug2.utils import printf, p_error, warn
+
 
 class _Grouper(SourceGrouper):
     """
@@ -46,18 +42,20 @@ class _Grouper(SourceGrouper):
     def __init__(self, min_separation: float) -> None:
         super().__init__(min_separation)
 
-    def __call__(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def __call__(self, x: np.ndarray, y: np.ndarray,
+                 return_groups_object: bool = False) -> np.ndarray:
         res: np.ndarray = super().__call__(x, y)
         n: int
-        if n := sum(np.bincount(res) > self.CRITICAL_VAL): # noqa
+        if n := sum(np.bincount(res) > self.CRITICAL_VAL):  # noqa
             warn("Source grouper has %d groups larger than %d. Consider"
                  " reducing \"CRIT_SEP=%g\" or fitting might take a long"
                  " time.\n" % (n, self.CRITICAL_VAL, self.min_separation))
         return res
 
+
 class PSFPhotRoutine(PSFPhotometry):
     def __init__(
-            self, psf_model: FittableImageModel,
+            self, psf_model: ImagePSF,
             fit_shape: int | tuple[int, int],
             app_hot_r: float = 3.0,
             min_separation: float = 8.0,
@@ -74,7 +72,7 @@ class PSFPhotRoutine(PSFPhotometry):
                           equal to the size of psf_model
         :type fit_shape: int or tuple
         :param min_separation: Minimum source separation for source grouper
-                              (pixels)
+                               (pixels)
         :type min_separation: float
         :param app_hot_r: Aperture radius to be used in initial guess
                           photometry.
@@ -124,7 +122,6 @@ class PSFPhotRoutine(PSFPhotometry):
         """
         return self.do_photometry(image, init_params, error, mask)
 
-
     def do_photometry(
             self,
             image: np.ndarray,
@@ -150,38 +147,42 @@ class PSFPhotRoutine(PSFPhotometry):
             p_error("Must include source list and a mask\n")
             return None
 
-        ### Removing completely masked sources
+        # Removing completely masked sources
         apertures: CircularAperture = CircularAperture(
-            [(l[X_INIT], l[Y_INIT]) for l in init_params],
+            [(row[TableColumn.X_INIT],
+              row[TableColumn.Y_INIT]) for row in init_params],
             self.aperture_radius)
         ap_masks: QTable = aperture_photometry(~mask, apertures)
         init_params.remove_rows(ap_masks["aperture_sum"] == 0)
 
-        ## bad errors should be big not small
+        # bad errors should be big not small
         error[error == 0] = sys.maxsize
 
         if self._background is not None:
             image = image - self._background
         if self._verbose:
-            printf("-> fitting %d sources\n"%len(init_params))
+            printf("-> fitting %d sources\n" % len(init_params))
         cat: QTable = super().__call__(
             image, mask=mask, init_params=init_params, error=error)
 
         d: np.ndarray = np.sqrt((
-            (cat[X_INIT] - cat[X_FIT]) ** 2.0 +
-            (cat[Y_INIT]-cat[Y_FIT]) ** 2.0))
+            (cat[TableColumn.X_INIT] - cat[TableColumn.X_FIT]) ** 2.0 +
+            (cat[TableColumn.Y_INIT] - cat[TableColumn.Y_FIT]) ** 2.0))
 
         # noinspection SpellCheckingInspection
-        cat.add_column(Column(d, name=XY_DEV))
+        cat.add_column(Column(d, name=TableColumn.XY_DEV))
 
-        if FLUX_ERR not in cat.colnames:
-            cat.add_column(Column(np.full(len(cat), np.nan), name=E_FLUX))
+        if TableColumn.FLUX_ERR not in cat.colnames:
+            cat.add_column(
+                Column(np.full(len(cat), np.nan), name=TableColumn.E_FLUX))
             warn("Something went wrong with PSF error fitting\n")
         else:
-            cat.rename_column(FLUX_ERR, E_FLUX)
+            cat.rename_column(TableColumn.FLUX_ERR, TableColumn.E_FLUX)
 
-        cat.rename_column(FLUX_FIT, FLUX)
+        cat.rename_column(TableColumn.FLUX_FIT, TableColumn.FLUX)
 
         # noinspection SpellCheckingInspection
-        keep: list[str] = [X_FIT, Y_FIT, FLUX, E_FLUX, XY_DEV, Q_FIT]
+        keep: list[str] = [
+            TableColumn.X_FIT, TableColumn.Y_FIT, TableColumn.FLUX,
+            TableColumn.E_FLUX, TableColumn.XY_DEV, TableColumn.Q_FIT]
         return hstack((init_params, cat[keep]))

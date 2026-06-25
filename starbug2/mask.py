@@ -22,6 +22,7 @@ from astropy.table import Table
 
 from starbug2.utils import tab2array, colour_index, fill_nan
 
+
 class Mask(object):
 
     @staticmethod
@@ -36,7 +37,6 @@ class Mask(object):
         """
         with open(f_name) as fp:
             return Mask.from_string(fp.readline())
-
 
     @staticmethod
     def from_string(string: str) -> Mask:
@@ -77,7 +77,6 @@ class Mask(object):
                 (int(len(strip_coords) / 2), 2)))
         return Mask(points, keys, label=label, colour=colour)
 
-
     def __init__(self, bounds, keys, label=None, colour="k") -> None:
         """
         mask constructor
@@ -98,7 +97,6 @@ class Mask(object):
 
         self._colour: str = colour
 
-
     def apply(self, data_table) -> np.ndarray:
         """
         applies a data table based off the masks keys.
@@ -108,7 +106,6 @@ class Mask(object):
         """
         d: Table = fill_nan(colour_index(data_table, self._keys))
         return self._path.contains_points(tab2array(d))
-
 
     def plot(self, plot_axis, **kwargs) -> None:
         """

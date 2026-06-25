@@ -13,9 +13,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
-"""
-Core routines for StarbugII.
-"""
 from typing import List, Optional, Union
 
 import numpy as np
@@ -23,8 +20,9 @@ from matplotlib.axis import Axis
 from photutils.background import Background2D, BackgroundBase
 from photutils.aperture import CircularAperture, ApertureMask
 from astropy.table import Table
-from starbug2.constants import X_CENTROID, Y_CENTROID, FLUX
+from starbug2.constants import TableColumn
 from starbug2.utils import Loading, printf, warn
+
 
 class BackGroundEstimateRoutine(BackgroundBase):
     def __init__(
@@ -78,10 +76,10 @@ class BackGroundEstimateRoutine(BackgroundBase):
         """
 
         assert self._source_list is not None
-        x: Table = self._source_list[X_CENTROID]
-        y: Table = self._source_list[Y_CENTROID]
+        x: Table = self._source_list[TableColumn.X_CENTROID]
+        y: Table = self._source_list[TableColumn.Y_CENTROID]
         apertures: List[ApertureMask] = CircularAperture(
-            np.array((x,y)).T, 2).to_mask()
+            np.array((x, y)).T, 2).to_mask()
         peaks: np.ndarray = np.full(len(x), np.nan)
 
         i: int
@@ -101,8 +99,8 @@ class BackGroundEstimateRoutine(BackgroundBase):
 
     def __call__(
             self, data: np.ndarray | None,
-            axis: Optional[Axis] = None, masked: bool=False,
-            output:Optional[str]=None) -> Background2D | None:
+            axis: Optional[Axis] = None, masked: bool = False,
+            output: Optional[str] = None) -> Background2D | None:
         """
         does background estimation routine.
 
@@ -128,37 +126,37 @@ class BackGroundEstimateRoutine(BackgroundBase):
         default_r: float = 2 * self._full_width_half_max
 
         rlist: np.ndarray
-        if self._bgd_r and self._bgd_r>0:
+        if self._bgd_r and self._bgd_r > 0:
             self.log(
                 "-> using BGD_R=%g masking aperture radii\n" % self._bgd_r)
             rlist = self._bgd_r * np.ones(len(self._source_list))
         else:
-            if FLUX in self._source_list.colnames:
+            if TableColumn.FLUX in self._source_list.colnames:
                 self.log("-> calculating source aperture mask radii\n")
                 sky: Union[np.ndarray, float] = (
                     self._source_list["sky"]
                     if "sky" in self._source_list.colnames else 1.0)
                 rlist = (
                     self._a * self._full_width_half_max * (
-                        np.log(self._source_list[FLUX] / sky))
+                        np.log(self._source_list[TableColumn.FLUX] / sky))
                     ** self._b)
                 rlist[np.isnan(rlist)] = default_r
 
                 if output:
-                    with open(output,'w') as fp:
+                    with open(output, 'w') as fp:
                         for i in range(len(rlist)):
                             radius_val: float = float(rlist[i])
                             x_cen: float = float(
-                                self._source_list[i][X_CENTROID])
+                                self._source_list[i][TableColumn.X_CENTROID])
                             y_cen: float = float(
-                                self._source_list[i][Y_CENTROID])
+                                self._source_list[i][TableColumn.Y_CENTROID])
 
                             fp.write(
                                 "circle %f %f %f #color=green;" % (
                                     1 + x_cen, 1 + y_cen, radius_val))
                             fp.write(
                                 "annulus %f %f %f %f #color=white;" % (
-                                    1 + x_cen,  1 + y_cen, 1.5 * radius_val,
+                                    1 + x_cen, 1 + y_cen, 1.5 * radius_val,
                                     1.5 * radius_val + 1))
                     self.log("-> exporting check file \"%s\"\n" % output)
             else:
@@ -172,31 +170,32 @@ class BackGroundEstimateRoutine(BackgroundBase):
 
         r: float
         src: Table
-        for r, src in zip(rlist, self._source_list): # type: ignore
+        for r, src in zip(rlist, self._source_list):  # type: ignore
 
             rin: float = 1.5 * r
             rout: float = rin + 1
 
-            x: int = int(round(src[X_CENTROID]))
-            y: int = int(round(src[Y_CENTROID]))
+            x: int = int(round(src[TableColumn.X_CENTROID]))
+            y: int = int(round(src[TableColumn.Y_CENTROID]))
             _X: np.ndarray = x_grid[
-                 max( x - dimension, 0) : min(x + dimension, data.shape[1])]
+                max(x - dimension, 0): min(x + dimension, data.shape[1])]
             _Y: np.ndarray = y_grid[
-                 :,max( y - dimension, 0) : min(y + dimension, data.shape[0])]
+                :, max(y - dimension, 0): min(y + dimension, data.shape[0])]
 
             radius: np.ndarray = np.sqrt(
-                (_X - src[X_CENTROID]) ** 2 + (_Y - src[Y_CENTROID]) ** 2)
+                (_X - src[TableColumn.X_CENTROID]) ** 2 +
+                (_Y - src[TableColumn.Y_CENTROID]) ** 2)
 
             mask: np.ndarray = (radius < r)
             annuli_mask: np.ndarray = ((radius > rin) & (radius < rout))
 
             tmp: np.ndarray = _data[_Y, _X]
             tmp[mask] = np.median(data[_Y, _X][annuli_mask])
-            _data[_Y,_X] = tmp
+            _data[_Y, _X] = tmp
 
             load()
 
-            ## This will slow the thing down quite a lot
+            # This will slow the thing down quite a lot
             if self._verbose:
                 load.show()
         if self._verbose:
@@ -206,13 +205,13 @@ class BackGroundEstimateRoutine(BackgroundBase):
 
     def calc_background(
             self, data: np.ndarray,
-            axis: Optional[int]=None,
-            masked: Optional[bool]=None) -> np.ndarray:
+            axis: Optional[int] = None,
+            masked: Optional[bool] = None) -> np.ndarray:
         """
         Calculate the background value.
 
         Parameters
-        ----------
+        --------------
         data : array_like or `~numpy.ma.MaskedArray`
             The array for which to calculate the background value.
 
@@ -226,7 +225,7 @@ class BackGroundEstimateRoutine(BackgroundBase):
             values have a value of NaN. The default is `False`.
 
         Returns
-        -------
+        -----------
         result : float, `~numpy.ndarray`, or `~numpy.ma.MaskedArray`
             The calculated background value. If ``masked`` is
             `False`, then a `~numpy.ndarray` is returned, otherwise a

@@ -12,18 +12,12 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-
-"""
-Starbug matching functions
-Primarily this is the main routines for dither/band/generic matching which are
- at the core of starbug2 and starbug2-match
-"""
 from typing import override, Any
 
 import numpy as np
 from astropy.table import Table, hstack, vstack
 
-from starbug2.constants import CAT_NUM
+from starbug2.constants import TableColumn
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.utils import p_error, fill_nan
 
@@ -35,7 +29,8 @@ class ExactValueMatch(GenericMatch):
     value.
     """
 
-    def __init__(self, value: str = CAT_NUM, **kwargs: Any) -> None:
+    def __init__(
+            self, value: str = TableColumn.CAT_NUM, **kwargs: Any) -> None:
         """
         Setup method.
 

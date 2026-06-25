@@ -12,37 +12,47 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-from astropy.io.ascii.cparser import AstropyWarning
-
-from starbug2.misc import generate_runscript
+from multiprocessing import Pool
+from multiprocessing.pool import Pool as PoolType
+import os
+import sys
 import warnings
-import os, sys
 
 from astropy.io.fits import PrimaryHDU
 from astropy.io.fits.header import Header
+from astropy.table import Table
+from astropy.utils.exceptions import AstropyDeprecationWarning, AstropyWarning
+import photutils
 
+from starbug2 import param
+from starbug2.constants import (
+    ExitStates, FITS_EXTENSION, HELP_STRINGS, LOGO, Modes, READ_THE_DOCS_URL)
+from starbug2.initialise_psf_data import generate_psf, init_starbug_for_jwst
 from starbug2.matching.generic_match import GenericMatch
+from starbug2.misc import generate_runscript
 from starbug2.star_bug_config import StarBugMainConfig
 from starbug2.starbug import StarbugBase
-
-# quietens astropy so that it doesn't flood the terminal with warnings.
-# ABS this seems concerning, if they're producing warnings we should be
-# exploring those.
-warnings.simplefilter("ignore", category=AstropyWarning)
-warnings.simplefilter("ignore", category=RuntimeWarning) ## bit dodge that
-
-from starbug2.initialise_psf_data import init_starbug_for_jwst, generate_psf
-
-from starbug2.constants import (
-    DETECTION, BACKGROUND, APP_HOT, PSFP_HOT, MATCH_OUTPUTS, LOGO,
-    HELP_STRINGS,  EXIT_EARLY, EXIT_SUCCESS, EXIT_FAIL, EXIT_MIXED,
-    READ_THE_DOCS_URL, FITS_EXTENSION)
 from starbug2.utils import (
-    p_error, printf, warn, split_file_name, export_region,
-    combine_file_names, export_table, puts, parse_cmd,
-    usage, get_version)
-from starbug2 import param
-from astropy.table import Table
+    combine_file_names, export_region, export_table, get_version, parse_cmd,
+    p_error, printf, puts, split_file_name, usage, warn)
+
+# Target-silence only the specific Photutils/Astropy deprecation noise
+# without masking generic Runtime math errors globally.
+warnings.filterwarnings(
+    "ignore", category=AstropyDeprecationWarning)
+warnings.filterwarnings(
+    "ignore", message=".*contains deprecated section.*",
+    category=AstropyWarning)
+
+# Handle RuntimeWarnings elegantly: Ignore expected ones (like NaN comparisons
+# during clipping), but let actual mathematical issues surface.
+warnings.filterwarnings(
+    "ignore", message=".*invalid value encountered.*", category=RuntimeWarning)
+warnings.filterwarnings(
+    "ignore", message=".*divide by zero.*", category=RuntimeWarning)
+
+# Force photutils to strictly return standard QTables globally
+photutils.future_column_names = True
 
 # noinspection SpellCheckingInspection
 """StarbugII - JWST PSF photometry
@@ -99,6 +109,7 @@ See https://starbug2.readthedocs.io for full documentation.
 # noinspection SpellCheckingInspection
 sys.stdout.write("\x1b[1mlaunching \x1b[36mstarbug\x1b[0m\n")
 
+
 # noinspection SpellCheckingInspection
 def starbug_parse_argv(argv: list[str]) -> StarBugMainConfig:
     """
@@ -119,7 +130,8 @@ def starbug_parse_argv(argv: list[str]) -> StarBugMainConfig:
         argv, short_definition, long_definition, config.MAIN_FLAG_MAP)
     return config
 
-def starbug_one_time_runs(config: StarBugMainConfig) -> int:
+
+def starbug_one_time_runs(config: StarBugMainConfig) -> ExitStates:
     """
     Options set, verify/run one time functions
     """
@@ -131,30 +143,30 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> int:
         usage(__doc__, verbose=config.verbose_logs)
 
         if config.do_star_detection:
-            p_error(HELP_STRINGS[DETECTION])
+            p_error(HELP_STRINGS[Modes.DETECTION])
         if config.do_bgd_estimate:
-            p_error(HELP_STRINGS[BACKGROUND])
+            p_error(HELP_STRINGS[Modes.BACKGROUND])
         if config.do_aperture_photometry:
-            p_error(HELP_STRINGS[APP_HOT])
+            p_error(HELP_STRINGS[Modes.APP_HOT])
         if config.do_photometry_routine:
-            p_error(HELP_STRINGS[PSFP_HOT])
+            p_error(HELP_STRINGS[Modes.PSFP_HOT])
         if config.do_matching:
-            p_error(HELP_STRINGS[MATCH_OUTPUTS])
-        return EXIT_EARLY
+            p_error(HELP_STRINGS[Modes.MATCH_OUTPUTS])
+        return ExitStates.EXIT_EARLY
 
-    ## Load parameter files for onetime runs
-    parameter_file: str | None
-    if (parameter_file := config.param_file) is None:
-        if os.path.exists("./starbug.param"):
-            parameter_file = "starbug.param"
-        else:
-            parameter_file = None
+    # Load parameter files for onetime runs
+    if not config.update_param:
+        parameter_file: str | None
+        if (parameter_file := config.param_file) is None:
+            if os.path.exists("./starbug.param"):
+                parameter_file = "starbug.param"
+            else:
+                parameter_file = None
 
-    config.load_params(parameter_file)
-
-    if config.update_param:
-        param.update_param_file(parameter_file)
-        return EXIT_SUCCESS
+        config.load_params(parameter_file)
+    else:
+        param.update_param_file(config.param_file)
+        return ExitStates.EXIT_SUCCESS
 
     output: int | float | str
     if _output := config.output_file:
@@ -163,30 +175,28 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> int:
     else:
         output = '.'
 
-    #########################
-    # One time run commands #
-    #########################
+    # One time run commands
 
-    ## Initialise or update starbug
+    # Initialise or update starbug
     if config.execute_jwst_initialisation:
-        init_starbug_for_jwst()
+        init_starbug_for_jwst(config)
 
-    ## Generate a single PSF
+    # Generate a single PSF
     if config.generate_psf:
         if config.got_valid_psf_generation_params():
             filter_string: str | None = config.custom_filter
             assert filter_string is not None
-            detector: str| None = config.detector_name
+            detector: str | None = config.detector_name
             psf_size: int = config.psf_fit_size
             printf(
                 "Generating PSF: %s %s (%d)\n" %
                 (filter_string, detector, psf_size))
             psf: PrimaryHDU | None = generate_psf(
                 filter_string, detector=detector, fov_pixels=psf_size)
-            if psf: 
+            if psf:
                 name: str = (
                     "%s%s.fits" %
-                      (filter_string, "" if detector is None else detector))
+                    (filter_string, "" if detector is None else detector))
                 printf("--> %s\n" % name)
                 psf.writeto(name, overwrite=True)
             else:
@@ -198,13 +208,13 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> int:
                 "Set detector name with '-s DET_NAME=XXX and "
                 "Set psf_fit_size with '-s PSF_SIZE=XXX'\n")
 
-    ## Generate a run script
+    # Generate a run script
     if config.generate_run:
         generate_runscript(config.fits_images, "starbug2 ")
         if not config.fits_images:
             p_error("no files included to create runscript with\n")
 
-    ## Generate a region from a table
+    # Generate a region from a table
     if config.generate_region:
         file_name: str | None = config.region_file
         if file_name and os.path.exists(file_name):
@@ -219,13 +229,13 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> int:
                 y_col=config.region_y_column_name,
                 wcs=config.region_uses_wcs,
                 f_name="%s/%s.reg" % (output, name))
-            printf("generating region --> %s/%s.reg\n"%(output,name))
+            printf("generating region --> %s/%s.reg\n" % (output, name))
 
     # generate local param file as requested
     if config.generate_local_param_file:
         config.do_generate_local_param_file()
 
-    return EXIT_SUCCESS
+    return ExitStates.EXIT_SUCCESS
 
 
 def starbug_match_outputs(
@@ -249,18 +259,18 @@ def starbug_match_outputs(
 
     # get file name
     if f_name := combine_file_names([sb.f_name for sb in valid_bugs]):
-        _, name ,_ = split_file_name(os.path.basename(f_name))
+        _, name, _ = split_file_name(os.path.basename(f_name))
         name: str
-        f_name = "%s/%s"%(valid_bugs[0].out_dir, name)
+        f_name = "%s/%s" % (valid_bugs[0].out_dir, name)
     else:
         f_name = "out"
 
     header: Header = valid_bugs[0].header
 
     match: GenericMatch = GenericMatch(
-        threshold = config.match_threshold_arc_sec_as_an_arc_sec,
-        col_names = None,
-        p_file = config.param_file)
+        threshold=config.match_threshold_arc_sec_as_an_arc_sec,
+        col_names=None,
+        p_file=config.param_file)
 
     if config.do_star_detection or config.do_aperture_photometry:
         full: Table = match(
@@ -305,7 +315,7 @@ def execute_star_bug(
              if validation fails
     :rtype: starbug2.StarbugBase or None
     """
-    ## I've put this here because it takes some time
+    # I've put this here because it takes some time
     from starbug2.starbug import StarbugBase
     star_bug_base: StarbugBase | None = None
     f_name: str
@@ -320,12 +330,12 @@ def execute_star_bug(
         if config.find_file:
             ap: str = "%s/%s-ap.fits" % (folder, file_name)
             bgd: str = "%s/%s-bgd.fits" % (folder, file_name)
-            if os.path.exists(ap)  and config.ap_file is None:
+            if os.path.exists(ap) and config.ap_file is None:
                 ap_file = ap
             if os.path.exists(bgd) and config.background_file is None:
                 background_file = bgd
 
-        ## Sorting out the stdout
+        # Sorting out the stdout
         if use_verbose:
             printf("-> showing starbug stdout for \"%s\"\n" % f_name)
         elif config.n_cores > 1:
@@ -334,7 +344,7 @@ def execute_star_bug(
             printf("-> %s\n" % f_name)
 
         if ext == FITS_EXTENSION:
-            star_bug_base: StarbugBase = StarbugBase(
+            star_bug_base = StarbugBase(
                 f_name, config=config, ap_file=ap_file,
                 bkg_file=background_file, verbose=use_verbose)
             if star_bug_base.verify():
@@ -361,7 +371,7 @@ def execute_star_bug(
     return star_bug_base
 
 
-def starbug_main(argv: list[str]) -> int:
+def starbug_main(argv: list[str]) -> ExitStates:
     """
     Command-line execution orchestrator for processing astronomical image
     datasets.
@@ -369,7 +379,7 @@ def starbug_main(argv: list[str]) -> int:
     :param argv: System arguments mapping configurations and input filenames
     :type argv: list of str
     :return: System operational termination exit code status matrix
-    :rtype: int
+    :rtype: ExitStates
     """
     config: StarBugMainConfig = starbug_parse_argv(argv)
     return starbug_internal_main(config)
@@ -377,19 +387,14 @@ def starbug_main(argv: list[str]) -> int:
 def starbug_internal_main(config: StarBugMainConfig) -> int:
 
     if config.use_main_one_time_runs():
-       return starbug_one_time_runs(config)
+        return starbug_one_time_runs(config)
 
     if config.fits_images:
-        # why import here
-        import starbug2
-        from multiprocessing import Pool
-        from multiprocessing.pool import Pool as PoolType
-
         # freeze the config now to avoid writers
         config.freeze()
 
         puts(LOGO % READ_THE_DOCS_URL)
-        exit_code: int = EXIT_SUCCESS
+        exit_code: ExitStates = ExitStates.EXIT_SUCCESS
         starbugs: list[StarbugBase | None]
 
         if ((n_cores := config.n_cores) is None
@@ -418,26 +423,27 @@ def starbug_internal_main(config: StarBugMainConfig) -> int:
         to_remove: list[StarbugBase | None] = []
         sb: StarbugBase | None
         for n, sb in enumerate(starbugs):
-            if not sb: 
+            if not sb:
                 p_error("FAILED: %s\n" % config.fits_images[n])
                 to_remove.append(sb)
-                exit_code = EXIT_MIXED
+                exit_code = ExitStates.EXIT_MIXED
         for sb in to_remove:
             starbugs.remove(sb)
 
-        if not starbug2:
-            exit_code = EXIT_FAIL
-
-            
         if config.do_matching and len(starbugs) > 1:
             starbug_match_outputs(starbugs, config)
-        
 
     else:
         p_error("fits image file must be included\n")
-        exit_code = EXIT_FAIL
+        exit_code = ExitStates.EXIT_FAIL
 
     return exit_code
+
+
+def starbug_main_entry_parse(argv: list[str]) -> StarBugMainConfig:
+    """Auxiliary entry parser execution wrapper."""
+    return starbug_parse_argv(argv)
+
 
 def starbug_main_entry() -> int:
     """

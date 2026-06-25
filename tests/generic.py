@@ -13,18 +13,19 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
-import os, glob
+import os
+import glob
 from typing import Final
 
 import numpy as np
 
-from starbug2.constants import  STAR_BUG_TEST_DAT_ENV
+from starbug2.constants import STAR_BUG_TEST_DAT_ENV
 
 # paths to test files
 TEST_PATH: Final[str | None] = os.getenv(STAR_BUG_TEST_DAT_ENV)
 if TEST_PATH is None:
     raise Exception("cant find the test data environmental variable")
-TEST_PATH_STR : Final[str] = str(TEST_PATH)
+TEST_PATH_STR: Final[str] = str(TEST_PATH)
 TEST_IMAGE_FITS: Final[str] = os.path.join(TEST_PATH, "image.fits")
 TEST_PSF_FITS: Final[str] = os.path.join(TEST_PATH, "psf.fits")
 
@@ -40,6 +41,7 @@ def clean():
         os.remove(file_name)
     if os.path.exists("starbug.param"):
         os.remove("starbug.param")
+
 
 def check_shape(c, out):
     assert np.shape(c) == np.shape(out)

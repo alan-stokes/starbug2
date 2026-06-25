@@ -13,13 +13,13 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
-import os,numpy as np
+import os
+import numpy as np
 from typing import Final
 
 import pytest
 
-from starbug2.constants import (
-    CAT_NUM, E_FLUX, RA, DEC, FLUX, FILTER, NUM, FLAG, MAG)
+from starbug2.constants import HeaderTags, TableColumn
 from starbug2.matching.band_match import BandMatch
 from starbug2.matching.cascade_match import CascadeMatch
 from starbug2.matching.exact_value_match import ExactValueMatch
@@ -37,7 +37,6 @@ from tests.generic import (
 IMAGE_2_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image2.fits")
 IMAGE_AP_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image-ap.fits")
 IMAGE_2_AP_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image2-ap.fits")
-
 
 
 @pytest.fixture(autouse=True)
@@ -60,30 +59,36 @@ def init():
         f"starbug2 -d {IMAGE_2_AP_FITS} --background {IMAGE_2_FITS}"
         f" {TEST_FILTER_STRING}".split())
 
-def cats():
-    t1 = [[ 0.0, 0.0, 1.0, 0.1],
-          [ 0.1, 0.1, 1.0, 0.1],
-          [ 0.2, 0.1, 2.0, 0.2],
-          [ 0.1, 0.2, 2.0, 0.2],
-          [ 1.0, 1.0, 100, 0.1],
-          [ 1.1, 1.0, 100, 0.1],
-        ]
 
-    t2 = [[ 0.0, 0.0, 1.1, 0.1],
-          [ 0.2, 0.1, 2.1, 0.2],
-          [ 0.1, 0.2, 2.1, 0.2],
-          [ 1.0, 1.0, 101, 0.1],
-          [ 1.1, 1.0, 101, 0.1],
-          [ 2.0, 2.0, 201, 0.1],
-        ]
+def cats():
+    t1 = [[0.0, 0.0, 1.0, 0.1],
+          [0.1, 0.1, 1.0, 0.1],
+          [0.2, 0.1, 2.0, 0.2],
+          [0.1, 0.2, 2.0, 0.2],
+          [1.0, 1.0, 100, 0.1],
+          [1.1, 1.0, 100, 0.1],
+          ]
+
+    t2 = [[0.0, 0.0, 1.1, 0.1],
+          [0.2, 0.1, 2.1, 0.2],
+          [0.1, 0.2, 2.1, 0.2],
+          [1.0, 1.0, 101, 0.1],
+          [1.1, 1.0, 101, 0.1],
+          [2.0, 2.0, 201, 0.1],
+          ]
 
     cat1 = Table(
-        np.array(t1), names=[RA, DEC, FLUX, E_FLUX], meta={FILTER:'a'})
+        np.array(t1),
+        names=[TableColumn.RA, TableColumn.DEC, TableColumn.FLUX,
+               TableColumn.E_FLUX],
+        meta={HeaderTags.FILTER: 'a'})
     cat2 = Table(
-        np.array(t2), names=[RA, DEC, FLUX, E_FLUX], meta={FILTER:'b'})
+        np.array(t2),
+        names=[TableColumn.RA, TableColumn.DEC, TableColumn.FLUX,
+               TableColumn.E_FLUX],
+        meta={HeaderTags.FILTER: 'b'})
     return [cat1, cat2]
 
-            
 
 class TestGenericMatch:
 
@@ -92,19 +97,19 @@ class TestGenericMatch:
 
         m = GenericMatch()
         assert m.col_names is None
-        assert not m.filter 
+        assert not m.filter
         assert m.threshold is None
         assert m.verbose == config.verbose_logs
 
         m = GenericMatch(
-            filter_string=MAG, col_names=[RA],
+            filter_string=TableColumn.MAG, col_names=[TableColumn.RA],
             threshold=config.match_threshold_arc_sec_as_an_arc_sec,
             verbose=True)
-        assert m.col_names == [RA]
-        assert m.filter == MAG
+        assert m.col_names == [TableColumn.RA]
+        assert m.filter == TableColumn.MAG
         assert (m.threshold.value ==
                 config.match_threshold_arc_sec_as_an_arc_sec.value)
-        assert m.verbose == True
+        assert m.verbose is True
 
         assert isinstance(m.__str__(), str)
 
@@ -118,14 +123,14 @@ class TestGenericMatch:
             raise Exception("failed to import tables")
 
         config = StarBugMainConfig()
-        m : GenericMatch = GenericMatch(
+        m: GenericMatch = GenericMatch(
             threshold=config.match_threshold_arc_sec_as_an_arc_sec)
 
         out: Table = m(categories)
         assert isinstance(out, Table)
-        name : str
+        name: str
         for name in category1.colnames:
-            if name != CAT_NUM:
+            if name != TableColumn.CAT_NUM:
                 assert "%s_1" % name in out.colnames
                 assert "%s_2" % name in out.colnames
         assert len(out) >= len(category1)
@@ -143,11 +148,11 @@ class TestGenericMatch:
             f"{IMAGE_2_AP_FITS}")]
         config = StarBugMainConfig()
         m = GenericMatch(
-            col_names=[RA],
+            col_names=[TableColumn.RA],
             threshold=config.match_threshold_arc_sec_as_an_arc_sec)
         out = m(categories)
 
-        assert out.colnames == ["RA_1", "RA_2"]
+        assert out.colnames == [TableColumn.RA_1, TableColumn.RA_2]
 
     def test_finish_matching(self):
         categories: list[Table | None] = [import_table(f) for f in (
@@ -165,38 +170,43 @@ class TestGenericMatch:
         if category1 is None or category2 is None:
             raise Exception("failed to import tables")
 
+        filter_string: Final[str] = "F444W"
         m: GenericMatch = GenericMatch(
-            col_names=[RA, DEC, FLUX], filter_string="F444W",
+            col_names=[TableColumn.RA, TableColumn.DEC, TableColumn.FLUX],
+            filter_string=filter_string,
             threshold=config.match_threshold_arc_sec_as_an_arc_sec)
         av: Table = m.finish_matching(m.match([category1, category2]))
         # noinspection SpellCheckingInspection
         assert av.colnames == [
-            "RA", "DEC", "flux", "stdflux", "flag", "F444W", "eF444W", "NUM"]
+            TableColumn.RA, TableColumn.DEC, TableColumn.FLUX,
+            TableColumn.STD_FLUX, TableColumn.FLAG, filter_string,
+            f"e{filter_string}", TableColumn.NUM]
 
         m: GenericMatch = GenericMatch(
-            col_names=[RA, DEC, FLUX],
+            col_names=[TableColumn.RA, TableColumn.DEC, TableColumn.FLUX],
             threshold=config.match_threshold_arc_sec_as_an_arc_sec)
         c: Table
         for c in categories:
-            del c.meta[FILTER]
+            del c.meta[HeaderTags.FILTER]
         av: Table = m.finish_matching(m.match([category1, category2]))
         # noinspection SpellCheckingInspection
         assert av.colnames == [
-            "RA", "DEC", "flux", "stdflux", "flag", "MAG", "eMAG", "NUM"]
-
+            TableColumn.RA, TableColumn.DEC, TableColumn.FLUX,
+            TableColumn.STD_FLUX, TableColumn.FLAG, TableColumn.MAG_UPPER,
+            TableColumn.ERROR_MAG, TableColumn.NUM]
 
     def test_vals(self):
         config = StarBugMainConfig()
         m = GenericMatch(
             threshold=config.match_threshold_arc_sec_as_an_arc_sec)
         out = m(cats())
-        t = [[ 0.0, 0.0, 1.0, 0.1,   0.0, 0.0, 1.1, 0.1],
-             [ 0.1, 0.1, 1.0, 0.1,   np.nan, np.nan, np.nan, np.nan],
-             [ 0.2, 0.1, 2.0, 0.2,   0.2, 0.1, 2.1, 0.2],
-             [ 0.1, 0.2, 2.0, 0.2,   0.1, 0.2, 2.1, 0.2],
-             [ 1.0, 1.0, 100, 0.1,   1.0, 1.0, 101, 0.1],
-             [ 1.1, 1.0, 100, 0.1,   1.1, 1.0, 101, 0.1],
-             [np.nan, np.nan, np.nan, np.nan, 2.0, 2.0, 201, 0.1] ]
+        t = [[0.0, 0.0, 1.0, 0.1,   0.0, 0.0, 1.1, 0.1],
+             [0.1, 0.1, 1.0, 0.1,   np.nan, np.nan, np.nan, np.nan],
+             [0.2, 0.1, 2.0, 0.2,   0.2, 0.1, 2.1, 0.2],
+             [0.1, 0.2, 2.0, 0.2,   0.1, 0.2, 2.1, 0.2],
+             [1.0, 1.0, 100, 0.1,   1.0, 1.0, 101, 0.1],
+             [1.1, 1.0, 100, 0.1,   1.1, 1.0, 101, 0.1],
+             [np.nan, np.nan, np.nan, np.nan, 2.0, 2.0, 201, 0.1]]
         c = Table(
             np.array(t),
             names=[
@@ -210,20 +220,19 @@ class TestCascade:
         [import_table(f) for f in (f"{IMAGE_AP_FITS}", f"{IMAGE_2_AP_FITS}")]
         config = StarBugMainConfig()
         CascadeMatch(threshold=config.match_threshold_arc_sec_as_an_arc_sec)
-        
-        
+
     def test_vals(self):
-        t = [[ 0.0, 0.0, 1.0, 0.1,   0.0, 0.0, 1.1, 0.1],
-             [ 0.1, 0.1, 1.0, 0.1,   np.nan, np.nan, np.nan, np.nan],
-             [ 0.2, 0.1, 2.0, 0.2,   0.2, 0.1, 2.1, 0.2],
-             [ 0.1, 0.2, 2.0, 0.2,   0.1, 0.2, 2.1, 0.2],
-             [ 1.0, 1.0, 100, 0.1,   1.0, 1.0, 101, 0.1],
-             [ 1.1, 1.0, 100, 0.1,   1.1, 1.0, 101, 0.1],
-             [2.0, 2.0, 201, 0.1,    np.nan, np.nan, np.nan, np.nan] ]
+        t = [[0.0, 0.0, 1.0, 0.1,   0.0, 0.0, 1.1, 0.1],
+             [0.1, 0.1, 1.0, 0.1,   np.nan, np.nan, np.nan, np.nan],
+             [0.2, 0.1, 2.0, 0.2,   0.2, 0.1, 2.1, 0.2],
+             [0.1, 0.2, 2.0, 0.2,   0.1, 0.2, 2.1, 0.2],
+             [1.0, 1.0, 100, 0.1,   1.0, 1.0, 101, 0.1],
+             [1.1, 1.0, 100, 0.1,   1.1, 1.0, 101, 0.1],
+             [2.0, 2.0, 201, 0.1,    np.nan, np.nan, np.nan, np.nan]]
         c = Table(
             np.array(t),
-            names=[ "RA_1", "DEC_1", "flux_1", "eflux_1", "RA_2", "DEC_2",
-                    "flux_2", "eflux_2"])
+            names=["RA_1", "DEC_1", "flux_1", "eflux_1", "RA_2", "DEC_2",
+                   "flux_2", "eflux_2"])
         m = CascadeMatch(threshold=Quantity(2, unit=units.arcsec))
         out = m.match(cats())
         print(out)
@@ -237,7 +246,6 @@ class TestBandMatch:
         m = BandMatch(fltr=filters)
         assert m.filter_list == ["a", "b", "c"]
 
-
     def test_order_catalogue_jwst_meta(self):
         a = Table(None, meta={"FILTER": 'F115W'})
         b = Table(None, meta={"FILTER": 'F187N'})
@@ -245,9 +253,8 @@ class TestBandMatch:
 
         m = BandMatch()
         assert m.filter is None
-        assert m.order_catalogues( [a,c,b] ) == [a,b,c]
+        assert m.order_catalogues([a, c, b]) == [a, b, c]
         assert m.filter_list == ["F115W", "F187N", "F770W"]
-
 
     def test_order_catalogue_jwst_col_names(self):
         a = Table(None, names=['F115W'])
@@ -256,18 +263,16 @@ class TestBandMatch:
 
         m = BandMatch()
         assert m.filter is None
-        assert m.order_catalogues( [a, c, b] ) == [a, b, c]
+        assert m.order_catalogues([a, c, b]) == [a, b, c]
         assert m.filter_list == ["F115W", "F187N", "F770W"]
 
-
     def test_order_catalogue_filter_meta(self):
-        a = Table(None, meta={"FILTER":'a'})
-        b = Table(None, meta={"FILTER":'b'})
-        c = Table(None, meta={"FILTER":'c'})
+        a = Table(None, meta={"FILTER": 'a'})
+        b = Table(None, meta={"FILTER": 'b'})
+        c = Table(None, meta={"FILTER": 'c'})
 
         m = BandMatch(fltr=["a", "b", "c"])
-        assert m.order_catalogues( [a,c,b] ) == [a,b,c]
-
+        assert m.order_catalogues([a, c, b]) == [a, b, c]
 
     def test_order_catalogue_filter_col_names(self):
         a = Table(None, names=['a'])
@@ -275,36 +280,46 @@ class TestBandMatch:
         c = Table(None, names=['c'])
 
         m = BandMatch(fltr=["a", "b", "c"])
-        assert m.order_catalogues( [a, c, b] ) == [a, b, c]
-
+        assert m.order_catalogues([a, c, b]) == [a, b, c]
 
     def test_match(self):
-        t1 = [[1., 1., 1, 1,0],
+        t1 = [[1., 1., 1, 1, 0],
               [2., 2., 2, 2, 0],
               [3., 3., 3, 3, 0],
-             ]
+              ]
         t2 = [[1., 1., 1, 1, 0],
               [2., 2., 2, 2, 0],
               [4., 4., 4, 4, 1],
-             ]
+              ]
         t3 = [[1., 1., 1, 1, 0],
               [4., 4., 4, 4, 2],
-             ]
+              ]
 
         f = float
         categories = [
-            Table(np.array(t1), names=[RA, DEC, "A", NUM, FLAG],
-                  dtype=[f, f, f, f, np.uint16], meta={FILTER: "A"}),
-            Table(np.array(t2), names=[RA, DEC, "B", NUM, FLAG],
-                  dtype=[f, f, f, f, np.uint16], meta={FILTER: "B"}),
-            Table(np.array(t3), names=[RA, DEC, "C", NUM, FLAG],
-                  dtype=[f, f, f, f, np.uint16], meta={FILTER: "C"})]
+            Table(np.array(t1), names=[
+                TableColumn.RA, TableColumn.DEC, "A", TableColumn.NUM,
+                TableColumn.FLAG],
+                  dtype=[f, f, f, f, np.uint16],
+                  meta={HeaderTags.FILTER: "A"}),
+            Table(np.array(t2), names=[
+                TableColumn.RA, TableColumn.DEC, "B", TableColumn.NUM,
+                TableColumn.FLAG],
+                  dtype=[f, f, f, f, np.uint16],
+                  meta={HeaderTags.FILTER: "B"}),
+            Table(np.array(t3), names=[
+                TableColumn.RA, TableColumn.DEC, "C", TableColumn.NUM,
+                TableColumn.FLAG],
+                  dtype=[f, f, f, f, np.uint16],
+                  meta={HeaderTags.FILTER: "C"})]
 
         bm = BandMatch(fltr=["A", "B", "C"],
                        threshold=[0.1 * units.arcsec, 0.2 * units.arcsec])
         res = bm(categories)
         print(res)
-        assert res.colnames == [RA, DEC, NUM, FLAG, "A", "B", "C"]
+        assert res.colnames == [
+            TableColumn.RA, TableColumn.DEC, TableColumn.NUM,
+            TableColumn.FLAG, "A", "B", "C"]
         bm(categories, method="bootstrap")
 
 
@@ -325,9 +340,12 @@ def test_match_with_masks():
           [1, 1, 1],
           [2, 2, 0],
           [3, 3, 1]]
-    cat1 = Table(np.array(t1, float), names=[RA, DEC, "a"])
-    cat2 = Table(np.array(t2, float), names=[RA, DEC, "a"])
-    cat3 = Table(np.array(t3, float), names=[RA, DEC, "a"])
+    cat1 = Table(np.array(t1, float),
+                 names=[TableColumn.RA, TableColumn.DEC, "a"])
+    cat2 = Table(np.array(t2, float),
+                 names=[TableColumn.RA, TableColumn.DEC, "a"])
+    cat3 = Table(np.array(t3, float),
+                 names=[TableColumn.RA, TableColumn.DEC, "a"])
     mask = [
         np.array([True, True, False, True]),
         None,
@@ -349,20 +367,22 @@ def test_exact_match():
     cat3 = Table(
         np.array([["CN3", 3], ["CN4", 3], ["CN5", 3]]),
         names=["CN", "i"], dtype=(str, int))
-    
+
     arr = [[1, np.nan, np.nan],
            [1,      2, np.nan],
            [1,      2,      3],
            [np.nan, 2,      3],
            [np.nan, np.nan, 3]]
     correct = Table(
-        np.array(arr), dtype=[int, int, int], names=["i_1", "i_2", "i_3"], 
+        np.array(arr), dtype=[int, int, int], names=["i_1", "i_2", "i_3"],
         masked=True)
     for i, col in enumerate(correct.columns.values()):
         col.mask = np.isnan(np.array(arr)[:, i])
-    correct.add_column(["CN1", "CN2", "CN3", "CN4", "CN5"], name="CN", index=0)
+    correct.add_column(["CN1", "CN2", "CN3", "CN4", "CN5"],
+                       name="CN", index=0)
     res = ExactValueMatch(value="CN").match([cat1, cat2, cat3])
-    assert all(res==fill_nan(correct)) # type: ignore
-        
-if __name__=="__main__":
+    assert all(res == fill_nan(correct))  # type: ignore
+
+
+if __name__ == "__main__":
     test_exact_match()

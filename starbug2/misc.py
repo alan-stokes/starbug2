@@ -12,26 +12,24 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-
-"""
-Miscellaneous functions...
-"""
-
-import os, stat, numpy as np
-from typing import List, Optional, TextIO, Dict, Any
+import os
+import stat
+import numpy as np
+from typing import List, Optional, TextIO, Dict
 
 from starbug2.constants import (
-    FITS_EXTENSION, FILE_NAME, FILTER, OBS, VISIT, DETECTOR, EXPOSURE)
+    FITS_EXTENSION, FILE_NAME, HeaderTags, ImageHeaderTags)
 from astropy.io import fits
-from starbug2.starbug import StarbugBase
-from starbug2.utils import (
-    printf, wget, puts, Loading, p_error, split_file_name)
+from starbug2.utils import printf, p_error, split_file_name
 
 # A clear, Type Alias for the deep data nested structure Format:
 # Dict[KeyType, ValueType], str mapping being FILTER, OBS, VISIT, DETECTOR
 ExposureMapping = (
-    Dict[Optional[int], Dict[Optional[int], Dict[Optional[int],
-    Dict[Optional[int], List[fits.HDUList]]]]])
+    Dict[
+        Optional[int], Dict[
+            Optional[int], Dict[
+                Optional[int], Dict[
+                    Optional[int], List[fits.HDUList]]]]])
 
 
 def generate_runscript(
@@ -81,7 +79,7 @@ def generate_runscript(
     fp.close()
     os.chmod(
         runfile, stat.S_IXUSR | stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP |
-                 stat.S_IROTH)
+        stat.S_IROTH)
     printf("->%s\n" % runfile)
 
 
@@ -104,21 +102,26 @@ def sort_exposures(catalogues: List[fits.HDUList]) -> ExposureMapping:
     for cat in catalogues:
         info = exp_info(cat)
 
-        if info[FILTER] not in out.keys():
-            out[info[FILTER]] = {}
+        if info[HeaderTags.FILTER] not in out.keys():
+            out[info[HeaderTags.FILTER]] = {}
 
-        if info[OBS] not in out[info[FILTER]].keys():
-            out[info[FILTER]][info[OBS]] = {}
+        if info[HeaderTags.OBS] not in out[info[HeaderTags.FILTER]].keys():
+            out[info[HeaderTags.FILTER]][info[HeaderTags.OBS]] = {}
 
-        if info[VISIT] not in out[info[FILTER]][info[OBS]].keys():
-            out[info[FILTER]][info[OBS]][info[VISIT]] = {}
+        if (info[HeaderTags.VISIT] not in
+                out[info[HeaderTags.FILTER]][info[HeaderTags.OBS]].keys()):
+            out[info[HeaderTags.FILTER]][
+                info[HeaderTags.OBS]][info[HeaderTags.VISIT]] = {}
 
-        if (info[DETECTOR] not in
-            out[info[FILTER]][info[OBS]][info[VISIT]].keys()):
-            out[info[FILTER]][
-                info[OBS]][info[VISIT]][info[DETECTOR]] = []
-        out[info[FILTER]][
-            info[OBS]][info[VISIT]][info[DETECTOR]].append(cat)
+        if (info[ImageHeaderTags.DETECTOR] not in
+            out[info[HeaderTags.FILTER]][info[HeaderTags.OBS]][
+                info[HeaderTags.VISIT]].keys()):
+            out[info[HeaderTags.FILTER]][
+                info[HeaderTags.OBS]][info[HeaderTags.VISIT]][
+                info[ImageHeaderTags.DETECTOR]] = []
+        out[info[HeaderTags.FILTER]][
+            info[HeaderTags.OBS]][info[HeaderTags.VISIT]][
+            info[ImageHeaderTags.DETECTOR]].append(cat)
     return out
 
 
@@ -157,15 +160,15 @@ def exp_info(hdu_list) -> Dict[str, int | None]:
     Get the exposure information about a hdu list
     :param hdu_list: HDUList or ImageHDU or BinTableHDU
     :return: dictionary of relevant information
-    (filter, obs, visit exposure, detector)
+    (HeaderTags.FILTER, obs, visit exposure, detector)
     :rtype dict(str, Optional[int])
     """
     info: Dict[str, int | None] = {
-        FILTER : None,
-        OBS : 0,
-        VISIT : 0,
-        EXPOSURE : 0,
-        DETECTOR : None
+        HeaderTags.FILTER: None,
+        HeaderTags.OBS: 0,
+        HeaderTags.VISIT: 0,
+        HeaderTags.EXPOSURE: 0,
+        ImageHeaderTags.DETECTOR: None
     }
 
     if type(hdu_list) in (fits.ImageHDU, fits.BinTableHDU):
