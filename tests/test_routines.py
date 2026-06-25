@@ -45,14 +45,14 @@ class TestDetection:
         _a = self.a.copy()
         _b = self.b.copy()
         c = dt.match(_a, _b)
-        assert type(c) == Table
+        assert isinstance(c, Table)
         assert len(_a) == len(self.a)
         assert len(_b) == len(self.b)
         assert len(c) == 4
 
     def test_bkg2d(self):
         b = DetectionRoutine().bkg2d(self.im.copy())
-        assert type(b) == type(self.im)
+        assert type(b) is type(self.im)
         assert b.shape == self.im.shape
 
 

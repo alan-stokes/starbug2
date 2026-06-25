@@ -12,10 +12,6 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-
-"""
-Core routines for StarbugII.
-"""
 from typing import Optional
 
 import numpy as np
@@ -26,12 +22,12 @@ from starbug2.constants import TableColumn
 from starbug2.utils import Loading, printf, p_error
 
 
-
 class SourceProperties:
     status: int = 0
 
-    def __init__(self, image: Optional[np.ndarray],
-                 source_list: Optional[Table], verbose: int | bool=1) -> None:
+    def __init__(
+            self, image: Optional[np.ndarray],
+            source_list: Optional[Table], verbose: int | bool = 1) -> None:
         """
         source properties.
 
@@ -65,9 +61,9 @@ class SourceProperties:
         else:
             p_error("bad source list type: %s\n" % type(source_list))
 
-
-    def __call__(self, do_crowd: int=1, n_closest_sources: int = 10,
-                 full_width_half_max: float = 2.0) -> Table:
+    def __call__(
+            self, do_crowd: int = 1, n_closest_sources: int = 10,
+            full_width_half_max: float = 2.0) -> Table:
         """
         trigger source properties
 
@@ -81,7 +77,7 @@ class SourceProperties:
 
         out: Table = Table()
 
-        ## This can be slow
+        # This can be slow
         if do_crowd:
             out = hstack(
                 (out, Table([self.calculate_crowding(n_closest_sources)],
@@ -115,14 +111,14 @@ class SourceProperties:
                 + (src[TableColumn.Y_CENTROID] -
                    self._source_list[TableColumn.Y_CENTROID]) ** 2)
             dist.sort()
-            crowd[i]= sum( dist[1 : n_closest_sources])
+            crowd[i] = sum(dist[1: n_closest_sources])
             load()
             if self._verbose:
                 load.show()
         return crowd
 
     def calculate_geometry(
-            self, full_width_half_max: float=2.0) -> Table | None:
+            self, full_width_half_max: float = 2.0) -> Table | None:
         """
         calculate geometry
 
@@ -147,4 +143,3 @@ class SourceProperties:
 
         # ABS protected access. yuck
         return dao_find._get_raw_catalog(self._image).to_table()
-

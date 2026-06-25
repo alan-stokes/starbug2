@@ -12,36 +12,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-
-# noinspection SpellCheckingInspection
-"""StarbugII Matching
-usage: starbug2-match [-BCGfhvX] [-e column] [-m mask] [-o output]
-                      [-p file.param] [-s KEY=VAL] table.fits ...
-    -B  --band               : match in "BAND" mode (does not preserve a
-                               column for every frame)
-    -C  --cascade            : match in "CASCADE" mode (left justify columns)
-    -G  --generic            : match in "GENERIC" mode
-    -X  --exact              : match in "EXACTVALUE" mode
-
-    -e  --error   column     : photometric error column ("eflux" or "stdflux")
-    -f  --full               : export full catalogue
-    -h  --help               : show help message
-    -m  --mask    eval       : column evaluation to mask out of matching e.g.
-                               -m"~np.isnan(F444W)"
-    -o  --output  file.fits  : output matched catalogue
-    -p  --param   file.param : load starbug parameter file
-    -s  --set     option     : set value in parameter file at runtime
-                               (-s MATCH_THRESH=1)
-    -v  --verbose            : display verbose outputs
-
-        --band-depr          : match in "old" band mode
-
-    --> typical runs
-       $~ starbug2-match -Gfo outfile.fits tab1.fits tab2.fits
-       $~ starbug2-match -sMATCH_THRESH=0.2 -sBRIDGE_COL=F444W -Bo out.fits
-                         F*W.fits
-"""
-import os, sys
+import os
+import sys
 from typing import Any
 
 import numpy as np

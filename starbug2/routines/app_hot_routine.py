@@ -12,7 +12,6 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-
 import os
 import sys
 from typing import Tuple
@@ -65,7 +64,6 @@ class APPhotRoutine:
         else:
             t_ap_corr = tmp
 
-
         if TableColumn.PUPIL in t_ap_corr.colnames:
             t_ap_corr = t_ap_corr[t_ap_corr[TableColumn.PUPIL] == Modes.CLEAR]
 
@@ -76,11 +74,10 @@ class APPhotRoutine:
             printf("-> estimating aperture correction: %.3g\n" % ap_corr)
         return ap_corr
 
-
     @staticmethod
     def ap_corr_from_enc_energy(
             filter_string: str, encircled_energy: np.ndarray,
-            table_f_name: str | None=None, verbose: int | bool=0) -> (
+            table_f_name: str | None = None, verbose: int | bool = 0) -> (
                 Tuple[np.ndarray, np.ndarray]):
         """
         Rather than fitting radius to the AP_CORR CRDS, use the closes
@@ -105,7 +102,8 @@ class APPhotRoutine:
 
         if HeaderTags.FILTER_LOWER in tmp.colnames:
             t_ap_corr = tmp[(tmp[HeaderTags.FILTER_LOWER] == filter_string)]
-        else: t_ap_corr = tmp
+        else:
+            t_ap_corr = tmp
 
         line: Row = t_ap_corr[(np.abs(
             t_ap_corr[TableColumn.EE_FRACTION] - encircled_energy)).argmin()]
@@ -119,7 +117,6 @@ class APPhotRoutine:
                 line[TableColumn.AP_CORR])
 
         return line[TableColumn.AP_CORR], line[TableColumn.RADIUS]
-
 
     @staticmethod
     def radius_from_enc_energy(
@@ -140,7 +137,8 @@ class APPhotRoutine:
             t_ap_corr = t_ap_corr[
                 (t_ap_corr[HeaderTags.FILTER_LOWER] == filter_string)]
 
-        if TableColumn.PUPIL in t_ap_corr.col_names: # Crop down table
+        # Crop down table
+        if TableColumn.PUPIL in t_ap_corr.col_names:
             t_ap_corr = t_ap_corr[t_ap_corr[TableColumn.PUPIL] == Modes.CLEAR]
 
         return float(
@@ -150,7 +148,7 @@ class APPhotRoutine:
 
     def __init__(
             self, radius: float, sky_in: float, sky_out: float,
-            verbose: int | bool=0) -> None:
+            verbose: int | bool = 0) -> None:
         """
         Aperture photometry called by starbug
 
@@ -250,8 +248,9 @@ class APPhotRoutine:
                  line[TableColumn.Y_0]) for line in detections]
         elif (len({TableColumn.X_INIT, TableColumn.Y_INIT} &
                   set(detections.colnames)) == 2):
-            pos=[(line[TableColumn.X_INIT],
-                  line[TableColumn.Y_INIT]) for line in detections]
+            pos = [
+                (line[TableColumn.X_INIT],
+                 line[TableColumn.Y_INIT]) for line in detections]
         else:
             p_error(
                 "Cannot identify position in detection catalogue ("
@@ -289,14 +288,14 @@ class APPhotRoutine:
 
         # generate dat_list.
         dat_list: list[np.ndarray | None] = list(
-            map(lambda a : a.multiply(image), masks))
+            map(lambda a: a.multiply(image), masks))
         dat: np.ndarray
 
         try:
             dat = np.array(dat_list).astype(float)
         except (ValueError, TypeError) as e:
-            ## Cases where the array is inhomogeneous
-            ## If annulus reaches the edge of the image, it will create a
+            # Cases where the array is inhomogeneous
+            # If annulus reaches the edge of the image, it will create a
             # mask the wrong shape. If for whatever reason the point lies
             # outside the image, it will have None in the list, this needs
             # to be caught too
@@ -320,7 +319,7 @@ class APPhotRoutine:
         mask = (dat > 0 & np.isfinite(dat))
         dat[~mask] = np.nan
         clipped_dat: np.ma.MaskedArray = np.ma.MaskedArray(sigma_clip(
-            dat.reshape(dat.shape[0],-1), sigma=sig_sky, axis=1))
+            dat.reshape(dat.shape[0], -1), sigma=sig_sky, axis=1))
         self.catalogue[TableColumn.SKY] = (
             np.ma.median(clipped_dat, axis=1).filled(fill_value=0))
         std: np.ndarray = np.ma.std(clipped_dat, axis=1)
@@ -358,15 +357,14 @@ class APPhotRoutine:
                 ap_mask: ApertureMask
                 tmp: np.ndarray = ap_mask.multiply(dq_flags)
                 if tmp is not None:
-                    dq_dat = np.array(tmp,dtype=np.uint32)
-                    if np.sum( dq_dat & (
+                    dq_dat = np.array(tmp, dtype=np.uint32)
+                    if np.sum(dq_dat & (
                             DQFlags.DQ_DO_NOT_USE | DQFlags.DQ_SATURATED)):
                         col[i] |= SourceFlags.SRC_BAD
-                    if np.sum( dq_dat & DQFlags.DQ_JUMP_DET):
+                    if np.sum(dq_dat & DQFlags.DQ_JUMP_DET):
                         col[i] |= SourceFlags.SRC_JMP
         self.catalogue.add_column(col)
         return self.catalogue
-
 
     def log(self, msg: str) -> None:
         """

@@ -17,11 +17,12 @@ from typing import Final, Dict
 from starbug2.constants import NIRCAM, DetectorLengths, STAR_BUG_MIRI
 
 
-class FilterStruct: #(struct) containing JWST filter info
+# (struct) containing JWST filter info
+class FilterStruct:
     # noinspection SpellCheckingInspection, PyPep8Naming
     def __init__(
             self, full_width_half_max: float, instr: int, length: int,
-            nlambda: int| None = None):
+            nlambda: int | None = None):
         """
 
         :param full_width_half_max:
@@ -63,7 +64,7 @@ STAR_BUG_FILTERS: Final[Dict[str, FilterStruct]] = {
     "F150W": FilterStruct(1.581, NIRCAM, DetectorLengths.SHORT),
     "F162M": FilterStruct(1.710, NIRCAM, DetectorLengths.SHORT),
     "F164N": FilterStruct(1.742, NIRCAM, DetectorLengths.SHORT),
-    #NOTE: MAJOR CHANGE
+    # NOTE: MAJOR CHANGE
     # the 20 here is to resolve an issue inside stpsf calc_psf for F150W2 as
     # the wave max value being  2.35 * 1e-6 and the wave lengths when
     # partitioned at 40 results in a final wave length of
@@ -102,4 +103,3 @@ STAR_BUG_FILTERS: Final[Dict[str, FilterStruct]] = {
     "F2100W": FilterStruct(6.127, STAR_BUG_MIRI, DetectorLengths.NULL),
     "F2550W": FilterStruct(7.300, STAR_BUG_MIRI, DetectorLengths.NULL),
 }
-

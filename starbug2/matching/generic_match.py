@@ -12,12 +12,6 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-
-"""
-Starbug matching functions
-Primarily this is the main routines for dither/band/generic matching which are
- at the core of starbug2 and starbug2-match
-"""
 from typing import Any
 import numpy as np
 from astropy import units
@@ -241,8 +235,8 @@ class GenericMatch:
                 set(catalogue.colnames) & set(col_names))
             keep = sorted(
                 keep,
-                key=lambda s: self._col_names.index(s) if
-                              self._col_names else 0)
+                key=lambda s:
+                    self._col_names.index(s) if self._col_names else 0)
             catalogues[n] = catalogue[keep]
 
         if not self._filter:
@@ -254,13 +248,13 @@ class GenericMatch:
 
         return catalogues
 
-
     def match(
             self,
             catalogues: list[Table],
             join_type: str = "or",
-            mask: list[np.ndarray | list[Any] | None] |
-                  np.ndarray | None = None,
+            mask: (
+                list[np.ndarray | list[Any] | None]
+                | np.ndarray | None) = None,
             cartesian: bool = False,
             **kwargs: Any) -> Table:
         """
@@ -301,7 +295,7 @@ class GenericMatch:
             tmp.rename_columns(
                 tmp.colnames, [f"{name}_{n}" for name in tmp.colnames])
             # check if there is data to match against.
-            if tmp is None or len(tmp) ==0:
+            if tmp is None or len(tmp) == 0:
                 printf(f"No matches were found in catalogue {n}")
                 continue
             base = fill_nan(hstack((base, tmp)))
@@ -386,12 +380,12 @@ class GenericMatch:
         return tmp
 
     def finish_matching(
-        self,
-        tab: Table | None,
-        error_column: str = TableColumn.E_FLUX,
-        num_thresh: int = -1,
-        zp_mag: float = 0.0,
-        col_names: list[str] | None = None) -> Table:
+            self,
+            tab: Table | None,
+            error_column: str = TableColumn.E_FLUX,
+            num_thresh: int = -1,
+            zp_mag: float = 0.0,
+            col_names: list[str] | None = None) -> Table:
         """
         Averaging all the values. Combining source flags and building a NUM
         column
@@ -436,14 +430,13 @@ class GenericMatch:
                         col = Column(np.nanmedian(ar, axis=1), name=name)
                         mean: np.ndarray = np.nanmean(ar, axis=1)
 
-                        if (self._col_names
-                                and TableColumn.STD_FLUX not in
-                                    self._col_names):
+                        if (self._col_names and
+                                TableColumn.STD_FLUX not in self._col_names):
                             average_table.add_column(
                                 Column(np.nanstd(ar, axis=1),
                                        name=TableColumn.STD_FLUX),
                                 index=ii + 1)
-                        ## if median and mean are >5% different, flag as
+                        # if median and mean are >5% different, flag as
                         # SRC_VAR.
                         # ABS. why are we using such an aggressive type check
                         # here?

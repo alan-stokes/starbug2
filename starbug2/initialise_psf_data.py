@@ -1,3 +1,17 @@
+"""Copyright (C) 2026 UKATC
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
 from typing import List, Optional, Any, Final
 
@@ -8,6 +22,8 @@ from starbug2.constants import (
 from starbug2.constants import STAR_BUG_MIRI
 from starbug2.filters import STAR_BUG_FILTERS, FilterStruct
 from astropy.io import fits
+
+from starbug2.star_bug_config import StarBugMainConfig
 from starbug2.starbug import StarbugBase
 from starbug2.utils import printf, wget, puts, Loading, p_error
 import stpsf
@@ -15,23 +31,23 @@ import stpsf
 # noinspection SpellCheckingInspection
 # the detector labels for nircam short length detectors
 NIRCAM_SHORT_DETECTORS: Final[list[str]] = [
-    "NRCA1","NRCA2","NRCA3","NRCA4","NRCB1","NRCB2",
-    "NRCB3","NRCB4"]
+    "NRCA1", "NRCA2", "NRCA3", "NRCA4", "NRCB1", "NRCB2",
+    "NRCB3", "NRCB4"]
 
 # noinspection SpellCheckingInspection
 # the detector labels for nircam long length detectors.
-NIRCAM_LONG_DETECTORS: Final[list[str]] = ["NRCA5","NRCB5"]
+NIRCAM_LONG_DETECTORS: Final[list[str]] = ["NRCA5", "NRCB5"]
 
-##########################
-# One time run functions #
-##########################
-def init_starbug_for_jwst() -> None:
+
+# One time run functions
+def init_starbug_for_jwst(config: StarBugMainConfig) -> None:
     """
-    Initialise Starbug for jwst.
+     Initialise Starbug for jwst.
         - generate PSFs
         - download crds files
-    INPUT:
-        data_name : data directory
+    :param config: the main config
+    :type config: StarBugMainConfig
+    :return: None
     """
     printf("Initialising StarbugII\n")
 
@@ -41,7 +57,7 @@ def init_starbug_for_jwst() -> None:
     printf("-> using %s=%s\n" % (
         STARBUG_DATA_DIR if os.getenv(STARBUG_DATA_DIR) else "DEFAULT_DIR",
         data_name))
-    _generate_psfs()
+    _generate_psfs(config)
 
     _miri_ap_corr: str = JWST_MIRI_APCORR_0010_FITS_URL
 
@@ -72,21 +88,22 @@ def init_starbug_for_jwst() -> None:
          "%s/abvegaoffset_nircam.asdf" % data_name)
     puts("Downloading The Junior Colour Encyclopedia of Space\n")
 
+
 # noinspection SpellCheckingInspection
-def _generate_psfs() -> None:
+def _generate_psfs(config: StarBugMainConfig) -> None:
     """
     Generate the psf files inside a given directory
 
     utilises the star bug data patj to generate the directory to generate info
     :return:
     """
-    dname: str = StarbugBase.get_data_path()
+    d_name: str = StarbugBase.get_data_path()
     if os.getenv(WEBBPSF_PATH_ENV_VAR):
-        dname = os.path.expandvars(dname)
-        if not os.path.exists(dname):
-            os.makedirs(dname)
+        d_name = os.path.expandvars(d_name)
+        if not os.path.exists(d_name):
+            os.makedirs(d_name)
 
-        printf("Generating PSFs --> %s\n"%dname)
+        printf("Generating PSFs --> %s\n" % d_name)
 
         load: Loading = Loading(145, msg="initialising")
         load.show()
@@ -94,30 +111,22 @@ def _generate_psfs() -> None:
         # type hitns
         filter_string: str
         filter_data: FilterStruct
-
-        for filter_string, filter_data in STAR_BUG_FILTERS.items():
-            if filter_data.instr == NIRCAM:
-                if filter_data.length == DetectorLengths.SHORT:
-                    detectors: List[Optional[str]] = NIRCAM_SHORT_DETECTORS
-                else:
-                    detectors = NIRCAM_LONG_DETECTORS
+        filter_string: str | None = config.custom_filter
+        if filter_string is None:
+            filter_string: str
+            for filter_string, filter_data in STAR_BUG_FILTERS.items():
+                _generate_psf_single(filter_string, filter_data, load, d_name)
+        else:
+            if config.custom_filter in STAR_BUG_FILTERS.keys():
+                filter_data: FilterStruct | None = (
+                    STAR_BUG_FILTERS.get(filter_string))
+                assert filter_data is not None
+                _generate_psf_single(
+                    filter_string, filter_data, load, d_name)
             else:
-                detectors = [None]
-
-            det: str
-            for det in detectors:
-                load.msg = "%6s %5s" % (filter_string, det)
-                load.show()
-                psf: fits.PrimaryHDU | None = generate_psf(
-                    filter_string, det, None)
-                if psf:
-                    psf.writeto(
-                        "%s/%s%s.fits" % (
-                            dname, filter_string, "" if det is None else det),
-                        overwrite=True)
-                load()
-                load.show()
-
+                p_error(
+                    f"WARNING: Cannot generate PSFs, filter data does not "
+                    f"exist for {filter_string}. Please select a valid Filter")
     else:
         p_error(
             "WARNING: Cannot generate PSFs, no environment variable "
@@ -125,11 +134,37 @@ def _generate_psfs() -> None:
             "https://webbpsf.readthedocs.io/en/latest/installation.html\n")
 
 
+def _generate_psf_single(
+        filter_string: str, filter_data: FilterStruct, load: Loading,
+        d_name: str) -> None:
+    if filter_data.instr == NIRCAM:
+        if filter_data.length == DetectorLengths.SHORT:
+            detectors: List[Optional[str]] = NIRCAM_SHORT_DETECTORS
+        else:
+            detectors = NIRCAM_LONG_DETECTORS
+    else:
+        detectors = [None]
+
+    det: str
+    for det in detectors:
+        load.msg = "%6s %5s" % (filter_string, det)
+        load.show()
+        psf: fits.PrimaryHDU | None = generate_psf(
+            filter_string, det, None)
+        if psf:
+            psf.writeto(
+                "%s/%s%s.fits" % (
+                    d_name, filter_string, "" if det is None else det),
+                overwrite=True)
+        load()
+        load.show()
+
+
 # noinspection SpellCheckingInspection
 def generate_psf(
-    filter_string: str,
-    detector: Optional[str] = None,
-    fov_pixels: Optional[int] = None) -> fits.PrimaryHDU | None:
+        filter_string: str,
+        detector: Optional[str] = None,
+        fov_pixels: Optional[int] = None) -> fits.PrimaryHDU | None:
     # noinspection SpellCheckingInspection
     """
     Generate a single PSF for JWST
@@ -169,7 +204,6 @@ def generate_psf(
                 detector = "MIRIM"
 
         # need to use getattr as these are not found by the IDE automatically.
-        mode: stpsf.JWInstrument
         if the_filter.instr == NIRCAM:
             model = getattr(stpsf, "NIRCam")()
         elif the_filter.instr == STAR_BUG_MIRI:

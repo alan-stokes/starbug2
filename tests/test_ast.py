@@ -14,16 +14,29 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 import os
+from multiprocessing import shared_memory
+from multiprocessing.shared_memory import SharedMemory
 from typing import Final
 
+import numpy as np
 import pytest
 from starbug2.bin.ast import ast_main
 from starbug2.constants import ExitStates
 from tests.generic import TEST_IMAGE_FITS, clean
 
 # main ast run
-run = lambda s: ast_main(s.split() + [TEST_IMAGE_FITS])
+c: np.ndarray = np.array([0, 0, 0], dtype=np.int64)
+share_memory: SharedMemory = (
+    shared_memory.SharedMemory(create=True, size=c.nbytes))
+loading_buffer: np.ndarray = np.ndarray(
+    c.shape, dtype=c.dtype, buffer=share_memory.buf)
 TEST_FILTER_STRING: Final[str] = "-s FILTER=F444W"
+
+
+def run(s):
+    return ast_main(
+        s.split() + [TEST_IMAGE_FITS], share_memory, loading_buffer
+    )
 
 
 def test_run_basic():
@@ -38,6 +51,7 @@ def test_run_basic():
         f"starbug2-ast -N30 -S10 -n3 -o /tmp/"
         f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS
     clean()
+
 
 @pytest.mark.skipif(
     os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") is None or
@@ -61,6 +75,7 @@ def test_run_harsh_inputs():
         f"starbug2-ast -N1000 -S1000 -n1000"
         f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS
     clean()
+
 
 if __name__ == "__main__":
     # This allows you to run the harsh test directly.

@@ -12,12 +12,6 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-
-"""
-Starbug matching functions
-Primarily this is the main routines for dither/band/generic matching which are
- at the core of starbug2 and starbug2-match
-"""
 from typing import override, Final, Any
 
 import numpy as np
@@ -36,7 +30,7 @@ _VISIT: Final[str] = "VISIT"
 _EXPOSURE: Final[str] = "EXPOSURE"
 _DEFAULT: Final[str] = "DEFAULT"
 
-# Hard coding separations for now #
+# Hard coding separations for now
 _SEPARATION_VALUES: Final[dict[str, float]] = {
     "F277W": 0.1,
     "F560W": 0.15,
@@ -62,12 +56,11 @@ class BandMatch(GenericMatch):
         "Threshold values must be scalar or list with length 1 less than the "
         "catalogue list. The final element is being ignored.\n")
 
-
     def __init__(self, **kwargs: Any) -> None:
         if BandMatch.FILTER in kwargs:
             if not isinstance(kwargs[BandMatch.FILTER], list):
-                warn("{} input should be a list, "
-                     "there may be unexpected behaviour\n", self.FILTER)
+                warn(f"{self.FILTER} input should be a list, "
+                     "there may be unexpected behaviour\n")
                 self._filter_list: list[str] = [kwargs[BandMatch.FILTER]]
             else:
                 self._filter_list: list[str] = kwargs[BandMatch.FILTER]
@@ -90,7 +83,7 @@ class BandMatch(GenericMatch):
         """
         Reorder catalogue list into increasing wavelength size.
         This only works for JWST bands. Unrecognised filters will be left
-        unchanged. The function should also set the self.FILTER variable if 
+        unchanged. The function should also set the self.FILTER variable if
         possible.
 
         :param catalogues: List of astropy tables with meta keys 'FILTER'
@@ -101,23 +94,23 @@ class BandMatch(GenericMatch):
 
         status: int = -1
         _ii = None
-        filter_list: list[str]  = self.filter_list
+        filter_list: list[str] = self.filter_list
         if filter_list is None:
             raise Exception("no filer was set")
 
         sorters = [
-            ## META in JWST filters
+            # META in JWST filters
             lambda t: list(STAR_BUG_FILTERS.keys()).index(
                 t.meta.get(HeaderTags.FILTER)),
 
-            ## col_names in JWST filters
+            # col_names in JWST filters
             lambda t: list(STAR_BUG_FILTERS.keys()).index(
                 (set(t.colnames) & set(STAR_BUG_FILTERS.keys())).pop()),
 
-            ## META in self.filters
+            # META in self.filters
             lambda t: filter_list.index(t.meta.get(HeaderTags.FILTER)),
 
-            ## col_names in JWST filters
+            # col_names in JWST filters
             lambda t: filter_list.index(
                 (set(t.colnames) & set(filter_list)).pop())
         ]
@@ -137,7 +130,7 @@ class BandMatch(GenericMatch):
                 "Unable to reorder catalogues, leaving input order"
                 " untouched.\n")
         elif status <= 1 and (_ii is not None):
-            ## JWST filters
+            # JWST filters
             self._filter_list = [list(STAR_BUG_FILTERS.keys())[i] for i in _ii]
 
         self._load: Loading = Loading(sum(len(c) for c in catalogues[1:]))
@@ -149,7 +142,7 @@ class BandMatch(GenericMatch):
 
     @override
     def match(
-            self, catalogues: list[Table], method: str ="first",
+            self, catalogues: list[Table], method: str = "first",
             **kwargs: Any) -> Table:
         # noinspection SpellCheckingInspection
         """
@@ -175,9 +168,9 @@ class BandMatch(GenericMatch):
         :return: Matched catalogue
         :rtype: astropy.Table
         """
-        catalogues: list[Table] = self.order_catalogues(catalogues)
+        catalogues = self.order_catalogues(catalogues)
 
-        printf("Bands: %s\n"%', '.join(self.filter_list))
+        printf("Bands: %s\n" % ', '.join(self.filter_list))
 
         assert self._threshold is not None
         assert len(self.filter_list) != 0
@@ -190,9 +183,12 @@ class BandMatch(GenericMatch):
                 np.full(len(catalogues) - 1, self._threshold) * u.arcsec)
 
         assert self._threshold is not None
-        threshold_strs = [f"{
-            g.value if hasattr(g, 'value') else g:g}\""
-                          for g in self._threshold]
+        threshold_strs: list[str] = []
+        for threshold in self._threshold:
+            if hasattr(threshold, 'value'):
+                threshold_strs.append(f"{threshold.value}")
+            else:
+                threshold_strs.append(f"{threshold}")
         printf(f"Thresholds: {', '.join(threshold_strs)}\n")
 
         if self._col_names is None:
@@ -202,19 +198,16 @@ class BandMatch(GenericMatch):
                 *self._filter_list, *["e%s" % f for f in self.filter_list]]
 
         assert self._col_names is not None
-        printf("Columns: %s\n"%", ".join(self._col_names))
+        printf("Columns: %s\n" % ", ".join(self._col_names))
 
         if method not in (self._FIRST, self._LAST, self._BOOT_STRAP):
             method = self._FIRST
 
-        #########
-        # Begin #
-        #########
-
+        # Begin
         base: Table = self.build_meta(catalogues)
         _threshold = self._threshold.copy()
         for n, tab in enumerate(catalogues):
-            ## Temporarily recast threshold
+            # Temporarily recast threshold
             self._threshold = _threshold[n - 1]
             assert self._threshold is not None
             self._load.msg = (
@@ -247,21 +240,19 @@ class BandMatch(GenericMatch):
                 _mask = ~np.isnan(tmp[TableColumn.RA])
                 base.rename_columns(
                     (TableColumn.RA, TableColumn.DEC),
-                    ("_RA_%d"%n, "_DEC_%d" % n))
+                    ("_RA_%d" % n, "_DEC_%d" % n))
                 base = hstack((base, tmp[[TableColumn.RA, TableColumn.DEC]]))
 
         # Set threshold back at the end
-        self._threshold= _threshold
+        self._threshold = _threshold
 
-        ####################
-        # Fix column names #
+        # Fix column names
         for name in self._col_names:
             all_cols = find_col_names(base, name)
             if len(all_cols) == 1:
                 base.rename_column(all_cols.pop(), name)
 
-        ################################
-        # Finalise NUM and flag column #
+        # Finalise NUM and flag column
         tmp = self.finish_matching(base, col_names=["NUM", "flag"])
         base.remove_columns(
             (*find_col_names(base, "NUM"), *find_col_names(base, "flag")))
@@ -269,7 +260,6 @@ class BandMatch(GenericMatch):
         base.add_column(tmp["flag"], index=3)
 
         return base
-
 
     def band_match(
             self, catalogues, col_names=(TableColumn.RA, TableColumn.DEC)):
@@ -286,7 +276,7 @@ class BandMatch(GenericMatch):
         :rtype: astropy.Table
         """
 
-        ### ORDER the tables into the correct order (increasing wavelength)
+        # ORDER the tables into the correct order (increasing wavelength)
         tables = np.full(len(STAR_BUG_FILTERS), None)
         mask = np.full(len(STAR_BUG_FILTERS), False)
         for tab in catalogues:
@@ -310,10 +300,11 @@ class BandMatch(GenericMatch):
         # document bands
         s = "Bands: "
         for filter_string, tab in zip(STAR_BUG_FILTERS.keys(), tables):
-            if tab: s += "%5s "% filter_string
+            if tab:
+                s += "%5s " % filter_string
         puts(s)
 
-        ### Match in increasing wavelength order
+        # Match in increasing wavelength order
         base = Table(None)
         load = Loading(
             sum([len(t) for t in tables[mask][1:]]), "matching", res=100)
@@ -321,7 +312,7 @@ class BandMatch(GenericMatch):
             if not tab:
                 continue
 
-            ## removing empty magnitude rows
+            # removing empty magnitude rows
             tab.remove_rows(np.isnan(tab[filter_string]))
             load.msg = "matching:%s" % filter_string
             _col_names = (
@@ -331,11 +322,10 @@ class BandMatch(GenericMatch):
             else:
                 idx, d2d, _ = self.inner_match(base, tab)
                 tmp = Table(
-                    np.full( (len(base),len(_col_names)), np.nan),
-                    names = _col_names)
+                    np.full((len(base), len(_col_names)), np.nan),
+                    names=_col_names)
 
-                ###################################
-                # Hard coding separations for now #
+                # Hard coding separations for now
                 separation = _SEPARATION_VALUES.get(
                     filter_string, _SEPARATION_VALUES[_DEFAULT])
 
@@ -346,8 +336,9 @@ class BandMatch(GenericMatch):
                     load.show()
 
                     if ((sep <= separation * u.arcsec)
-                        and (sep == min(d2d[idx == IDX]))):
-                        for name in _col_names: tmp[IDX][name] = src[name]
+                            and (sep == min(d2d[idx == IDX]))):
+                        for name in _col_names:
+                            tmp[IDX][name] = src[name]
                     else:
                         tmp.add_row(src[_col_names])
 
@@ -359,9 +350,9 @@ class BandMatch(GenericMatch):
 
             base = (Table(
                 base, dtype=[float] * len(base.col_names))
-                    .filled(np.nan)) # type: ignore
+                    .filled(np.nan))  # type: ignore
 
-            ### Only keep the most astronomically correct position
+            # Only keep the most astronomically correct position
             if TableColumn.RA not in base.col_names:
                 base = hstack((tmp[[TableColumn.RA, TableColumn.DEC]], base))
             else:
@@ -371,11 +362,11 @@ class BandMatch(GenericMatch):
                 base[TableColumn.RA][_mask] = tmp[TableColumn.RA][_mask]
                 base[TableColumn.DEC][_mask] = tmp[TableColumn.DEC][_mask]
 
-        ## Sort out flags
-        flag: np.ndarray = np.zeros(len(base),dtype=np.uint16)
+        # Sort out flags
+        flag: np.ndarray = np.zeros(len(base), dtype=np.uint16)
         for f_col in find_col_names(base, TableColumn.FLAG):
             flag |= base[f_col].value.astype(np.uint16)
             base.remove_column(f_col)
         base.add_column(flag, name=TableColumn.FLAG)
 
-        return base.filled(np.nan) # type: ignore
+        return base.filled(np.nan)  # type: ignore

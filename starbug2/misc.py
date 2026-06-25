@@ -12,12 +12,9 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-
-"""
-Miscellaneous functions...
-"""
-
-import os, stat, numpy as np
+import os
+import stat
+import numpy as np
 from typing import List, Optional, TextIO, Dict
 
 from starbug2.constants import (
@@ -28,8 +25,11 @@ from starbug2.utils import printf, p_error, split_file_name
 # A clear, Type Alias for the deep data nested structure Format:
 # Dict[KeyType, ValueType], str mapping being FILTER, OBS, VISIT, DETECTOR
 ExposureMapping = (
-    Dict[Optional[int], Dict[Optional[int], Dict[Optional[int],
-    Dict[Optional[int], List[fits.HDUList]]]]])
+    Dict[
+        Optional[int], Dict[
+            Optional[int], Dict[
+                Optional[int], Dict[
+                    Optional[int], List[fits.HDUList]]]]])
 
 
 def generate_runscript(
@@ -79,7 +79,7 @@ def generate_runscript(
     fp.close()
     os.chmod(
         runfile, stat.S_IXUSR | stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP |
-                 stat.S_IROTH)
+        stat.S_IROTH)
     printf("->%s\n" % runfile)
 
 
@@ -109,7 +109,7 @@ def sort_exposures(catalogues: List[fits.HDUList]) -> ExposureMapping:
             out[info[HeaderTags.FILTER]][info[HeaderTags.OBS]] = {}
 
         if (info[HeaderTags.VISIT] not in
-            out[info[HeaderTags.FILTER]][info[HeaderTags.OBS]].keys()):
+                out[info[HeaderTags.FILTER]][info[HeaderTags.OBS]].keys()):
             out[info[HeaderTags.FILTER]][
                 info[HeaderTags.OBS]][info[HeaderTags.VISIT]] = {}
 
@@ -164,11 +164,11 @@ def exp_info(hdu_list) -> Dict[str, int | None]:
     :rtype dict(str, Optional[int])
     """
     info: Dict[str, int | None] = {
-        HeaderTags.FILTER : None,
-        HeaderTags.OBS : 0,
-        HeaderTags.VISIT : 0,
-        HeaderTags.EXPOSURE : 0,
-        ImageHeaderTags.DETECTOR : None
+        HeaderTags.FILTER: None,
+        HeaderTags.OBS: 0,
+        HeaderTags.VISIT: 0,
+        HeaderTags.EXPOSURE: 0,
+        ImageHeaderTags.DETECTOR: None
     }
 
     if type(hdu_list) in (fits.ImageHDU, fits.BinTableHDU):

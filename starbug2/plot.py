@@ -12,15 +12,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-
-"""
-A collection of plotting functions
-"""
 import os
 from typing import List, Any
 
 import numpy as np
-from astropy.io.fits import HDUList, PrimaryHDU, ImageHDU, BinTableHDU
+from astropy.io.fits import PrimaryHDU, ImageHDU, BinTableHDU
 from astropy.visualization import ZScaleInterval
 from astropy.table import Row, Table
 from scipy.interpolate import RegularGridInterpolator
@@ -37,7 +33,8 @@ from starbug2.filters import STAR_BUG_FILTERS
 try:
     import matplotlib.pyplot as plt
 except ImportError:
-    from matplotlib import use; use("TkAgg")
+    from matplotlib import use
+    use("TkAgg")
     import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -132,7 +129,7 @@ def plot_cmd(
     :rtype: matplotlib.axes.Axes
     """
     tt: Table = utils.colour_index(tab, [colour, mag])
-    mask: np.ndarray =~ (tt[colour].mask | tt[mag].mask)
+    mask: np.ndarray = ~ (tt[colour].mask | tt[mag].mask)
     cc: np.ndarray = tt[colour][mask]
     mm: np.ndarray = tt[mag][mask]
 
@@ -162,7 +159,7 @@ def plot_cmd(
         bins: int = 100
         f: RegularGridInterpolator = (
             _generate_regular_grid_interpolator(cc, mm, bins))
-        col = [f([X,Y]) for X,Y in zip(cc, mm)]
+        col = [f([X, Y]) for X, Y in zip(cc, mm)]
     pyplot_kw: dict[str, int] = {"lw": 0, "s": 3}
     pyplot_kw.update(kwargs)
     axis.scatter(cc, mm, c=col, cmap=cmap, **pyplot_kw)
@@ -200,7 +197,7 @@ def plot_inspect_source(
         images, key=lambda a:
             list(STAR_BUG_FILTERS.keys()).index(a.header[HeaderTags.FILTER]))
 
-    #arcsec?
+    # arcsec?
     size: float = 0.1
     n: int
     im: ImageHDU | PrimaryHDU
@@ -230,5 +227,4 @@ def plot_inspect_source(
         axis.set_axis_off()
         figure.suptitle(src[TableColumn.CAT_NUM][0])
     figure.tight_layout()
-        
     return figure
