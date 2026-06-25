@@ -176,7 +176,8 @@ def execute_artificial_stars(
             autosave=ast_auto_save,
             skip_phot=config.ast_no_psf_phot,
             skip_background=config.ast_no_background,
-            zp_mag=config.zero_point_magnitude)
+            zp_mag=config.zero_point_magnitude,
+            sub_image_size=config.sub_image_crop_size)
     return out
 
 def ast_main(argv: list[str]) -> int:

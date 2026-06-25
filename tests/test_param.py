@@ -14,10 +14,15 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 import os
+from typing import Final
+
 import pytest
 from starbug2.constants import STAR_BUG_PARAMS, PROBLEMATIC_FILTER_WARNING
 from starbug2.star_bug_config import StarBugMainConfig
+from tests.generic import TEST_PATH_STR
 
+TEST_PARAM_PATH: Final[str] = os.path.join(
+    TEST_PATH_STR, "../param_files/old_format.param")
 
 def test_parse_param():
     assert type(StarBugMainConfig.parse_param("A=1//.")) == dict
@@ -66,6 +71,15 @@ def test_update_params():
               "execute starbug2 --update-param"):
         StarBugMainConfig.load_params("starbug.param")
     os.remove("starbug.param")
+
+
+def test_update_params_no_changes():
+    os.system("starbug2 --local-param")
+    os.system("starbug2 --update-param")
+    os.remove("starbug.param")
+
+def test_update_params_old_to_new():
+    os.system(f"starbug2 -p {TEST_PARAM_PATH} --update-param")
 
 def test_f150w2_filter(capsys):
     config: StarBugMainConfig = StarBugMainConfig()
