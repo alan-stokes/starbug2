@@ -34,12 +34,12 @@ class TestDetection:
 
     def test_detection_routine_none(self):
         dt = DetectionRoutine()
-        assert dt.find_stars(None) is None
+        assert len(dt.find_stars(None)) == 0
 
     def test_detection_routine_crashes(self):
         dt = DetectionRoutine()
         out = dt.find_stars(self.im.copy())
-        assert out is not None
+        assert len(out) != 0
 
     def test_detection_match(self):
         dt = DetectionRoutine()

@@ -28,6 +28,7 @@ from astropy.units import Quantity
 
 from photutils.background import Background2D
 from photutils.detection import StarFinderBase, DAOStarFinder, find_peaks
+
 from starbug2.constants import TableColumn
 from starbug2.routines.source_properties import SourceProperties
 from starbug2.utils import printf
@@ -146,6 +147,7 @@ class DetectionRoutine(StarFinderBase):
 
         median_stat: float
         std: float
+        catalogue: Table | None
         _, median_stat, std = sigma_clipped_stats(data, sigma=self.sig_sky)
         if use_find_peaks:
             catalogue = find_peaks(
@@ -162,7 +164,7 @@ class DetectionRoutine(StarFinderBase):
 
         # if no results, create a table reflecting no results. with expected
         # column names.
-        if catalogue is None:
+        if catalogue is None or len(catalogue) == 0:
             col_names = [
                 TableColumn.ID, TableColumn.X_PEAK, TableColumn.Y_PEAK,
                 TableColumn.X_CENTROID, TableColumn.Y_CENTROID]
@@ -342,7 +344,7 @@ class DetectionRoutine(StarFinderBase):
 
     def find_stars(
             self, data: np.ndarray | None,
-            mask: Optional[np.ndarray] = None) -> Table | None:
+            mask: Optional[np.ndarray] = None) -> Table:
         """
         This routine runs source detection several times, but on a different
         form of the data array each time. Each form has been "skewed" somehow

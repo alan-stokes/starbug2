@@ -20,7 +20,7 @@ import pytest
 from starbug2.bin.main import starbug_main
 from starbug2.constants import ExitStates
 from tests.generic import (
-    clean, TEST_IMAGE_FITS, TEST_FILTER_STRING, TEST_PATH_STR)
+    clean, TEST_IMAGE_FITS, TEST_FILTER_STRING, TEST_PATH_STR, TEST_PATH)
 
 # different fit files paths
 TEST_IMAGE_AP_FITS: Final[str] = os.path.join(
@@ -36,7 +36,7 @@ TEST_IMAGE_2_FITS: Final[str] = os.path.join(
 
 
 def run(s):
-    return starbug_main(s.split())
+    return starbug_main((s + f"  --output={TEST_PATH}").split())
 
 
 def test_start():
