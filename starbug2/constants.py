@@ -20,8 +20,8 @@ from typing import List, Final
 # initilise without errors.
 PROBLEMATIC_FILTER_ID = "F150W2"
 PROBLEMATIC_FILTER_WARNING = (
-    "Caution needed with F150W2 photometric accuracy - please check out "
-    "carefully. More Info can be found in ("
+    "Caution needed with F150W2 photometric accuracy. More info"
+    "can be found in ("
     "https://github.com/alan-stokes/starbug2/issues/2)")
 
 STARBUG_DATA_DIR: Final[str] = "STARBUG_DATDIR"
