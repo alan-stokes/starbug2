@@ -27,7 +27,7 @@ from astropy.io.fits import (
 from astropy.table import hstack, Column, vstack, Table
 from astropy.stats import sigma_clipped_stats
 from photutils.datasets import make_model_image
-from photutils.psf import FittableImageModel
+from photutils.psf import ImagePSF
 from starbug2.constants import (
     FILTER, STAR_BUG, CALIBRATION_LV, DETECTOR, TELESCOPE, INSTRUMENT, BUN_IT,
     PIXAR_A2, PIXAR_SR, SCI, BGD, RES, VERBOSE_TAG, AP_FILE,
@@ -832,7 +832,7 @@ class StarbugBase(StarBugInterface):
                 self._psf[psf_mask] = 0
                 self.log("-> masking INF pixels in PSF_FILE\n")
 
-            psf_model: FittableImageModel = FittableImageModel(self._psf)
+            psf_model: ImagePSF = ImagePSF(data=self._psf)
             size: int
             if self._config.psf_fit_size > 0:
                 size = self._config.psf_fit_size

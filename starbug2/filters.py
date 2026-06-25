@@ -34,7 +34,7 @@ class FilterStruct: #(struct) containing JWST filter info
         self._full_width_half_max: float = full_width_half_max
         self._instr: int = instr
         self._length: int = length
-        self._nlambda: int = nlambda
+        self._nlambda: int | None = nlambda
 
     @property
     def full_width_half_max(self) -> float:
@@ -48,8 +48,9 @@ class FilterStruct: #(struct) containing JWST filter info
     def length(self) -> int:
         return self._length
 
+    # noinspection SpellCheckingInspection, PyPep8Naming
     @property
-    def nlambda(self) -> int:
+    def nlambda(self) -> int | None:
         return self._nlambda
 
 
