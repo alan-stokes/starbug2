@@ -1,7 +1,7 @@
 from typing import Final
 
 from starbug2.bin.main import starbug_internal_main
-from starbug2.constants import EXIT_SUCCESS
+from starbug2.constants import ExitStates
 from starbug2.star_bug_config import StarBugMainConfig
 from tests.generic import TEST_PATH
 import os
@@ -9,6 +9,7 @@ import os
 
 TEST_NGC_FITS: Final[str] = str(
     os.path.join(str(TEST_PATH), "ngc6822_F770W_i2d.fits"))
+
 
 class TestSystemResults:
 
@@ -19,7 +20,7 @@ class TestSystemResults:
         config.do_star_detection = True
         config.verbose_logs = True
         exit_state: int = starbug_internal_main(config)
-        assert exit_state == EXIT_SUCCESS
+        assert exit_state == ExitStates.EXIT_SUCCESS
 
         captured = capsys.readouterr()
         lines = captured.out.splitlines()
@@ -53,7 +54,6 @@ class TestSystemResults:
         cleaning_count: int | None = None
         total_line_count: int | None = None
 
-
         count_part: str = plain_line.split("pass: ")[1]
         plain_count: int = int(count_part.split()[0])
 
@@ -84,5 +84,3 @@ class TestSystemResults:
                 <= (expected_cleaning * 1.2))
         assert ((expected_total * 0.8) <= total_line_count
                 <= (expected_total * 1.2))
-
-

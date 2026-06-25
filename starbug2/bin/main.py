@@ -384,7 +384,8 @@ def starbug_main(argv: list[str]) -> ExitStates:
     config: StarBugMainConfig = starbug_parse_argv(argv)
     return starbug_internal_main(config)
 
-def starbug_internal_main(config: StarBugMainConfig) -> int:
+
+def starbug_internal_main(config: StarBugMainConfig) -> ExitStates:
 
     if config.use_main_one_time_runs():
         return starbug_one_time_runs(config)
