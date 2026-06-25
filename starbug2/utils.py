@@ -415,6 +415,14 @@ def import_table(f_name: str, verbose: bool | int = 0) -> Table | None:
     :return: Loading table
     :rtype: atrophy.Table | None
     """
+    printf(f"trying to load file {f_name}\n")
+    printf(f" file exists in correct location {os.path.exists(f_name)}\n")
+    new_f_name = os.path.join(
+        str(os.environ.get("STARBUG_DATDIR")), os.path.basename(f_name))
+    printf(f"new location path is {new_f_name}\n")
+    printf(f"the file exists in datadir instead {
+        os.path.exists(new_f_name)}\n")
+
     tab: Table | None = None
     if os.path.exists(f_name):
         if os.path.splitext(f_name)[1] == FITS_EXTENSION:

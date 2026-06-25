@@ -23,7 +23,7 @@ from starbug2.bin.match import match_main
 from starbug2.constants import ExitStates
 from tests.generic import (
     clean, TEST_IMAGE_FITS, TEST_FILTER_STRING, TEST_PATH_STR,
-    verify_test_data_exists)
+    verify_test_data_exists, TEST_PATH)
 
 OUT_1_FITS: Final[str] = str(os.path.join(TEST_PATH_STR, "out1.fits"))
 OUT_2_FITS: Final[str] = os.path.join(TEST_PATH_STR, "out2.fits")
@@ -38,32 +38,41 @@ def run(s):
 
 def test_match_start():
     verify_test_data_exists()
-    assert run("starbug2-match") == ExitStates.EXIT_EARLY
-    assert run("starbug2-match -h") == ExitStates.EXIT_SUCCESS
-    assert run("starbug2-match -vh") == ExitStates.EXIT_SUCCESS
+    assert (run(f"starbug2-match --output={TEST_PATH}") ==
+            ExitStates.EXIT_EARLY)
+    assert (run(f"starbug2-match -h --output={TEST_PATH}") ==
+            ExitStates.EXIT_SUCCESS)
+    assert (run(f"starbug2-match -vh --output={TEST_PATH}") ==
+            ExitStates.EXIT_SUCCESS)
 
 
 def test_match_bad_input():
-    assert run("starbug2-match ") == ExitStates.EXIT_EARLY
-    assert run(f"starbug2-match {TEST_IMAGE_FITS}") == ExitStates.EXIT_EARLY
-    assert run("starbug2-match badinput.fits") == ExitStates.EXIT_EARLY
-    assert run("starbug2-match badinput.txt") == ExitStates.EXIT_EARLY
+    assert (run(f"starbug2-match --output={TEST_PATH}") ==
+            ExitStates.EXIT_EARLY)
+    assert (run(f"starbug2-match {TEST_IMAGE_FITS} --output={TEST_PATH}") ==
+            ExitStates.EXIT_EARLY)
+    assert (run(f"starbug2-match badinput.fits --output={TEST_PATH}") ==
+            ExitStates.EXIT_EARLY)
+    assert (run(f"starbug2-match badinput.txt --output={TEST_PATH}") ==
+            ExitStates.EXIT_EARLY)
     starbug_main(
-        f"starbug2 -D {TEST_IMAGE_FITS} {TEST_FILTER_STRING}".split())
-    assert run(f"starbug2-match {IMAGE_AP_FITS}") == ExitStates.EXIT_EARLY
+        f"starbug2 -D --output={TEST_PATH} {TEST_IMAGE_FITS} "
+        f"{TEST_FILTER_STRING}".split())
+    assert (run(f"starbug2-match --output={TEST_PATH} {IMAGE_AP_FITS}") ==
+            ExitStates.EXIT_EARLY)
 
 
 def test_match_basic_run_through():
     starbug_main(
-        f"starbug2 -Do {OUT_1_FITS}"
+        f"starbug2 --output={TEST_PATH} -Do {OUT_1_FITS}"
         f"   {TEST_IMAGE_FITS}"
         f" {TEST_FILTER_STRING}".split())
     starbug_main(
-        f"starbug2 -Do {OUT_2_FITS} "
+        f"starbug2 --output={TEST_PATH} -Do {OUT_2_FITS} "
         f" {TEST_IMAGE_FITS}"
         f" {TEST_FILTER_STRING}".split())
     assert (run(
-        f"starbug2-match "
+        f"starbug2-match --output={TEST_PATH}"
         f" {OUT_1_AP_FITS}"
         f" {OUT_2_AP_FITS}"
         f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS)
@@ -71,40 +80,45 @@ def test_match_basic_run_through():
         f"starbug2-match"
         f" {OUT_1_AP_FITS}"
         f" {OUT_2_AP_FITS}"
-        f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS)
+        f" {TEST_FILTER_STRING} --output={TEST_PATH}") ==
+            ExitStates.EXIT_SUCCESS)
     assert (run(
         f"starbug2-match"
         f" {OUT_1_AP_FITS}"
         f" {OUT_2_AP_FITS}"
-        f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS)
+        f" {TEST_FILTER_STRING} --output={TEST_PATH}") ==
+            ExitStates.EXIT_SUCCESS)
     assert (run(
         f"starbug2-match"
         f" {OUT_1_AP_FITS}"
         f" {OUT_2_AP_FITS}"
-        f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS)
+        f" {TEST_FILTER_STRING} --output={TEST_PATH}") ==
+            ExitStates.EXIT_SUCCESS)
     assert (run(
         f"starbug2-match"
         f" {OUT_1_AP_FITS}"
         f" {OUT_2_AP_FITS}"
-        f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS)
+        f" {TEST_FILTER_STRING} --output={TEST_PATH}") ==
+            ExitStates.EXIT_SUCCESS)
     assert (run(
         f"starbug2-match"
         f" {OUT_1_AP_FITS}"
         f" {OUT_2_AP_FITS}"
-        f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS)
+        f" {TEST_FILTER_STRING} "
+        f"--output={TEST_PATH}") == ExitStates.EXIT_SUCCESS)
 
 
 def test_mask():
     starbug_main(
-        f"starbug2 -Do "
+        f"starbug2 --output={TEST_PATH} -Do "
         f"{OUT_1_FITS}  {TEST_IMAGE_FITS}"
         f" -s FILTER=F444W".split())
     starbug_main(
-        f"starbug2 -Do"
+        f"starbug2 --output={TEST_PATH} -Do"
         f"{OUT_2_FITS}  {TEST_IMAGE_FITS}"
-        f" -s FILTER=F444W ".split())
+        f" -s FILTER=F444W".split())
     assert run(
-        f"starbug2-match -vmF444W>20 "
+        f"starbug2-match --output={TEST_PATH} -vmF444W>20 "
         f"{OUT_1_AP_FITS} "
         f"{OUT_2_AP_FITS}") == ExitStates.EXIT_SUCCESS
 
