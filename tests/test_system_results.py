@@ -120,6 +120,12 @@ class TestSystemResults:
         loading_buffer: np.ndarray = np.ndarray(
             c.shape, dtype=c.dtype, buffer=share_memory.buf)
 
+        # set up config for creating psf
+        psf_config: StarBugMainConfig = create_default_config()
+        psf_config.custom_filter = 'F770W'
+        psf_config.generate_psf = True
+        starbug_internal_main(psf_config)
+
         # set up config for artificial stars
         config: StarBugMainConfig = create_default_config()
         config.custom_filter = 'F770W'
