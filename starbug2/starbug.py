@@ -103,7 +103,7 @@ class StarbugBase(StarBugInterface):
             if (tmp_out_name := param_output) and tmp_out_name != '.':
                 inner_out_dir, inner_b_name, _ = split_file_name(tmp_out_name)
                 printf(f"inner out = {inner_out_dir}, "
-                       f"inner b name = {inner_b_name}")
+                       f"inner b name = {inner_b_name}\n")
                 if os.path.exists(out_dir) and os.path.isdir(out_dir):
                     out_dir = inner_out_dir
                 else:
@@ -111,7 +111,8 @@ class StarbugBase(StarBugInterface):
                             inner_out_dir)
                 if inner_b_name:
                     b_name = inner_b_name
-        printf(f"outdir {out_dir}, bname = {b_name}, extension = {extension}")
+        printf(f"outdir {out_dir}, bname = {b_name}, "
+               f"extension = {extension}\n")
         return out_dir, b_name, extension
 
     def __init__(

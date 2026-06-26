@@ -105,7 +105,9 @@ def split_file_name(file_path: str | None) -> Tuple[str, str, str]:
         raise Exception("failed as path is None")
 
     folder, file = os.path.split(file_path)
+    printf(f"file path {file_path}, folder = {folder}. file = {file}\n")
     file_name, ext = os.path.splitext(file)
+    printf(f"file name {file_name}, ext = {ext}.\n")
     if not folder:
         folder = "."
     return folder, file_name, ext
