@@ -61,8 +61,6 @@ def init_starbug_for_jwst(config: StarBugMainConfig) -> None:
     download_ap_corr_files(data_name)
 
 
-
-
 def download_ap_corr_files(data_name):
     _miri_ap_corr: str = JWST_MIRI_APCORR_0010_FITS_URL
 
