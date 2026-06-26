@@ -689,6 +689,7 @@ class StarbugBase(StarBugInterface):
         self._detections.meta[HeaderTags.FILTER] = self._filter
 
         f_name = "%s/%s-ap.fits" % (self._out_dir, self._b_name)
+        printf(f"going to save ap file at {f_name}")
         self.log("--> %s\n" % f_name)
         export_table(self._detections, f_name, header=self.header)
 
