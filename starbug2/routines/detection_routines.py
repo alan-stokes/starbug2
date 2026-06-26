@@ -28,6 +28,7 @@ from astropy.units import Quantity
 
 from photutils.background import Background2D
 from photutils.detection import StarFinderBase, DAOStarFinder, find_peaks
+
 from starbug2.constants import TableColumn
 from starbug2.routines.source_properties import SourceProperties
 from starbug2.utils import printf
@@ -123,7 +124,7 @@ class DetectionRoutine(StarFinderBase):
                bkg_estimator: Optional[Callable[
                    [np.ndarray], np.ndarray]] = None,
                xy_coords: Table | None = None,
-               method: str | None = None) -> Table:
+               use_find_peaks: bool = False) -> Table:
         """
         The core detection step (DAOStarFinder)
 
@@ -134,10 +135,9 @@ class DetectionRoutine(StarFinderBase):
         :type bkg_estimator:  callable function
         :param xy_coords: Table of initial guesses (x_centroid, y_centroid)
         :type xy_coords: `astropy.table.Table`
-        :param method: Detection method
-                       "findpeaks" - use the photutils findpeaks method
-                        None - Use the DAOStarFinder method
-        :type method: str
+        :param use_find_peaks: if true, use the photutils findpeaks method
+                               else use the DAOStarFinder method
+        :type use_find_peaks: bool
         :return: Source list Table
         :rtype: astropy.Table
         """
@@ -147,9 +147,10 @@ class DetectionRoutine(StarFinderBase):
 
         median_stat: float
         std: float
+        catalogue: Table | None
         _, median_stat, std = sigma_clipped_stats(data, sigma=self.sig_sky)
-        if method == "findpeaks":
-            return find_peaks(
+        if use_find_peaks:
+            catalogue = find_peaks(
                 data - bkg, median_stat + std * self.sig_src, box_size=11)
 
         else:
@@ -159,7 +160,17 @@ class DetectionRoutine(StarFinderBase):
                 sharplo=self.sharp_lo, sharphi=self.sharp_hi,
                 roundlo=-round_hi, roundhi=round_hi, peak_max=np.inf,
                 xycoords=xy_coords)
-            return find.find_stars(data - bkg)
+            catalogue = find.find_stars(data - bkg)
+
+        # if no results, create a table reflecting no results. with expected
+        # column names.
+        if catalogue is None or len(catalogue) == 0:
+            col_names = [
+                TableColumn.ID, TableColumn.X_PEAK, TableColumn.Y_PEAK,
+                TableColumn.X_CENTROID, TableColumn.Y_CENTROID]
+            col_data = [list(), list(), list(), list(), list()]
+            catalogue: Table = Table(col_data, names=col_names)
+        return catalogue
 
     def bkg2d(self, data: np.ndarray) -> np.ndarray:
         """
@@ -201,9 +212,139 @@ class DetectionRoutine(StarFinderBase):
         mask: np.ndarray = dist.to_value() > self.full_width_half_max
         return vstack((base, cat[mask]))
 
+    def _clean_up_data(
+            self, data: np.ndarray | None,
+            mask: Optional[np.ndarray] = None) -> np.ndarray | None:
+        """
+        sets up data for detections
+        :param data: 2D image array to detect on
+        :type data: numpy.ndarray or None
+        :param mask: Pixels to mask out on the data array
+        :type mask: numpy.ndarray
+        :return: the masked data
+        """
+        if data is None:
+            return None
+        if mask is None:
+            mask = np.where(np.isnan(data))
+
+        median_stat: float
+        _, median_stat, _ = sigma_clipped_stats(data, sigma=self.sig_sky)
+        data[mask] = median_stat
+        return data
+
+    def _do_plain_detections(self, data: np.ndarray) -> None:
+        """
+        do plain detections.
+
+        :param data: 2D image array to detect on
+        :type data: numpy.ndarray or None
+        :return: None
+        """
+        self.catalogue = self.detect(data)
+        if self.verbose:
+            printf("-> [PLAIN] pass: %d sources\n" % len(self.catalogue))
+
+    def _do_background_detection(self, data: np.ndarray) -> None:
+        """
+        executes the background detection.
+
+        :param data: 2D image array to detect on
+        :type data: numpy.ndarray or None
+        :return: None
+        """
+
+        # execute background search and then feed it to a match with
+        # plain results.
+        background_results: Table = self.detect(data, self.bkg2d)
+        if len(self.catalogue) == 0:
+            self.catalogue = background_results
+        else:
+            self.catalogue = self.match(self.catalogue, background_results)
+        if self.verbose:
+            printf("-> [BGD2D] pass: %d sources\n" % len(self.catalogue))
+
+    def _do_differential_detection(self, data: np.ndarray) -> None:
+        """
+        executes the 2nd differential detection.
+
+        :param data: 2D image array to detect on
+        :type data: numpy.ndarray or None
+        :return: None
+        """
+
+        kernel: RickerWavelet2DKernel = (
+            RickerWavelet2DKernel(self.ricker_r))
+        conv: np.ndarray = convolve(data, kernel.array)
+        corr: np.ndarray = match_template(
+            conv / np.amax(conv), kernel.array)
+        detections: Table = self.detect(corr, use_find_peaks=True)
+        if detections:
+            detections[TableColumn.X_PEAK] += kernel.shape[0] // 2
+            detections[TableColumn.Y_PEAK] += kernel.shape[0] // 2
+            detections.rename_columns(
+                (TableColumn.X_PEAK, TableColumn.Y_PEAK),
+                (TableColumn.X_CENTROID, TableColumn.Y_CENTROID))
+            if len(self.catalogue) == 0:
+                self.catalogue = detections
+            else:
+                self.catalogue = self.match(self.catalogue, detections)
+        if self.verbose:
+            # noinspection SpellCheckingInspection
+            printf("-> [CONVL] pass: %d sources\n" % len(self.catalogue))
+
+    def _update_mask_for_cleaning_src(self, mask: np.ndarray) -> np.ndarray:
+        if (TableColumn.SHARPNESS in self.catalogue.colnames and
+                TableColumn.ROUNDNESS1 in self.catalogue.colnames and
+                TableColumn.ROUNDNESS2 in self.catalogue.colnames):
+            mask &= (
+                (self.catalogue[TableColumn.SHARPNESS] > self.sharp_lo)
+                & (self.catalogue[TableColumn.SHARPNESS] < self.sharp_hi)
+                & (self.catalogue[TableColumn.ROUNDNESS1] > -self.round_1_hi)
+                & (self.catalogue[TableColumn.ROUNDNESS1] < self.round_1_hi)
+                & (self.catalogue[TableColumn.ROUNDNESS2] > -self.round_2_hi)
+                & (self.catalogue[TableColumn.ROUNDNESS2] < self.round_2_hi))
+        else:
+            printf(f"Incorrect columns for cleaning source. not doing so. "
+                   f"Please ensure the catalogue table contains the following"
+                   f" column names: [{TableColumn.SHARPNESS}, "
+                   f"{TableColumn.ROUNDNESS1}, {TableColumn.ROUNDNESS2}]")
+        return mask
+
+    def _reshape_detections(self, data: np.ndarray) -> None:
+        """
+        reshapes the sharp and round at detected locations.
+
+        :param data: 2D image array to detect on
+        :type data: numpy.ndarray or None
+        :return: None
+        """
+        tmp: Table | None = (
+            SourceProperties(data, self.catalogue, verbose=self.verbose)
+            .calculate_geometry(self.full_width_half_max))
+        if tmp is not None:
+            self.catalogue = tmp
+
+        mask: np.ndarray = (
+            ~np.isnan(self.catalogue[TableColumn.X_CENTROID]) &
+            ~np.isnan(self.catalogue[TableColumn.Y_CENTROID]))
+
+        if self.clean_src:
+            self._update_mask_for_cleaning_src(mask)
+
+        if self.verbose:
+            printf("-> cleaning %d unlikely point sources\n" % sum(~mask))
+        self.catalogue = self.catalogue[mask]
+
+        if self.verbose:
+            printf("Total: %d sources\n" % len(self.catalogue))
+
+        self.catalogue.replace_column(
+            "id", Column(range(1, 1 + len(self.catalogue))))
+
     def find_stars(
             self, data: np.ndarray | None,
-            mask: Optional[np.ndarray] = None) -> Table | None:
+            mask: Optional[np.ndarray] = None) -> Table:
         """
         This routine runs source detection several times, but on a different
         form of the data array each time. Each form has been "skewed" somehow
@@ -221,72 +362,20 @@ class DetectionRoutine(StarFinderBase):
         :return: the catalogue containing stars.
         :rtype: astropy.Table
         """
+        data: np.ndarray | None = self._clean_up_data(data, mask)
         if data is None:
-            return None
-        if mask is None:
-            mask = np.where(np.isnan(data))
+            printf("No data, not trying to detect")
+            return Table()
 
-        median_stat: float
-        _, median_stat, _ = sigma_clipped_stats(data, sigma=self.sig_sky)
-        data[mask] = median_stat
-
-        self.catalogue = self.detect(data)
-        if self.verbose:
-            printf("-> [PLAIN] pass: %d sources\n" % len(self.catalogue))
-
+        self._do_plain_detections(data)
         if self.do_bgd_2d:
-            self.catalogue = self.match(
-                self.catalogue, self.detect(data, self.bkg2d))
-            if self.verbose:
-                printf("-> [BGD2D] pass: %d sources\n" % len(self.catalogue))
+            self._do_background_detection(data)
 
         # 2nd order differential detection
         if self.do_con_vl:
-            kernel: RickerWavelet2DKernel = (
-                RickerWavelet2DKernel(self.ricker_r))
-            conv: np.ndarray = convolve(data, kernel.array)
-            corr: np.ndarray = match_template(
-                conv / np.amax(conv), kernel.array)
-            detections: Table = self.detect(corr, method="findpeaks")
-            if detections:
-                detections[TableColumn.X_PEAK] += kernel.shape[0] // 2
-                detections[TableColumn.Y_PEAK] += kernel.shape[0] // 2
-                detections.rename_columns(
-                    (TableColumn.X_PEAK, TableColumn.Y_PEAK),
-                    (TableColumn.X_CENTROID, TableColumn.Y_CENTROID))
-                self.catalogue = self.match(self.catalogue, detections)
-            if self.verbose:
-                # noinspection SpellCheckingInspection
-                printf("-> [CONVL] pass: %d sources\n" % len(self.catalogue))
+            self._do_differential_detection(data)
 
         # Now with xy-coords DAOStarfinder will refit the sharp and round
         # values at the detected locations
-        tmp: Table | None = (
-            SourceProperties(data, self.catalogue, verbose=self.verbose)
-            .calculate_geometry(self.full_width_half_max))
-        if tmp:
-            self.catalogue = tmp
-
-        mask: np.ndarray = (
-            ~np.isnan(self.catalogue[TableColumn.X_CENTROID]) &
-            ~np.isnan(self.catalogue[TableColumn.Y_CENTROID]))
-
-        if self.clean_src:
-            mask &= (
-                (self.catalogue[TableColumn.SHARPNESS] > self.sharp_lo)
-                & (self.catalogue[TableColumn.SHARPNESS] < self.sharp_hi)
-                & (self.catalogue[TableColumn.ROUNDNESS1] > -self.round_1_hi)
-                & (self.catalogue[TableColumn.ROUNDNESS1] < self.round_1_hi)
-                & (self.catalogue[TableColumn.ROUNDNESS2] > -self.round_2_hi)
-                & (self.catalogue[TableColumn.ROUNDNESS2] < self.round_2_hi))
-        if self.verbose:
-            printf("-> cleaning %d unlikely point sources\n" % sum(~mask))
-        self.catalogue = self.catalogue[mask]
-
-        if self.verbose:
-            printf("Total: %d sources\n" % len(self.catalogue))
-
-        self.catalogue.replace_column(
-            "id", Column(range(1, 1 + len(self.catalogue))))
-
+        self._reshape_detections(data)
         return self.catalogue

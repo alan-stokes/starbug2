@@ -19,6 +19,7 @@ import sys
 import warnings
 
 from astropy.io.fits import PrimaryHDU
+from astropy.io.fits.verify import VerifyWarning
 from astropy.io.fits.header import Header
 from astropy.table import Table
 from astropy.utils.exceptions import AstropyDeprecationWarning, AstropyWarning
@@ -50,6 +51,15 @@ warnings.filterwarnings(
     "ignore", message=".*invalid value encountered.*", category=RuntimeWarning)
 warnings.filterwarnings(
     "ignore", message=".*divide by zero.*", category=RuntimeWarning)
+
+# --- FITS IO FORMATTING NOISE ---
+# These suppress warnings about FITS header compliance
+# (e.g., truncated comments) that do not affect scientific output.
+warnings.filterwarnings(
+    "ignore",
+    category=VerifyWarning,
+    message=".*Card is too long.*"
+)
 
 # Force photutils to strictly return standard QTables globally
 photutils.future_column_names = True
@@ -188,9 +198,14 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> ExitStates:
             assert filter_string is not None
             detector: str | None = config.detector_name
             psf_size: int = config.psf_fit_size
-            printf(
-                "Generating PSF: %s %s (%d)\n" %
-                (filter_string, detector, psf_size))
+            if psf_size is not None:
+                printf(
+                    "Generating PSF: %s %s (%d)\n" %
+                    (filter_string, detector, psf_size))
+            else:
+                printf(
+                    "Generating PSF: %s %s\n" %
+                    (filter_string, detector))
             psf: PrimaryHDU | None = generate_psf(
                 filter_string, detector=detector, fov_pixels=psf_size)
             if psf:
@@ -198,7 +213,8 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> ExitStates:
                     "%s%s.fits" %
                     (filter_string, "" if detector is None else detector))
                 printf("--> %s\n" % name)
-                psf.writeto(name, overwrite=True)
+                d_name: str = StarbugBase.get_data_path()
+                psf.writeto(os.path.join(d_name, name), overwrite=True)
             else:
                 p_error("PSF Generation failed :(\n")
         else:
@@ -347,6 +363,8 @@ def execute_star_bug(
             star_bug_base = StarbugBase(
                 f_name, config=config, ap_file=ap_file,
                 bkg_file=background_file, verbose=use_verbose)
+            assert star_bug_base is not None
+
             if star_bug_base.verify():
                 warn("System verification failed\n")
                 return None
@@ -382,7 +400,18 @@ def starbug_main(argv: list[str]) -> ExitStates:
     :rtype: ExitStates
     """
     config: StarBugMainConfig = starbug_main_entry_parse(argv)
+    return starbug_internal_main(config)
 
+
+def starbug_internal_main(config: StarBugMainConfig) -> ExitStates:
+    """
+   Main control for processing astronomical image datasets.
+
+   :param config: the starbug config object
+   :type config: StarBugMainConfig.
+   :return: System operational termination exit code status matrix
+   :rtype: ExitStates
+   """
     if config.use_main_one_time_runs():
         return starbug_one_time_runs(config)
 

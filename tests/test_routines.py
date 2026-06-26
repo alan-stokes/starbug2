@@ -21,10 +21,11 @@ from starbug2.routines.background_estimate_routine import (
     BackGroundEstimateRoutine)
 from starbug2.routines.detection_routines import DetectionRoutine
 from starbug2.routines.source_properties import SourceProperties
-from tests.generic import TEST_IMAGE_FITS
+from tests.generic import TEST_IMAGE_FITS, verify_test_data_exists
 
 
 class TestDetection:
+    verify_test_data_exists()
     im = fits.open(TEST_IMAGE_FITS)[SCI].data
     a = Table([[0, 10], [0, 10]],
               names=[TableColumn.X_CENTROID, TableColumn.Y_CENTROID])
@@ -33,12 +34,12 @@ class TestDetection:
 
     def test_detection_routine_none(self):
         dt = DetectionRoutine()
-        assert dt.find_stars(None) is None
+        assert len(dt.find_stars(None)) == 0
 
     def test_detection_routine_crashes(self):
         dt = DetectionRoutine()
         out = dt.find_stars(self.im.copy())
-        assert out is not None
+        assert len(out) != 0
 
     def test_detection_match(self):
         dt = DetectionRoutine()

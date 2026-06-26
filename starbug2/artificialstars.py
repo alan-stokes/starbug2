@@ -12,8 +12,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+import os
 import numpy as np
-from typing import cast, Any, Final, List, Tuple, Optional, Callable, Dict
+from typing import cast, Any, Final, List, Tuple, Callable, Dict
+
+from astropy.io.fits import HDUList
 from photutils.datasets import make_model_image, make_random_models_table
 from photutils.psf import ImagePSF
 from astropy.table import Table, hstack, QTable
@@ -78,17 +81,12 @@ class ArtificialStars:
         self._psf: ImagePSF = ImagePSF(self._starbug.psf)
         self._index: int = index
 
-    def __call__(
-            self,
-            n_tests: int,
-            stars_per_test: int = 1,
-            sub_image_size: int = -1,
-            mag_range: Tuple[int, int] = (MAG_RANGE_LOW, MAG_RANGE_HIGH),
-            loading_buffer: Optional[np.ndarray] = None,
-            autosave: int = -1,
-            skip_phot: bool | int = 0,
-            skip_background: bool | int = 0,
-            zp_mag: float = 0.0) -> Table | None:
+    def execute_ast(
+            self, n_tests: int, stars_per_test, sub_image_size: int,
+            mag_range: Tuple[int, int], loading_buffer: np.ndarray | None,
+            autosave: int, skip_phot: bool | int, skip_background: bool | int,
+            zp_mag: float, save_image: bool,
+            save_image_path: str, ast_seed: int | None) -> Table | None:
         """
         The main entry point into the artificial star test.
         This handles everything except the results compilation at the end.
@@ -116,25 +114,163 @@ class ArtificialStars:
         :type skip_background: bool or int
         :param zp_mag: the zero point magnitude
         :type zp_mag: float
+        :param save_image: bool saying if we should save the added star image.
+        :type save_image: bool
+        :param save_image_path: the path for the save image.
+        :type save_image_path: str
+        :param ast_seed: the seed to set the artificial stars with. or None.
+        :type ast_seed: int | None
         :return: Full raw test results. Injected initial properties with
                  measured values.
         :rtype: astropy.table.Table
         """
         return self._auto_run(
             n_tests, stars_per_test, sub_image_size, mag_range, loading_buffer,
-            autosave, skip_phot, skip_background, zp_mag)
+            autosave, skip_phot, skip_background, zp_mag, save_image,
+            save_image_path, ast_seed)
+
+    def _add_stars(
+            self, base_image: fits.HDUList, stars_per_test: int, buffer: int,
+            mag_range: Tuple[int, int], zp_mag: float,
+            scale_factor: float | int, save_image: bool, test: int,
+            save_image_path: str, ast_seed: int | None) -> QTable:
+        """
+        adds new stars to the image.
+        :param base_image: copy of the current image
+        :type base_image: fits.HDUList
+        :param stars_per_test: the number of stars to put in per test.
+        :type stars_per_test: int
+        :param buffer: the buffer
+        :type buffer: int
+        :param mag_range: the magnitude ranges
+        :type mag_range: Tuple[int, int]
+        :param zp_mag: the zero point magnitude.
+        :type zp_mag: float
+        :param scale_factor: the scale factor.
+        :type scale_factor: float | int
+        :param save_image: bool saying if we should save the added star image.
+        :type save_image: bool
+        :param test: the test id
+        :type test: int
+        :param save_image_path: the path to save the image to
+        :type save_image_path: str
+        :param ast_seed: the seed to set the artificial stars with. or None.
+        :type ast_seed: int | None
+        :return: the location of the new stars.
+        :rtype: astrophy.QTable
+        """
+
+        image: fits.HDUList = base_image.__deepcopy__()
+
+        shape: list[int, int] = image[self._starbug.n_hdu].shape # noqa
+
+        source_list: QTable = make_random_models_table(
+            stars_per_test, {
+                TableColumn.X_0: [buffer, shape[0] - buffer],
+                TableColumn.Y_0: [buffer, shape[1] - buffer],
+                TableColumn.MAG:  mag_range
+            }, ast_seed
+        )
+        source_list.add_column(
+            10.0 ** ((zp_mag - source_list[TableColumn.MAG]) / 2.5),
+            name=TableColumn.FLUX)
+        source_list.remove_column(TableColumn.ID)
+
+        star_overlay: np.ndarray = (
+            make_model_image(
+                shape, self._psf, source_list,
+                model_shape=self._psf.data.shape)
+            / scale_factor)
+        image[self._starbug.n_hdu].data += star_overlay
+        self._starbug.image = image
+
+        if save_image:
+            image.writeto(os.path.join(
+                save_image_path, f"inserted_image_for_test_{test}.fits"))
+
+        return source_list
+
+    def _execute_test(
+            self, base_image: fits.HDUList, stars_per_test: int, buffer: int,
+            mag_range:  Tuple[int, int], zp_mag: float,
+            scale_factor: float | int, skip_phot: bool | int,
+            skip_background: bool | int, passed: int, test_result: Table,
+            test: int, loading_buffer: np.ndarray | None,
+            autosave: int, save_image: bool, save_image_path: str,
+            ast_seed: int | None) -> None:
+        """
+        executes a test.
+        :param base_image: copy of the current image
+        :type base_image: fits.HDUList
+        :param stars_per_test: the number of stars to put in per test.
+        :type stars_per_test: int
+        :param buffer: the buffer
+        :type buffer: int
+        :param mag_range: the magnitude ranges
+        :type mag_range: Tuple[int, int]
+        :param zp_mag: the zero point magnitude.
+        :type zp_mag: float
+        :param scale_factor: the scale factor.
+        :type scale_factor: float | int
+        :param skip_phot: check for if we should skip phot
+        :type skip_phot: bool
+        :param skip_background: check for if we should skip background
+                                reduction.
+        :type skip_background: bool
+        :param passed: int to accum if the test works
+        :type passed: int
+        :param test_result:  the result location for the tests output
+        :type test_result: Table
+        :param test: the test id
+        :type test: int
+        :param loading_buffer: the loading buffer
+        :type loading_buffer: np.ndarray | None
+        :param autosave: the auto save value.
+        :type autosave: int
+        :param save_image: bool saying if we should save the added star image.
+        :type save_image: bool
+        :param save_image_path: the path to save the new image to.
+        :type save_image_path: str
+        :param ast_seed: the seed to set the artificial stars with. or None.
+        :type ast_seed: int | None
+        :return: None
+        """
+        source_list = self._add_stars(
+            base_image, stars_per_test, buffer, mag_range, zp_mag,
+            scale_factor, save_image, test, save_image_path, ast_seed)
+
+        result: Table = self.single_test(
+            source_list, skip_phot=skip_phot,
+            skip_background=skip_background)
+
+        # save system memory.
+        image: HDUList | None = self._starbug.image
+        assert image is not None
+        image.close()
+
+        # process result.
+        passed += sum(result[TableColumn.STATUS])
+        test_result[
+            (test - 1) * stars_per_test:
+            test * stars_per_test] = result
+
+        if loading_buffer is not None:
+            loading_buffer[0] += 1
+            loading_buffer[2] = int(
+                100 * passed / (test * stars_per_test))
+
+        if autosave > 0 and not test % autosave:
+            # noinspection SpellCheckingInspection
+            test_result.write(
+                "sbast-autosave%d.tmp" % self._index, overwrite=True,
+                format="fits")
 
     def _auto_run(
-            self,
-            n_tests: int,
-            stars_per_test: int = 1,
-            sub_image_size: int = -1,
-            mag_range: Tuple[int, int] = (MAG_RANGE_LOW, MAG_RANGE_HIGH),
-            loading_buffer: Optional[np.ndarray] = None,
-            autosave: int = -1,
-            skip_phot: bool | int = 0,
-            skip_background: bool | int = 0,
-            zp_mag: float = 0.0) -> Table | None:
+            self,  n_tests: int, stars_per_test: int, sub_image_size: int,
+            mag_range: Tuple[int, int], loading_buffer: np.ndarray | None,
+            autosave: int, skip_phot: bool | int, skip_background: bool | int,
+            zp_mag: float, save_image: bool,
+            save_image_path: str, ast_seed: int | None) -> Table | None:
         """
         The main entry point into the artificial star test.
         This handles everything except the results compilation at the end.
@@ -162,6 +298,12 @@ class ArtificialStars:
         :type skip_background: bool or int
         :param zp_mag: the zero point magnitude
         :type zp_mag: float
+        :param save_image: bool saying if we should save the added star image.
+        :type save_image: bool
+        :param save_image_path: path for the saving of the image
+        :type save_image_path: str
+        :param ast_seed: the seed to set the artificial stars with. or None.
+        :type ast_seed: int | None
         :return: Full raw test results. Injected initial properties with
                  measured values.
         :rtype: astropy.table.Table
@@ -192,52 +334,11 @@ class ArtificialStars:
                     "'safe' value %d.\n" % sub_image_size)
 
         for test in range(1, int(n_tests) + 1):
-            image: fits.HDUList = base_image.__deepcopy__()
-
-            shape: list[int, int] = image[self._starbug.n_hdu].shape # noqa
-
-            source_list: QTable = make_random_models_table(
-                stars_per_test, {
-                    TableColumn.X_0: [buffer, shape[0] - buffer],
-                    TableColumn.Y_0: [buffer, shape[1] - buffer],
-                    TableColumn.MAG:  mag_range
-                }
-            )
-            source_list.add_column(
-                10.0 ** ((zp_mag - source_list[TableColumn.MAG]) / 2.5),
-                name=TableColumn.FLUX)
-            source_list.remove_column(TableColumn.ID)
-
-            star_overlay: np.ndarray = (
-                make_model_image(
-                    shape, self._psf, source_list,
-                    model_shape=self._psf.data.shape)
-                / scale_factor)
-            image[self._starbug.n_hdu].data += star_overlay
-            self._starbug.image = image
-
-            result: Table = self.single_test(
-                source_list, skip_phot=skip_phot,
-                skip_background=skip_background)
-
-            passed += sum(result[TableColumn.STATUS])
-            test_result[
-                (test - 1) * stars_per_test:
-                test * stars_per_test] = result
-
-            if loading_buffer is not None:
-                loading_buffer[0] += 1
-                loading_buffer[2] = int(
-                    100 * passed / (test * stars_per_test))
-
-            if autosave > 0 and not test % autosave:
-                # noinspection SpellCheckingInspection
-                test_result.write(
-                    "sbast-autosave%d.tmp" % self._index, overwrite=True,
-                    format="fits")
-
-            # is this necessary?
-            del image
+            self._execute_test(
+                base_image, stars_per_test, buffer, mag_range, zp_mag,
+                scale_factor, skip_phot, skip_background, passed, test_result,
+                test, loading_buffer, autosave, save_image, save_image_path,
+                ast_seed)
         return test_result
 
     def single_test(
@@ -301,21 +402,24 @@ class ArtificialStars:
                 # estimate if there were detections
                 self._starbug.detections = test_result
 
+                if skip_phot:
+                    return hstack((contains, test_result))
+
                 # Run PSF photometry on detected sources
-                if not skip_phot and not self._starbug.photometry_routine():
-                    # noinspection SpellCheckingInspection
-                    psf_catalogue = self._starbug.psf_catalogue
-                    assert psf_catalogue is not None
-                    psf_catalogue.rename_columns(
-                        (TableColumn.X_INIT, TableColumn.Y_INIT,
-                         TableColumn.XY_DEV),
-                        (TableColumn.X_INIT, TableColumn.Y_INIT,
-                         TableColumn.XY_DEV_))
-                    matched: Table = GenericMatch(threshold=threshold)(
-                        [contains, psf_catalogue],
-                        cartesian=True)
-                    test_result[TableColumn.FLUX_DET] = (
-                        matched[:len(test_result)][TableColumn.FLUX_2])
+                self._starbug.photometry_routine()
+                # noinspection SpellCheckingInspection
+                psf_catalogue = self._starbug.psf_catalogue
+                assert psf_catalogue is not None
+                psf_catalogue.rename_columns(
+                    (TableColumn.X_INIT, TableColumn.Y_INIT,
+                     TableColumn.XY_DEV),
+                    (TableColumn.X_INIT, TableColumn.Y_INIT,
+                     TableColumn.XY_DEV_))
+                matched: Table = GenericMatch(threshold=threshold)(
+                    [contains, psf_catalogue],
+                    cartesian=True)
+                test_result[TableColumn.FLUX_DET] = (
+                    matched[:len(test_result)][TableColumn.FLUX_2])
         return hstack((contains, test_result))
 
 
@@ -408,8 +512,8 @@ def get_spatial_completeness(
 
 
 def estimate_completeness_mag(ast: Table) -> (
-        Tuple[Optional[Tuple[float, float, float]],
-              Optional[Tuple[float, float, float]]]):
+        Tuple[Tuple[float, float, float] | None,
+              Tuple[float, float, float] | None]):
     """
     Estimate the completeness level of the artificial star test.
 
@@ -423,8 +527,8 @@ def estimate_completeness_mag(ast: Table) -> (
         - **complete** (*list*): Magnitude of 70% and 50% completeness.
     :rtype: tuple[list, list]
     """
-    fit: Optional[Tuple[float, float, float]] = None
-    completeness: Optional[Tuple[float, float, float]] = None
+    fit: Tuple[float, float, float] | None = None
+    completeness: Tuple[float, float, float] | None = None
 
     # Syntax: Callable[[Param1Type, Param2Type, ...], ReturnType]
     fn_i: Callable[[float, float, float, float], float] = (
@@ -476,7 +580,7 @@ def scurve(
 def compile_results(
         raw: Table,
         image: np.ndarray | None = None,
-        plot_ast: Optional[str] = None,
+        plot_ast: str | None = None,
         filter_string: str = "m") -> fits.HDUList:
     """
     Compile all the raw data into usable results

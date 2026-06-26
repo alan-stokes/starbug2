@@ -238,7 +238,7 @@ def match_main(argv: list[str]) -> ExitStates:
         return ExitStates.EXIT_EARLY
     else:
         utils.p_error("No tables loaded for matching.\n")
-        return ExitStates.EXIT_FAIL
+        return ExitStates.EXIT_EARLY
 
 
 def match_main_entry() -> ExitStates:

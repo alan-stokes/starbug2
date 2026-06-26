@@ -147,7 +147,7 @@ def execute_artificial_stars(
             f_name, config, ap_file=config.ap_file,
             bkg_file=config.background_file, verbose=verbose)
         ast: ArtificialStars = ArtificialStars(star_bug_base, index=index)
-        out = ast(
+        out = ast.execute_ast(
             test_count,
             stars_per_test=config.stars_per_artificial_test,
             mag_range=(
@@ -158,7 +158,10 @@ def execute_artificial_stars(
             skip_phot=config.ast_no_psf_phot,
             skip_background=config.ast_no_background,
             zp_mag=config.zero_point_magnitude,
-            sub_image_size=config.sub_image_crop_size)
+            sub_image_size=config.sub_image_crop_size,
+            save_image=config.save_added_image,
+            save_image_path=config.save_added_image_path,
+            ast_seed=config.ast_seed)
     return out
 
 

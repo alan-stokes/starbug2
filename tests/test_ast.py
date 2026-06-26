@@ -22,7 +22,7 @@ import numpy as np
 import pytest
 from starbug2.bin.ast import ast_main
 from starbug2.constants import ExitStates
-from tests.generic import TEST_IMAGE_FITS, clean
+from tests.generic import TEST_IMAGE_FITS, clean, verify_test_data_exists
 
 # main ast run
 c: np.ndarray = np.array([0, 0, 0], dtype=np.int64)
@@ -40,6 +40,7 @@ def run(s):
 
 
 def test_run_basic():
+    verify_test_data_exists()
     clean()
     assert (run(
         f"starbug2-ast -N10 -S10 {TEST_FILTER_STRING}") ==
