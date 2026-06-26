@@ -197,8 +197,6 @@ class TestSystemResults:
         exit_state: int = starbug_internal_main(config)
         assert exit_state == ExitStates.EXIT_SUCCESS
 
-
-
         # check results.
         captured = capsys.readouterr()
         lines = captured.out.splitlines()
