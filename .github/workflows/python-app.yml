@@ -19,7 +19,7 @@
     build:
       runs-on: ubuntu-latest
       env:
-        STARBUG_TEST_DIR: ${{ github.workspace }}/tests/dat
+        STARBUG_TEST_DIR: ${{ github.workspace }}/tests/dat/
         WEBBPSF_PATH: ${{ github.workspace }}/webbpsf_cache
         STARBUG_DATDIR: ${{ github.workspace }}/starbug_data
 
