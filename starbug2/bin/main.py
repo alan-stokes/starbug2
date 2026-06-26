@@ -28,7 +28,8 @@ import photutils
 from starbug2.utilities import param
 from starbug2.core.constants import (
     ExitStates, FITS_EXTENSION, HELP_STRINGS, LOGO, Modes, READ_THE_DOCS_URL)
-from starbug2.jwst_support.initialise_psf_data import generate_psf, init_starbug_for_jwst
+from starbug2.jwst_support.initialise_psf_data import (
+    generate_psf, init_starbug_for_jwst)
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.utilities.misc import generate_runscript
 from starbug2.core.star_bug_config import StarBugMainConfig
