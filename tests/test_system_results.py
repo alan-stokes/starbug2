@@ -7,7 +7,9 @@ import numpy as np
 from starbug2.bin.ast import execute_artificial_stars
 from starbug2.bin.main import starbug_internal_main
 from starbug2.constants import ExitStates
+from starbug2.initialise_psf_data import download_ap_corr_files
 from starbug2.star_bug_config import StarBugMainConfig
+from starbug2.starbug import StarbugBase
 from tests import generic
 from tests.generic import (
     TEST_PATH, TEST_BLANK, TEST_PATH_STR, create_default_config,
@@ -124,7 +126,10 @@ class TestSystemResults:
         psf_config: StarBugMainConfig = create_default_config()
         psf_config.custom_filter = 'F770W'
         psf_config.generate_psf = True
+        psf_config.detector_name = None
+        psf_config.psf_fit_size = None
         starbug_internal_main(psf_config)
+        download_ap_corr_files(StarbugBase.get_data_path())
 
         # set up config for artificial stars
         config: StarBugMainConfig = create_default_config()

@@ -198,9 +198,14 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> ExitStates:
             assert filter_string is not None
             detector: str | None = config.detector_name
             psf_size: int = config.psf_fit_size
-            printf(
-                "Generating PSF: %s %s (%d)\n" %
-                (filter_string, detector, psf_size))
+            if psf_size is not None:
+                printf(
+                    "Generating PSF: %s %s (%d)\n" %
+                    (filter_string, detector, psf_size))
+            else:
+                printf(
+                    "Generating PSF: %s %s\n" %
+                    (filter_string, detector))
             psf: PrimaryHDU | None = generate_psf(
                 filter_string, detector=detector, fov_pixels=psf_size)
             if psf:
@@ -208,7 +213,8 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> ExitStates:
                     "%s%s.fits" %
                     (filter_string, "" if detector is None else detector))
                 printf("--> %s\n" % name)
-                psf.writeto(name, overwrite=True)
+                d_name: str = StarbugBase.get_data_path()
+                psf.writeto(os.path.join(d_name, name), overwrite=True)
             else:
                 p_error("PSF Generation failed :(\n")
         else:
