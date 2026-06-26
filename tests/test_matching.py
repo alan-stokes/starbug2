@@ -19,13 +19,13 @@ from typing import Final
 
 import pytest
 
-from starbug2.constants import HeaderTags, TableColumn
+from starbug2.core.constants import HeaderTags, TableColumn
 from starbug2.matching.band_match import BandMatch
 from starbug2.matching.cascade_match import CascadeMatch
 from starbug2.matching.exact_value_match import ExactValueMatch
 from starbug2.matching.generic_match import GenericMatch
-from starbug2.star_bug_config import StarBugMainConfig
-from starbug2.utils import import_table, fill_nan
+from starbug2.core.star_bug_config import StarBugMainConfig
+from starbug2.utilities.utils import import_table, fill_nan
 from starbug2.bin.main import starbug_main
 from astropy.table import Table
 from astropy import units

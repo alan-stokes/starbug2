@@ -28,21 +28,21 @@ from astropy.table import hstack, Column, vstack, Table
 from astropy.stats import sigma_clipped_stats
 from photutils.datasets import make_model_image
 from photutils.psf import ImagePSF
-from starbug2.constants import (
+from starbug2.core.constants import (
     HeaderTags, ImageHeaderTags, SCI, BGD, RES, VERBOSE_TAG, AP_FILE, BGD_FILE,
     FITS_EXTENSION, DQ, AREA, WHT, NIRCAM, SourceFlags, DQFlags,
     DetectorLengths, Units, ERR, ExitStates, NIRCAM_STRING, STARBUG_DATA_DIR,
     DEFAULT_FULL_WIDTH_HALF_MAX, TableColumn, MIRI_STRING, MIRI_IMAGE)
-from starbug2.filters import STAR_BUG_FILTERS, FilterStruct
+from starbug2.utilities.filters import STAR_BUG_FILTERS, FilterStruct
 from starbug2.routines.app_hot_routine import APPhotRoutine
 from starbug2.routines.background_estimate_routine import (
     BackGroundEstimateRoutine)
 from starbug2.routines.detection_routines import DetectionRoutine
 from starbug2.routines.psf_phot_routine import PSFPhotRoutine
 from starbug2.routines.source_properties import SourceProperties
-from starbug2.star_bug_config import StarBugMainConfig
-from starbug2.star_bug_interface import StarBugInterface
-from starbug2.utils import (
+from starbug2.core.star_bug_config import StarBugMainConfig
+from starbug2.interfaces.star_bug_interface import StarBugInterface
+from starbug2.utilities.utils import (
     collapse_header, parse_unit, get_version, ext_names, printf,
     split_file_name, p_error, warn, import_table, get_mj_ysr2jy_scale_factor,
     flux2mag, reindex, export_table)

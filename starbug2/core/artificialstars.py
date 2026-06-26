@@ -27,9 +27,9 @@ from scipy.optimize import curve_fit
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
-from starbug2.constants import ExitStates, TableColumn
+from starbug2.core.constants import ExitStates, TableColumn
 from starbug2.matching.generic_match import GenericMatch
-from starbug2.star_bug_interface import StarBugInterface
+from starbug2.interfaces.star_bug_interface import StarBugInterface
 
 
 try:
@@ -39,7 +39,7 @@ except ImportError:
     matplotlib.use("TkAgg")
     import matplotlib.pyplot as plt
 
-from starbug2.utils import (
+from starbug2.utilities.utils import (
     printf, p_error, get_mj_ysr2jy_scale_factor, warn)
 
 

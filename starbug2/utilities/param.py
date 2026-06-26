@@ -14,8 +14,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
 from typing import Dict
-from starbug2.star_bug_config import StarBugMainConfig
-from starbug2.utils import printf, p_error, get_version
+from starbug2.core.star_bug_config import StarBugMainConfig
+from starbug2.utilities.utils import printf, p_error, get_version
 
 
 def _load_params_old(f_name: str | None) -> Dict[str, int | float | str]:

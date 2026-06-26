@@ -17,8 +17,8 @@ import os
 from typing import Final
 
 import pytest
-from starbug2.constants import STAR_BUG_PARAMS, PROBLEMATIC_FILTER_WARNING
-from starbug2.star_bug_config import StarBugMainConfig
+from starbug2.core.constants import STAR_BUG_PARAMS, PROBLEMATIC_FILTER_WARNING
+from starbug2.core.star_bug_config import StarBugMainConfig
 from tests.generic import TEST_PATH_STR, verify_test_data_exists
 
 TEST_PARAM_PATH: Final[str] = os.path.join(

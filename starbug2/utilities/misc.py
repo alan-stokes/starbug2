@@ -17,10 +17,10 @@ import stat
 import numpy as np
 from typing import List, Optional, TextIO, Dict
 
-from starbug2.constants import (
+from starbug2.core.constants import (
     FITS_EXTENSION, FILE_NAME, HeaderTags, ImageHeaderTags)
 from astropy.io import fits
-from starbug2.utils import printf, p_error, split_file_name
+from starbug2.utilities.utils import printf, p_error, split_file_name
 
 # A clear, Type Alias for the deep data nested structure Format:
 # Dict[KeyType, ValueType], str mapping being FILTER, OBS, VISIT, DETECTOR

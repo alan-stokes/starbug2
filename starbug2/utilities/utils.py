@@ -26,7 +26,7 @@ from astropy.wcs import WCS
 import numpy as np
 import requests
 
-from starbug2.constants import (
+from starbug2.core.constants import (
     DEFAULT_COLOUR,
     TMP_OUT,
     TMP_FITS,
@@ -39,7 +39,7 @@ from starbug2.constants import (
     Units,
     ImageHeaderTags,
 )
-from starbug2.filters import STAR_BUG_FILTERS
+from starbug2.utilities.filters import STAR_BUG_FILTERS
 
 
 # different print methods (why are we not using loggers?)

@@ -24,11 +24,11 @@ from time import sleep
 from astropy.table import Table
 from astropy.io.fits import HDUList
 
-from starbug2.constants import ExitStates, TableColumn
-from starbug2.star_bug_config import StarBugMainConfig
-from starbug2.starbug import StarbugBase
-from starbug2.artificialstars import ArtificialStars, compile_results
-from starbug2.utils import (
+from starbug2.core.constants import ExitStates, TableColumn
+from starbug2.core.star_bug_config import StarBugMainConfig
+from starbug2.core.starbug_main import StarbugBase
+from starbug2.core.artificialstars import ArtificialStars, compile_results
+from starbug2.utilities.utils import (
     printf, p_error, combine_tables, fill_nan,  parse_cmd, usage)
 
 import photutils

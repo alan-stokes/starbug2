@@ -20,10 +20,10 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.table import Table
 import starbug2
-from starbug2.constants import ExitStates, TableColumn, HeaderTags
-from starbug2.plot import load_style, plot_test, plot_inspect_source
-from starbug2.star_bug_config import StarBugMainConfig
-from starbug2.utils import p_error, warn, parse_cmd, usage
+from starbug2.core.constants import ExitStates, TableColumn, HeaderTags
+from starbug2.core.plot import load_style, plot_test, plot_inspect_source
+from starbug2.core.star_bug_config import StarBugMainConfig
+from starbug2.utilities.utils import p_error, warn, parse_cmd, usage
 from astropy.io.fits import PrimaryHDU, ImageHDU, BinTableHDU
 
 import photutils

@@ -6,10 +6,8 @@ import numpy as np
 
 from starbug2.bin.ast import execute_artificial_stars
 from starbug2.bin.main import starbug_internal_main
-from starbug2.constants import ExitStates
-from starbug2.initialise_psf_data import download_ap_corr_files
-from starbug2.star_bug_config import StarBugMainConfig
-from starbug2.starbug import StarbugBase
+from starbug2.core.constants import ExitStates
+from starbug2.core.star_bug_config import StarBugMainConfig
 from tests import generic
 from tests.generic import (
     TEST_PATH, TEST_BLANK, TEST_PATH_STR, create_default_config,
@@ -123,13 +121,7 @@ class TestSystemResults:
             c.shape, dtype=c.dtype, buffer=share_memory.buf)
 
         # set up config for creating psf
-        psf_config: StarBugMainConfig = create_default_config()
-        psf_config.custom_filter = 'F770W'
-        psf_config.generate_psf = True
-        psf_config.detector_name = None
-        psf_config.psf_fit_size = None
-        starbug_internal_main(psf_config)
-        download_ap_corr_files(StarbugBase.get_data_path())
+        generic.make_psf_for_blank()
 
         # set up config for artificial stars
         config: StarBugMainConfig = create_default_config()
@@ -138,7 +130,7 @@ class TestSystemResults:
         config.verbose_logs = True
         config.do_star_detection = True
 
-        # config to set off detection without psf
+        # config to set off detection with psf
         config.stars_per_artificial_test = 15
         config.save_added_image = True
         config.save_added_image_path = TEST_PATH_STR
@@ -158,6 +150,54 @@ class TestSystemResults:
         # execute detection.
         exit_state: int = starbug_internal_main(config)
         assert exit_state == ExitStates.EXIT_SUCCESS
+
+        # check results.
+        captured = capsys.readouterr()
+        lines = captured.out.splitlines()
+        self._assert_results(lines, expected_total=15)
+        generic.clean()
+
+    def test_artificial_star_residual(self, capsys) -> None:
+        generic.clean()
+        c: np.ndarray = np.array([0, 0, 0], dtype=np.int64)
+        share_memory: SharedMemory = (
+            shared_memory.SharedMemory(create=True, size=c.nbytes))
+        loading_buffer: np.ndarray = np.ndarray(
+            c.shape, dtype=c.dtype, buffer=share_memory.buf)
+
+        # set up config for creating psf
+        generic.make_psf_for_blank()
+
+        # set up config for artificial stars
+        config: StarBugMainConfig = create_default_config()
+        config.custom_filter = 'F770W'
+        config.fits_images = [TEST_BLANK]
+        config.verbose_logs = True
+        config.do_star_detection = True
+
+        # config to set off detection with psf
+        config.stars_per_artificial_test = 15
+        config.save_added_image = True
+        config.save_added_image_path = TEST_PATH_STR
+        config.zero_point_magnitude = 25
+        config.sigma_source = 50
+        config.test_magnitude_bright_limit = 15
+        config.test_magnitude_faint_limit = 16
+        config.generate_residual_image = True
+
+        # create empty fits file
+        generic.create_blank_fits()
+
+        # add stars
+        execute_artificial_stars(
+            TEST_BLANK, config, config.verbose_logs, 0, 1, 10, loading_buffer)
+        config.fits_images = [TEST_AST_FILLED]
+
+        # execute detection / phot / residual.
+        exit_state: int = starbug_internal_main(config)
+        assert exit_state == ExitStates.EXIT_SUCCESS
+
+
 
         # check results.
         captured = capsys.readouterr()

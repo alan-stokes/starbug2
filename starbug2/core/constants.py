@@ -291,7 +291,7 @@ class Units(int, Enum):
 
 # text based logo (using raw string to bypass escape characters)
 _LOGO_PATH = Path(os.path.join(
-    os.path.join(Path(__file__).parent, "extras"), "logo.txt"))
+    os.path.join(Path(__file__).parent, "../extras"), "logo.txt"))
 LOGO: Final[str] = _LOGO_PATH.read_text(encoding="utf-8") + "%s"
 
 # dictionary of help strings for specific modes (

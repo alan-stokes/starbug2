@@ -25,15 +25,15 @@ from astropy.table import Table
 from astropy.utils.exceptions import AstropyDeprecationWarning, AstropyWarning
 import photutils
 
-from starbug2 import param
-from starbug2.constants import (
+from starbug2.utilities import param
+from starbug2.core.constants import (
     ExitStates, FITS_EXTENSION, HELP_STRINGS, LOGO, Modes, READ_THE_DOCS_URL)
-from starbug2.initialise_psf_data import generate_psf, init_starbug_for_jwst
+from starbug2.jwst_support.initialise_psf_data import generate_psf, init_starbug_for_jwst
 from starbug2.matching.generic_match import GenericMatch
-from starbug2.misc import generate_runscript
-from starbug2.star_bug_config import StarBugMainConfig
-from starbug2.starbug import StarbugBase
-from starbug2.utils import (
+from starbug2.utilities.misc import generate_runscript
+from starbug2.core.star_bug_config import StarBugMainConfig
+from starbug2.core.starbug_main import StarbugBase
+from starbug2.utilities.utils import (
     combine_file_names, export_region, export_table, get_version, parse_cmd,
     p_error, printf, puts, split_file_name, usage, warn)
 
@@ -332,7 +332,7 @@ def execute_star_bug(
     :rtype: starbug2.StarbugBase or None
     """
     # I've put this here because it takes some time
-    from starbug2.starbug import StarbugBase
+    from starbug2.core.starbug_main import StarbugBase
     star_bug_base: StarbugBase | None = None
     f_name: str
     config: StarBugMainConfig
