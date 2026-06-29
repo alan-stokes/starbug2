@@ -374,6 +374,7 @@ class ArtificialStars:
         end_state: ExitStates
         det: Table | None
         end_state = self._starbug.detect()
+        self._starbug.aperture_photometry()
         det = self._starbug.detections
         if end_state == ExitStates.EXIT_SUCCESS:
             assert self._starbug is not None
