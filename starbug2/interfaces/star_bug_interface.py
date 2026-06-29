@@ -14,10 +14,13 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 from abc import ABC, abstractmethod
+
 from astropy.table import Table
 from astropy.io.fits import PrimaryHDU, ImageHDU, HDUList, Header
 
 import numpy as np
+
+from starbug2.core.constants import ExitStates
 
 
 class StarBugInterface(ABC):
@@ -73,14 +76,14 @@ class StarBugInterface(ABC):
         pass
 
     @abstractmethod
-    def load_psf(self, f_name: str | None = None) -> int:
+    def load_psf(self, f_name: str | None = None) -> ExitStates:
         """
         Load a PSF_FILE to be used during photometry
 
         :param f_name: Filename of a PSF fits image
         :type f_name: str or None
         :return: The execution status (0 for success, non-zero for failure)
-        :rtype: int
+        :rtype: ExitStates
         """
         pass
 
@@ -97,49 +100,49 @@ class StarBugInterface(ABC):
         pass
 
     @abstractmethod
-    def detect(self) -> int:
+    def detect(self) -> ExitStates:
         """
         Full source detection routine. Saves the result as a table
         self._detections
 
         :return: The execution status (0 for success, non-zero for failure)
-        :rtype: int
+        :rtype: ExitStates
         """
         pass
 
     @abstractmethod
-    def aperture_photometry(self) -> int:
+    def aperture_photometry(self) -> ExitStates:
         """
         Executes aperture photometry
 
         :return: 0 for success, 1 for failure
-        :rtype: int
+        :rtype: ExitStates
         """
         pass
 
     @abstractmethod
-    def bgd_estimate(self) -> int:
+    def bgd_estimate(self) -> ExitStates:
         """
         Estimate the background of the active image
         Saves the result as an ImageHDU self._background
 
         :return: The execution status (0 for success, non-zero for failure)
-        :rtype: int
+        :rtype: ExitStates
         """
         pass
 
     @abstractmethod
-    def bgd_subtraction(self) -> int:
+    def bgd_subtraction(self) -> ExitStates:
         """
         Internally subtract a background array from an image array
 
         :return: 0 for success, 1 otherwise
-        :rtype: int
+        :rtype: ExitStates
         """
         pass
 
     @abstractmethod
-    def photometry_routine(self) -> int:
+    def photometry_routine(self) -> ExitStates:
         """
         Full photometry routine
         Saves the result as a table self._psf_catalogue,
@@ -147,7 +150,7 @@ class StarBugInterface(ABC):
         self._residuals HDUList
 
         :return: 0 for success, 1 otherwise
-        :rtype: int
+        :rtype: ExitStates
         """
         pass
 
@@ -161,17 +164,16 @@ class StarBugInterface(ABC):
         pass
 
     @abstractmethod
-    def verify(self) -> int:
+    def verify(self) -> ExitStates:
         """
         This simple function verifies that everything necessary has been
         loaded properly
 
         :return: 0 on success, 1 on failure
-        :rtype: int
+        :rtype: ExitStates
         """
         pass
 
-    @property
     @abstractmethod
     def header(self) -> Header:
         """
@@ -193,7 +195,6 @@ class StarBugInterface(ABC):
         """
         pass
 
-    @property
     @abstractmethod
     def main_image(self) -> ImageHDU | PrimaryHDU:
         # noinspection SpellCheckingInspection

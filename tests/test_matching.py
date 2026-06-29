@@ -26,7 +26,7 @@ from starbug2.matching.exact_value_match import ExactValueMatch
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.utilities.utils import import_table, fill_nan
-from starbug2.bin.main import starbug_main
+from starbug2.command_line_interfaces.main import starbug_main
 from astropy.table import Table
 from astropy import units
 from astropy.units import Quantity

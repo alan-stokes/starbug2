@@ -14,10 +14,10 @@ Documentation = "https://starbug2.readthedocs.io/en/latest/"
 Repository = "https://github.com/alan-stokes/starbug2.git"
 
 [project.scripts]
-starbug2 = "starbug2.bin.main:starbug_main_entry"
-starbug2-match= "starbug2.bin.match:match_main_entry"
-starbug2-ast= "starbug2.bin.ast:ast_main_entry"
-starbug2-plot="starbug2.bin.plot:plot_main_entry"
+starbug2 = "starbug2.command_line_interfaces.main:starbug_main_entry"
+starbug2-match= "starbug2.command_line_interfaces.match:match_main_entry"
+starbug2-ast= "starbug2.command_line_interfaces.ast:ast_main_entry"
+starbug2-plot="starbug2.command_line_interfaces.plot:plot_main_entry"
 
 [build-system]
 requires = ["setuptools"]

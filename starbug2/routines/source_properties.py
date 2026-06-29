@@ -61,7 +61,7 @@ class SourceProperties:
         else:
             p_error("bad source list type: %s\n" % type(source_list))
 
-    def __call__(
+    def execute_source_props(
             self, do_crowd: int = 1, n_closest_sources: int = 10,
             full_width_half_max: float = 2.0) -> Table:
         """

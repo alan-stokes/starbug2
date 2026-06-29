@@ -282,7 +282,7 @@ def starbug_match_outputs(
     else:
         f_name = "out"
 
-    header: Header = valid_bugs[0].header
+    header: Header = valid_bugs[0].header()
 
     match: GenericMatch = GenericMatch(
         threshold=config.match_threshold_arc_sec_as_an_arc_sec,
@@ -363,7 +363,7 @@ def execute_star_bug(
         if ext == FITS_EXTENSION:
             star_bug_base = StarbugBase(
                 f_name, config=config, ap_file=ap_file,
-                bkg_file=background_file, verbose=use_verbose)
+                bkg_file=background_file)
             assert star_bug_base is not None
 
             if star_bug_base.verify():
@@ -372,6 +372,7 @@ def execute_star_bug(
 
             if config.do_star_detection:
                 star_bug_base.detect()
+                star_bug_base.aperture_photometry()
             if config.do_bgd_estimate:
                 star_bug_base.bgd_estimate()
             if config.do_bgd_subtraction:

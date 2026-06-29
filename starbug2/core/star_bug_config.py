@@ -23,7 +23,8 @@ from parse import parse
 from starbug2.core.constants import (
     SCI, DEFAULT_COLOUR, HeaderTags, AP_FILE, BGD_FILE, PSF_FILE, TableColumn,
     STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, PROBLEMATIC_FILTER_ID,
-    PROBLEMATIC_FILTER_WARNING, DEFAULT_PARAM_TEMPLATE, STARBUG_DATA_DIR)
+    PROBLEMATIC_FILTER_WARNING, DEFAULT_PARAM_TEMPLATE, STARBUG_DATA_DIR, DEFAULT_FULL_WIDTH_HALF_MAX)
+from starbug2.utilities.filters import FilterStruct
 from starbug2.utilities.utils import p_error, get_version, warn
 
 
@@ -926,6 +927,23 @@ class StarBugMainConfig:
     @full_width_half_max.setter
     def full_width_half_max(self, value: float) -> None:
         self._full_width_half_max = value
+
+    def full_width_half_max_with_filter(
+            self, filter_struct: FilterStruct | None) -> float:
+        """
+        figure the full_width_half_max from the filter struct
+        :param filter_struct: the filter struct.
+        :type filter_struct: FilterStruct
+        :return: the full_width_half_max
+        :rtype: float
+        """
+        full_width_half_max: float
+        if self._full_width_half_max > 0:
+            return self._full_width_half_max
+        elif filter_struct:
+            return filter_struct.full_width_half_max
+        else:
+            return DEFAULT_FULL_WIDTH_HALF_MAX
 
     @property
     def sigma_sky(self) -> float:

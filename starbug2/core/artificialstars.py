@@ -313,12 +313,12 @@ class ArtificialStars:
             np.full((n_tests * stars_per_test, self.N_COLUMNS), np.nan),
             names=self.TEST_TABLE_COLUMN_NAMES)
         scale_factor: float | int = (
-            get_mj_ysr2jy_scale_factor(self._starbug.main_image))
+            get_mj_ysr2jy_scale_factor(self._starbug.main_image()))
 
         current_image = self._starbug.image
         assert current_image is not None
         base_image: fits.HDUList = current_image.copy()
-        base_shape: np.ndarray = np.copy(self._starbug.main_image.shape)
+        base_shape: np.ndarray = np.copy(self._starbug.main_image().shape)
         stars_per_test: int = int(stars_per_test)
         passed: int = 0
         buffer: int = 0
@@ -371,9 +371,12 @@ class ArtificialStars:
         threshold: Quantity = 2 * units.arcsec
 
         # Run detection on the image
-        if not self._starbug.detect():
+        end_state: ExitStates
+        det: Table | None
+        end_state = self._starbug.detect()
+        det = self._starbug.detections
+        if end_state == ExitStates.EXIT_SUCCESS:
             assert self._starbug is not None
-            det: Table | None = self._starbug.detections
             assert det is not None
 
             # Check for detection in output

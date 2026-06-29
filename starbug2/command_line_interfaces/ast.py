@@ -145,7 +145,7 @@ def execute_artificial_stars(
     if os.path.exists(f_name):
         star_bug_base: StarbugBase = StarbugBase(
             f_name, config, ap_file=config.ap_file,
-            bkg_file=config.background_file, verbose=verbose)
+            bkg_file=config.background_file)
         ast: ArtificialStars = ArtificialStars(star_bug_base, index=index)
         out = ast.execute_ast(
             test_count,
@@ -247,7 +247,7 @@ def ast_main(
         assert raw is not None
         star_bug_base: StarbugBase = StarbugBase(
             f_name, config, ap_file=config.ap_file,
-            bkg_file=config.background_file, verbose=config.verbose_logs)
+            bkg_file=config.background_file)
         if config.verbose_logs:
             printf("-> compiling results\n")
             printf("-> flux recovery: %.2g\n" % (
@@ -259,7 +259,7 @@ def ast_main(
         assert filter_string is not None
         assert raw is not None
         if (results := compile_results(
-                raw, image=star_bug_base.main_image.data,
+                raw, image=star_bug_base.main_image().data,
                 filter_string=filter_string,
                 plot_ast=config.ast_plot_filename)):
             out_dir: str
