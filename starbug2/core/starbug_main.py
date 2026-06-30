@@ -15,7 +15,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 import os
 import sys
-from os import getenv
 from typing import Final, Tuple, Dict, List, cast, Any
 
 from astropy.wcs import (
@@ -24,28 +23,24 @@ from astropy.wcs import (
 import numpy as np
 from astropy.io.fits import (
     PrimaryHDU, ImageHDU, HDUList, Header, open, BinTableHDU)
-from astropy.table import hstack, Column, vstack, Table
-from astropy.stats import sigma_clipped_stats
-from photutils.datasets import make_model_image
-from photutils.psf import ImagePSF
+from astropy.table import hstack, Table
 from starbug2.core.constants import (
     HeaderTags, ImageHeaderTags, SCI, BGD, RES, VERBOSE_TAG, AP_FILE, BGD_FILE,
-    FITS_EXTENSION, DQ, AREA, WHT, NIRCAM, SourceFlags, DQFlags,
-    DetectorLengths, Units, ERR, ExitStates, NIRCAM_STRING, STARBUG_DATA_DIR,
-    TableColumn, MIRI_STRING, MIRI_IMAGE)
-from starbug2.core.main_components.starbug_main_detect import StarbugMainDetect
-from starbug2.utilities.filters import STAR_BUG_FILTERS, FilterStruct
-from starbug2.routines.app_hot_routine import APPhotRoutine
+    FITS_EXTENSION, DQ, AREA, WHT, ExitStates, TableColumn)
+from starbug2.core.main_components.aperture_photometry import (
+    AperturePhotometry)
+from starbug2.core.main_components.detect import Detect
+
+from starbug2.core.main_components.photometry import Photometry
+from starbug2.utilities.filters import STAR_BUG_FILTERS
 from starbug2.routines.background_estimate_routine import (
     BackGroundEstimateRoutine)
-from starbug2.routines.psf_phot_routine import PSFPhotRoutine
 from starbug2.routines.source_properties import SourceProperties
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.interfaces.star_bug_interface import StarBugInterface
 from starbug2.utilities.utils import (
-    collapse_header, parse_unit, get_version, ext_names, printf,
-    split_file_name, p_error, warn, import_table, get_mj_ysr2jy_scale_factor,
-    flux2mag, reindex, export_table)
+    collapse_header, get_version, ext_names, printf, split_file_name, p_error,
+    warn, import_table, reindex, get_data_path)
 
 
 class StarbugBase(StarBugInterface):
@@ -59,17 +54,6 @@ class StarbugBase(StarBugInterface):
     MIN_MAG: Final[int] = 27
     MAX_MAG: Final[int] = 18
 
-    @staticmethod
-    def get_data_path() -> str:
-        """
-        Returns the data path.
-
-        :return: The data path
-        :rtype: str
-        """
-        env_path: str | None = getenv(STARBUG_DATA_DIR)
-        return (env_path if env_path else
-                "%s/.local/share/starbug" % (getenv("HOME")))
 
     @staticmethod
     def sort_output_names(
@@ -144,9 +128,9 @@ class StarbugBase(StarBugInterface):
         self._psf: np.ndarray | None = None
 
         # Overridden configs
-        self._ap_file = ap_file
-        self._background_file = bkg_file
-        self._full_width_half_max = config.full_width_half_max
+        self._ap_file: str | None = ap_file
+        self._background_file: str | None = bkg_file
+        self._full_width_half_max: float = config.full_width_half_max
 
         # Process options
         # Load the fits image
@@ -249,8 +233,8 @@ class StarbugBase(StarBugInterface):
                     elif WHT in extension_names:
                         self._stage = 3.0
                     elif HeaderTags.CALIBRATION_LV in self.main_image().header:
-                        self._stage = (
-                            self.main_image().header[HeaderTags.CALIBRATION_LV])
+                        self._stage = (self.main_image().header[
+                            HeaderTags.CALIBRATION_LV])
                     else:
                         warn("Unable to determine calibration level, "
                              "assuming stage 3\n")
@@ -361,114 +345,6 @@ class StarbugBase(StarBugInterface):
         else:
             p_error("BGD_FILE='%s' does not exist\n" % f_name)
 
-    # noinspection SpellCheckingInspection
-    def load_psf(self, f_name: str | None = None) -> ExitStates:
-        """
-        Load a PSF_FILE to be used during photometry.
-
-        :param f_name: Filename of a PSF fits image
-        :type f_name: str
-        :return: The exit status state
-        :rtype: ExitStates
-        """
-        status: ExitStates = ExitStates.EXIT_SUCCESS
-        assert self._filter is not None
-        if not f_name:
-            filter_struct: FilterStruct | None = (
-                STAR_BUG_FILTERS.get(self._filter))
-            if filter_struct:
-                dt_name: str = self.info[ImageHeaderTags.DETECTOR]
-                if dt_name == "NRCALONG":
-                    dt_name = "NRCA5"
-                if dt_name == "NRCBLONG":
-                    dt_name = "NRCB5"
-                if dt_name == "MULTIPLE":
-                    if (filter_struct.instr == NIRCAM
-                            and filter_struct.length == DetectorLengths.SHORT):
-                        dt_name = "NRCA1"
-                    elif (filter_struct.instr == NIRCAM and
-                          filter_struct.length == DetectorLengths.LONG):
-                        dt_name = "NRCA5"
-                    elif filter_struct.instr == MIRI_STRING:
-                        dt_name = ""
-                if dt_name == MIRI_IMAGE:
-                    dt_name = ""
-                f_name = "%s/%s%s.fits" % (
-                    StarbugBase.get_data_path(), self._filter, dt_name)
-            else:
-                status = ExitStates.EXIT_FAIL
-
-        if f_name is not None and os.path.exists(f_name):
-            fp: HDUList = open(f_name)
-
-            if fp[0].data is None:
-                p_error(
-                    "There is a version mismatch between starbug and "
-                    "webbpsf. Please reinitialise with: starbug2 --init.\n")
-                quit("Fatal error, quitting\n")
-
-            self._psf = fp[0].data
-            fp.close()
-            self.log("loaded PSF_FILE='%s'\n" % f_name)
-        else:
-            p_error("PSF_FILE='%s' does not exist\n" % f_name)
-            status = ExitStates.EXIT_FAIL
-        return status
-
-    def prepare_image_arrays(self) -> (
-            Tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray]):
-        """
-        Make a copy of the original image, and prepare the other image arrays.
-
-        :return: Tuple of image, error, background, and validation mask arrays
-        :rtype: tuple of (np.ndarray, np.ndarray, np.ndarray or None,
-                          np.ndarray)
-        """
-        # Collect scale factor
-        scale_factor: int | float
-        if self.header().get(ImageHeaderTags.BUN_IT) == "MJy/sr":
-            scale_factor = get_mj_ysr2jy_scale_factor(self.main_image())
-            self.log(
-                "-> converting unit from MJy/sr to Jr with factor: %e\n"
-                % scale_factor)
-        else:
-            scale_factor = 1
-
-        image: np.ndarray = self.main_image().data.copy() * scale_factor
-
-        # Scale by area
-        extension_names: list[str] = ext_names(self._image)
-        assert self._image is not None
-        if AREA in extension_names:
-            # AREA distortion correction
-            image *= self._image[AREA].data
-
-        # Collect and scale error
-        error: np.ndarray
-        if ERR in extension_names and np.shape(self._image[ERR]):
-            error = self._image[ERR].data.copy() * scale_factor
-        else:
-            error = np.sqrt(np.abs(image))
-
-        # Create mask
-        mask: np.ndarray
-        if DQ in extension_names:
-            mask = (
-                self._image[DQ].data
-                & (DQFlags.DQ_DO_NOT_USE | DQFlags.DQ_SATURATED))
-            mask = mask.astype(bool)
-        else:
-            mask = (np.isnan(image) | np.isnan(error))
-
-        # Collect and scale background array
-        bgd: np.ndarray | None
-        if self._background is not None:
-            bgd = self._background.data.copy() * scale_factor
-        else:
-            bgd = None
-
-        return image, error, bgd, mask
-
     def detect(self) -> ExitStates:
         """
         Full source detection routine. Saves the result as a table.
@@ -477,7 +353,7 @@ class StarbugBase(StarBugInterface):
         :return: Status
         :rtype: ExitStates
         """
-        main_detect: StarbugMainDetect = StarbugMainDetect()
+        main_detect: Detect = Detect()
         detections: Table | None
         detect_exit_states: ExitStates
         (detect_exit_states, detections) = main_detect.detect(
@@ -494,132 +370,16 @@ class StarbugBase(StarBugInterface):
         :return: Success or failure exit state identifier
         :rtype: ExitStates
         """
-        if self._detections is None:
-            p_error("No detection source file loaded (-d file-ap.fits)\n")
-            return ExitStates.EXIT_FAIL
-        if self._image is None:
-            p_error("No image provided")
-            return ExitStates.EXIT_FAIL
-        if len({TableColumn.X_0, TableColumn.Y_0, TableColumn.X_INIT,
-                TableColumn.Y_INIT, TableColumn.X_CENTROID,
-                TableColumn.Y_CENTROID} & set(self._detections.colnames)) < 2:
-            p_error("No pixel coordinates in source file\n")
-            return ExitStates.EXIT_FAIL
-        if self._filter is None:
-            p_error("no filter name")
-            return ExitStates.EXIT_FAIL
+        main_aperture_photometry: AperturePhotometry = AperturePhotometry()
+        detections: Table
+        result: ExitStates
 
-        new_columns: tuple[str, str, str, str, str, str | None, str] = (
-            TableColumn.SMOOTHNESS, TableColumn.FLUX, TableColumn.E_FLUX,
-            TableColumn.SKY, TableColumn.FLAG, self._filter,
-            "e%s" % self._filter)
-        self._detections.remove_columns(
-            set(new_columns) & set(self._detections.colnames))
-
-        # APERTURE PHOTOMETRY
-        self.log("\nRunning Aperture Photometry\n")
-
-        image: np.ndarray
-        error: np.ndarray
-        mask: np.ndarray
-        image, error, _, mask = self.prepare_image_arrays()
-
-        # Aperture Correction
-        ap_corr_f_name: str | None = None
-        if _ap_corr_f_name := self._config.ap_corr_file_override:
-            ap_corr_f_name = _ap_corr_f_name
-        elif self.info.get(ImageHeaderTags.INSTRUMENT) == NIRCAM_STRING:
-            ap_corr_f_name = (
-                "%s/apcorr_nircam.fits" % StarbugBase.get_data_path())
-        elif self.info.get(ImageHeaderTags.INSTRUMENT) == MIRI_STRING:
-            ap_corr_f_name = (
-                "%s/apcorr_miri.fits" % StarbugBase.get_data_path())
-
-        if ap_corr_f_name:
-            self.log("-> apcorr file: %s\n" % ap_corr_f_name)
-        else:
-            warn("No apcorr file available for instrument\n")
-
-        radius: float = float(self._config.aperture_phot_radius)
-        ee_frac: float = float(self._config.encircled_energy_fraction)
-        sky_in: float = float(self._config.sky_annulus_inner_radius)
-        sky_out: float = float(self._config.sky_annulus_outer_radius)
-
-        if ee_frac >= 0:
-            radius = APPhotRoutine.radius_from_enc_energy(
-                self._filter, ee_frac, ap_corr_f_name)
-            if radius > 0:
-                self.log(
-                    "-> calculating aperture radius from encircled energy\n")
-
-        if radius <= 0:
-            if (radius := self._full_width_half_max) > 0:
-                self.log("-> using FWHM as aperture radius\n")
-            else:
-                self.log(
-                    "No valid aperture radius was detected. defaulting "
-                    "to default value of 2")
-                radius = 2.0
-
-        ap_corr: float = APPhotRoutine.calc_ap_corr(
-            self._filter, radius, table_f_name=ap_corr_f_name,
-            verbose=self._config.verbose_logs)
-
-        # Run Photometry
-        app_hot: APPhotRoutine = APPhotRoutine(
-            radius, sky_in, sky_out, verbose=self._config.verbose_logs)
-
-        dq_flags: np.ndarray | None
-        if DQ in ext_names(self._image):
-            dq_flags = self._image[DQ].data.copy()
-        else:
-            dq_flags = None
-        ap_cat: Table = app_hot(
-            image, self._detections, error=error, dq_flags=dq_flags,
-            ap_corr=ap_corr, sig_sky=self._config.sigma_sky)
-
-        filter_string: str = self._filter if self._filter else "mag"
-
-        # Extract magnitudes
-        mag: float
-        mag_err: float
-        mag, mag_err = flux2mag(
-            ap_cat[TableColumn.FLUX], ap_cat[TableColumn.E_FLUX])
-
-        # Add columns to the catalogue
-        ap_cat.add_column(Column(
-            mag + self._config.zero_point_magnitude, filter_string))
-        ap_cat.add_column(Column(
-            mag_err, "e%s" % filter_string))
-
-        # Update detections
-        self._detections = hstack((self._detections, ap_cat))
-
-        # Check for insanity
-        if self._detections is None:
-            return ExitStates.EXIT_FAIL
-
-        if self._config.clean_sources:
-            detections_length = len(self._detections)
-            if (smooth_lo := self._config.smooth_low) != "":
-                self._detections.remove_rows(
-                    self._detections[TableColumn.SMOOTHNESS] < smooth_lo)
-            if (smooth_hi := self._config.smooth_high) != "":
-                self._detections.remove_rows(
-                    self._detections[TableColumn.SMOOTHNESS] > smooth_hi)
-            if len(self._detections) != detections_length:
-                self.log("-> removing %d sources outside SMOOTH range\n"
-                         % (detections_length - len(self._detections)))
-
-        reindex(self._detections)
-        self._detections.meta[HeaderTags.FILTER] = self._filter
-
-        f_name = "%s/%s-ap.fits" % (self._out_dir, self._b_name)
-        printf(f"going to save ap file at {f_name}")
-        self.log("--> %s\n" % f_name)
-        export_table(self._detections, f_name, header=self.header())
-
-        return ExitStates.EXIT_SUCCESS
+        (detections, result) = main_aperture_photometry.aperture_photometry(
+            self.detections, self.image, self._filter, self.log, self._config,
+            self.info, self._full_width_half_max, self.out_dir, self._b_name,
+            self.header(), self._background, self.main_image())
+        self._detections = detections
+        return result
 
     def bgd_estimate(self) -> ExitStates:
         """
@@ -744,231 +504,21 @@ class StarbugBase(StarBugInterface):
         :return: 0 for success, 1 otherwise
         :rtype int
         """
-        if self._filter is None or self._wcs is None:
-            return ExitStates.EXIT_FAIL
+        star_bug_photometry: Photometry = Photometry()
+        result: ExitStates
+        psf_catalogue: Table | None
+        residuals: np.ndarray | None
+        (result, psf_catalogue, residuals) = (
+            star_bug_photometry.photometry_routine(
+                self._filter, self._wcs, self._config, self.main_image(),
+                self.log, self.image, self.info,  self._background,
+                self.header(), self._detections, self._psf,
+                self._full_width_half_max, self._ap_file,
+                self._background_file, self._out_dir, self._b_name))
+        self._psf_catalogue = psf_catalogue
+        self._residuals = residuals
+        return result
 
-        if self.main_image():
-            self.log("\nRunning PSF Photometry\n")
-
-            # lock the types.
-            image: np.ndarray
-            error: np.ndarray
-            bgd: np.ndarray | None
-            mask: np.ndarray
-            image, error, bgd, mask = self.prepare_image_arrays()
-
-            if bgd is None:
-                clipped_median: float
-                _, clipped_median, _ = (
-                    sigma_clipped_stats(image, sigma=self._config.sigma_sky))
-                bgd = np.ones(self.main_image().shape) * clipped_median
-                self.log(
-                    "-> no background file loaded, measuring sigma "
-                    "clipped median\n")
-            assert bgd is not None
-
-            # Collect relevant files and data
-            if self._detections is None:
-                p_error("unable to run photometry: no source list loaded\n")
-                return ExitStates.EXIT_FAIL
-
-            if (self._psf is None
-                and self.load_psf(
-                    os.path.expandvars(self._config.psf_file_override))):
-                p_error("unable to run photometry: no PSF loaded\n")
-                return ExitStates.EXIT_FAIL
-
-            psf_mask: np.ndarray = ~np.isfinite(self._psf)
-            if psf_mask.sum():
-                assert self._psf is not None
-                self._psf[psf_mask] = 0
-                self.log("-> masking INF pixels in PSF_FILE\n")
-
-            psf_model: ImagePSF = ImagePSF(data=self._psf)
-            size: int
-            if self._config.psf_fit_size > 0:
-                size = self._config.psf_fit_size
-            else:
-                size = psf_model.shape[0]
-            if not size % 2:
-                size -= 1
-            self.log("-> psf size: %d\n" % size)
-
-            # Sort out Init guesses
-            app_hot_r: float = float(self._config.aperture_phot_radius)
-            if not app_hot_r or app_hot_r <= 0:
-                app_hot_r = 3.0
-
-            init_guesses: Table = self._detections.copy()
-
-            # noinspection DuplicatedCode
-            if TableColumn.X_CENTROID in init_guesses.colnames:
-                init_guesses.rename_column(
-                    TableColumn.X_CENTROID, TableColumn.X_INIT)
-            if TableColumn.Y_CENTROID in init_guesses.colnames:
-                init_guesses.rename_column(
-                    TableColumn.Y_CENTROID, TableColumn.Y_INIT)
-            if TableColumn.X_DET in init_guesses.colnames:
-                init_guesses.rename_column(
-                    TableColumn.X_DET, TableColumn.X_INIT)
-            if TableColumn.Y_DET in init_guesses.colnames:
-                init_guesses.rename_column(
-                    TableColumn.Y_DET, TableColumn.Y_INIT)
-
-            init_guesses = init_guesses[init_guesses[TableColumn.X_INIT] >= 0]
-            init_guesses = init_guesses[init_guesses[TableColumn.Y_INIT] >= 0]
-            init_guesses = init_guesses[
-                init_guesses[TableColumn.X_INIT]
-                < self.main_image().header[HeaderTags.NAXIS1]]
-            init_guesses = init_guesses[
-                init_guesses[TableColumn.Y_INIT]
-                < self.main_image().header[HeaderTags.NAXIS2]]
-
-            # Allow tables that don't have the correct columns through
-            required: List[str] = [
-                TableColumn.X_INIT, TableColumn.Y_INIT, TableColumn.FLUX,
-                self._filter, TableColumn.FLAG]
-            for notfound in set(required) - set(init_guesses.colnames):
-                dtype = np.uint16 if notfound == TableColumn.FLAG else float
-                init_guesses.add_column(
-                    Column(np.zeros(len(init_guesses)),
-                           name=notfound, dtype=dtype))
-
-            init_guesses = init_guesses[required]
-            init_guesses.remove_column(TableColumn.FLUX)
-            init_guesses.rename_column(self._filter, "ap_%s" % self._filter)
-
-            # Run Fit
-            min_separation: float = self._config.critical_separation
-            if not min_separation:
-                min_separation = min(5.0, 2.5 * self._full_width_half_max)
-
-            if self._config.force_centroid_position:
-                phot: PSFPhotRoutine = PSFPhotRoutine(
-                    psf_model, size, min_separation=min_separation,
-                    app_hot_r=app_hot_r, background=bgd, force_fit=1,
-                    verbose=self._config.verbose_logs)
-                psf_cat: Table = phot(
-                    image, init_params=init_guesses, error=error,
-                    mask=mask)
-                psf_cat[TableColumn.FLAG] |= SourceFlags.SRC_FIX
-
-            else:
-                phot = PSFPhotRoutine(
-                    psf_model, size, min_separation=min_separation,
-                    app_hot_r=app_hot_r, background=bgd, force_fit=0,
-                    verbose=self._config.verbose_logs)
-                psf_cat = phot(
-                    image, init_params=init_guesses, error=error,
-                    mask=mask)
-
-                if not psf_cat:
-                    return ExitStates.EXIT_FAIL
-
-                # Setting position max variation
-                max_y_dev: float
-                unit: int
-                max_y_dev, unit = parse_unit(self._config.max_xy_deviation)
-                if unit is not None:
-                    if unit == Units.DEG:
-                        max_y_dev *= 60
-                        unit = Units.ARCMIN
-                    if unit == Units.ARCMIN:
-                        max_y_dev *= 60
-                        unit = Units.ARCSEC
-                    if unit == Units.ARCSEC:
-                        if not self.header().get(ImageHeaderTags.PIXAR_A2):
-                            warn(
-                                "MAX_XYDEV is units arcseconds, but starbug "
-                                "cannot locate a pixel scale in the header."
-                                " Please use syntax MAX_XYDEV=%sp to set "
-                                "change to pixels\n" % max_y_dev)
-                        else:
-                            max_y_dev /= np.sqrt(
-                                self.header().get(ImageHeaderTags.PIXAR_A2))
-
-                if max_y_dev > 0:
-                    self.log(
-                        "-> position fit threshold: %.2gpix\n" % max_y_dev)
-                    phot = PSFPhotRoutine(
-                        psf_model, size, min_separation=min_separation,
-                        app_hot_r=app_hot_r, background=bgd, force_fit=1,
-                        verbose=self._config.verbose_logs)
-                    ii: np.ndarray = psf_cat[TableColumn.XY_DEV] > max_y_dev
-                    fixed_centres: Table = psf_cat[ii][
-                        [TableColumn.X_INIT, TableColumn.Y_INIT,
-                         "ap_%s" % self._filter, TableColumn.FLAG]]
-                    if len(fixed_centres):
-                        self.log("-> forcing positions for deviant sources\n")
-                        fixed_cat: Table = phot(
-                            image, init_params=fixed_centres,
-                            error=error, mask=mask)
-                        # ABS. why are we using such an aggressive type check
-                        # here?
-                        fixed_cat[TableColumn.FLAG] |= (
-                            np.uint16(SourceFlags.SRC_FIX))
-                        psf_cat.remove_rows(ii.tolist())
-                        psf_cat = vstack((psf_cat, fixed_cat))
-                    else:
-                        self.log("-> no deviant sources\n")
-            ra: np.ndarray
-            dec: np.ndarray
-            ra, dec = self._wcs.all_pix2world(
-                psf_cat[TableColumn.X_FIT], psf_cat[TableColumn.Y_FIT], 0)
-            psf_cat.add_column(Column(ra, name=TableColumn.RA), index=2)
-            psf_cat.add_column(Column(dec, name=TableColumn.DEC), index=3)
-
-            mag: float
-            mag_err: float
-            mag, mag_err = flux2mag(
-                psf_cat[TableColumn.FLUX], psf_cat[TableColumn.E_FLUX])
-
-            filter_string: str = (
-                self._filter if self._filter else TableColumn.MAG)
-            psf_cat.add_column(
-                mag + self._config.zero_point_magnitude, name=filter_string)
-            psf_cat.add_column(mag_err, name="e%s" % filter_string)
-            self._psf_catalogue = psf_cat
-
-            # verify catalogue isnt none
-            assert self._psf_catalogue is not None
-
-            self._psf_catalogue.meta = dict(self.header().items())
-            self._psf_catalogue.meta[AP_FILE] = self._ap_file
-            self._psf_catalogue.meta[BGD_FILE] = self._background_file
-
-            reindex(self._psf_catalogue)
-
-            file_name: str = (
-                "%s/%s-psf.fits" % (self._out_dir, self._b_name))
-            self.log("--> %s\n" % file_name)
-            BinTableHDU(
-                data=self._psf_catalogue,
-                header=self.header()).writeto(file_name, overwrite=True)
-
-            # Residual Image
-            if self._config.generate_residual_image:
-                self.log("-> generating residual\n")
-                _tmp: Table = psf_cat[
-                    TableColumn.X_FIT, TableColumn.Y_FIT,
-                    TableColumn.FLUX].copy()
-                _tmp.rename_columns(
-                    (TableColumn.X_FIT, TableColumn.Y_FIT),
-                    (TableColumn.X_0, TableColumn.Y_0))
-                stars: np.ndarray = make_model_image(
-                    image.shape, psf_model, _tmp, model_shape=(size, size))
-                residual: np.ndarray = image - (bgd + stars)
-                self._residuals = (
-                    residual / get_mj_ysr2jy_scale_factor(self.main_image()))
-                header: Header = self.header()
-                header.update(self._wcs.to_header())
-                ImageHDU(
-                    data=cast(Any, self._residuals),
-                    name="RES", header=header).writeto(
-                    "%s/%s-res.fits" % (self._out_dir, self._b_name),
-                    overwrite=True)
-            return ExitStates.EXIT_SUCCESS
-        return ExitStates.EXIT_FAIL
 
     def source_geometry(self) -> None:
         """
@@ -1021,7 +571,7 @@ class StarbugBase(StarBugInterface):
                  "use \"-s FILTER=XXX\"\n")
             status = ExitStates.EXIT_FAIL
 
-        d_name: str = os.path.expandvars(StarbugBase.get_data_path())
+        d_name: str = os.path.expandvars(get_data_path())
         if not os.path.exists(d_name):
             warn("Unable to locate STARBUG_DATDIR='%s'\n" % d_name)
 
@@ -1086,7 +636,6 @@ class StarbugBase(StarBugInterface):
         self._config.unfreeze()
         self._config.verbose_logs = v
         self._config.freeze()
-
 
     def header(self) -> Header:
         """

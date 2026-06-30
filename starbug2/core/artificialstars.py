@@ -28,6 +28,7 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
 from starbug2.core.constants import ExitStates, TableColumn
+from starbug2.core.main_components.photometry import Photometry
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.interfaces.star_bug_interface import StarBugInterface
 
@@ -72,13 +73,17 @@ class ArtificialStars:
         # Initials the starbug instance
         self._starbug: StarBugInterface = starbug
         _ = self._starbug.main_image
-        psf_success: int = self._starbug.load_psf()
+        psf_success: int
+        psf: np.ndarray | None
+        (psf_success, psf) = Photometry.load_psf(
+            self._starbug.filter, self._starbug.info, self._starbug.log,
+            self._starbug.f_name)
 
         if psf_success != ExitStates.EXIT_SUCCESS:
             warn("the psf file was not loaded. Expected failure.")
             raise Exception("the psf file failed to load.")
 
-        self._psf: ImagePSF = ImagePSF(self._starbug.psf)
+        self._psf: ImagePSF = ImagePSF(psf)
         self._index: int = index
 
     def execute_ast(

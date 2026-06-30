@@ -937,7 +937,6 @@ class StarBugMainConfig:
         :return: the full_width_half_max
         :rtype: float
         """
-        full_width_half_max: float
         if self._full_width_half_max > 0:
             return self._full_width_half_max
         elif filter_struct:

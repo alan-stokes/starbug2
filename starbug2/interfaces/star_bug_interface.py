@@ -14,13 +14,15 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 from abc import ABC, abstractmethod
+from typing import Tuple, Callable
 
 from astropy.table import Table
 from astropy.io.fits import PrimaryHDU, ImageHDU, HDUList, Header
 
 import numpy as np
 
-from starbug2.core.constants import ExitStates
+from starbug2.core.constants import ExitStates, ImageHeaderTags, AREA, ERR, DQ, DQFlags
+from starbug2.utilities.utils import get_mj_ysr2jy_scale_factor, ext_names
 
 
 class StarBugInterface(ABC):
@@ -72,30 +74,6 @@ class StarBugInterface(ABC):
                        main image
         :type f_name: str or None
         :return: None
-        """
-        pass
-
-    @abstractmethod
-    def load_psf(self, f_name: str | None = None) -> ExitStates:
-        """
-        Load a PSF_FILE to be used during photometry
-
-        :param f_name: Filename of a PSF fits image
-        :type f_name: str or None
-        :return: The execution status (0 for success, non-zero for failure)
-        :rtype: ExitStates
-        """
-        pass
-
-    @abstractmethod
-    def prepare_image_arrays(self) -> tuple[
-            np.ndarray, np.ndarray, np.ndarray | None, np.ndarray]:
-        """
-        Make a copy of the original image, and prepare the other image arrays
-
-        :return: A tuple containing (image, error, bgd, mask) arrays
-        :rtype: tuple of (np.ndarray, np.ndarray, np.ndarray or None,
-                          np.ndarray)
         """
         pass
 
@@ -261,3 +239,73 @@ class StarBugInterface(ABC):
     @abstractmethod
     def out_dir(self) -> str | None:
         pass
+
+    @staticmethod
+    def prepare_image_arrays(
+            image: HDUList | None, log: Callable[[str], None],
+            background: ImageHDU | PrimaryHDU | None,
+            header: Header, main_image: ImageHDU | PrimaryHDU) -> (
+            Tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray]):
+        """
+        Make a copy of the original image, and prepare the other image arrays
+
+        Extracts and copies primary data, handles associated variance or error
+        extensions, validates background arrays, and generates pixel masks.
+
+        :param image: Full FITS HDU list containing the data extensions.
+        :type image: HDUList | None
+        :param log: Callable logging function for status tracking.
+        :type log: Callable[[str], None]
+        :param background: Estimated background map array image if loaded.
+        :type background: ImageHDU | PrimaryHDU | None
+        :param header: FITS header containing primary data metadata.
+        :type header: Header
+        :param main_image: Primary target image array used for measurements.
+        :type main_image: ImageHDU | PrimaryHDU
+        :return: A tuple containing (image, error, bgd, mask) arrays.
+        :rtype: Tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray]
+        """
+        # Collect scale factor
+        scale_factor: int | float
+        if header.get(ImageHeaderTags.BUN_IT) == "MJy/sr":
+            scale_factor = get_mj_ysr2jy_scale_factor(main_image)
+            log(
+                "-> converting unit from MJy/sr to Jr with factor: %e\n"
+                % scale_factor)
+        else:
+            scale_factor = 1
+
+        image_data: np.ndarray = main_image.data.copy() * scale_factor
+
+        # Scale by area
+        extension_names: list[str] = ext_names(image)
+        assert image is not None
+        if AREA in extension_names:
+            # AREA distortion correction
+            image_data *= image[AREA].data
+
+        # Collect and scale error
+        error: np.ndarray
+        if ERR in extension_names and np.shape(image[ERR]):
+            error = image[ERR].data.copy() * scale_factor
+        else:
+            error = np.sqrt(np.abs(image_data))
+
+        # Create mask
+        mask: np.ndarray
+        if DQ in extension_names:
+            mask = (
+                image[DQ].data
+                & (DQFlags.DQ_DO_NOT_USE | DQFlags.DQ_SATURATED))
+            mask = mask.astype(bool)
+        else:
+            mask = (np.isnan(image_data) | np.isnan(error))
+
+        # Collect and scale background array
+        bgd: np.ndarray | None
+        if background is not None:
+            bgd = background.data.copy() * scale_factor
+        else:
+            bgd = None
+
+        return image_data, error, bgd, mask

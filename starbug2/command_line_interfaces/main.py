@@ -36,7 +36,7 @@ from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
 from starbug2.utilities.utils import (
     combine_file_names, export_region, export_table, get_version, parse_cmd,
-    p_error, printf, puts, split_file_name, usage, warn)
+    p_error, printf, puts, split_file_name, usage, warn, get_data_path)
 
 # Target-silence only the specific Photutils/Astropy deprecation noise
 # without masking generic Runtime math errors globally.
@@ -214,7 +214,7 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> ExitStates:
                     "%s%s.fits" %
                     (filter_string, "" if detector is None else detector))
                 printf("--> %s\n" % name)
-                d_name: str = StarbugBase.get_data_path()
+                d_name: str = get_data_path()
                 psf.writeto(os.path.join(d_name, name), overwrite=True)
             else:
                 p_error("PSF Generation failed :(\n")

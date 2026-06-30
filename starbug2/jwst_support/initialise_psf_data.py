@@ -24,8 +24,8 @@ from starbug2.utilities.filters import STAR_BUG_FILTERS, FilterStruct
 from astropy.io import fits
 
 from starbug2.core.star_bug_config import StarBugMainConfig
-from starbug2.core.starbug_main import StarbugBase
-from starbug2.utilities.utils import printf, wget, puts, Loading, p_error
+from starbug2.utilities.utils import (
+    printf, wget, puts, Loading, p_error, get_data_path)
 import stpsf
 
 # noinspection SpellCheckingInspection
@@ -51,7 +51,7 @@ def init_starbug_for_jwst(config: StarBugMainConfig) -> None:
     """
     printf("Initialising StarbugII\n")
 
-    data_name: str = StarbugBase.get_data_path()
+    data_name: str = get_data_path()
 
     # noinspection SpellCheckingInspection
     printf("-> using %s=%s\n" % (
@@ -105,7 +105,7 @@ def _generate_psfs(config: StarBugMainConfig) -> None:
     utilises the star bug data patj to generate the directory to generate info
     :return:
     """
-    d_name: str = StarbugBase.get_data_path()
+    d_name: str = get_data_path()
     if os.getenv(WEBBPSF_PATH_ENV_VAR):
         d_name = os.path.expandvars(d_name)
         if not os.path.exists(d_name):

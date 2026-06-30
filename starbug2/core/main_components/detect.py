@@ -26,7 +26,7 @@ from starbug2.utilities.filters import STAR_BUG_FILTERS
 from starbug2.utilities.utils import printf, p_error
 
 
-class StarbugMainDetect:
+class Detect:
     """
     this class contains the main logic for running detection from
     starbug main.

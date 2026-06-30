@@ -27,7 +27,7 @@ from starbug2.core.constants import (
     STAR_BUG_TEST_DAT_ENV, ImageHeaderTags, MIRI_STRING, MIRI_IMAGE)
 from starbug2.jwst_support.initialise_psf_data import download_ap_corr_files
 from starbug2.core.star_bug_config import StarBugMainConfig
-from starbug2.core.starbug_main import StarbugBase
+from starbug2.utilities.utils import get_data_path
 
 # paths to test files
 TEST_PATH: Final[str | None] = os.getenv(STAR_BUG_TEST_DAT_ENV)
@@ -154,7 +154,7 @@ def make_psf_for_blank() -> None:
     creates the psf used by blank.psf and downloads the ap_corr files
     :return: None
     """
-    file_path: str = os.path.join(StarbugBase.get_data_path(), "F770W.fits")
+    file_path: str = os.path.join(get_data_path(), "F770W.fits")
     if os.path.exists(file_path):
         return
 
@@ -164,4 +164,4 @@ def make_psf_for_blank() -> None:
     psf_config.detector_name = None
     psf_config.psf_fit_size = None
     starbug_internal_main(psf_config)
-    download_ap_corr_files(StarbugBase.get_data_path())
+    download_ap_corr_files(get_data_path())
