@@ -24,6 +24,47 @@ from starbug2.utilities.utils import (
 
 class Photometry:
 
+    @staticmethod
+    def determine_f_name(filter_string: str | None, f_name: str | None,
+                         info: dict[str, str]) -> str | None:
+        """
+        Finds the file name for the PSF if not provided
+        :param filter_string: Name of the photometric filter band used.
+        :type filter_string: str | None
+        :param f_name: Filename of a PSF fits image
+        :type f_name: str
+        :param info: Metadata dictionary detailing execution properties.
+        :type info: dict[str, str]
+        :return: the correct psf file name
+        :rtype: str
+        """
+        assert filter_string is not None
+        if not f_name:
+            filter_struct: FilterStruct | None = (
+                STAR_BUG_FILTERS.get(filter_string))
+            if filter_struct:
+                dt_name: str = info[ImageHeaderTags.DETECTOR]
+                if dt_name == "NRCALONG":
+                    dt_name = "NRCA5"
+                if dt_name == "NRCBLONG":
+                    dt_name = "NRCB5"
+                if dt_name == "MULTIPLE":
+                    if (filter_struct.instr == NIRCAM
+                            and filter_struct.length == DetectorLengths.SHORT):
+                        dt_name = "NRCA1"
+                    elif (filter_struct.instr == NIRCAM and
+                          filter_struct.length == DetectorLengths.LONG):
+                        dt_name = "NRCA5"
+                    elif filter_struct.instr == MIRI_STRING:
+                        dt_name = ""
+                if dt_name == MIRI_IMAGE:
+                    dt_name = ""
+                f_name = "%s/%s%s.fits" % (
+                    get_data_path(), filter_string, dt_name)
+            else:
+                f_name = None
+        return f_name
+
     # noinspection SpellCheckingInspection
     @staticmethod
     def load_psf(
@@ -44,31 +85,7 @@ class Photometry:
         :rtype: Tuple[ExitStates, np.ndarray | None]
         """
         status: ExitStates = ExitStates.EXIT_SUCCESS
-        assert filter_string is not None
-        if not f_name:
-            filter_struct: FilterStruct | None = (
-                STAR_BUG_FILTERS.get(filter_string))
-            if filter_struct:
-                dt_name: str = info[ImageHeaderTags.DETECTOR]
-                if dt_name == "NRCALONG":
-                    dt_name = "NRCA5"
-                if dt_name == "NRCBLONG":
-                    dt_name = "NRCB5"
-                if dt_name == "MULTIPLE":
-                    if (filter_struct.instr == NIRCAM
-                        and filter_struct.length == DetectorLengths.SHORT):
-                        dt_name = "NRCA1"
-                    elif (filter_struct.instr == NIRCAM and
-                          filter_struct.length == DetectorLengths.LONG):
-                        dt_name = "NRCA5"
-                    elif filter_struct.instr == MIRI_STRING:
-                        dt_name = ""
-                if dt_name == MIRI_IMAGE:
-                    dt_name = ""
-                f_name = "%s/%s%s.fits" % (
-                    get_data_path(), filter_string, dt_name)
-            else:
-                status = ExitStates.EXIT_FAIL
+        f_name = Photometry.determine_f_name(filter_string, f_name, info)
 
         psf: np.ndarray | None = None
         if f_name is not None and os.path.exists(f_name):
