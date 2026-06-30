@@ -766,6 +766,10 @@ class StarbugBase(StarBugInterface):
     def psf(self) -> np.ndarray | None:
         return self._psf
 
+    @psf.setter
+    def psf(self, new_value: np.ndarray) -> None:
+        self._psf = new_value
+
     @property
     def f_name(self) -> str | None:
         return self._f_name

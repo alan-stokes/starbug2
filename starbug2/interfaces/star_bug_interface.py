@@ -220,6 +220,11 @@ class StarBugInterface(ABC):
     def psf(self) -> np.ndarray | None:
         pass
 
+    @psf.setter
+    @abstractmethod
+    def psf(self, new_value: np.ndarray) -> None:
+        pass
+
     @property
     @abstractmethod
     def f_name(self) -> str | None:

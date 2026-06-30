@@ -77,6 +77,7 @@ class ArtificialStars:
         psf: np.ndarray | None
         (psf_success, psf) = Photometry.load_psf(
             self._starbug.filter, self._starbug.info, self._starbug.log)
+        self._starbug.psf = psf
 
         if psf_success != ExitStates.EXIT_SUCCESS:
             warn("the psf file was not loaded. Expected failure.")
