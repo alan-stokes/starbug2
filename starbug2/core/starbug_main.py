@@ -54,7 +54,6 @@ class StarbugBase(StarBugInterface):
     MIN_MAG: Final[int] = 27
     MAX_MAG: Final[int] = 18
 
-
     @staticmethod
     def sort_output_names(
         f_name: str, param_output: str | None = None
@@ -519,10 +518,9 @@ class StarbugBase(StarBugInterface):
         self._residuals = residuals
         return result
 
-
     def source_geometry(self) -> None:
         """
-        Calculate source geometry stats for a given image and source list
+        Calculate source geometry stats for a given image and source list.
         :return: None
         """
         if self._detections is None:
