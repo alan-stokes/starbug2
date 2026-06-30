@@ -66,7 +66,7 @@ class Photometry:
                 if dt_name == MIRI_IMAGE:
                     dt_name = ""
                 f_name = "%s/%s%s.fits" % (
-                    get_data_path(), filter, dt_name)
+                    get_data_path(), filter_string, dt_name)
             else:
                 status = ExitStates.EXIT_FAIL
 
@@ -137,12 +137,14 @@ class Photometry:
                 p_error("unable to run photometry: no source list loaded\n")
                 return ExitStates.EXIT_FAIL, None, None
 
-            if (psf is None
-                and Photometry.load_psf(
+            if psf is None:
+                result: ExitStates
+                (result, psf) = Photometry.load_psf(
                     filter_string, info, log,
-                    os.path.expandvars(config.psf_file_override))):
-                p_error("unable to run photometry: no PSF loaded\n")
-                return ExitStates.EXIT_FAIL, None, None
+                    os.path.expandvars(config.psf_file_override))
+                if result != ExitStates.EXIT_SUCCESS:
+                    p_error("unable to run photometry: no PSF loaded\n")
+                    return ExitStates.EXIT_FAIL, None, None
 
             psf_mask: np.ndarray = ~np.isfinite(psf)
             if psf_mask.sum():

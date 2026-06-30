@@ -22,7 +22,8 @@ import numpy as np
 import pytest
 from starbug2.command_line_interfaces.ast import ast_main
 from starbug2.core.constants import ExitStates
-from tests.generic import TEST_IMAGE_FITS, clean, verify_test_data_exists
+from tests.generic import (
+    TEST_IMAGE_FITS, clean, verify_test_data_exists, TEST_PATH)
 
 # main ast run
 c: np.ndarray = np.array([0, 0, 0], dtype=np.int64)
@@ -43,10 +44,12 @@ def test_run_basic():
     verify_test_data_exists()
     clean()
     assert (run(
-        f"starbug2-ast -N10 -S10 {TEST_FILTER_STRING}") ==
+        f"starbug2-ast -N10 -S10 "
+        f"--output={TEST_PATH} {TEST_FILTER_STRING}") ==
             ExitStates.EXIT_SUCCESS)
     assert (run(
-        f"starbug2-ast -N30 -S10 -n3 {TEST_FILTER_STRING}") ==
+        f"starbug2-ast -N30 -S10 -n3 "
+        f"--output={TEST_PATH} {TEST_FILTER_STRING}") ==
             ExitStates.EXIT_SUCCESS)
     assert run(
         f"starbug2-ast -N30 -S10 -n3 -o /tmp/"
