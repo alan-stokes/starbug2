@@ -23,7 +23,8 @@ from parse import parse
 from starbug2.core.constants import (
     SCI, DEFAULT_COLOUR, HeaderTags, AP_FILE, BGD_FILE, PSF_FILE, TableColumn,
     STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, PROBLEMATIC_FILTER_ID,
-    PROBLEMATIC_FILTER_WARNING, DEFAULT_PARAM_TEMPLATE, STARBUG_DATA_DIR, DEFAULT_FULL_WIDTH_HALF_MAX)
+    PROBLEMATIC_FILTER_WARNING, DEFAULT_PARAM_TEMPLATE, STARBUG_DATA_DIR,
+    DEFAULT_FULL_WIDTH_HALF_MAX)
 from starbug2.utilities.filters import FilterStruct
 from starbug2.utilities.utils import p_error, get_version, warn
 

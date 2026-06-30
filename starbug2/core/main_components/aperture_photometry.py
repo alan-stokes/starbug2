@@ -149,7 +149,7 @@ class AperturePhotometry:
             filter_string, radius, table_f_name=ap_corr_f_name,
             verbose=config.verbose_logs)
         return radius, sky_in, sky_out, ap_corr
-        
+
     # noinspection SpellCheckingInspection
     @staticmethod
     def aperture_photometry(
@@ -203,25 +203,25 @@ class AperturePhotometry:
         assert image is not None
         detections = AperturePhotometry.remove_detection_columns(
             detections, filter_string)
-    
+
         # APERTURE PHOTOMETRY
         log("\nRunning Aperture Photometry\n")
-    
+
         image_data: np.ndarray
         error: np.ndarray
         mask: np.ndarray
         image_data, error, _, mask = StarBugInterface.prepare_image_arrays(
             image, log, background, header, main_image)
-    
+
         # Aperture Correction
         radius, sky_in, sky_out, ap_corr = (
             AperturePhotometry.aperture_correction(
                 config, info, log, filter_string, full_width_half_max))
-    
+
         # Run Photometry
         app_hot: APPhotRoutine = APPhotRoutine(
             radius, sky_in, sky_out, verbose=config.verbose_logs)
-    
+
         dq_flags: np.ndarray | None
         if DQ in ext_names(image):
             dq_flags = image[DQ].data.copy()
@@ -230,28 +230,28 @@ class AperturePhotometry:
         ap_cat: Table = app_hot(
             image_data, detections, error=error, dq_flags=dq_flags,
             ap_corr=ap_corr, sig_sky=config.sigma_sky)
-    
+
         filter_string: str = filter_string if filter_string else "mag"
-    
+
         # Extract magnitudes
         mag: float
         mag_err: float
         mag, mag_err = flux2mag(
             ap_cat[TableColumn.FLUX], ap_cat[TableColumn.E_FLUX])
-    
+
         # Add columns to the catalogue
         ap_cat.add_column(Column(
             mag + config.zero_point_magnitude, filter_string))
         ap_cat.add_column(Column(
             mag_err, "e%s" % filter_string))
-    
+
         # Update detections
         detections = hstack((detections, ap_cat))
-    
+
         # Check for insanity
         if detections is None:
             return Table(), ExitStates.EXIT_FAIL
-    
+
         if config.clean_sources:
             detections_length = len(detections)
             if (smooth_lo := config.smooth_low) != "":
@@ -262,14 +262,14 @@ class AperturePhotometry:
                     detections[TableColumn.SMOOTHNESS] > smooth_hi)
             if len(detections) != detections_length:
                 log("-> removing %d sources outside SMOOTH range\n"
-                         % (detections_length - len(detections)))
-    
+                    % (detections_length - len(detections)))
+
         reindex(detections)
         detections.meta[HeaderTags.FILTER] = filter_string
-    
+
         f_name = "%s/%s-ap.fits" % (out_dir, b_name)
         printf(f"going to save ap file at {f_name}")
         log("--> %s\n" % f_name)
         export_table(detections, f_name, header=header)
-    
+
         return detections, ExitStates.EXIT_SUCCESS

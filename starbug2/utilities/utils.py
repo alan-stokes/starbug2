@@ -861,6 +861,7 @@ def get_data_path() -> str:
     return (env_path if env_path else
             "%s/.local/share/starbug" % (os.getenv("HOME")))
 
+
 if __name__ == "__main__":
     print(parse_unit(""))
     print(parse_unit("10p"))
