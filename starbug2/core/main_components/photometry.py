@@ -26,7 +26,7 @@ class Photometry:
 
     @staticmethod
     def _determine_f_name(filter_string: str | None, f_name: str | None,
-                         info: dict[str, str]) -> str | None:
+                          info: dict[str, str]) -> str | None:
         """
         Finds the file name for the PSF if not provided
         :param filter_string: Name of the photometric filter band used.
@@ -113,6 +113,33 @@ class Photometry:
             psf: np.ndarray | None,
             wcs: WCS | None, info, log, config) -> (
                 Tuple[ExitStates, np.ndarray | None]):
+        """
+        Validates pipeline input structures prior to running photometry.
+
+        Verifies the presence of mandatory structures including the image,
+        coordinate system, and source catalog. Automatically attempts to
+        resolve and load a valid PSF model if one is not already provided.
+
+        :param filter_string: Name of the photometric filter band used.
+        :type filter_string: str | None
+        :param main_image: Primary target image array used for measurements.
+        :type main_image: ImageHDU | PrimaryHDU | None
+        :param detections: Table of source positions or None if empty.
+        :type detections: Table | None
+        :param psf: Empirical or modeled point spread function array.
+        :type psf: np.ndarray | None
+        :param wcs: World Coordinate System object for spatial alignment.
+        :type wcs: WCS | None
+        :param info: Metadata dictionary detailing execution properties.
+        :type info: dict[str, str]
+        :param log: Callable logging function for status tracking.
+        :type log: Callable[[str], None]
+        :param config: Configuration instance containing engine parameters.
+        :type config: StarBugMainConfig
+        :return: A tuple containing the execution exit status state and the
+                 resolved PSF model array (or None if validation failed).
+        :rtype: Tuple[ExitStates, np.ndarray | None]
+        """
         if filter_string is None or wcs is None:
             return ExitStates.EXIT_FAIL, None
         if main_image is None:
@@ -132,45 +159,35 @@ class Photometry:
         return ExitStates.EXIT_SUCCESS, psf
 
     @staticmethod
-    def photometry_routine(
-            filter_string: str | None, wcs: WCS | None,
-            config: StarBugMainConfig,
-            main_image: ImageHDU | PrimaryHDU | None,
-            log: Callable[[str], None],
-            image: HDUList | None,
-            info: dict[str, str],
-            background: ImageHDU | PrimaryHDU | None,
-            header: Header,
-            detections: Table | None,
-            psf: np.ndarray | None,
-            full_width_half_max: float,
-            ap_file: str | None,
-            background_file: str | None,
-            out_dir: str | None,
-            b_name: str | None) -> Tuple[int, Table | None, np.ndarray | None]:
+    def prepare_data(
+            image: HDUList | None, log: Callable[[str], None],
+            background: ImageHDU | PrimaryHDU | None, header: Header,
+            main_image: ImageHDU | PrimaryHDU,
+            config: StarBugMainConfig) -> (
+                Tuple[np.ndarray, np.ndarray , np.ndarray, np.ndarray]):
         """
-        Full photometry routine
-        Saves the result as a table self._psf_catalogue,
-        Additionally it appends a residual Image onto the
-        self._residuals HDUList
+        Prepares and conditions image arrays for pipeline processing.
 
-        :return: success state, the psf_catalogue, and residuals
-        :rtype Tuple[int, Table | None, np.ndarray | None]
+        Initializes primary data, error, and mask arrays. If no external
+        background map is provided, a robust background level is measured
+        on-the-fly using sigma-clipped statistics.
+
+        :param image: Full FITS HDU list containing the data extensions.
+        :type image: HDUList | None
+        :param log: Callable logging function for status tracking.
+        :type log: Callable[[str], None]
+        :param background: Estimated background map array image if loaded.
+        :type background: ImageHDU | PrimaryHDU | None
+        :param header: FITS header containing primary data metadata.
+        :type header: Header
+        :param main_image: Primary target image array used for measurements.
+        :type main_image: ImageHDU | PrimaryHDU
+        :param config: Configuration instance containing engine parameters.
+        :type config: StarBugMainConfig
+        :return: A tuple containing four fully processed NumPy arrays:
+                 (image_data, error, background, mask).
+        :rtype: Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
         """
-        result: ExitStates
-        (results, psf) = Photometry.input_checks(
-            filter_string, main_image, detections, psf, wcs, info, log, config)
-        if results != ExitStates.EXIT_SUCCESS:
-            return ExitStates.EXIT_FAIL, None, None
-
-        assert main_image is not None
-        assert detections is not None
-        assert filter_string is not None
-        assert wcs is not None
-
-        log("\nRunning PSF Photometry\n")
-
-        # lock the types.
         image_data: np.ndarray
         error: np.ndarray
         bgd: np.ndarray | None
@@ -188,9 +205,30 @@ class Photometry:
                 "-> no background file loaded, measuring sigma "
                 "clipped median\n")
         assert bgd is not None
+        return image_data, error, bgd, mask
 
-        # Collect relevant files and data
+    @staticmethod
+    def create_psf_model_mask(
+            psf: np.ndarray | None, config: StarBugMainConfig,
+            log: Callable[[str], None]) -> Tuple[np.ndarray, ImagePSF, int]:
+        """
+        Cleans the PSF array, wraps it in a model, and calculates fit size.
 
+        Identifies and masks out non-finite pixels (NaN/Inf) within the raw
+        PSF data, builds an ImagePSF instance, and enforces an odd integer
+        pixel width constraint for the profiling boundary.
+
+        :param psf: Raw empirical or modeled point spread function array.
+        :type psf: np.ndarray
+        :param config: Configuration instance containing engine parameters.
+        :type config: StarBugMainConfig
+        :param log: Callable logging function for status tracking.
+        :type log: Callable[[str], None]
+        :return: A tuple containing the updated boolean mask array, the
+                 initialized ImagePSF model object, and the computed odd-valued
+                 fitting bounding dimension size.
+        :rtype: Tuple[np.ndarray, ImagePSF, int]
+        """
         psf_mask: np.ndarray = ~np.isfinite(psf)
         if psf_mask.sum():
             assert psf is not None
@@ -206,6 +244,13 @@ class Photometry:
         if not size % 2:
             size -= 1
         log("-> psf size: %d\n" % size)
+        return psf_mask, psf_model, size
+
+    @staticmethod
+    def determine_initial_guesses(
+            config: StarBugMainConfig, detections: Table,
+            main_image: ImageHDU | PrimaryHDU, filter_string: str) -> (
+                Tuple[float, Table]):
 
         # Sort out Init guesses
         app_hot_r: float = float(config.aperture_phot_radius)
@@ -250,6 +295,143 @@ class Photometry:
         init_guesses = init_guesses[required]
         init_guesses.remove_column(TableColumn.FLUX)
         init_guesses.rename_column(filter_string, "ap_%s" % filter_string)
+
+        return app_hot_r, init_guesses
+
+    @staticmethod
+    def run_fit(config, full_width_half_max, psf_model, size, app_hot_r, bgd,
+                image_data, init_guesses, error, mask, header, log, filter_string):
+        min_separation: float = config.critical_separation
+        if not min_separation:
+            min_separation = min(5.0, 2.5 * full_width_half_max)
+
+        if config.force_centroid_position:
+            phot: PSFPhotRoutine = PSFPhotRoutine(
+                psf_model, size, min_separation=min_separation,
+                app_hot_r=app_hot_r, background=bgd, force_fit=1,
+                verbose=config.verbose_logs)
+            psf_cat: Table = phot(
+                image_data, init_params=init_guesses, error=error,
+                mask=mask)
+            psf_cat[TableColumn.FLAG] |= SourceFlags.SRC_FIX
+
+        else:
+            phot = PSFPhotRoutine(
+                psf_model, size, min_separation=min_separation,
+                app_hot_r=app_hot_r, background=bgd, force_fit=0,
+                verbose=config.verbose_logs)
+            psf_cat = phot(
+                image_data, init_params=init_guesses, error=error,
+                mask=mask)
+
+            if not psf_cat:
+                return ExitStates.EXIT_FAIL, None, None
+
+            # Setting position max variation
+            max_y_dev: float
+            unit: int
+            max_y_dev, unit = parse_unit(config.max_xy_deviation)
+            if unit is not None:
+                if unit == Units.DEG:
+                    max_y_dev *= 60
+                    unit = Units.ARCMIN
+                if unit == Units.ARCMIN:
+                    max_y_dev *= 60
+                    unit = Units.ARCSEC
+                if unit == Units.ARCSEC:
+                    if not header.get(ImageHeaderTags.PIXAR_A2):
+                        warn(
+                            "MAX_XYDEV is units arcseconds, but starbug "
+                            "cannot locate a pixel scale in the header."
+                            " Please use syntax MAX_XYDEV=%sp to set "
+                            "change to pixels\n" % max_y_dev)
+                    else:
+                        max_y_dev /= np.sqrt(
+                            header.get(ImageHeaderTags.PIXAR_A2))
+
+            if max_y_dev > 0:
+                log(
+                    "-> position fit threshold: %.2gpix\n" % max_y_dev)
+                phot = PSFPhotRoutine(
+                    psf_model, size, min_separation=min_separation,
+                    app_hot_r=app_hot_r, background=bgd, force_fit=1,
+                    verbose=config.verbose_logs)
+                ii: np.ndarray = psf_cat[TableColumn.XY_DEV] > max_y_dev
+                fixed_centres: Table = psf_cat[ii][
+                    [TableColumn.X_INIT, TableColumn.Y_INIT,
+                     "ap_%s" % filter_string, TableColumn.FLAG]]
+                if len(fixed_centres):
+                    log("-> forcing positions for deviant sources\n")
+                    fixed_cat: Table = phot(
+                        image_data, init_params=fixed_centres,
+                        error=error, mask=mask)
+                    # ABS. why are we using such an aggressive type check
+                    # here?
+                    fixed_cat[TableColumn.FLAG] |= (
+                        np.uint16(SourceFlags.SRC_FIX))
+                    psf_cat.remove_rows(ii.tolist())
+                    psf_cat = vstack((psf_cat, fixed_cat))
+                else:
+                    log("-> no deviant sources\n")
+
+    @staticmethod
+    def photometry_routine(
+            filter_string: str | None, wcs: WCS | None,
+            config: StarBugMainConfig,
+            main_image: ImageHDU | PrimaryHDU | None,
+            log: Callable[[str], None],
+            image: HDUList | None,
+            info: dict[str, str],
+            background: ImageHDU | PrimaryHDU | None,
+            header: Header,
+            detections: Table | None,
+            psf: np.ndarray | None,
+            full_width_half_max: float,
+            ap_file: str | None,
+            background_file: str | None,
+            out_dir: str | None,
+            b_name: str | None) -> Tuple[int, Table | None, np.ndarray | None]:
+        """
+        Full photometry routine
+        Saves the result as a table self._psf_catalogue,
+        Additionally it appends a residual Image onto the
+        self._residuals HDUList
+
+        :return: success state, the psf_catalogue, and residuals
+        :rtype Tuple[int, Table | None, np.ndarray | None]
+        """
+        results: ExitStates
+        (results, psf) = Photometry.input_checks(
+            filter_string, main_image, detections, psf, wcs, info, log, config)
+        if results != ExitStates.EXIT_SUCCESS:
+            return ExitStates.EXIT_FAIL, None, None
+
+        assert main_image is not None
+        assert detections is not None
+        assert filter_string is not None
+        assert wcs is not None
+
+        log("\nRunning PSF Photometry\n")
+
+        # lock the types.
+        image_data: np.ndarray
+        error: np.ndarray
+        bgd: np.ndarray
+        mask: np.ndarray
+        image_data, error, bgd, mask = Photometry.prepare_data(
+            image, log, background, header, main_image, config)
+
+        # Collect relevant files and data
+        psf_mask: np.ndarray
+        psf_model: ImagePSF
+        size: int
+        psf_mask, psf_model, size = Photometry.create_psf_model_mask(
+            psf, config, log)
+
+        app_hot_r: float
+        init_guesses: Table
+        app_hot_r, init_guesses = Photometry.determine_initial_guesses(
+            config, detections, main_image, filter_string)
 
         # Run Fit
         min_separation: float = config.critical_separation
