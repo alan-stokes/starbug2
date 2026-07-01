@@ -162,7 +162,7 @@ class ArtificialStars:
         :param ast_seed: the seed to set the artificial stars with. or None.
         :type ast_seed: int | None
         :return: the location of the new stars.
-        :rtype: astrophy.QTable
+        :rtype: atrophy.QTable
         """
 
         image: fits.HDUList = base_image.__deepcopy__()
@@ -416,7 +416,6 @@ class ArtificialStars:
 
                 # Run PSF photometry on detected sources
                 self._starbug.photometry_routine()
-                # noinspection SpellCheckingInspection
                 psf_catalogue = self._starbug.psf_catalogue
                 assert psf_catalogue is not None
                 psf_catalogue.rename_columns(
@@ -439,7 +438,7 @@ def get_completeness(test_result: Table) -> Table:
 
     :param test_result: The output from auto_run.
     :type test_result: astropy.table.Table
-    :return: A table containing per cent completeness as a function of
+    :return: A table containing percent completeness as a function of
              magnitude.
     :rtype: astropy.table.Table
     """
@@ -567,7 +566,7 @@ def scurve(
     """
     S-curve function to fit completeness results to.
 
-    math::  f(x) = \\frac{l}{1 + \\exp(-k(x - x_0))
+    math::  f(x) = \\frac{l}(1 + \\exp(-k(x - x_0)))
 
     :param x: Magnitude range or array to input into the function.
     :type x: list or numpy.ndarray
