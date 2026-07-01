@@ -44,8 +44,10 @@ class Photometry:
                 STAR_BUG_FILTERS.get(filter_string))
             if filter_struct:
                 dt_name: str = info[ImageHeaderTags.DETECTOR]
+                # noinspection SpellCheckingInspection
                 if dt_name == "NRCALONG":
                     dt_name = "NRCA5"
+                # noinspection SpellCheckingInspection
                 if dt_name == "NRCBLONG":
                     dt_name = "NRCB5"
                 if dt_name == "MULTIPLE":
@@ -117,7 +119,7 @@ class Photometry:
         Validates pipeline input structures prior to running photometry.
 
         Verifies the presence of mandatory structures including the image,
-        coordinate system, and source catalog. Automatically attempts to
+        coordinate system, and source catalogue. Automatically attempts to
         resolve and load a valid PSF model if one is not already provided.
 
         :param filter_string: Name of the photometric filter band used.
@@ -126,7 +128,7 @@ class Photometry:
         :type main_image: ImageHDU | PrimaryHDU | None
         :param detections: Table of source positions or None if empty.
         :type detections: Table | None
-        :param psf: Empirical or modeled point spread function array.
+        :param psf: Empirical or modelled point spread function array.
         :type psf: np.ndarray | None
         :param wcs: World Coordinate System object for spatial alignment.
         :type wcs: WCS | None
@@ -163,12 +165,12 @@ class Photometry:
             image: HDUList | None, log: Callable[[str], None],
             background: ImageHDU | PrimaryHDU | None, header: Header,
             main_image: ImageHDU | PrimaryHDU,
-            config: StarBugMainConfig) -> (
-                Tuple[np.ndarray, np.ndarray , np.ndarray, np.ndarray]):
+            config: StarBugMainConfig, full_width_half_max: float) -> (
+                Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]):
         """
         Prepares and conditions image arrays for pipeline processing.
 
-        Initializes primary data, error, and mask arrays. If no external
+        Initialises primary data, error, and mask arrays. If no external
         background map is provided, a robust background level is measured
         on-the-fly using sigma-clipped statistics.
 
@@ -184,9 +186,11 @@ class Photometry:
         :type main_image: ImageHDU | PrimaryHDU
         :param config: Configuration instance containing engine parameters.
         :type config: StarBugMainConfig
+        :param full_width_half_max: the full width 1/2 max value.
+        :type full_width_half_max: float
         :return: A tuple containing four fully processed NumPy arrays:
-                 (image_data, error, background, mask).
-        :rtype: Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+                 (image_data, error, background, mask, min_separation).
+        :rtype: Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]
         """
         image_data: np.ndarray
         error: np.ndarray
@@ -205,7 +209,12 @@ class Photometry:
                 "-> no background file loaded, measuring sigma "
                 "clipped median\n")
         assert bgd is not None
-        return image_data, error, bgd, mask
+
+        min_separation: float = config.critical_separation
+        if not min_separation:
+            min_separation = min(5.0, 2.5 * full_width_half_max)
+
+        return image_data, error, bgd, mask, min_separation
 
     @staticmethod
     def create_psf_model_mask(
@@ -218,7 +227,7 @@ class Photometry:
         PSF data, builds an ImagePSF instance, and enforces an odd integer
         pixel width constraint for the profiling boundary.
 
-        :param psf: Raw empirical or modeled point spread function array.
+        :param psf: Raw empirical or modelled point spread function array.
         :type psf: np.ndarray
         :param config: Configuration instance containing engine parameters.
         :type config: StarBugMainConfig
@@ -251,6 +260,27 @@ class Photometry:
             config: StarBugMainConfig, detections: Table,
             main_image: ImageHDU | PrimaryHDU, filter_string: str) -> (
                 Tuple[float, Table]):
+        """
+        Extracts starting positions and sets the target aperture radius.
+
+        Parses the configuration parameters to isolate the designated initial
+        aperture profiling width and extracts source detection columns
+        associated with coordinate positions and filter-specific fluxes to
+        seed the optimisation engine.
+
+        :param config: Configuration instance containing engine parameters.
+        :type config: StarBugMainConfig
+        :param detections: Table containing detected sources and properties.
+        :type detections: Table
+        :param main_image: Primary target image extension containing data
+                           units.
+        :type main_image: ImageHDU | PrimaryHDU
+        :param filter_string: Name of the photometric filter band used.
+        :type filter_string: str
+        :return: A tuple containing the evaluated aperture hot-radius value
+                 and an astropy Table tracking input parameter estimates.
+        :rtype: Tuple[float, Table]
+        """
 
         # Sort out Init guesses
         app_hot_r: float = float(config.aperture_phot_radius)
@@ -299,213 +329,239 @@ class Photometry:
         return app_hot_r, init_guesses
 
     @staticmethod
-    def run_fit(config, full_width_half_max, psf_model, size, app_hot_r, bgd,
-                image_data, init_guesses, error, mask, header, log, filter_string):
-        min_separation: float = config.critical_separation
-        if not min_separation:
-            min_separation = min(5.0, 2.5 * full_width_half_max)
+    def _convert_to_pixel(header: Header, max_y_dev: float) -> float:
+        """
+        Converts an angular value in arcseconds to its pixel equivalent.
 
-        if config.force_centroid_position:
-            phot: PSFPhotRoutine = PSFPhotRoutine(
-                psf_model, size, min_separation=min_separation,
-                app_hot_r=app_hot_r, background=bgd, force_fit=1,
-                verbose=config.verbose_logs)
-            psf_cat: Table = phot(
-                image_data, init_params=init_guesses, error=error,
-                mask=mask)
-            psf_cat[TableColumn.FLAG] |= SourceFlags.SRC_FIX
+        Extracts the pixel area scale factor from the image header to evaluate
+        the linear pixel scale, then divides the input arcsecond displacement
+        value to project it into pixel units. Logs a warning if the scale
+        metadata is missing.
 
+        :param header: FITS header metadata housing the projection parameters.
+        :type header: Header
+        :param max_y_dev: Angular maximum displacement threshold in arcseconds.
+        :type max_y_dev: float
+        :return: The resolved tracking displacement limit expressed in pixels.
+        :rtype: float
+        """
+        if not header.get(ImageHeaderTags.PIXAR_A2):
+            warn(
+                "MAX_XYDEV is units arcseconds, but starbug "
+                "cannot locate a pixel scale in the header."
+                " Please use syntax MAX_XYDEV=%sp to set "
+                "change to pixels\n" % max_y_dev)
         else:
-            phot = PSFPhotRoutine(
-                psf_model, size, min_separation=min_separation,
-                app_hot_r=app_hot_r, background=bgd, force_fit=0,
-                verbose=config.verbose_logs)
-            psf_cat = phot(
-                image_data, init_params=init_guesses, error=error,
-                mask=mask)
-
-            if not psf_cat:
-                return ExitStates.EXIT_FAIL, None, None
-
-            # Setting position max variation
-            max_y_dev: float
-            unit: int
-            max_y_dev, unit = parse_unit(config.max_xy_deviation)
-            if unit is not None:
-                if unit == Units.DEG:
-                    max_y_dev *= 60
-                    unit = Units.ARCMIN
-                if unit == Units.ARCMIN:
-                    max_y_dev *= 60
-                    unit = Units.ARCSEC
-                if unit == Units.ARCSEC:
-                    if not header.get(ImageHeaderTags.PIXAR_A2):
-                        warn(
-                            "MAX_XYDEV is units arcseconds, but starbug "
-                            "cannot locate a pixel scale in the header."
-                            " Please use syntax MAX_XYDEV=%sp to set "
-                            "change to pixels\n" % max_y_dev)
-                    else:
-                        max_y_dev /= np.sqrt(
-                            header.get(ImageHeaderTags.PIXAR_A2))
-
-            if max_y_dev > 0:
-                log(
-                    "-> position fit threshold: %.2gpix\n" % max_y_dev)
-                phot = PSFPhotRoutine(
-                    psf_model, size, min_separation=min_separation,
-                    app_hot_r=app_hot_r, background=bgd, force_fit=1,
-                    verbose=config.verbose_logs)
-                ii: np.ndarray = psf_cat[TableColumn.XY_DEV] > max_y_dev
-                fixed_centres: Table = psf_cat[ii][
-                    [TableColumn.X_INIT, TableColumn.Y_INIT,
-                     "ap_%s" % filter_string, TableColumn.FLAG]]
-                if len(fixed_centres):
-                    log("-> forcing positions for deviant sources\n")
-                    fixed_cat: Table = phot(
-                        image_data, init_params=fixed_centres,
-                        error=error, mask=mask)
-                    # ABS. why are we using such an aggressive type check
-                    # here?
-                    fixed_cat[TableColumn.FLAG] |= (
-                        np.uint16(SourceFlags.SRC_FIX))
-                    psf_cat.remove_rows(ii.tolist())
-                    psf_cat = vstack((psf_cat, fixed_cat))
-                else:
-                    log("-> no deviant sources\n")
+            max_y_dev /= np.sqrt(
+                header.get(ImageHeaderTags.PIXAR_A2))
+        return max_y_dev
 
     @staticmethod
-    def photometry_routine(
-            filter_string: str | None, wcs: WCS | None,
-            config: StarBugMainConfig,
-            main_image: ImageHDU | PrimaryHDU | None,
-            log: Callable[[str], None],
-            image: HDUList | None,
-            info: dict[str, str],
-            background: ImageHDU | PrimaryHDU | None,
-            header: Header,
-            detections: Table | None,
-            psf: np.ndarray | None,
-            full_width_half_max: float,
-            ap_file: str | None,
-            background_file: str | None,
-            out_dir: str | None,
-            b_name: str | None) -> Tuple[int, Table | None, np.ndarray | None]:
+    def convert_unit_to_max_y_dev(
+            max_y_dev: float, unit: int, header: Header) -> float:
         """
-        Full photometry routine
-        Saves the result as a table self._psf_catalogue,
-        Additionally it appends a residual Image onto the
-        self._residuals HDUList
+        Converts a maximum deviation threshold value to pixel units.
 
-        :return: success state, the psf_catalogue, and residuals
-        :rtype Tuple[int, Table | None, np.ndarray | None]
+        Parses astronomical tracking limits expressed across varying spatial
+        units (Degrees, Arcminutes, Arcseconds, or raw Pixels), scales the
+        amplitudes appropriately, and resolves angular values to pixel
+        dimensions using the image header plate scale factors.
+
+        :param max_y_dev: Input maximum displacement tracking limit value.
+        :type max_y_dev: float
+        :param unit: Enumerated identifier representing the measurement scale.
+        :type unit: int
+        :param header: FITS header metadata housing the projection parameters.
+        :type header: Header
+        :return: Computed spatial maximum threshold value expressed in pixels.
+        :rtype: float
         """
-        results: ExitStates
-        (results, psf) = Photometry.input_checks(
-            filter_string, main_image, detections, psf, wcs, info, log, config)
-        if results != ExitStates.EXIT_SUCCESS:
-            return ExitStates.EXIT_FAIL, None, None
+        if unit is not None:
+            match unit:
+                case Units.DEG:
+                    max_y_dev *= 3600
+                    max_y_dev = Photometry._convert_to_pixel(header, max_y_dev)
+                case Units.ARCMIN:
+                    max_y_dev *= 60
+                    max_y_dev = Photometry._convert_to_pixel(header, max_y_dev)
+                case Units.ARCSEC:
+                    max_y_dev = Photometry._convert_to_pixel(header, max_y_dev)
+                case Units.PIX:
+                    pass
+                case _:
+                    p_error("Dont recognise the unit.")
+        return max_y_dev
 
-        assert main_image is not None
-        assert detections is not None
-        assert filter_string is not None
-        assert wcs is not None
+    @staticmethod
+    def execute_revalidation_of_positions(
+            psf_cat: Table, image_data: np.ndarray, error: np.ndarray,
+            mask: np.ndarray, psf_model: ImagePSF, size: int,
+            min_separation: float, app_hot_r: float, bgd: np.ndarray,
+            filter_string: str, config: StarBugMainConfig,
+            log: Callable[[str], None], max_y_dev: float):
+        """
+        Executes forced-position profiling for astrometric outlier sources.
 
-        log("\nRunning PSF Photometry\n")
+        Isolates individual sources whose fitted coordinates drift beyond
+        the maximum permissible pixel variation threshold, re-evaluates them
+        by locking their centroids to initial coordinates, updates diagnostic
+        flags, and integrates the results back into the primary catalogue.
 
-        # lock the types.
-        image_data: np.ndarray
-        error: np.ndarray
-        bgd: np.ndarray
-        mask: np.ndarray
-        image_data, error, bgd, mask = Photometry.prepare_data(
-            image, log, background, header, main_image, config)
-
-        # Collect relevant files and data
-        psf_mask: np.ndarray
-        psf_model: ImagePSF
-        size: int
-        psf_mask, psf_model, size = Photometry.create_psf_model_mask(
-            psf, config, log)
-
-        app_hot_r: float
-        init_guesses: Table
-        app_hot_r, init_guesses = Photometry.determine_initial_guesses(
-            config, detections, main_image, filter_string)
-
-        # Run Fit
-        min_separation: float = config.critical_separation
-        if not min_separation:
-            min_separation = min(5.0, 2.5 * full_width_half_max)
-
-        if config.force_centroid_position:
-            phot: PSFPhotRoutine = PSFPhotRoutine(
+        :param psf_cat: Table containing calibrated stellar fit properties.
+        :type psf_cat: Table
+        :param image_data: Cleaned multidimensional science data array.
+        :type image_data: np.ndarray
+        :param error: Estimated variance uncertainties or weight maps.
+        :type error: np.ndarray
+        :param mask: Boolean flags highlighting pixels to skip.
+        :type mask: np.ndarray
+        :param psf_model: Initialised empirical or analytical PSF model.
+        :type psf_model: ImagePSF
+        :param size: Dimension bounding length of the fitting footprint box.
+        :type size: int
+        :param min_separation: Minimum pixel separation between distinct
+                               sources.
+        :type min_separation: float
+        :param app_hot_r: Base aperture radius value evaluated for fits.
+        :type app_hot_r: float
+        :param bgd: Evaluated background grid or uniform pixel array.
+        :type bgd: np.ndarray
+        :param filter_string: Name of the photometric filter band used.
+        :type filter_string: str
+        :param config: Configuration instance containing engine parameters.
+        :type config: StarBugMainConfig
+        :param log: Callable status monitoring and message log tracker.
+        :type log: Callable[[str], None]
+        :param max_y_dev: Maximum allowable coordinate deviation threshold in
+                          pixels.
+        :type max_y_dev: float
+        :return: Updated source catalogue containing the fixed outlier
+                 measurements.
+        :rtype: Table
+        """
+        if max_y_dev > 0:
+            log(
+                "-> position fit threshold: %.2gpix\n" % max_y_dev)
+            phot = PSFPhotRoutine(
                 psf_model, size, min_separation=min_separation,
                 app_hot_r=app_hot_r, background=bgd, force_fit=1,
                 verbose=config.verbose_logs)
-            psf_cat: Table = phot(
-                image_data, init_params=init_guesses, error=error,
-                mask=mask)
-            psf_cat[TableColumn.FLAG] |= SourceFlags.SRC_FIX
+            ii: np.ndarray = psf_cat[TableColumn.XY_DEV] > max_y_dev
+            fixed_centres: Table = psf_cat[ii][
+                [TableColumn.X_INIT, TableColumn.Y_INIT,
+                 "ap_%s" % filter_string, TableColumn.FLAG]]
+            if len(fixed_centres):
+                log("-> forcing positions for deviant sources\n")
+                fixed_cat: Table = phot(
+                    image_data, init_params=fixed_centres,
+                    error=error, mask=mask)
+                # ABS. why are we using such an aggressive type check
+                # here?
+                fixed_cat[TableColumn.FLAG] |= (
+                    np.uint16(SourceFlags.SRC_FIX))
+                psf_cat.remove_rows(ii.tolist())
+                psf_cat = vstack((psf_cat, fixed_cat))
+            else:
+                log("-> no deviant sources\n")
+        return psf_cat
 
-        else:
-            phot = PSFPhotRoutine(
-                psf_model, size, min_separation=min_separation,
-                app_hot_r=app_hot_r, background=bgd, force_fit=0,
-                verbose=config.verbose_logs)
-            psf_cat = phot(
-                image_data, init_params=init_guesses, error=error,
-                mask=mask)
+    @staticmethod
+    def revalidate_deviant_positions(
+            psf_cat: Table, image_data: np.ndarray, error: np.ndarray,
+            mask: np.ndarray, psf_model: ImagePSF, size: int,
+            min_separation: float, app_hot_r: float, bgd: np.ndarray,
+            filter_string: str, header: Header,
+            config: StarBugMainConfig, log: Callable[[str], None]) -> Table:
+        """
+        Identifies and re-fits sources exceeding centroid deviation thresholds.
 
-            if not psf_cat:
-                return ExitStates.EXIT_FAIL, None, None
+        Parses spatial deviation tolerances across distinct coordinate units,
+        isolates outlier astrometric fits via comparison to original tracking
+        positions, and enforces a static position constraint profile fit onto
+        anomalous targets to prevent mathematical divergence.
 
-            # Setting position max variation
-            max_y_dev: float
-            unit: int
-            max_y_dev, unit = parse_unit(config.max_xy_deviation)
-            if unit is not None:
-                if unit == Units.DEG:
-                    max_y_dev *= 60
-                    unit = Units.ARCMIN
-                if unit == Units.ARCMIN:
-                    max_y_dev *= 60
-                    unit = Units.ARCSEC
-                if unit == Units.ARCSEC:
-                    if not header.get(ImageHeaderTags.PIXAR_A2):
-                        warn(
-                            "MAX_XYDEV is units arcseconds, but starbug "
-                            "cannot locate a pixel scale in the header."
-                            " Please use syntax MAX_XYDEV=%sp to set "
-                            "change to pixels\n" % max_y_dev)
-                    else:
-                        max_y_dev /= np.sqrt(
-                            header.get(ImageHeaderTags.PIXAR_A2))
+        :param psf_cat: Table containing calibrated stellar fit properties.
+        :type psf_cat: Table
+        :param image_data: Cleaned multidimensional science data array.
+        :type image_data: np.ndarray
+        :param error: Estimated variance uncertainties or weight maps.
+        :type error: np.ndarray
+        :param mask: Boolean flags highlighting pixels to skip.
+        :type mask: np.ndarray
+        :param psf_model: Initialised empirical or analytical PSF model.
+        :type psf_model: ImagePSF
+        :param size: Dimension bounding length of the fitting footprint box.
+        :type size: int
+        :param min_separation: Minimum pixel separation between distinct
+                               sources.
+        :type min_separation: float
+        :param app_hot_r: Base aperture radius value evaluated for fits.
+        :type app_hot_r: float
+        :param bgd: Evaluated background grid or uniform pixel array.
+        :type bgd: np.ndarray
+        :param filter_string: Name of the photometric filter band used.
+        :type filter_string: str
+        :param header: Structural FITS header metadata for mapping updates.
+        :type header: Header
+        :param config: Configuration instance containing engine parameters.
+        :type config: StarBugMainConfig
+        :param log: Callable status monitoring and message log tracker.
+        :type log: Callable[[str], None]
+        :return: Updated source catalogue tracking resolved stellar parameters.
+        :rtype: Table
+        """
+        # Setting position max variation
+        max_y_dev: float
+        unit: int
+        max_y_dev, unit = parse_unit(config.max_xy_deviation)
 
-            if max_y_dev > 0:
-                log(
-                    "-> position fit threshold: %.2gpix\n" % max_y_dev)
-                phot = PSFPhotRoutine(
-                    psf_model, size, min_separation=min_separation,
-                    app_hot_r=app_hot_r, background=bgd, force_fit=1,
-                    verbose=config.verbose_logs)
-                ii: np.ndarray = psf_cat[TableColumn.XY_DEV] > max_y_dev
-                fixed_centres: Table = psf_cat[ii][
-                    [TableColumn.X_INIT, TableColumn.Y_INIT,
-                     "ap_%s" % filter_string, TableColumn.FLAG]]
-                if len(fixed_centres):
-                    log("-> forcing positions for deviant sources\n")
-                    fixed_cat: Table = phot(
-                        image_data, init_params=fixed_centres,
-                        error=error, mask=mask)
-                    # ABS. why are we using such an aggressive type check
-                    # here?
-                    fixed_cat[TableColumn.FLAG] |= (
-                        np.uint16(SourceFlags.SRC_FIX))
-                    psf_cat.remove_rows(ii.tolist())
-                    psf_cat = vstack((psf_cat, fixed_cat))
-                else:
-                    log("-> no deviant sources\n")
+        if unit is None or max_y_dev <= 0:
+            return psf_cat
+
+        max_y_dev = Photometry.convert_unit_to_max_y_dev(
+            max_y_dev, unit, header)
+        psf_cat = Photometry.execute_revalidation_of_positions(
+            psf_cat, image_data, error, mask, psf_model, size, min_separation,
+            app_hot_r, bgd, filter_string, config, log, max_y_dev)
+        return psf_cat
+
+    @staticmethod
+    def export_psf_catalogue(
+            psf_cat: Table, wcs: WCS, filter_string: str | None,
+            header: Header, config: StarBugMainConfig, ap_file: str | None,
+            background_file: str | None, out_dir: str | None,
+            b_name: str | None, log: Callable[[str], None]) -> Table:
+        """
+        Calculates physical properties, appends metadata, and saves table.
+
+        Transforms raw pixel positions to celestial coordinates ($RA, Dec$)
+        using the WCS object, converts fitted instrumental fluxes to absolute
+        magnitudes, aggregates diagnostic file paths into table metadata,
+        and writes out a finalised FITS binary table.
+
+        :param psf_cat: Table containing calibrated stellar fit properties.
+        :type psf_cat: Table
+        :param wcs: World Coordinate System conversion instance.
+        :type wcs: WCS
+        :param filter_string: Name of the photometric filter band used.
+        :type filter_string: str | None
+        :param header: Structural FITS header metadata for mapping updates.
+        :type header: Header
+        :param config: Configuration instance containing engine parameters.
+        :type config: StarBugMainConfig
+        :param ap_file: File path to the aperture correction table used.
+        :type ap_file: str | None
+        :param background_file: File path to the background map used.
+        :type background_file: str | None
+        :param out_dir: Target file-system directory paths for exported tables.
+        :type out_dir: str | None
+        :param b_name: Base filename identifier prefix for outputs.
+        :type b_name: str | None
+        :param log: Callable status monitoring and message log tracker.
+        :type log: Callable[[str], None]
+        :return: The finalised, fully populated astronomical source catalogue.
+        :rtype: Table
+        """
         ra: np.ndarray
         dec: np.ndarray
         ra, dec = wcs.all_pix2world(
@@ -540,8 +596,51 @@ class Photometry:
         BinTableHDU(
             data=psf_catalogue,
             header=header).writeto(file_name, overwrite=True)
+        return psf_cat
 
-        # Residual Image
+    @staticmethod
+    def generate_residual_image(
+            psf_cat: Table, image_data: np.ndarray, psf_model: ImagePSF,
+            size: int, bgd: np.ndarray, main_image: ImageHDU | PrimaryHDU,
+            header: Header, wcs: WCS, out_dir: str | None,
+            b_name: str | None, config: StarBugMainConfig,
+            log: Callable[[str], None]) -> np.ndarray | None:
+        """
+        Creates a source-subtracted residual map and writes it to disk.
+
+        Subtracts the evaluated background and the fitted point spread function
+        (PSF) stellar models from the target science data. Converts the image
+        units to Janskys via scaling factors, injects updated WCS structural
+        metadata into the header, and exports the map to a FITS file.
+
+        :param psf_cat: Table containing calibrated stellar fit properties.
+        :type psf_cat: Table
+        :param image_data: Cleaned multidimensional science data array.
+        :type image_data: np.ndarray
+        :param psf_model: Initialised empirical or analytical PSF model.
+        :type psf_model: ImagePSF
+        :param size: Dimension bounding length of the fitting footprint box.
+        :type size: int
+        :param bgd: Evaluated background grid or uniform pixel array.
+        :type bgd: np.ndarray
+        :param main_image: Primary target image extension containing unit
+                           metadata.
+        :type main_image: ImageHDU | PrimaryHDU
+        :param header: Structural FITS header metadata for mapping updates.
+        :type header: Header
+        :param wcs: World Coordinate System conversion instance.
+        :type wcs: WCS
+        :param out_dir: Target file-system directory paths for exported maps.
+        :type out_dir: str | None
+        :param b_name: Base filename identifier prefix for outputs.
+        :type b_name: str | None
+        :param config: Configuration instance containing engine parameters.
+        :type config: StarBugMainConfig
+        :param log: Callable status monitoring and message log tracker.
+        :type log: Callable[[str], None]
+        :return: Unit-scaled residual image array, or None if disabled.
+        :rtype: np.ndarray | None
+        """
         residuals: np.ndarray | None = None
         if config.generate_residual_image:
             log("-> generating residual\n")
@@ -564,4 +663,133 @@ class Photometry:
                 name="RES", header=header).writeto(
                 "%s/%s-res.fits" % (out_dir, b_name),
                 overwrite=True)
-        return ExitStates.EXIT_SUCCESS, psf_catalogue, residuals
+        return residuals
+
+    @staticmethod
+    def photometry_routine(
+            filter_string: str | None, wcs: WCS | None,
+            config: StarBugMainConfig,
+            main_image: ImageHDU | PrimaryHDU | None,
+            log: Callable[[str], None],
+            image: HDUList | None,
+            info: dict[str, str],
+            background: ImageHDU | PrimaryHDU | None,
+            header: Header,
+            detections: Table | None,
+            psf: np.ndarray | None,
+            full_width_half_max: float,
+            ap_file: str | None,
+            background_file: str | None,
+            out_dir: str | None,
+            b_name: str | None) -> Tuple[int, Table | None, np.ndarray | None]:
+        """
+        Executes the master PSF-fitting photometry processing pipeline.
+
+        Validates physical inputs, extracts cropped science matrices,
+        initialises  background evaluation fields, builds or maps empirical
+        stellar profile models, resolves positional deviations across
+        coordinate boundaries, and updates structural header maps before
+        exporting the finalised catalogues and residual maps to disk.
+
+        :param filter_string: Name of the photometric filter band used.
+        :type filter_string: str | None
+        :param wcs: World Coordinate System conversion instance.
+        :type wcs: WCS | None
+        :param config: Configuration instance containing engine parameters.
+        :type config: StarBugMainConfig
+        :param main_image: Primary target image extension containing data
+                           units.
+        :type main_image: ImageHDU | PrimaryHDU | None
+        :param log: Callable status monitoring and message log tracker.
+        :type log: Callable[[str], None]
+        :param image: Complete FITS structure housing science extensions.
+        :type image: HDUList | None
+        :param info: Dictionary containing target object and runtime metadata.
+        :type info: dict[str, str]
+        :param background: Explicit background structure or image extension.
+        :type background: ImageHDU | PrimaryHDU | None
+        :param header: Structural FITS header metadata for mapping updates.
+        :type header: Header
+        :param detections: Table containing detected sources and properties.
+        :type detections: Table | None
+        :param psf: Array containing the input point spread function template.
+        :type psf: np.ndarray | None
+        :param full_width_half_max: Full width at half maximum value of stars.
+        :type full_width_half_max: float
+        :param ap_file: File path to the aperture correction table used.
+        :type ap_file: str | None
+        :param background_file: File path to the background map used.
+        :type background_file: str | None
+        :param out_dir: Target file-system directory paths for exported
+                        products.
+        :type out_dir: str | None
+        :param b_name: Base filename identifier prefix for outputs.
+        :type b_name: str | None
+        :return: Success state flag, the completed stellar source catalogue,
+                 and the background-subtracted residual image array.
+        :rtype: Tuple[int, Table | None, np.ndarray | None]
+        """
+        results: ExitStates
+        (results, psf) = Photometry.input_checks(
+            filter_string, main_image, detections, psf, wcs, info, log, config)
+        if results != ExitStates.EXIT_SUCCESS:
+            return ExitStates.EXIT_FAIL, None, None
+
+        assert main_image is not None
+        assert detections is not None
+        assert filter_string is not None
+        assert wcs is not None
+
+        log("\nRunning PSF Photometry\n")
+
+        # lock the types.
+        image_data: np.ndarray
+        error: np.ndarray
+        bgd: np.ndarray
+        mask: np.ndarray
+        image_data, error, bgd, mask, min_separation = (
+            Photometry.prepare_data(
+                image, log, background, header, main_image, config,
+                full_width_half_max))
+
+        # Collect relevant files and data
+        psf_mask: np.ndarray
+        psf_model: ImagePSF
+        size: int
+        psf_mask, psf_model, size = Photometry.create_psf_model_mask(
+            psf, config, log)
+
+        app_hot_r: float
+        init_guesses: Table
+        app_hot_r, init_guesses = Photometry.determine_initial_guesses(
+            config, detections, main_image, filter_string)
+
+        # Run Fit
+        phot: PSFPhotRoutine = PSFPhotRoutine(
+            psf_model, size, min_separation=min_separation,
+            app_hot_r=app_hot_r, background=bgd,
+            force_fit=int(config.force_centroid_position),
+            verbose=config.verbose_logs)
+        psf_cat: Table = phot(
+            image_data, init_params=init_guesses, error=error,
+            mask=mask)
+
+        # handle deviant positions if not in centroid positions.
+        if config.force_centroid_position:
+            psf_cat[TableColumn.FLAG] |= SourceFlags.SRC_FIX
+        else:
+            if not psf_cat:
+                return ExitStates.EXIT_FAIL, None, None
+            psf_cat = Photometry.revalidate_deviant_positions(
+                psf_cat, image_data, error, mask, psf_model, size,
+                min_separation, app_hot_r, bgd, filter_string, header,
+                config, log)
+        Photometry.export_psf_catalogue(
+            psf_cat, wcs, filter_string, header, config, ap_file,
+            background_file, out_dir, b_name, log)
+
+        # Residual Image
+        residuals: np.ndarray | None = Photometry.generate_residual_image(
+            psf_cat, image_data, psf_model, size, bgd, main_image, header, wcs,
+            out_dir, b_name, config, log)
+        return ExitStates.EXIT_SUCCESS, psf_cat, residuals

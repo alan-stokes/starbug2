@@ -1,3 +1,4 @@
+
 """Copyright (C) 2026 UKATC
 
 This program is free software: you can redistribute it and/or modify
@@ -13,22 +14,24 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
-# noinspection SpellCheckingInspection
 from typing import List, Final
 from enum import Enum
 from pathlib import Path
 import os
 
-# the filter id which we've had to adjsut the bin size to allow it to
-# initilise without errors.
+# the filter id which we've had to adjust the bin size to allow it to
+# initialise without errors.
 PROBLEMATIC_FILTER_ID = "F150W2"
 PROBLEMATIC_FILTER_WARNING = (
     "Caution needed with F150W2 photometric accuracy. More info"
     "can be found in ("
     "https://github.com/alan-stokes/starbug2/issues/2)")
 
+# noinspection SpellCheckingInspection
 STARBUG_DATA_DIR: Final[str] = "STARBUG_DATDIR"
+# noinspection SpellCheckingInspection
 WEBBPSF_PATH_ENV_VAR: Final[str] = "WEBBPSF_PATH"
+# noinspection SpellCheckingInspection
 STAR_BUG_PARAMS: Final[str] = "STARBUGII PARAMETERS"
 STAR_BUG_TEST_DAT_ENV: Final[str] = "STARBUG_TEST_DIR"
 
@@ -50,20 +53,23 @@ URL_DOCS: Final[str] = (
 READ_THE_DOCS_URL: Final[str] = "https://starbug2.readthedocs.io/en/latest/"
 
 # fit urls
+# noinspection SpellCheckingInspection
 JWST_MIRI_APCORR_0010_FITS_URL: Final[str] = (
     "https://jwst-crds.stsci.edu/unchecked_get/references/jwst/"
     "jwst_miri_apcorr_0010.fits"
 )
+# noinspection SpellCheckingInspection
 JWST_NIRCAM_APCORR_0004_FITS_URL: Final[str] = (
     "https://jwst-crds.stsci.edu/unchecked_get/references/jwst/"
     "jwst_nircam_apcorr_0004.fits"
 )
-
-# abvega offset urls
+# noinspection SpellCheckingInspection
+# ab vega offset urls
 JWST_MIRI_ABVEGA_OFFSET_URL: Final[str] = (
     "https://jwst-crds.stsci.edu/unchecked_get/references/jwst/"
     "jwst_miri_abvegaoffset_0001.asdf"
 )
+# noinspection SpellCheckingInspection
 JWST_NIRCAM_ABVEGA_OFFSET_URL: Final[str] = (
     "https://jwst-crds.stsci.edu/unchecked_get/references/jwst/"
     "jwst_nircam_abvegaoffset_0002.asdf"
@@ -98,7 +104,7 @@ class SourceFlags(int, Enum):
     SRC_VAR = 0x04
     # psf fit with fixed centroid
     SRC_FIX = 0x08
-    # source unknown (this isnt used anywhere!)
+    # source unknown (this isn't used anywhere!)
     SRC_UKN = 0x10
 
 
@@ -123,10 +129,10 @@ class ExitStates(int, Enum):
     EXIT_MIXED = 3
 
 
-# table column enum to be used to amtch table col names
+# table column enum to be used to match table col names
+# noinspection SpellCheckingInspection
 class TableColumn(str, Enum):
     """Table column names used across the pipeline."""
-
     CAT_NUM = "Catalogue_Number"
     RA = "RA"
     DEC = "DEC"
@@ -197,16 +203,17 @@ class QTableColNames(str, Enum):
     SUM_0 = "aperture_sum_0"
     SUM_1 = "aperture_sum_1"
 
-    # needed as the table system doenst seem to handle enums properly
+    # needed as the table system does not seem to handle enums properly
     def __str__(self) -> str:
         return self.value
 
-    # needed as the table system doenst seem to handle enums properly
+    # needed as the table system does not seem to handle enums properly
     def __format__(self, format_spec: str) -> str:
         return self.value.__format__(format_spec)
 
 
 # tag for header
+# noinspection SpellCheckingInspection
 class HeaderTags(str, Enum):
     FILTER_LOWER = "filter"
     FILTER = "FILTER"
@@ -234,6 +241,7 @@ class HeaderTags(str, Enum):
 
 
 # tags for image header
+# noinspection SpellCheckingInspection
 class ImageHeaderTags(str, Enum):
     DETECTOR = "DETECTOR"
     TELESCOPE = "TELESCOP"
@@ -258,6 +266,7 @@ VERBOSE_TAG: Final[str] = "VERBOSE"
 
 
 # mode labels.
+# noinspection SpellCheckingInspection
 class Modes(str, Enum):
     DETECTION = "DETECTION"
     BACKGROUND = "BACKGROUND"
@@ -267,11 +276,12 @@ class Modes(str, Enum):
     CLEAR = "CLEAR"
 
 
-# HASHDEFS
+# HASH DEFS
 STAR_BUG_MIRI: Final[int] = 1
 NIRCAM: Final[int] = 2
 NIRCAM_STRING: Final[str] = "NIRCAM"
 MIRI_STRING: Final[str] = "MIRI"
+# noinspection SpellCheckingInspection
 MIRI_IMAGE = "MIRIMAGE"
 
 
@@ -282,6 +292,7 @@ class DetectorLengths(int, Enum):
 
 
 # enum unit
+# noinspection SpellCheckingInspection
 class Units(int, Enum):
     PIX = 0
     ARCSEC = 1
@@ -295,7 +306,8 @@ _LOGO_PATH = Path(os.path.join(
 LOGO: Final[str] = _LOGO_PATH.read_text(encoding="utf-8") + "%s"
 
 # dictionary of help strings for specific modes (
-# DETECTION, BACKGROUND, APPHOT, PSFPHOT, MATCHOUTPUTS).
+# DETECTION, BACKGROUND, APP_HOT, PSF_PHOT, MATCH_OUTPUTS).
+# noinspection SpellCheckingInspection
 HELP_STRINGS = {
     Modes.DETECTION:
         """
@@ -434,6 +446,7 @@ HELP_STRINGS = {
 }
 
 # Named Constant Template for Default Parameter Files
+# noinspection SpellCheckingInspection
 DEFAULT_PARAM_TEMPLATE: Final[str] = """## STARBUG CONFIG FILE
 # Generated with starbug2-v{version_str}
 PARAM       =  STARBUGII PARAMETERS     // COMMENT
