@@ -16,7 +16,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 from astropy.io import fits
 from astropy.table import Table
 
-from starbug2.constants import SCI, TableColumn
+from starbug2.core.constants import SCI, TableColumn
 from starbug2.routines.background_estimate_routine import (
     BackGroundEstimateRoutine)
 from starbug2.routines.detection_routines import DetectionRoutine

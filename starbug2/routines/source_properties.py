@@ -18,8 +18,8 @@ import numpy as np
 from astropy.table import Table, QTable, hstack
 from photutils.detection import DAOStarFinder
 
-from starbug2.constants import TableColumn
-from starbug2.utils import Loading, printf, p_error
+from starbug2.core.constants import TableColumn
+from starbug2.utilities.utils import Loading, printf, p_error
 
 
 class SourceProperties:
@@ -61,7 +61,7 @@ class SourceProperties:
         else:
             p_error("bad source list type: %s\n" % type(source_list))
 
-    def __call__(
+    def execute_source_props(
             self, do_crowd: int = 1, n_closest_sources: int = 10,
             full_width_half_max: float = 2.0) -> Table:
         """

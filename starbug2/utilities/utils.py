@@ -26,7 +26,7 @@ from astropy.wcs import WCS
 import numpy as np
 import requests
 
-from starbug2.constants import (
+from starbug2.core.constants import (
     DEFAULT_COLOUR,
     TMP_OUT,
     TMP_FITS,
@@ -37,9 +37,9 @@ from starbug2.constants import (
     ExitStates,
     REST_SUCCESS_CODE,
     Units,
-    ImageHeaderTags,
+    ImageHeaderTags, STARBUG_DATA_DIR,
 )
-from starbug2.filters import STAR_BUG_FILTERS
+from starbug2.utilities.filters import STAR_BUG_FILTERS
 
 
 # different print methods (why are we not using loggers?)
@@ -848,6 +848,18 @@ def parse_cmd(args: List[str]) -> Tuple[str, List[str]]:
     """
     cmd = os.path.basename(args[0])
     return cmd, args[1:]
+
+
+def get_data_path() -> str:
+    """
+    Returns the data path.
+
+    :return: The data path
+    :rtype: str
+    """
+    env_path: str | None = os.getenv(STARBUG_DATA_DIR)
+    return (env_path if env_path else
+            "%s/.local/share/starbug" % (os.getenv("HOME")))
 
 
 if __name__ == "__main__":

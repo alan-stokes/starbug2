@@ -17,6 +17,7 @@ from multiprocessing.pool import Pool as PoolType
 import os
 import sys
 import warnings
+import copy
 
 from astropy.io.fits import PrimaryHDU
 from astropy.io.fits.verify import VerifyWarning
@@ -25,17 +26,18 @@ from astropy.table import Table
 from astropy.utils.exceptions import AstropyDeprecationWarning, AstropyWarning
 import photutils
 
-from starbug2 import param
-from starbug2.constants import (
+from starbug2.utilities import param
+from starbug2.core.constants import (
     ExitStates, FITS_EXTENSION, HELP_STRINGS, LOGO, Modes, READ_THE_DOCS_URL)
-from starbug2.initialise_psf_data import generate_psf, init_starbug_for_jwst
+from starbug2.jwst_support.initialise_psf_data import (
+    generate_psf, init_starbug_for_jwst)
 from starbug2.matching.generic_match import GenericMatch
-from starbug2.misc import generate_runscript
-from starbug2.star_bug_config import StarBugMainConfig
-from starbug2.starbug import StarbugBase
-from starbug2.utils import (
+from starbug2.utilities.misc import generate_runscript
+from starbug2.core.star_bug_config import StarBugMainConfig
+from starbug2.core.starbug_main import StarbugBase
+from starbug2.utilities.utils import (
     combine_file_names, export_region, export_table, get_version, parse_cmd,
-    p_error, printf, puts, split_file_name, usage, warn)
+    p_error, printf, puts, split_file_name, usage, get_data_path)
 
 # Target-silence only the specific Photutils/Astropy deprecation noise
 # without masking generic Runtime math errors globally.
@@ -213,7 +215,7 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> ExitStates:
                     "%s%s.fits" %
                     (filter_string, "" if detector is None else detector))
                 printf("--> %s\n" % name)
-                d_name: str = StarbugBase.get_data_path()
+                d_name: str = get_data_path()
                 psf.writeto(os.path.join(d_name, name), overwrite=True)
             else:
                 p_error("PSF Generation failed :(\n")
@@ -281,7 +283,7 @@ def starbug_match_outputs(
     else:
         f_name = "out"
 
-    header: Header = valid_bugs[0].header
+    header: Header = valid_bugs[0].header()
 
     match: GenericMatch = GenericMatch(
         threshold=config.match_threshold_arc_sec_as_an_arc_sec,
@@ -332,61 +334,55 @@ def execute_star_bug(
     :rtype: starbug2.StarbugBase or None
     """
     # I've put this here because it takes some time
-    from starbug2.starbug import StarbugBase
-    star_bug_base: StarbugBase | None = None
+    from starbug2.core.starbug_main import StarbugBase
     f_name: str
     config: StarBugMainConfig
     f_name, config, use_verbose = args
-    if os.path.exists(f_name):
-        folder, file_name, ext = split_file_name(f_name)
 
-        ap_file: str | None = config.ap_file
-        background_file: str | None = config.background_file
-
-        if config.find_file:
-            ap: str = "%s/%s-ap.fits" % (folder, file_name)
-            bgd: str = "%s/%s-bgd.fits" % (folder, file_name)
-            if os.path.exists(ap) and config.ap_file is None:
-                ap_file = ap
-            if os.path.exists(bgd) and config.background_file is None:
-                background_file = bgd
-
-        # Sorting out the stdout
-        if use_verbose:
-            printf("-> showing starbug stdout for \"%s\"\n" % f_name)
-        elif config.n_cores > 1:
-            printf("-> hiding starbug stdout for \"%s\"\n" % f_name)
-        else:
-            printf("-> %s\n" % f_name)
-
-        if ext == FITS_EXTENSION:
-            star_bug_base = StarbugBase(
-                f_name, config=config, ap_file=ap_file,
-                bkg_file=background_file, verbose=use_verbose)
-            assert star_bug_base is not None
-
-            if star_bug_base.verify():
-                warn("System verification failed\n")
-                return None
-
-            if config.do_star_detection:
-                star_bug_base.detect()
-            if config.do_bgd_estimate:
-                star_bug_base.bgd_estimate()
-            if config.do_bgd_subtraction:
-                star_bug_base.bgd_subtraction()
-            if config.do_source_geometry:
-                star_bug_base.source_geometry()
-            if config.do_aperture_photometry:
-                star_bug_base.aperture_photometry()
-            if config.do_photometry_routine or config.generate_residual_image:
-                star_bug_base.photometry_routine()
-
-        else:
-            p_error("file must be type '.fits' not %s\n" % ext)
-    else:
+    # check file exists
+    if not os.path.exists(f_name):
         p_error("can't access %s\n" % f_name)
-    return star_bug_base
+        return None
+
+    folder, file_name, ext = split_file_name(f_name)
+
+    # check correct extension
+    if ext != FITS_EXTENSION:
+        p_error("file must be type '.fits' not %s\n" % ext)
+        return None
+
+    # extract output files
+    ap_file: str | None = config.ap_file
+    background_file: str | None = config.background_file
+
+    # find file.
+    if config.find_file:
+        ap: str = "%s/%s-ap.fits" % (folder, file_name)
+        bgd: str = "%s/%s-bgd.fits" % (folder, file_name)
+        if os.path.exists(ap) and config.ap_file is None:
+            ap_file = ap
+        if os.path.exists(bgd) and config.background_file is None:
+            background_file = bgd
+
+    # Sorting out the stdout
+    if use_verbose:
+        printf("-> showing starbug stdout for \"%s\"\n" % f_name)
+    elif config.n_cores > 1:
+        printf("-> hiding starbug stdout for \"%s\"\n" % f_name)
+    else:
+        printf("-> %s\n" % f_name)
+
+    # execute
+    star_bug_base: StarbugBase | None = StarbugBase(
+        f_name, config=config, ap_file=ap_file,
+        bkg_file=background_file)
+    assert star_bug_base is not None
+
+    result: ExitStates = star_bug_base.run_starbug(config)
+    if result != ExitStates.EXIT_SUCCESS:
+        return None
+    else:
+        return star_bug_base
 
 
 def starbug_main(argv: list[str]) -> ExitStates:
@@ -439,7 +435,7 @@ def starbug_internal_main(config: StarBugMainConfig) -> ExitStates:
 
             # this ensures only the first worker executes verbose.
             worker_tasks = [
-                (file_name, config, index == 0)
+                (file_name, copy.deepcopy(config), index == 0)
                 for index, file_name in enumerate(config.fits_images)
             ]
             starbugs = pool.map(execute_star_bug, worker_tasks)

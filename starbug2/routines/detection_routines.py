@@ -29,9 +29,9 @@ from astropy.units import Quantity
 from photutils.background import Background2D
 from photutils.detection import StarFinderBase, DAOStarFinder, find_peaks
 
-from starbug2.constants import TableColumn
+from starbug2.core.constants import TableColumn
 from starbug2.routines.source_properties import SourceProperties
-from starbug2.utils import printf
+from starbug2.utilities.utils import printf
 
 
 class DetectionRoutine(StarFinderBase):

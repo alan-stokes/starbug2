@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 from typing import Final, Dict
-from starbug2.constants import NIRCAM, DetectorLengths, STAR_BUG_MIRI
+from starbug2.core.constants import NIRCAM, DetectorLengths, STAR_BUG_MIRI
 
 
 # (struct) containing JWST filter info

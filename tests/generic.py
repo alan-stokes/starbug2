@@ -22,9 +22,12 @@ import numpy as np
 import pytest
 from astropy.io import fits
 
-from starbug2.constants import (
+from starbug2.command_line_interfaces.main import starbug_internal_main
+from starbug2.core.constants import (
     STAR_BUG_TEST_DAT_ENV, ImageHeaderTags, MIRI_STRING, MIRI_IMAGE)
-from starbug2.star_bug_config import StarBugMainConfig
+from starbug2.jwst_support.initialise_psf_data import download_ap_corr_files
+from starbug2.core.star_bug_config import StarBugMainConfig
+from starbug2.utilities.utils import get_data_path
 
 # paths to test files
 TEST_PATH: Final[str | None] = os.getenv(STAR_BUG_TEST_DAT_ENV)
@@ -41,6 +44,7 @@ TEST_AST_FILLED: Final[str] = str(
 TEST_SEED = 42
 
 # the filter string for tests to ensure they all use the same stuff
+TEST_FILTER_STRING_NO_G = "-s FILTER=F444W"
 TEST_FILTER_STRING = "-s FILTER=F444W -G"
 GITHUB_RELEASE_URL = (
     "https://github.com/alan-stokes/starbug2/releases/download/TEST_DATA/")
@@ -144,3 +148,21 @@ def create_blank_fits(size=(2048, 2048)):
     # every run
     primary_hdu.writeto(TEST_BLANK, overwrite=True)
     print(f"✅ Successfully saved to {TEST_BLANK}")
+
+
+def make_psf_for_blank() -> None:
+    """
+    creates the psf used by blank.psf and downloads the ap_corr files
+    :return: None
+    """
+    file_path: str = os.path.join(get_data_path(), "F770W.fits")
+    if os.path.exists(file_path):
+        return
+
+    psf_config: StarBugMainConfig = create_default_config()
+    psf_config.custom_filter = 'F770W'
+    psf_config.generate_psf = True
+    psf_config.detector_name = None
+    psf_config.psf_fit_size = None
+    starbug_internal_main(psf_config)
+    download_ap_corr_files(get_data_path())

@@ -14,10 +14,16 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 from abc import ABC, abstractmethod
+from typing import Tuple, Callable
+
 from astropy.table import Table
 from astropy.io.fits import PrimaryHDU, ImageHDU, HDUList, Header
 
 import numpy as np
+
+from starbug2.core.constants import (
+    ExitStates, ImageHeaderTags, AREA, ERR, DQ, DQFlags)
+from starbug2.utilities.utils import get_mj_ysr2jy_scale_factor, ext_names
 
 
 class StarBugInterface(ABC):
@@ -73,73 +79,49 @@ class StarBugInterface(ABC):
         pass
 
     @abstractmethod
-    def load_psf(self, f_name: str | None = None) -> int:
-        """
-        Load a PSF_FILE to be used during photometry
-
-        :param f_name: Filename of a PSF fits image
-        :type f_name: str or None
-        :return: The execution status (0 for success, non-zero for failure)
-        :rtype: int
-        """
-        pass
-
-    @abstractmethod
-    def prepare_image_arrays(self) -> tuple[
-            np.ndarray, np.ndarray, np.ndarray | None, np.ndarray]:
-        """
-        Make a copy of the original image, and prepare the other image arrays
-
-        :return: A tuple containing (image, error, bgd, mask) arrays
-        :rtype: tuple of (np.ndarray, np.ndarray, np.ndarray or None,
-                          np.ndarray)
-        """
-        pass
-
-    @abstractmethod
-    def detect(self) -> int:
+    def detect(self) -> ExitStates:
         """
         Full source detection routine. Saves the result as a table
         self._detections
 
         :return: The execution status (0 for success, non-zero for failure)
-        :rtype: int
+        :rtype: ExitStates
         """
         pass
 
     @abstractmethod
-    def aperture_photometry(self) -> int:
+    def aperture_photometry(self) -> ExitStates:
         """
         Executes aperture photometry
 
         :return: 0 for success, 1 for failure
-        :rtype: int
+        :rtype: ExitStates
         """
         pass
 
     @abstractmethod
-    def bgd_estimate(self) -> int:
+    def bgd_estimate(self) -> ExitStates:
         """
         Estimate the background of the active image
         Saves the result as an ImageHDU self._background
 
         :return: The execution status (0 for success, non-zero for failure)
-        :rtype: int
+        :rtype: ExitStates
         """
         pass
 
     @abstractmethod
-    def bgd_subtraction(self) -> int:
+    def bgd_subtraction(self) -> ExitStates:
         """
         Internally subtract a background array from an image array
 
         :return: 0 for success, 1 otherwise
-        :rtype: int
+        :rtype: ExitStates
         """
         pass
 
     @abstractmethod
-    def photometry_routine(self) -> int:
+    def photometry_routine(self) -> ExitStates:
         """
         Full photometry routine
         Saves the result as a table self._psf_catalogue,
@@ -147,7 +129,7 @@ class StarBugInterface(ABC):
         self._residuals HDUList
 
         :return: 0 for success, 1 otherwise
-        :rtype: int
+        :rtype: ExitStates
         """
         pass
 
@@ -161,17 +143,16 @@ class StarBugInterface(ABC):
         pass
 
     @abstractmethod
-    def verify(self) -> int:
+    def verify(self) -> ExitStates:
         """
         This simple function verifies that everything necessary has been
         loaded properly
 
         :return: 0 on success, 1 on failure
-        :rtype: int
+        :rtype: ExitStates
         """
         pass
 
-    @property
     @abstractmethod
     def header(self) -> Header:
         """
@@ -193,7 +174,6 @@ class StarBugInterface(ABC):
         """
         pass
 
-    @property
     @abstractmethod
     def main_image(self) -> ImageHDU | PrimaryHDU:
         # noinspection SpellCheckingInspection
@@ -241,6 +221,11 @@ class StarBugInterface(ABC):
     def psf(self) -> np.ndarray | None:
         pass
 
+    @psf.setter
+    @abstractmethod
+    def psf(self, new_value: np.ndarray) -> None:
+        pass
+
     @property
     @abstractmethod
     def f_name(self) -> str | None:
@@ -260,3 +245,73 @@ class StarBugInterface(ABC):
     @abstractmethod
     def out_dir(self) -> str | None:
         pass
+
+    @staticmethod
+    def prepare_image_arrays(
+            image: HDUList | None, log: Callable[[str], None],
+            background: ImageHDU | PrimaryHDU | None,
+            header: Header, main_image: ImageHDU | PrimaryHDU) -> (
+            Tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray]):
+        """
+        Make a copy of the original image, and prepare the other image arrays
+
+        Extracts and copies primary data, handles associated variance or error
+        extensions, validates background arrays, and generates pixel masks.
+
+        :param image: Full FITS HDU list containing the data extensions.
+        :type image: HDUList | None
+        :param log: Callable logging function for status tracking.
+        :type log: Callable[[str], None]
+        :param background: Estimated background map array image if loaded.
+        :type background: ImageHDU | PrimaryHDU | None
+        :param header: FITS header containing primary data metadata.
+        :type header: Header
+        :param main_image: Primary target image array used for measurements.
+        :type main_image: ImageHDU | PrimaryHDU
+        :return: A tuple containing (image, error, bgd, mask) arrays.
+        :rtype: Tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray]
+        """
+        # Collect scale factor
+        scale_factor: int | float
+        if header.get(ImageHeaderTags.BUN_IT) == "MJy/sr":
+            scale_factor = get_mj_ysr2jy_scale_factor(main_image)
+            log(
+                "-> converting unit from MJy/sr to Jr with factor: %e\n"
+                % scale_factor)
+        else:
+            scale_factor = 1
+
+        image_data: np.ndarray = main_image.data.copy() * scale_factor
+
+        # Scale by area
+        extension_names: list[str] = ext_names(image)
+        assert image is not None
+        if AREA in extension_names:
+            # AREA distortion correction
+            image_data *= image[AREA].data
+
+        # Collect and scale error
+        error: np.ndarray
+        if ERR in extension_names and np.shape(image[ERR]):
+            error = image[ERR].data.copy() * scale_factor
+        else:
+            error = np.sqrt(np.abs(image_data))
+
+        # Create mask
+        mask: np.ndarray
+        if DQ in extension_names:
+            mask = (
+                image[DQ].data
+                & (DQFlags.DQ_DO_NOT_USE | DQFlags.DQ_SATURATED))
+            mask = mask.astype(bool)
+        else:
+            mask = (np.isnan(image_data) | np.isnan(error))
+
+        # Collect and scale background array
+        bgd: np.ndarray | None
+        if background is not None:
+            bgd = background.data.copy() * scale_factor
+        else:
+            bgd = None
+
+        return image_data, error, bgd, mask

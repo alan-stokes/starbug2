@@ -19,17 +19,17 @@ from typing import Any
 import numpy as np
 from astropy.table import Table, vstack
 from astropy.units import Quantity
-from starbug2 import utils
-from starbug2.constants import (
+from starbug2.utilities import utils
+from starbug2.core.constants import (
      STAR_BUG_MIRI, NIRCAM, MATCH_COLS, TableColumn, ExitStates, HeaderTags)
-from starbug2.filters import STAR_BUG_FILTERS
+from starbug2.utilities.filters import STAR_BUG_FILTERS
 from starbug2.matching.band_match import BandMatch
 from starbug2.matching.cascade_match import CascadeMatch
 from starbug2.matching.exact_value_match import ExactValueMatch
 from starbug2.matching.generic_match import GenericMatch
-from starbug2.misc import parse_mask
-from starbug2.star_bug_config import StarBugMainConfig
-from starbug2.utils import parse_cmd, usage
+from starbug2.utilities.misc import parse_mask
+from starbug2.core.star_bug_config import StarBugMainConfig
+from starbug2.utilities.utils import parse_cmd, usage
 import photutils
 
 # Force photutils to strictly return standard QTables globally

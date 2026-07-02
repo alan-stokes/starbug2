@@ -20,7 +20,7 @@ from matplotlib.path import Path
 from matplotlib.patches import Polygon
 from astropy.table import Table
 
-from starbug2.utils import tab2array, colour_index, fill_nan
+from starbug2.utilities.utils import tab2array, colour_index, fill_nan
 
 
 class Mask(object):

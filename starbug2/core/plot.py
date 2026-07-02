@@ -21,13 +21,13 @@ from astropy.visualization import ZScaleInterval
 from astropy.table import Row, Table
 from scipy.interpolate import RegularGridInterpolator
 
-from starbug2.constants import URL_DOCS, HeaderTags, TableColumn
+from starbug2.core.constants import URL_DOCS, HeaderTags, TableColumn
 import matplotlib.image as mpimg
 from matplotlib.colors import LinearSegmentedColormap
 
 from astropy.wcs import WCS
-from starbug2 import utils
-from starbug2.filters import STAR_BUG_FILTERS
+from starbug2.utilities import utils
+from starbug2.utilities.filters import STAR_BUG_FILTERS
 
 # try to import pyplot as plt.
 try:

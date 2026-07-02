@@ -17,10 +17,11 @@ import os
 from typing import Final
 
 import pytest
-from starbug2.bin.main import starbug_main
-from starbug2.constants import ExitStates
+from starbug2.command_line_interfaces.main import starbug_main
+from starbug2.core.constants import ExitStates
 from tests.generic import (
-    clean, TEST_IMAGE_FITS, TEST_FILTER_STRING, TEST_PATH_STR, TEST_PATH)
+    clean, TEST_IMAGE_FITS, TEST_FILTER_STRING, TEST_PATH_STR, TEST_PATH,
+    TEST_FILTER_STRING_NO_G)
 
 # different fit files paths
 TEST_IMAGE_AP_FITS: Final[str] = os.path.join(
@@ -55,14 +56,14 @@ def test_param():
     assert run("starbug2 --update-param") == ExitStates.EXIT_SUCCESS
     assert (run(
         f"starbug2 -p starbug.param {TEST_IMAGE_FITS}"
-        f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS)
+        f" {TEST_FILTER_STRING_NO_G}") == ExitStates.EXIT_SUCCESS)
     clean()
 
 
 def test_detect():
     clean()
     assert (run(
-        f"starbug2 -v {TEST_IMAGE_FITS} {TEST_FILTER_STRING}") ==
+        f"starbug2 -v {TEST_IMAGE_FITS} {TEST_FILTER_STRING_NO_G}") ==
             ExitStates.EXIT_SUCCESS)
     assert (run(
         f"starbug2 -D {TEST_IMAGE_FITS} {TEST_FILTER_STRING}") ==
@@ -121,22 +122,27 @@ def test_residual():
     assert run(f"starbug2 -DB {TEST_IMAGE_FITS} "
                f"{TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS
     assert run(
-        f"starbug2 -fSs GEN_RESIDUAL=1 {TEST_IMAGE_FITS}"
+        f"starbug2 -sPSF_FILE={TEST_PSF_FITS} "
+        f"-fSs GEN_RESIDUAL=1 {TEST_IMAGE_FITS}"
         f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS
-    assert run(f"starbug2 {TEST_IMAGE_RES_FIT}"
+    assert run(f"starbug2 {TEST_IMAGE_RES_FIT} "
+               f"-sPSF_FILE={TEST_PSF_FITS}"
+               f" {TEST_FILTER_STRING_NO_G}") == ExitStates.EXIT_SUCCESS
+    assert run(f"starbug2 -D {TEST_IMAGE_RES_FIT} "
+               f"-sPSF_FILE={TEST_PSF_FITS} "
                f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS
-    assert run(f"starbug2 -D {TEST_IMAGE_RES_FIT}"
-               f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS
-    assert run(f"starbug2 -fB {TEST_IMAGE_RES_FIT}"
+    assert run(f"starbug2 -fB {TEST_IMAGE_RES_FIT} "
+               f"-sPSF_FILE={TEST_PSF_FITS} "
                f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS
     assert run(f"starbug2 -fP {TEST_IMAGE_RES_FIT} "
                f"-sPSF_FILE={TEST_PSF_FITS}"
                f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS
-    assert run(f"starbug2 -fPs GEN_RESIDUAL=1 {TEST_IMAGE_RES_FIT}"
+    assert run(f"starbug2 -fPs GEN_RESIDUAL=1 {TEST_IMAGE_RES_FIT} "
                f" -sPSF_FILE={TEST_PSF_FITS}"
                f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS
 
-    assert run(f"starbug2 -fSA {TEST_IMAGE_FITS}"
+    assert run(f"starbug2 -fSA {TEST_IMAGE_FITS} "
+               f"-sPSF_FILE={TEST_PSF_FITS} "
                f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS
     clean()
 
@@ -146,10 +152,10 @@ def test_n_cores():
     os.system(f"cp {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}")
     assert run(
         f"starbug2 {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}"
-        f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS
+        f" {TEST_FILTER_STRING_NO_G}") == ExitStates.EXIT_SUCCESS
     assert (run(
         f"starbug2 -n2 {TEST_IMAGE_FITS} "
-        f"{TEST_IMAGE_2_FITS} {TEST_FILTER_STRING}") ==
+        f"{TEST_IMAGE_2_FITS} {TEST_FILTER_STRING_NO_G}") ==
             ExitStates.EXIT_SUCCESS)
     assert (run(f"starbug2 -vD {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}"
                 f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS)
