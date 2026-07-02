@@ -60,10 +60,6 @@ class ArtificialStars:
         TableColumn.X_DET, TableColumn.Y_DET, TableColumn.FLUX_DET,
         TableColumn.STATUS]
 
-    # mag ranges
-    MAG_RANGE_LOW: Final[int] = 18
-    MAG_RANGE_HIGH: Final[int] = 27
-
     """
     ast
     """
@@ -129,8 +125,19 @@ class ArtificialStars:
                  measured values.
         :rtype: astropy.table.Table
         """
+        if mag_range[0] - mag_range[1] >= 0:
+            warn("Detected magnitude range in wrong order,"
+                 " put bright limit first\n")
+            return None
+
+        base_shape: np.ndarray = np.copy(self._starbug.main_image().shape)
+        if any(base_shape < sub_image_size):
+            sub_image_size = min(base_shape)
+            p_error("sub image size greater than image size, setting to "
+                    "'safe' value %d.\n" % sub_image_size)
+
         return self._auto_run(
-            n_tests, stars_per_test, sub_image_size, mag_range, loading_buffer,
+            n_tests, stars_per_test, mag_range, loading_buffer,
             autosave, skip_phot, skip_background, zp_mag, save_image,
             save_image_path, ast_seed)
 
@@ -271,7 +278,7 @@ class ArtificialStars:
                 format="fits")
 
     def _auto_run(
-            self,  n_tests: int, stars_per_test: int, sub_image_size: int,
+            self,  n_tests: int, stars_per_test: int,
             mag_range: Tuple[int, int], loading_buffer: np.ndarray | None,
             autosave: int, skip_phot: bool | int, skip_background: bool | int,
             zp_mag: float, save_image: bool,
@@ -284,8 +291,6 @@ class ArtificialStars:
         :type n_tests: int
         :param stars_per_test: Number of stars to inject per test.
         :type stars_per_test: int
-        :param sub_image_size: In prep.
-        :type sub_image_size: int
         :param mag_range: Length two list or tuple containing the magnitude
                           range of injected stars. These will be uniformly
                           sampled from within this range.
@@ -323,20 +328,9 @@ class ArtificialStars:
         current_image = self._starbug.image
         assert current_image is not None
         base_image: fits.HDUList = current_image.copy()
-        base_shape: np.ndarray = np.copy(self._starbug.main_image().shape)
         stars_per_test: int = int(stars_per_test)
         passed: int = 0
         buffer: int = 0
-
-        if mag_range[0] - mag_range[1] >= 0:
-            warn("Detected magnitude range in wrong order,"
-                 " put bright limit first\n")
-            return None
-
-        if any(base_shape < sub_image_size):
-            sub_image_size = min(base_shape)
-            p_error("sub image size greater than image size, setting to "
-                    "'safe' value %d.\n" % sub_image_size)
 
         for test in range(1, int(n_tests) + 1):
             self._execute_test(

@@ -15,7 +15,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 import os
 import sys
-from typing import Final, Tuple, Dict, List, cast, Any
+from typing import Tuple, Dict, List, cast, Any
 
 from astropy.wcs import (
     WCS, NoConvergence, SingularMatrixError, InconsistentAxisTypesError,
@@ -50,9 +50,6 @@ class StarbugBase(StarBugInterface):
     It is self-contained enough to simply run "photometry" and everything
     should just take care of itself from there on.
     """
-
-    MIN_MAG: Final[int] = 27
-    MAX_MAG: Final[int] = 18
 
     @staticmethod
     def sort_output_names(
@@ -92,9 +89,8 @@ class StarbugBase(StarBugInterface):
         return out_dir, b_name, extension
 
     def __init__(
-        self, f_name: str, config: StarBugMainConfig,
-        ap_file: str | None, bkg_file: str | None
-    ) -> None:
+            self, f_name: str, config: StarBugMainConfig,
+            ap_file: str | None, bkg_file: str | None) -> None:
         """
         Star bug initialisation.
 
@@ -493,15 +489,15 @@ class StarbugBase(StarBugInterface):
         return ExitStates.EXIT_SUCCESS
 
     # noinspection SpellCheckingInspection
-    def photometry_routine(self) -> int:
+    def photometry_routine(self) -> ExitStates:
         """
         Full photometry routine
         Saves the result as a table self._psf_catalogue,
         Additionally it appends a residual Image onto the
         self._residuals HDUList
 
-        :return: 0 for success, 1 otherwise
-        :rtype int
+        :return: exit states
+        :rtype ExitStates
         """
         star_bug_photometry: Photometry = Photometry()
         result: ExitStates
@@ -518,18 +514,18 @@ class StarbugBase(StarBugInterface):
         self._residuals = residuals
         return result
 
-    def source_geometry(self) -> None:
+    def source_geometry(self) -> ExitStates:
         """
         Calculate source geometry stats for a given image and source list.
         :return: None
         """
         if self._detections is None:
             p_error("No source file loaded\n")
-            return
+            return ExitStates.EXIT_FAIL
 
         if self._filter is None:
             p_error("no filter string provided\n")
-            return
+            return ExitStates.EXIT_FAIL
 
         self.log("Running Source Geometry\n")
         slist: Table = self._filter_detections()
@@ -549,6 +545,7 @@ class StarbugBase(StarBugInterface):
         BinTableHDU(
             data=self._source_stats, header=self.header()).writeto(
             f_name, overwrite=True)
+        return ExitStates.EXIT_SUCCESS
 
     # noinspection SpellCheckingInspection
     def verify(self) -> ExitStates:
@@ -668,27 +665,6 @@ class StarbugBase(StarBugInterface):
         head.update(self.info)
         return collapse_header(head)
 
-    @property
-    def info(self) -> dict[str, str]:
-        """
-        Get some useful information from the image header file.
-
-        :return: extracted keys and elements from the image header.
-        :rtype: dict of str, to str.
-        """
-        out: dict[str, str] = {}
-        keys: list[str] = [
-            ImageHeaderTags.FILTER, ImageHeaderTags.DETECTOR,
-            ImageHeaderTags.TELESCOPE, ImageHeaderTags.INSTRUMENT,
-            ImageHeaderTags.BUN_IT, ImageHeaderTags.PIXAR_A2,
-            ImageHeaderTags.PIXAR_SR]
-        if self._image:
-            for hdu in self._image:
-                out.update(
-                    {(key, hdu.header[key]) for key in keys
-                     if key in hdu.header})
-        return out
-
     def main_image(self) -> ImageHDU | PrimaryHDU:
         # noinspection SpellCheckingInspection
         """
@@ -739,6 +715,74 @@ class StarbugBase(StarBugInterface):
 
         self._n_hdu = 0
         return self._image[0]
+
+    def run_starbug(self, config) -> ExitStates:
+        """
+        executes the main logic flows.
+        :param config: the starbug config
+        :return:
+        """
+        if self.verify():
+            warn("System verification failed\n")
+            return ExitStates.EXIT_FAIL
+
+        result_state: ExitStates = ExitStates.EXIT_SUCCESS
+        if config.do_star_detection:
+            result_state = self.detect()
+            if result_state != ExitStates.EXIT_SUCCESS:
+                p_error("Failed to execute detection")
+                return result_state
+            result_state = self.aperture_photometry()
+            if result_state != ExitStates.EXIT_SUCCESS:
+                p_error("Failed to execute aperture_photometry")
+                return result_state
+        if config.do_bgd_estimate:
+            result_state = self.bgd_estimate()
+            if result_state != ExitStates.EXIT_SUCCESS:
+                p_error("Failed to execute bgd_estimate")
+                return result_state
+        if config.do_bgd_subtraction:
+            result_state = self.bgd_subtraction()
+            if result_state != ExitStates.EXIT_SUCCESS:
+                p_error("Failed to execute bgd_subtraction")
+                return result_state
+        if config.do_source_geometry:
+            result_state = self.source_geometry()
+            if result_state != ExitStates.EXIT_SUCCESS:
+                p_error("Failed to execute source_geometry")
+                return result_state
+        if config.do_aperture_photometry:
+            result_state = self.aperture_photometry()
+            if result_state != ExitStates.EXIT_SUCCESS:
+                p_error("Failed to execute aperture_photometry")
+                return result_state
+        if config.do_photometry_routine or config.generate_residual_image:
+            result_state = self.photometry_routine()
+            if result_state != ExitStates.EXIT_SUCCESS:
+                p_error("Failed to execute photometry_routine")
+                return result_state
+        return ExitStates.EXIT_SUCCESS
+
+    @property
+    def info(self) -> dict[str, str]:
+        """
+        Get some useful information from the image header file.
+
+        :return: extracted keys and elements from the image header.
+        :rtype: dict of str, to str.
+        """
+        out: dict[str, str] = {}
+        keys: list[str] = [
+            ImageHeaderTags.FILTER, ImageHeaderTags.DETECTOR,
+            ImageHeaderTags.TELESCOPE, ImageHeaderTags.INSTRUMENT,
+            ImageHeaderTags.BUN_IT, ImageHeaderTags.PIXAR_A2,
+            ImageHeaderTags.PIXAR_SR]
+        if self._image:
+            for hdu in self._image:
+                out.update(
+                    {(key, hdu.header[key]) for key in keys
+                     if key in hdu.header})
+        return out
 
     @property
     def filter(self) -> str | None:

@@ -24,7 +24,7 @@ from starbug2.core.constants import (
     SCI, DEFAULT_COLOUR, HeaderTags, AP_FILE, BGD_FILE, PSF_FILE, TableColumn,
     STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, PROBLEMATIC_FILTER_ID,
     PROBLEMATIC_FILTER_WARNING, DEFAULT_PARAM_TEMPLATE, STARBUG_DATA_DIR,
-    DEFAULT_FULL_WIDTH_HALF_MAX)
+    DEFAULT_FULL_WIDTH_HALF_MAX, DEFAULT_MIN_MAG, DEFAULT_MAX_MAG)
 from starbug2.utilities.filters import FilterStruct
 from starbug2.utilities.utils import p_error, get_version, warn
 
@@ -340,8 +340,8 @@ class StarBugMainConfig:
         self._artificial_star_tests_count: int = 100
         self._stars_per_artificial_test: int = 10
         self._sub_image_crop_size: int = 500
-        self._test_magnitude_bright_limit: int = 18
-        self._test_magnitude_faint_limit: int = 28
+        self._test_magnitude_bright_limit: int = DEFAULT_MAX_MAG
+        self._test_magnitude_faint_limit: int = DEFAULT_MIN_MAG
         self._ast_plot_filename: str | None = None
         self._region_colour: str = DEFAULT_COLOUR
         self._region_scale: bool = True

@@ -14,6 +14,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
 import sys
+import copy
 from multiprocessing.shared_memory import SharedMemory
 from multiprocessing import Pool, Process, shared_memory
 from multiprocessing.pool import Pool as PoolType
@@ -117,7 +118,7 @@ def ast_one_time_runs(config: StarBugMainConfig) -> ExitStates:
 
 
 def execute_artificial_stars(
-        f_name: str, config: StarBugMainConfig, verbose: bool,
+        f_name: str, config: StarBugMainConfig,
         index: int, test_count: int, ast_auto_save: int,
         loading_buffer: np.ndarray) -> Table | None:
     """
@@ -127,8 +128,6 @@ def execute_artificial_stars(
     :type f_name: str
     :param config: the config object
     :type config: StarBugMainConfig
-    :param verbose: bool flag if to use verbose
-    :type verbose: bool
     :param index: the index
     :type index: int
     :param test_count: the amount of tests
@@ -141,6 +140,10 @@ def execute_artificial_stars(
              None if the file doesn't exist.
     :rtype: astropy.table.Table or None.
     """
+    config.unfreeze()
+    config.verbose_logs = index == 0
+    config.freeze()
+
     out: Table | None = None
     if os.path.exists(f_name):
         star_bug_base: StarbugBase = StarbugBase(
@@ -212,9 +215,8 @@ def ast_main(
             config.n_cores = 1
             config.freeze()
             outs = ([execute_artificial_stars(
-                f_name, config, config.verbose_logs, index,
-                config.artificial_star_tests_count, config.ast_auto_save,
-                loading_buffer)
+                f_name, config, index, config.artificial_star_tests_count,
+                config.ast_auto_save, loading_buffer)
                     for index, f_name in enumerate(config.fits_images)])
         else:
             n_cores: int = int(min(n_cores, n_tests))
@@ -223,7 +225,7 @@ def ast_main(
                 np.ceil(config.ast_auto_save / n_cores))
 
             worker_tasks = [
-                (file_name, config, index == 0, index, per_process_n_test,
+                (file_name, copy.deepcopy(config), index, per_process_n_test,
                  per_process_tests_per_save, loading_buffer)
                 for index, file_name in enumerate(config.fits_images)
             ]

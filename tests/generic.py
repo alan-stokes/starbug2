@@ -44,6 +44,7 @@ TEST_AST_FILLED: Final[str] = str(
 TEST_SEED = 42
 
 # the filter string for tests to ensure they all use the same stuff
+TEST_FILTER_STRING_NO_G = "-s FILTER=F444W"
 TEST_FILTER_STRING = "-s FILTER=F444W -G"
 GITHUB_RELEASE_URL = (
     "https://github.com/alan-stokes/starbug2/releases/download/TEST_DATA/")
