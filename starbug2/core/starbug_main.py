@@ -895,7 +895,7 @@ class StarbugBase(StarBugInterface):
             (result_state, self._ast_star_source_list, self._image) = (
                 ArtificialStars.add_stars(
                     self._image, self._config, 0, self.main_image(), self.psf,
-                    self.image, self.n_hdu))
+                    self.n_hdu))
             if result_state != ExitStates.EXIT_SUCCESS:
                 p_error("Failure to execute add stars to image")
                 return result_state

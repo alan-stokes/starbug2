@@ -16,7 +16,7 @@ import os
 import numpy as np
 from typing import cast, Any, Tuple, Callable, Dict
 
-from astropy.io.fits import ImageHDU, PrimaryHDU, HDUList
+from astropy.io.fits import ImageHDU, PrimaryHDU
 from photutils.datasets import make_model_image, make_random_models_table
 from astropy.table import Table, QTable
 from astropy.io import fits
@@ -64,7 +64,7 @@ class ArtificialStars:
     def add_stars(
             base_image: fits.HDUList, config: StarBugMainConfig,
             buffer: int, main_image: ImageHDU | PrimaryHDU,
-            psf: np.ndarray | None, image: HDUList | None,
+            psf: np.ndarray | None,
             n_hdu: int) -> Tuple[ExitStates, QTable, fits.HDUList]:
         """
         adds new stars to the image.
@@ -78,14 +78,13 @@ class ArtificialStars:
         :type main_image: ImageHDU | PrimaryHDU
         :param psf: the point source function
         :type psf: np.ndarray | None
-        :param image: the image
-        :type image: HDUList | None
         :param n_hdu: the n_hdu.
         :type n_hdu: int
         :return: exit state success the location of the new stars and the
                  new image
         :rtype: Tuple[ExitStates, atrophy.QTable, fits.HDUList]
         """
+        image: fits.HDUList = base_image.__deepcopy__()
         shape: list[int, int] = image[n_hdu].shape # noqa
 
         source_list: QTable = make_random_models_table(
@@ -117,15 +116,14 @@ class ArtificialStars:
         # this line is due to the fits file being a lazy reader. so this is not
         # in memory, it is still accessing the file directly. So a copy avoids
         # corrupting the original file.
-        base_image: fits.HDUList = base_image.copy()
-        base_image[n_hdu].data += star_overlay
+        image[n_hdu].data += star_overlay
 
         if config.save_added_image:
-            base_image.writeto(os.path.join(
+            image.writeto(os.path.join(
                 config.save_added_image_path,
                 f"inserted_image_for_test_{config.ast_test_index}.fits"))
 
-        return ExitStates.EXIT_SUCCESS, source_list, base_image
+        return ExitStates.EXIT_SUCCESS, source_list, image
 
 
 def get_completeness(test_result: Table) -> Table:

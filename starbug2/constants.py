@@ -40,6 +40,7 @@ DEFAULT_PSF_FILE_NAME = "psf.fits"
 DEFAULT_COLOUR: Final[str] = "green"
 DEFAULT_MIN_MAG: Final[int] = 28
 DEFAULT_MAX_MAG: Final[int] = 18
+DEFAULT_BUNIT = "MJy/sr"
 
 # how many characters we will allow by default.
 N_MIS_MATCHES: Final[int] = 10

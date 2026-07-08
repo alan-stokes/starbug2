@@ -24,7 +24,7 @@ from astropy.io import fits
 
 from starbug2.command_line_interfaces.main import starbug_internal_main
 from constants import (
-    STAR_BUG_TEST_DAT_ENV, ImageHeaderTags, MIRI_STRING, MIRI_IMAGE)
+    STAR_BUG_TEST_DAT_ENV, ImageHeaderTags, MIRI_STRING, MIRI_IMAGE, DEFAULT_BUNIT)
 from starbug2.jwst_support.initialise_psf_data import download_ap_corr_files
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.utilities.utils import get_data_path
@@ -142,6 +142,9 @@ def create_blank_fits(size=(2048, 2048)):
         "Artificial black space for starbug2 integration tests.")
     header[ImageHeaderTags.DETECTOR] = MIRI_IMAGE
     header[ImageHeaderTags.INSTRUMENT] = MIRI_STRING
+    header[ImageHeaderTags.BUN_IT] = DEFAULT_BUNIT
+    header[ImageHeaderTags.PIXAR_SR] = 9.31e-14
+    header[ImageHeaderTags.PIXAR_A2] = 0.00396
 
     # Write the file out to disk
     # overwrite=True ensures test scripts can recreate this file on

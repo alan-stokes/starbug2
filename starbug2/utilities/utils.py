@@ -37,7 +37,7 @@ from constants import (
     ExitStates,
     REST_SUCCESS_CODE,
     Units,
-    ImageHeaderTags, STARBUG_DATA_DIR,
+    ImageHeaderTags, STARBUG_DATA_DIR, DEFAULT_BUNIT,
 )
 from starbug2.utilities.filters import STAR_BUG_FILTERS
 
@@ -725,7 +725,7 @@ def get_mj_ysr2jy_scale_factor(
     :rtype float
     """
     scale_factor: float = 1.0
-    if ext.header.get(ImageHeaderTags.BUN_IT) == "MJy/sr":
+    if ext.header.get(ImageHeaderTags.BUN_IT) == DEFAULT_BUNIT:
         if ImageHeaderTags.PIXAR_SR in ext.header:
             scale_factor = 1e6 * float(ext.header[ImageHeaderTags.PIXAR_SR])
     return scale_factor
