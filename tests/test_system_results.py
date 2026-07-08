@@ -4,14 +4,12 @@ from typing import Final
 
 import numpy as np
 
-from starbug2.command_line_interfaces.ast import execute_artificial_stars
 from starbug2.command_line_interfaces.main import starbug_internal_main
-from starbug2.core.constants import ExitStates
+from constants import ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from tests import generic
 from tests.generic import (
-    TEST_PATH, TEST_BLANK, TEST_PATH_STR, create_default_config,
-    TEST_AST_FILLED)
+    TEST_PATH, TEST_BLANK, TEST_PATH_STR, create_default_config)
 import os
 
 
@@ -112,6 +110,7 @@ class TestSystemResults:
         lines = captured.out.splitlines()
         self._assert_results(lines, 4461, 4508, 21854, 3433, 18421, 0.8, 1.2)
 
+
     def test_detection_on_artificial_stars(self, capsys):
         generic.clean()
         c: np.ndarray = np.array([0, 0, 0], dtype=np.int64)
@@ -125,10 +124,10 @@ class TestSystemResults:
 
         # set up config for artificial stars
         config: StarBugMainConfig = create_default_config()
+        config.unfreeze()
         config.custom_filter = 'F770W'
         config.fits_images = [TEST_BLANK]
         config.verbose_logs = True
-        config.do_star_detection = True
 
         # config to set off detection with psf
         config.stars_per_artificial_test = 15
@@ -138,17 +137,20 @@ class TestSystemResults:
         config.sigma_source = 50
         config.test_magnitude_bright_limit = 15
         config.test_magnitude_faint_limit = 16
+        config.ast_add_stars = True
+        config.ast_loader = loading_buffer
+        config.ast_test_index = 0
+        config.artificial_star_tests_count = 1
+        config.ast_auto_save = 10
+        config.ast_load_psf = True
+        config.do_artificial_star_test = True
+        config.ast_add_stars = True
+        config.do_star_detection = True
+        config.freeze()
+
 
         # create empty fits file
         generic.create_blank_fits()
-
-        # add stars
-        execute_artificial_stars(
-            TEST_BLANK, config, 0, 1, 10, loading_buffer)
-
-        config.unfreeze()
-        config.fits_images = [TEST_AST_FILLED]
-        config.freeze()
 
         # execute detection.
         exit_state: int = starbug_internal_main(config)
@@ -177,7 +179,6 @@ class TestSystemResults:
         config.custom_filter = 'F770W'
         config.fits_images = [TEST_BLANK]
         config.verbose_logs = True
-        config.do_star_detection = True
 
         # config to set off detection with psf
         config.stars_per_artificial_test = 15
@@ -189,16 +190,16 @@ class TestSystemResults:
         config.test_magnitude_faint_limit = 16
         config.generate_residual_image = True
         config.psf_file_override = os.path.join(TEST_PATH_STR, "psf.fits")
+        config.ast_loader = loading_buffer
+        config.ast_test_index = 0
+        config.artificial_star_tests_count = 1
+        config.ast_auto_save = 10
+        config.do_star_detection = True
+        config.do_artificial_star_test = True
         config.freeze()
 
         # create empty fits file
         generic.create_blank_fits()
-
-        # add stars
-        execute_artificial_stars(TEST_BLANK, config, 0, 1, 10, loading_buffer)
-        config.unfreeze()
-        config.fits_images = [TEST_AST_FILLED]
-        config.freeze()
 
         # execute detection / phot / residual.
         exit_state: int = starbug_internal_main(config)

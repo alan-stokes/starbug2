@@ -12,32 +12,27 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-from multiprocessing import Pool
-from multiprocessing.pool import Pool as PoolType
 import os
 import sys
 import warnings
-import copy
 
-from astropy.io.fits import PrimaryHDU
 from astropy.io.fits.verify import VerifyWarning
 from astropy.io.fits.header import Header
 from astropy.table import Table
 from astropy.utils.exceptions import AstropyDeprecationWarning, AstropyWarning
 import photutils
 
-from starbug2.utilities import param
-from starbug2.core.constants import (
-    ExitStates, FITS_EXTENSION, HELP_STRINGS, LOGO, Modes, READ_THE_DOCS_URL)
-from starbug2.jwst_support.initialise_psf_data import (
-    generate_psf, init_starbug_for_jwst)
+from core.main_components.multi_treading_execution import (
+    execute_multi_core_main, execute_one_core_run_main)
+from core.main_components.one_time_runs import starbug_one_time_runs
+from constants import (
+    ExitStates, LOGO, READ_THE_DOCS_URL)
 from starbug2.matching.generic_match import GenericMatch
-from starbug2.utilities.misc import generate_runscript
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
 from starbug2.utilities.utils import (
-    combine_file_names, export_region, export_table, get_version, parse_cmd,
-    p_error, printf, puts, split_file_name, usage, get_data_path)
+    combine_file_names, export_table, parse_cmd, p_error, printf, puts,
+    split_file_name)
 
 # Target-silence only the specific Photutils/Astropy deprecation noise
 # without masking generic Runtime math errors globally.
@@ -143,119 +138,6 @@ def starbug_parse_argv(argv: list[str]) -> StarBugMainConfig:
     return config
 
 
-def starbug_one_time_runs(config: StarBugMainConfig) -> ExitStates:
-    """
-    Options set, verify/run one time functions
-    """
-
-    if config.show_version:
-        printf(get_version())
-
-    if config.show_help:
-        usage(__doc__, verbose=config.verbose_logs)
-
-        if config.do_star_detection:
-            p_error(HELP_STRINGS[Modes.DETECTION])
-        if config.do_bgd_estimate:
-            p_error(HELP_STRINGS[Modes.BACKGROUND])
-        if config.do_aperture_photometry:
-            p_error(HELP_STRINGS[Modes.APP_HOT])
-        if config.do_photometry_routine:
-            p_error(HELP_STRINGS[Modes.PSFP_HOT])
-        if config.do_matching:
-            p_error(HELP_STRINGS[Modes.MATCH_OUTPUTS])
-        return ExitStates.EXIT_EARLY
-
-    # Load parameter files for onetime runs
-    if not config.update_param:
-        parameter_file: str | None
-        if (parameter_file := config.param_file) is None:
-            if os.path.exists("./starbug.param"):
-                parameter_file = "starbug.param"
-            else:
-                parameter_file = None
-
-        config.load_params(parameter_file)
-    else:
-        param.update_param_file(config.param_file)
-        return ExitStates.EXIT_SUCCESS
-
-    output: int | float | str
-    if _output := config.output_file:
-        _output: int | float | str
-        output = _output
-    else:
-        output = '.'
-
-    # One time run commands
-
-    # Initialise or update starbug
-    if config.execute_jwst_initialisation:
-        init_starbug_for_jwst(config)
-
-    # Generate a single PSF
-    if config.generate_psf:
-        if config.got_valid_psf_generation_params():
-            filter_string: str | None = config.custom_filter
-            assert filter_string is not None
-            detector: str | None = config.detector_name
-            psf_size: int = config.psf_fit_size
-            if psf_size is not None:
-                printf(
-                    "Generating PSF: %s %s (%d)\n" %
-                    (filter_string, detector, psf_size))
-            else:
-                printf(
-                    "Generating PSF: %s %s\n" %
-                    (filter_string, detector))
-            psf: PrimaryHDU | None = generate_psf(
-                filter_string, detector=detector, fov_pixels=psf_size)
-            if psf:
-                name: str = (
-                    "%s%s.fits" %
-                    (filter_string, "" if detector is None else detector))
-                printf("--> %s\n" % name)
-                d_name: str = get_data_path()
-                psf.writeto(os.path.join(d_name, name), overwrite=True)
-            else:
-                p_error("PSF Generation failed :(\n")
-        else:
-            # noinspection SpellCheckingInspection
-            p_error(
-                "Unable to generate PSF. Set filter with '-s FILTER=FXXX and "
-                "Set detector name with '-s DET_NAME=XXX and "
-                "Set psf_fit_size with '-s PSF_SIZE=XXX'\n")
-
-    # Generate a run script
-    if config.generate_run:
-        generate_runscript(config.fits_images, "starbug2 ")
-        if not config.fits_images:
-            p_error("no files included to create runscript with\n")
-
-    # Generate a region from a table
-    if config.generate_region:
-        file_name: str | None = config.region_file
-        if file_name and os.path.exists(file_name):
-            table: Table = Table.read(file_name, format="fits")
-            _, name, _ = split_file_name(file_name)
-            name: str
-            export_region(
-                table, colour=config.region_colour,
-                scale_radius=config.region_scale,
-                region_radius=config.region_radius,
-                x_col=config.region_x_column_name,
-                y_col=config.region_y_column_name,
-                wcs=config.region_uses_wcs,
-                f_name="%s/%s.reg" % (output, name))
-            printf("generating region --> %s/%s.reg\n" % (output, name))
-
-    # generate local param file as requested
-    if config.generate_local_param_file:
-        config.do_generate_local_param_file()
-
-    return ExitStates.EXIT_SUCCESS
-
-
 def starbug_match_outputs(
         starbugs: list[StarbugBase | None], config: StarBugMainConfig) -> None:
     """
@@ -321,70 +203,6 @@ def starbug_match_outputs(
         export_table(av, f_name="%s-psfmatch.fits" % f_name, header=header)
 
 
-def execute_star_bug(
-        args: tuple[str, StarBugMainConfig, bool]) -> StarbugBase | None:
-    """
-    Worker function to initialise and run standard photometry processes on a
-    single file.
-
-    :param args: A tuple containing (file_name, config, use_verbose)
-    :type args: tuple
-    :return: The verified StarbugBase pipeline wrapper instance, or None
-             if validation fails
-    :rtype: starbug2.StarbugBase or None
-    """
-    # I've put this here because it takes some time
-    from starbug2.core.starbug_main import StarbugBase
-    f_name: str
-    config: StarBugMainConfig
-    f_name, config, use_verbose = args
-
-    # check file exists
-    if not os.path.exists(f_name):
-        p_error("can't access %s\n" % f_name)
-        return None
-
-    folder, file_name, ext = split_file_name(f_name)
-
-    # check correct extension
-    if ext != FITS_EXTENSION:
-        p_error("file must be type '.fits' not %s\n" % ext)
-        return None
-
-    # extract output files
-    ap_file: str | None = config.ap_file
-    background_file: str | None = config.background_file
-
-    # find file.
-    if config.find_file:
-        ap: str = "%s/%s-ap.fits" % (folder, file_name)
-        bgd: str = "%s/%s-bgd.fits" % (folder, file_name)
-        if os.path.exists(ap) and config.ap_file is None:
-            ap_file = ap
-        if os.path.exists(bgd) and config.background_file is None:
-            background_file = bgd
-
-    # Sorting out the stdout
-    if use_verbose:
-        printf("-> showing starbug stdout for \"%s\"\n" % f_name)
-    elif config.n_cores > 1:
-        printf("-> hiding starbug stdout for \"%s\"\n" % f_name)
-    else:
-        printf("-> %s\n" % f_name)
-
-    # execute
-    star_bug_base: StarbugBase | None = StarbugBase(
-        f_name, config=config, ap_file=ap_file,
-        bkg_file=background_file)
-    assert star_bug_base is not None
-
-    result: ExitStates = star_bug_base.run_starbug(config)
-    if result != ExitStates.EXIT_SUCCESS:
-        return None
-    else:
-        return star_bug_base
-
-
 def starbug_main(argv: list[str]) -> ExitStates:
     """
     Command-line execution orchestrator for processing astronomical image
@@ -421,26 +239,9 @@ def starbug_internal_main(config: StarBugMainConfig) -> ExitStates:
 
         if ((n_cores := config.n_cores) is None
                 or n_cores == 1 or len(config.fits_images) == 1):
-
-            config.unfreeze()
-            config.n_cores = 1
-            config.freeze()
-
-            starbugs = (
-                [execute_star_bug(
-                    (file_name, config, config.verbose_logs))
-                    for file_name in config.fits_images])
+            starbugs = execute_one_core_run_main(config)
         else:
-            pool: PoolType = Pool(processes=n_cores)
-
-            # this ensures only the first worker executes verbose.
-            worker_tasks = [
-                (file_name, copy.deepcopy(config), index == 0)
-                for index, file_name in enumerate(config.fits_images)
-            ]
-            starbugs = pool.map(execute_star_bug, worker_tasks)
-            pool.close()
-            pool.join()
+            starbugs = execute_multi_core_main(config)
 
         to_remove: list[StarbugBase | None] = []
         sb: StarbugBase | None

@@ -18,7 +18,7 @@ from astropy import units
 from astropy.units.quantity import Quantity
 from astropy.coordinates import SkyCoord
 from astropy.table import Table, hstack, Column, vstack
-from starbug2.core.constants import HeaderTags, SourceFlags, TableColumn
+from constants import HeaderTags, SourceFlags, TableColumn
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.utilities.utils import (
     Loading, printf, remove_duplicates, p_error, fill_nan, tab2array,

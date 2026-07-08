@@ -18,7 +18,7 @@ import numpy as np
 from astropy.table import Table
 from astropy.io import fits
 
-from starbug2.core.constants import Units
+from constants import Units
 from tests.generic import check_shape
 
 

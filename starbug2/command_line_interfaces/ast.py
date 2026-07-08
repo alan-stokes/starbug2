@@ -14,10 +14,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
 import sys
-import copy
 from multiprocessing.shared_memory import SharedMemory
-from multiprocessing import Pool, Process, shared_memory
-from multiprocessing.pool import Pool as PoolType
+from multiprocessing import Process, shared_memory
 
 import numpy as np
 import glob
@@ -25,12 +23,15 @@ from time import sleep
 from astropy.table import Table
 from astropy.io.fits import HDUList
 
-from starbug2.core.constants import ExitStates, TableColumn
+from core.main_components.multi_treading_execution import (
+    execute_one_core_run_ast, execute_multicore_ast)
+from core.main_components.one_time_runs import ast_one_time_runs
+from constants import ExitStates, TableColumn
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
-from starbug2.core.artificialstars import ArtificialStars, compile_results
+from core.main_components.artificialstars import compile_results
 from starbug2.utilities.utils import (
-    printf, p_error, combine_tables, fill_nan,  parse_cmd, usage)
+    printf, p_error, combine_tables,  parse_cmd)
 
 import photutils
 
@@ -77,95 +78,142 @@ def ast_parse_argv(argv: list[str]) -> StarBugMainConfig:
     return config
 
 
-def ast_one_time_runs(config: StarBugMainConfig) -> ExitStates:
+def report_before_logs(config: StarBugMainConfig, f_name: str) -> None:
     """
-    Set options, verify run and execute one time functions
-    """
-
-    if config.show_ast_help:
-        usage(__doc__, verbose=config.verbose_logs)
-        return ExitStates.EXIT_EARLY
-
-    if config.ast_recover:
-        f_names: list[str] | None
-        if not config.fits_images:
-            # noinspection SpellCheckingInspection
-            f_names = glob.glob("sbast-autosave*.tmp")
-        else:
-            f_names = [a for a in config.fits_images if os.path.exists(a)]
-        if f_names:
-            printf("Recovery Mode:\n-> %s\n" % ("\n-> ".join(f_names)))
-            raw: Table | None = Table()
-            for f_name in f_names:
-                f_name: str
-                read_table: Table | None = Table.read(f_name)
-                if read_table is None:
-                    p_error(f"failed to read table at path {f_name}")
-                    return ExitStates.EXIT_FAIL
-                raw = combine_tables(raw, read_table)
-            results: HDUList
-            assert raw is not None
-            if (results := compile_results(
-                    fill_nan(raw), plot_ast="recovered.pdf")):
-                printf("-> successful recovery!\n--> %s\n" % (
-                    f_name := "recovered.fits"))
-                results.writeto(f_name, overwrite=True)
-            else:
-                p_error("something went wrong\n")
-        else:
-            p_error("No files found to recover\n")
-    return ExitStates.EXIT_SUCCESS
-
-
-def execute_artificial_stars(
-        f_name: str, config: StarBugMainConfig,
-        index: int, test_count: int, ast_auto_save: int,
-        loading_buffer: np.ndarray) -> Table | None:
-    """
-    Multiprocessing worker function to run artificial star tests on a given
-    file.
-    :param f_name: the file to process
-    :type f_name: str
-    :param config: the config object
+    does some verbose logging about what's going to happen.
+    :param config: the starbug config
     :type config: StarBugMainConfig
-    :param index: the index
-    :type index: int
-    :param test_count: the amount of tests
-    :type test_count: int
-    :param ast_auto_save: how many tests between saves
-    :type ast_auto_save: int.
-    :param loading_buffer: the loading buffer
-    :type loading_buffer: np.ndarray
-    :return: The generated artificial stars recovery catalogue table, or
-             None if the file doesn't exist.
-    :rtype: astropy.table.Table or None.
+    :param f_name: the first fits image file name
+    :type f_name: str
+    :return: None
+    :rtype: None
     """
-    config.unfreeze()
-    config.verbose_logs = index == 0
-    config.freeze()
+    printf("Artificial Stars\n----------------\n")
+    printf("-> loading %s\n" % f_name)
+    if config.param_file:
+        printf("-> parameters: %s\n" % config.param_file)
+    printf("-> running %d tests with %d injections per test\n" % (
+        config.artificial_star_tests_count, config.stars_per_artificial_test))
+    printf("-> magnitude range: %.1f - %.1f\n" % (
+        config.test_magnitude_bright_limit,
+        config.test_magnitude_faint_limit))
+    if config.ast_no_psf_phot:
+        printf("-> skipping PSF photometry step\n")
+    if config.ast_no_background:
+        printf("-> skipping background estimation step\n")
 
-    out: Table | None = None
-    if os.path.exists(f_name):
-        star_bug_base: StarbugBase = StarbugBase(
-            f_name, config, ap_file=config.ap_file,
-            bkg_file=config.background_file)
-        ast: ArtificialStars = ArtificialStars(star_bug_base, index=index)
-        out = ast.execute_ast(
-            test_count,
-            stars_per_test=config.stars_per_artificial_test,
-            mag_range=(
-                config.test_magnitude_bright_limit,
-                config.test_magnitude_faint_limit),
-            loading_buffer=loading_buffer,
-            autosave=ast_auto_save,
-            skip_phot=config.ast_no_psf_phot,
-            skip_background=config.ast_no_background,
-            zp_mag=config.zero_point_magnitude,
-            sub_image_size=config.sub_image_crop_size,
-            save_image=config.save_added_image,
-            save_image_path=config.save_added_image_path,
-            ast_seed=config.ast_seed)
-    return out
+
+def start_buffer(loading_buffer: np.ndarray, n_tests: int) -> Process:
+    """
+    initializes the loading buffer.
+    :param loading_buffer: the loading buffer.
+    :type loading_buffer: np.ndarray.
+    :param n_tests: the number of tests.
+    :type n_tests: int
+    :return: the loading process.
+    :rtype: Process
+    """
+    loading_buffer[0] = 0
+    loading_buffer[1] = n_tests
+    loading: Process = Process(target=load, args=[loading_buffer])
+    loading.start()
+    return loading
+
+
+def execute_ast(
+        config: StarBugMainConfig, f_name: str,
+        loading_buffer: np.ndarray) -> list[Table | None]:
+    """
+    determine execution state in terms of processors available and execute.
+    :param config: the main config
+    :type config: StarBugMainConfig
+    :param f_name: the first fits name.
+    :type f_name: str
+    :param loading_buffer: the loading buffer.
+    :type loading_buffer: np.ndarray
+    :return: the results
+    :rtype: list[Table | None]
+    """
+    # ensure we read in the psf and image objects and fill the config
+    # accordingly
+    psf_image_config: StarBugMainConfig = StarBugMainConfig()
+    psf_image_config.ast_load_psf = True
+    psf_image_config.custom_filter = config.custom_filter
+    star_bug = StarbugBase(f_name, psf_image_config, None, None)
+    star_bug.run_starbug()
+    config.ast_psf = star_bug.psf
+
+    # management
+    if config.verbose_logs:
+        report_before_logs(config, f_name)
+    loading: Process = start_buffer(
+        loading_buffer, config.artificial_star_tests_count)
+
+    # Initialise output container tracking tables
+    outs: list[Table | None]
+    if (n_cores := config.n_cores) is None or n_cores == 1:
+        outs = execute_one_core_run_ast(config, loading_buffer)
+    else:
+        outs = execute_multicore_ast(config, loading_buffer, n_cores)
+
+    # force finish
+    loading_buffer[0] = loading_buffer[1]
+    loading.join()
+
+    return outs
+
+
+def top_compile_results(
+        outs: list[Table | None], config: StarBugMainConfig,
+        f_name: str) -> None:
+    """
+    compiles the results.
+    :param outs: the result out tables
+    :type outs: list[Table | None]
+    :param config: the main starbug config
+    :type config: StarBugMainConfig
+    :param f_name: the first fits file name.
+    :type f_name: str
+    :return: None
+    :rtype: None
+    """
+    raw: Table | None = outs[0]
+    for res in outs[1:]:
+        raw = combine_tables(raw, res)
+    assert raw is not None
+    star_bug_base: StarbugBase = StarbugBase(
+        f_name, config, ap_file=config.ap_file,
+        bkg_file=config.background_file)
+    if config.verbose_logs:
+        printf("-> compiling results\n")
+        printf("-> flux recovery: %.2g\n" % (
+            np.nanmean(raw[TableColumn.FLUX] /
+                       raw[TableColumn.FLUX_DET])))
+
+    results: HDUList
+    filter_string: str | None = star_bug_base.filter
+    assert filter_string is not None
+    assert raw is not None
+    if (results := compile_results(
+            raw, image=star_bug_base.main_image().data,
+            filter_string=filter_string,
+            plot_ast=config.ast_plot_filename)):
+        out_dir: str
+        b_name: str
+        out_dir, b_name, _ = StarbugBase.sort_output_names(
+            f_name, param_output=config.output_file)
+        if config.verbose_logs:
+            printf("--> %s/%s-ast.fits\n" % (out_dir, b_name))
+        results.writeto(
+            "%s/%s-ast.fits" % (out_dir, b_name),  overwrite=True)
+
+        # autosave clean-up
+        # noinspection SpellCheckingInspection
+        for _f_name in glob.glob("sbast-autosave*.tmp"):
+            _f_name: str
+            os.remove(_f_name)
+    else:
+        p_error("results compilation failed\n")
 
 
 def ast_main(
@@ -175,116 +223,20 @@ def ast_main(
     config: StarBugMainConfig = ast_parse_argv(argv)
 
     exit_code: ExitStates = ExitStates.EXIT_SUCCESS
-
     if config.use_ast_one_time_runs():
         if exit_code := ast_one_time_runs(config):
             share_memory.unlink()
             return exit_code
-    config.freeze()
 
     print(f"{config.fits_images}")
 
-    if config.fits_images:
-        f_name: str = config.fits_images[0]
-        n_tests: int = int(config.artificial_star_tests_count)
-        if config.verbose_logs:
-            printf("Artificial Stars\n----------------\n")
-            printf("-> loading %s\n" % f_name)
-            if config.param_file:
-                printf("-> parameters: %s\n" % config.param_file)
-            printf("-> running %d tests with %d injections per test\n" % (
-                n_tests, config.stars_per_artificial_test))
-            printf("-> magnitude range: %.1f - %.1f\n" % (
-                config.test_magnitude_bright_limit,
-                config.test_magnitude_faint_limit))
-            if config.ast_no_psf_phot:
-                printf("-> skipping PSF photometry step\n")
-            if config.ast_no_background:
-                printf("-> skipping background estimation step\n")
-
-        loading_buffer[0] = 0
-        loading_buffer[1] = n_tests
-        loading: Process = Process(target=load, args=[loading_buffer])
-        loading.start()
-
-        # Initialise output container tracking tables
-        outs: list[Table | None]
-
-        if (n_cores := config.n_cores) is None or n_cores == 1:
-            config.unfreeze()
-            config.n_cores = 1
-            config.freeze()
-            outs = ([execute_artificial_stars(
-                f_name, config, index, config.artificial_star_tests_count,
-                config.ast_auto_save, loading_buffer)
-                    for index, f_name in enumerate(config.fits_images)])
-        else:
-            n_cores: int = int(min(n_cores, n_tests))
-            per_process_n_test: int = int(np.ceil(n_tests / n_cores))
-            per_process_tests_per_save: int = int(
-                np.ceil(config.ast_auto_save / n_cores))
-
-            worker_tasks = [
-                (file_name, copy.deepcopy(config), index, per_process_n_test,
-                 per_process_tests_per_save, loading_buffer)
-                for index, file_name in enumerate(config.fits_images)
-            ]
-
-            pool: PoolType = Pool(processes=n_cores)
-            outs = pool.starmap(execute_artificial_stars, worker_tasks)
-            pool.close()
-            pool.join()
-
-        # force finish
-        loading_buffer[0] = loading_buffer[1]
-        loading.join()
-
-        #############################
-        # COMPILING ALL THE RESULTS #
-        #############################
-
-        raw: Table | None = outs[0]
-        for res in outs[1:]:
-            raw = combine_tables(raw, res)
-        assert raw is not None
-        star_bug_base: StarbugBase = StarbugBase(
-            f_name, config, ap_file=config.ap_file,
-            bkg_file=config.background_file)
-        if config.verbose_logs:
-            printf("-> compiling results\n")
-            printf("-> flux recovery: %.2g\n" % (
-                np.nanmean(raw[TableColumn.FLUX] /
-                           raw[TableColumn.FLUX_DET])))
-
-        results: HDUList
-        filter_string: str | None = star_bug_base.filter
-        assert filter_string is not None
-        assert raw is not None
-        if (results := compile_results(
-                raw, image=star_bug_base.main_image().data,
-                filter_string=filter_string,
-                plot_ast=config.ast_plot_filename)):
-            out_dir: str
-            b_name: str
-            out_dir, b_name, _ = StarbugBase.sort_output_names(
-                f_name, param_output=config.output_file)
-            if config.verbose_logs:
-                printf("--> %s/%s-ast.fits\n" % (out_dir, b_name))
-            results.writeto("%s/%s-ast.fits" % (out_dir, b_name),
-                            overwrite=True)
-
-            # autosave clean-up
-            # noinspection SpellCheckingInspection
-            for _f_name in glob.glob("sbast-autosave*.tmp"):
-                _f_name: str
-                os.remove(_f_name)
-
-        else:
-            p_error("results compilation failed\n")
-
-    else:
+    if not config.fits_images:
         p_error("must include a fits image to work on\n")
-        exit_code = ExitStates.EXIT_FAIL
+        return ExitStates.EXIT_FAIL
+
+    f_name: str = config.fits_images[0]
+    outs: list[Table | None] = execute_ast(config, f_name, loading_buffer)
+    top_compile_results(outs, config, f_name)
 
     # Wrapped fix to handle rapid multiprocess teardowns safely
     try:

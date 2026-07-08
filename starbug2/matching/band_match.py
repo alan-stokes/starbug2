@@ -17,7 +17,7 @@ from typing import override, Final, Any
 import numpy as np
 import astropy.units as u
 from astropy.table import Table, hstack
-from starbug2.core.constants import HeaderTags, TableColumn
+from constants import HeaderTags, TableColumn
 from starbug2.utilities.filters import STAR_BUG_FILTERS
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.utilities.utils import (
@@ -172,10 +172,10 @@ class BandMatch(GenericMatch):
 
         printf("Bands: %s\n" % ', '.join(self.filter_list))
 
-        assert self._threshold is not None
+        assert self.threshold is not None
         assert len(self.filter_list) != 0
-        if type(self._threshold) in (list, np.ndarray):
-            if len(self._threshold) != (len(catalogues) - 1):
+        if type(self.threshold) in (list, np.ndarray):
+            if len(self.threshold) != (len(catalogues) - 1):
                 warn(self._WRONG_THRESHOLD)
                 self._threshold = self._threshold[:-1]
         else:
@@ -184,7 +184,7 @@ class BandMatch(GenericMatch):
 
         assert self._threshold is not None
         threshold_strs: list[str] = []
-        for threshold in self._threshold:
+        for threshold in self.threshold:
             if hasattr(threshold, 'value'):
                 threshold_strs.append(f"{threshold.value}")
             else:
@@ -195,7 +195,7 @@ class BandMatch(GenericMatch):
             self._col_names = [
                 TableColumn.RA, TableColumn.DEC, TableColumn.FLAG,
                 TableColumn.NUM,
-                *self._filter_list, *["e%s" % f for f in self.filter_list]]
+                *self._filter_list, *["e%s" % f for f in self._filter_list]]
 
         assert self._col_names is not None
         printf("Columns: %s\n" % ", ".join(self._col_names))

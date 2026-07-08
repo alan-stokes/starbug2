@@ -20,7 +20,7 @@ import pytest
 
 from starbug2.command_line_interfaces.main import starbug_main
 from starbug2.command_line_interfaces.match import match_main
-from starbug2.core.constants import ExitStates
+from constants import ExitStates
 from tests.generic import (
     clean, TEST_IMAGE_FITS, TEST_FILTER_STRING, TEST_PATH_STR,
     verify_test_data_exists, TEST_PATH)

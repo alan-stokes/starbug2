@@ -23,7 +23,7 @@ import pytest
 from astropy.io import fits
 
 from starbug2.command_line_interfaces.main import starbug_internal_main
-from starbug2.core.constants import (
+from constants import (
     STAR_BUG_TEST_DAT_ENV, ImageHeaderTags, MIRI_STRING, MIRI_IMAGE)
 from starbug2.jwst_support.initialise_psf_data import download_ap_corr_files
 from starbug2.core.star_bug_config import StarBugMainConfig
@@ -40,7 +40,7 @@ TEST_NGC_FITS: Final[str] = os.path.join(TEST_PATH, "ngc6822_F770W_i2d.fits")
 TEST_README: Final[str] = os.path.join(TEST_PATH, "readme.txt")
 TEST_BLANK: Final[str] = str(os.path.join(str(TEST_PATH), "blank.fits"))
 TEST_AST_FILLED: Final[str] = str(
-    os.path.join(str(TEST_PATH), "inserted_image_for_test_1.fits"))
+    os.path.join(str(TEST_PATH), "inserted_image_for_test_0.fits"))
 TEST_SEED = 42
 
 # the filter string for tests to ensure they all use the same stuff

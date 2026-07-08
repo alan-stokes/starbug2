@@ -20,7 +20,7 @@ from astropy.units import Quantity
 from typing import Dict, Tuple, Final, Any
 from parse import parse
 
-from starbug2.core.constants import (
+from constants import (
     SCI, DEFAULT_COLOUR, HeaderTags, AP_FILE, BGD_FILE, PSF_FILE, TableColumn,
     STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, PROBLEMATIC_FILTER_ID,
     PROBLEMATIC_FILTER_WARNING, DEFAULT_PARAM_TEMPLATE, STARBUG_DATA_DIR,
@@ -177,6 +177,7 @@ class StarBugMainConfig:
         "NEXP_THRESH": ("exposure_count_threshold", int),
         "BRIDGE_COL": ("bridge_band_column", str),
         # ARTIFICIAL STAR TESTS
+        "DO_AST": ("do_artificial_star_test", bool),
         "NTESTS": ("artificial_star_tests_count", int),
         "NSTARS": ("stars_per_artificial_test", int),
         "SUBIMAGE": ("sub_image_crop_size", int),
@@ -268,6 +269,7 @@ class StarBugMainConfig:
         self._n_cores: int = 1
 
         # artificial stars params
+        self._do_artificial_star_test: bool = False
         self._ast_recover: bool = False
         self._ast_auto_save: int = 100
         self._ast_no_background: bool = False
@@ -275,6 +277,14 @@ class StarBugMainConfig:
         self._save_added_image: bool = False
         self._save_added_image_path: str = ""
         self._ast_seed: int | None = None
+
+        # states saved in config as only access route into the runs for
+        # optimization purposes
+        self._ast_loader: np.ndarray | None = None
+        self._ast_test_index: int = 0
+        self._ast_psf: np.ndarray | None = None
+        self._ast_load_psf: bool = False
+        self._ast_add_stars: bool = False
 
         # matching params
         self._do_band_processing: bool = False
@@ -1378,6 +1388,54 @@ class StarBugMainConfig:
     # ===============================
     # AST properties
     # ===============================
+
+    @property
+    def ast_add_stars(self) -> bool:
+        return self._ast_add_stars
+
+    @ast_add_stars.setter
+    def ast_add_stars(self, value) -> None:
+        self._ast_add_stars = value
+
+    @property
+    def ast_load_psf(self) -> bool:
+        return self._ast_load_psf
+
+    @ast_load_psf.setter
+    def ast_load_psf(self, value: bool) -> None:
+        self._ast_load_psf = value
+
+    @property
+    def ast_psf(self) -> np.ndarray | None:
+        return self._ast_psf
+
+    @ast_psf.setter
+    def ast_psf(self, value: np.ndarray | None) -> None:
+        self._ast_psf = value
+
+    @property
+    def do_artificial_star_test(self) -> bool:
+        return self._do_artificial_star_test
+
+    @do_artificial_star_test.setter
+    def do_artificial_star_test(self, value: bool) -> None:
+        self._do_artificial_star_test = value
+
+    @property
+    def ast_loader(self) -> np.ndarray:
+        return self._ast_loader
+
+    @ast_loader.setter
+    def ast_loader(self, value: np.ndarray) -> None:
+        self._ast_loader = value
+
+    @property
+    def ast_test_index(self) -> int:
+        return self._ast_test_index
+
+    @ast_test_index.setter
+    def ast_test_index(self, value: int) -> None:
+        self._ast_test_index = value
 
     @property
     def ast_seed(self) -> int | None:

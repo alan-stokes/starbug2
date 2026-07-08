@@ -24,7 +24,7 @@ from astropy.wcs import WCS
 from photutils.datasets import make_model_image
 
 from photutils.psf import ImagePSF
-from starbug2.core.constants import (
+from constants import (
     TableColumn, ExitStates, HeaderTags, SourceFlags, Units, ImageHeaderTags,
     MIRI_STRING, MIRI_IMAGE, DetectorLengths, NIRCAM, BGD_FILE, AP_FILE)
 from starbug2.core.star_bug_config import StarBugMainConfig
@@ -60,16 +60,20 @@ class Photometry:
                 dt_name: str = info[ImageHeaderTags.DETECTOR]
                 # noinspection SpellCheckingInspection
                 if dt_name == "NRCALONG":
+                    # noinspection SpellCheckingInspection
                     dt_name = "NRCA5"
                 # noinspection SpellCheckingInspection
                 if dt_name == "NRCBLONG":
+                    # noinspection SpellCheckingInspection
                     dt_name = "NRCB5"
                 if dt_name == "MULTIPLE":
                     if (filter_struct.instr == NIRCAM
                             and filter_struct.length == DetectorLengths.SHORT):
+                        # noinspection SpellCheckingInspection
                         dt_name = "NRCA1"
                     elif (filter_struct.instr == NIRCAM and
                           filter_struct.length == DetectorLengths.LONG):
+                        # noinspection SpellCheckingInspection
                         dt_name = "NRCA5"
                     elif filter_struct.instr == MIRI_STRING:
                         dt_name = ""
@@ -108,11 +112,15 @@ class Photometry:
             fp: HDUList = open(f_name)
 
             if fp[0].data is None:
-                p_error(
-                    "There is a version mismatch between starbug and "
-                    "webbpsf. Please reinitialise with: starbug2 --init.\n")
-                quit("Fatal error, quitting\n")
-
+                (status, psf) = Photometry.load_psf(
+                    filter_string, info, log, None)
+                if status != ExitStates.EXIT_SUCCESS:
+                    p_error(
+                        "There is a version mismatch between starbug and "
+                        "webbpsf. Please reinitialise with: "
+                        "starbug2 --init.\n")
+                    quit("Fatal error, quitting\n")
+                return status, psf
             psf = fp[0].data
             fp.close()
             log("loaded PSF_FILE='%s'\n" % f_name)
@@ -218,7 +226,7 @@ class Photometry:
             clipped_median: float
             _, clipped_median, _ = (
                 sigma_clipped_stats(image_data, sigma=config.sigma_sky))
-            bgd = np.ones(main_image.shape) * clipped_median
+            bgd = cast(np.ndarray, np.ones(main_image.shape) * clipped_median)
             log(
                 "-> no background file loaded, measuring sigma "
                 "clipped median\n")
@@ -345,7 +353,7 @@ class Photometry:
     @staticmethod
     def _convert_to_pixel(header: Header, max_y_dev: float) -> float:
         """
-        Converts an angular value in arcseconds to its pixel equivalent.
+        Converts an angular value in arc seconds to its pixel equivalent.
 
         Extracts the pixel area scale factor from the image header to evaluate
         the linear pixel scale, then divides the input arcsecond displacement
@@ -354,12 +362,14 @@ class Photometry:
 
         :param header: FITS header metadata housing the projection parameters.
         :type header: Header
-        :param max_y_dev: Angular maximum displacement threshold in arcseconds.
+        :param max_y_dev: Angular maximum displacement threshold in arc
+                          seconds.
         :type max_y_dev: float
         :return: The resolved tracking displacement limit expressed in pixels.
         :rtype: float
         """
         if not header.get(ImageHeaderTags.PIXAR_A2):
+            # noinspection SpellCheckingInspection
             warn(
                 "MAX_XYDEV is units arcseconds, but starbug "
                 "cannot locate a pixel scale in the header."
@@ -377,7 +387,7 @@ class Photometry:
         Converts a maximum deviation threshold value to pixel units.
 
         Parses astronomical tracking limits expressed across varying spatial
-        units (Degrees, Arcminutes, Arcseconds, or raw Pixels), scales the
+        units (Degrees, Arc minutes, Arc seconds, or raw Pixels), scales the
         amplitudes appropriately, and resolves angular values to pixel
         dimensions using the image header plate scale factors.
 
@@ -619,6 +629,7 @@ class Photometry:
             header: Header, wcs: WCS, out_dir: str | None,
             b_name: str | None, config: StarBugMainConfig,
             log: Callable[[str], None]) -> np.ndarray | None:
+        # noinspection SpellCheckingInspection
         """
         Creates a source-subtracted residual map and writes it to disk.
 

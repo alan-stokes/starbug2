@@ -21,7 +21,7 @@ from astropy.visualization import ZScaleInterval
 from astropy.table import Row, Table
 from scipy.interpolate import RegularGridInterpolator
 
-from starbug2.core.constants import URL_DOCS, HeaderTags, TableColumn
+from constants import URL_DOCS, HeaderTags, TableColumn
 import matplotlib.image as mpimg
 from matplotlib.colors import LinearSegmentedColormap
 

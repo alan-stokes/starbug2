@@ -19,7 +19,7 @@ from photutils.datasets import make_model_image, make_random_models_table
 from photutils.detection import StarFinder
 from photutils.psf import IterativePSFPhotometry, ImagePSF
 
-from starbug2.core.constants import TableColumn
+from constants import TableColumn
 from starbug2.utilities.utils import Loading, warn, export_table
 
 

@@ -21,7 +21,7 @@ from typing import Final
 import numpy as np
 import pytest
 from starbug2.command_line_interfaces.ast import ast_main
-from starbug2.core.constants import ExitStates
+from constants import ExitStates
 from tests.generic import (
     TEST_IMAGE_FITS, clean, verify_test_data_exists, TEST_PATH)
 
@@ -43,10 +43,13 @@ def run(s):
 def test_run_basic():
     verify_test_data_exists()
     clean()
+    # run single core
     assert (run(
         f"starbug2-ast -N10 -S10 "
         f"--output={TEST_PATH} {TEST_FILTER_STRING}") ==
             ExitStates.EXIT_SUCCESS)
+
+    # run multi-core
     assert (run(
         f"starbug2-ast -N30 -S10 -n3 "
         f"--output={TEST_PATH} {TEST_FILTER_STRING}") ==

@@ -21,7 +21,7 @@ from astropy.io.fits import PrimaryHDU, ImageHDU, HDUList, Header
 
 import numpy as np
 
-from starbug2.core.constants import (
+from constants import (
     ExitStates, ImageHeaderTags, AREA, ERR, DQ, DQFlags)
 from starbug2.utilities.utils import get_mj_ysr2jy_scale_factor, ext_names
 

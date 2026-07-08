@@ -20,7 +20,7 @@ from matplotlib.axis import Axis
 from photutils.background import Background2D, BackgroundBase
 from photutils.aperture import CircularAperture, ApertureMask
 from astropy.table import Table
-from starbug2.core.constants import TableColumn
+from constants import TableColumn
 from starbug2.utilities.utils import Loading, printf, warn
 
 

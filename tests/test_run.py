@@ -18,7 +18,7 @@ from typing import Final
 
 import pytest
 from starbug2.command_line_interfaces.main import starbug_main
-from starbug2.core.constants import ExitStates
+from constants import ExitStates
 from tests.generic import (
     clean, TEST_IMAGE_FITS, TEST_FILTER_STRING, TEST_PATH_STR, TEST_PATH,
     TEST_FILTER_STRING_NO_G)

@@ -17,7 +17,7 @@ from typing import Callable, Tuple
 import numpy as np
 from astropy.io.fits import ImageHDU, PrimaryHDU, Header, HDUList
 from astropy.table import Column, Table, hstack
-from starbug2.core.constants import (
+from constants import (
     ExitStates, TableColumn, ImageHeaderTags, NIRCAM_STRING, MIRI_STRING, DQ,
     HeaderTags)
 from starbug2.core.star_bug_config import StarBugMainConfig

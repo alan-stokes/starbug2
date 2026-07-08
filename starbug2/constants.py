@@ -1,4 +1,3 @@
-
 """Copyright (C) 2026 UKATC
 
 This program is free software: you can redistribute it and/or modify
@@ -96,6 +95,13 @@ ERR: Final[str] = "ERR"
 AP_FILE: Final[str] = "AP_FILE"
 BGD_FILE: Final[str] = "BGD_FILE"
 PSF_FILE: Final[str] = "PSF_FILE"
+
+# the number of columns in the test table.
+N_COLUMNS: Final[int] = 8
+
+# flags inside the artificial stars results table.
+NOT_FOUND: Final[int] = 0
+DETECT: Final[int] = 1
 
 
 # SOURCE FLAGS
@@ -303,9 +309,16 @@ class Units(int, Enum):
     DEG = 3
 
 
+# the column names of the rsult table used by artificial stars
+TEST_TABLE_COLUMN_NAMES: Final[List[str]] = [
+    TableColumn.X_0, TableColumn.Y_0, TableColumn.MAG, TableColumn.FLUX,
+    TableColumn.X_DET, TableColumn.Y_DET, TableColumn.FLUX_DET,
+    TableColumn.STATUS]
+
+
 # text based logo (using raw string to bypass escape characters)
 _LOGO_PATH = Path(os.path.join(
-    os.path.join(Path(__file__).parent, "../extras"), "logo.txt"))
+    os.path.join(Path(__file__).parent, "extras"), "logo.txt"))
 LOGO: Final[str] = _LOGO_PATH.read_text(encoding="utf-8") + "%s"
 
 # dictionary of help strings for specific modes (
