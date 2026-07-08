@@ -144,8 +144,6 @@ class TestSystemResults:
         config.ast_auto_save = 10
         config.ast_load_psf = True
         config.do_artificial_star_test = True
-        config.ast_add_stars = True
-        config.do_star_detection = True
         config.freeze()
 
 
@@ -194,7 +192,8 @@ class TestSystemResults:
         config.ast_test_index = 0
         config.artificial_star_tests_count = 1
         config.ast_auto_save = 10
-        config.do_star_detection = True
+        config.ast_add_stars = True
+        config.ast_load_psf = True
         config.do_artificial_star_test = True
         config.freeze()
 

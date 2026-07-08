@@ -117,7 +117,7 @@ class ArtificialStars:
         # this line is due to the fits file being a lazy reader. so this is not
         # in memory, it is still accessing the file directly. So a copy avoids
         # corrupting the original file.
-        #base_image: fits.HDUList = base_image.copy()
+        base_image: fits.HDUList = base_image.copy()
         base_image[n_hdu].data += star_overlay
 
         if config.save_added_image:
