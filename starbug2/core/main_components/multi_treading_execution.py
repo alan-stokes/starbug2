@@ -150,7 +150,8 @@ def execute_multicore_ast(
         per_process_config.do_artificial_star_test = True
         per_process_config.ast_add_stars = True
         per_process_config.ast_loader = loading_buffer
-        per_process_config.ast_seed = config.ast_seed + index
+        per_process_config.ast_seed = (
+            config.ast_seed + (index * per_process_n_test))
         per_process_config.freeze()
 
     # execute
