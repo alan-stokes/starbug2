@@ -84,9 +84,14 @@ class ArtificialStars:
                  new image
         :rtype: Tuple[ExitStates, atrophy.QTable, fits.HDUList]
         """
+
+        # this line is due to the fits file being a lazy reader. so this is not
+        # in memory, it is still accessing the file directly. So a copy avoids
+        # corrupting the original file.
         image: fits.HDUList = base_image.__deepcopy__()
         shape: list[int, int] = image[n_hdu].shape # noqa
 
+        # create list of fake star locations and add new magnitudes
         source_list: QTable = make_random_models_table(
             config.stars_per_artificial_test, {
                 TableColumn.X_0: [buffer, shape[0] - buffer],
@@ -103,9 +108,9 @@ class ArtificialStars:
             name=TableColumn.FLUX)
         source_list.remove_column(TableColumn.ID)
 
+        # create new image bits for each fake star.
         scale_factor: float | int = (
             get_mj_ysr2jy_scale_factor(main_image))
-
         image_psf = ImagePSF(psf)
         star_overlay: np.ndarray = (
             make_model_image(
@@ -113,16 +118,16 @@ class ArtificialStars:
                 model_shape=image_psf.data.shape)
             * scale_factor)
 
-        # this line is due to the fits file being a lazy reader. so this is not
-        # in memory, it is still accessing the file directly. So a copy avoids
-        # corrupting the original file.
+        # apply the new data to the original image.
         image[n_hdu].data += star_overlay
 
+        # if told to generate the added list. generate.
         if config.ast_save_added_image:
             image.writeto(os.path.join(
                 config.ast_save_added_image_path,
                 f"inserted_image_for_test_{config.ast_test_index}.fits"))
 
+        # hand back the source list, the new image, and the exit state.
         return ExitStates.EXIT_SUCCESS, source_list, image
 
 
