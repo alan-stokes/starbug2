@@ -103,7 +103,7 @@ class Detect:
                     TableColumn.ROUNDNESS1 in detections.colnames and
                     TableColumn.ROUNDNESS2 in detections.colnames):
                 printf(
-                    f"dont have the pre-requisite columns. Please ensure "
+                    f"Dont have the pre-requisite columns. Please ensure "
                     f"that the detections table has columns named the "
                     f"following: {TableColumn.X_CENTROID}, "
                     f"{TableColumn.Y_CENTROID}, {TableColumn.SHARPNESS}, "

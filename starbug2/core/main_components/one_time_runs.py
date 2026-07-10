@@ -18,7 +18,7 @@ import os
 from astropy.io.fits import PrimaryHDU, HDUList
 from astropy.table import Table
 
-from core.main_components.artificialstars import compile_results
+from core.main_components.artificial_stars import compile_results
 from constants import ExitStates, HELP_STRINGS, Modes
 from core.star_bug_config import StarBugMainConfig
 from jwst_support.initialise_psf_data import (

@@ -33,7 +33,7 @@ from astropy.units import Quantity
 
 from tests.generic import (
     TEST_IMAGE_FITS, check_shape, clean, TEST_FILTER_STRING,
-    TEST_PATH_STR, TEST_PATH, verify_test_data_exists)
+    TEST_PATH_STR, TEST_PATH, verify_test_data_exists, TEST_PSF_FITS)
 
 IMAGE_2_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image2.fits")
 IMAGE_AP_FITS: Final[str] = os.path.join(TEST_PATH_STR, "image-ap.fits")
@@ -47,18 +47,20 @@ def init():
     # noinspection SpellCheckingInspection
     starbug_main(
         f"starbug2 -Ds SIGSRC=5 {TEST_FILTER_STRING} --output={TEST_PATH}"
-        f" {TEST_IMAGE_FITS}".split())
+        f" -sPSF_FILE={TEST_PSF_FITS} {TEST_IMAGE_FITS}".split())
     # noinspection SpellCheckingInspection
     starbug_main(
         f"starbug2 -Ds SIGSRC=3 --output={IMAGE_2_FITS} {TEST_FILTER_STRING}"
-        f" {TEST_IMAGE_FITS}".split())
+        f" -sPSF_FILE={TEST_PSF_FITS} {TEST_IMAGE_FITS}".split())
     starbug_main(
         f"starbug2 -d {IMAGE_AP_FITS} --background {TEST_IMAGE_FITS}"
-        f" --output={TEST_PATH} {TEST_FILTER_STRING}".split())
+        f" --output={TEST_PATH} -sPSF_FILE={TEST_PSF_FITS} "
+        f"{TEST_FILTER_STRING}".split())
     os.system(f"cp {TEST_IMAGE_FITS} {IMAGE_2_FITS}")
     starbug_main(
         f"starbug2 -d {IMAGE_2_AP_FITS} --background {IMAGE_2_FITS}"
-        f" --output={TEST_PATH} {TEST_FILTER_STRING}".split())
+        f" --output={TEST_PATH} -sPSF_FILE={TEST_PSF_FITS} "
+        f"{TEST_FILTER_STRING}".split())
 
 
 def cats():

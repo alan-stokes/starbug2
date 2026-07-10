@@ -24,7 +24,8 @@ from astropy.io import fits
 
 from starbug2.command_line_interfaces.main import starbug_internal_main
 from constants import (
-    STAR_BUG_TEST_DAT_ENV, ImageHeaderTags, MIRI_STRING, MIRI_IMAGE, DEFAULT_BUNIT)
+    STAR_BUG_TEST_DAT_ENV, ImageHeaderTags, MIRI_STRING, MIRI_IMAGE,
+    DEFAULT_BUNIT)
 from starbug2.jwst_support.initialise_psf_data import download_ap_corr_files
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.utilities.utils import get_data_path
@@ -44,11 +45,13 @@ TEST_AST_FILLED: Final[str] = str(
 TEST_SEED = 42
 
 # the filter string for tests to ensure they all use the same stuff
+TEST_CUSTOM_FILTER = "F770W"
 TEST_FILTER_STRING_NO_G = "-s FILTER=F444W"
 TEST_FILTER_STRING = "-s FILTER=F444W -G"
 GITHUB_RELEASE_URL = (
     "https://github.com/alan-stokes/starbug2/releases/download/TEST_DATA/")
-REQUIRED_FILES = ["image.fits", "psf.fits", "ngc6822_F770W_i2d.fits"]
+REQUIRED_FILES = [
+    "image.fits", "psf.fits", f"ngc6822_{TEST_CUSTOM_FILTER}_i2d.fits"]
 
 
 def verify_test_data_exists() -> None:
@@ -116,10 +119,13 @@ def check_shape(c, out) -> None:
                 assert a == b
 
 
-def create_blank_fits(size=(2048, 2048)):
+def create_blank_fits(size=(2048, 2048), use_noise=True):
     """
     creates a blank fits file.
     :param size: the size of the fits file.
+    :type size: Tuple[int, int]
+    :param use_noise: bool to test if we use background noise
+    :type use_noise: false
     :return: None
     """
     print(f"Generating blank space image of size {size[0]}x{size[1]}...")
@@ -129,7 +135,10 @@ def create_blank_fits(size=(2048, 2048)):
 
     # Create background noise: mean of 10.0 counts, standard deviation of 1.0
     rng = np.random.default_rng(seed=TEST_SEED)
-    background_noise = rng.normal(loc=10.0, scale=1.0, size=blank_data.shape)
+    if use_noise:
+        background_noise = rng.normal(loc=10.0, scale=1, size=blank_data.shape)
+    else:
+        background_noise = np.zeros(size, dtype=np.float32)
 
     # Wrap the data inside a Primary HDU
     primary_hdu = fits.PrimaryHDU(data=background_noise)
@@ -158,12 +167,13 @@ def make_psf_for_blank() -> None:
     creates the psf used by blank.psf and downloads the ap_corr files
     :return: None
     """
-    file_path: str = os.path.join(get_data_path(), "F770W.fits")
+    file_path: str = os.path.join(
+        get_data_path(), f"{TEST_CUSTOM_FILTER}.fits")
     if os.path.exists(file_path):
         return
 
     psf_config: StarBugMainConfig = create_default_config()
-    psf_config.custom_filter = 'F770W'
+    psf_config.custom_filter = TEST_CUSTOM_FILTER
     psf_config.generate_psf = True
     psf_config.detector_name = None
     psf_config.psf_fit_size = None

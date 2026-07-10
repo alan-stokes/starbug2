@@ -29,7 +29,7 @@ from core.main_components.one_time_runs import ast_one_time_runs
 from constants import ExitStates, TableColumn
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
-from core.main_components.artificialstars import compile_results
+from core.main_components.artificial_stars import compile_results
 from starbug2.utilities.utils import (
     printf, p_error, combine_tables,  parse_cmd)
 

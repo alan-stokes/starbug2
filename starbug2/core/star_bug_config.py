@@ -283,7 +283,7 @@ class StarBugMainConfig:
         self._ast_loader: np.ndarray | None = None
         self._ast_test_index: int = 0
         self._ast_psf: np.ndarray | None = None
-        self._ast_load_psf: bool = False
+        self._ast_load_psf: bool = True
         self._ast_add_stars: bool = False
 
         # matching params
@@ -1446,19 +1446,19 @@ class StarBugMainConfig:
         self._ast_seed = value
 
     @property
-    def save_added_image_path(self) -> str:
+    def ast_save_added_image_path(self) -> str:
         return self._save_added_image_path
 
-    @save_added_image_path.setter
-    def save_added_image_path(self, value: str) -> None:
+    @ast_save_added_image_path.setter
+    def ast_save_added_image_path(self, value: str) -> None:
         self._save_added_image_path = value
 
     @property
-    def save_added_image(self) -> bool:
+    def ast_save_added_image(self) -> bool:
         return self._save_added_image
 
-    @save_added_image.setter
-    def save_added_image(self, value: bool) -> None:
+    @ast_save_added_image.setter
+    def ast_save_added_image(self, value: bool) -> None:
         self._save_added_image = value
 
     @property

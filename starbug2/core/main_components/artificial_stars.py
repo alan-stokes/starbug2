@@ -111,16 +111,16 @@ class ArtificialStars:
             make_model_image(
                 shape, image_psf, source_list,
                 model_shape=image_psf.data.shape)
-            / scale_factor)
+            * scale_factor)
 
         # this line is due to the fits file being a lazy reader. so this is not
         # in memory, it is still accessing the file directly. So a copy avoids
         # corrupting the original file.
         image[n_hdu].data += star_overlay
 
-        if config.save_added_image:
+        if config.ast_save_added_image:
             image.writeto(os.path.join(
-                config.save_added_image_path,
+                config.ast_save_added_image_path,
                 f"inserted_image_for_test_{config.ast_test_index}.fits"))
 
         return ExitStates.EXIT_SUCCESS, source_list, image

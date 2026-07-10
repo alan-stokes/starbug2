@@ -27,7 +27,7 @@ from astropy.io.fits import (
     PrimaryHDU, ImageHDU, HDUList, Header, open, BinTableHDU)
 from astropy.table import hstack, Table, QTable
 
-from core.main_components.artificialstars import ArtificialStars
+from core.main_components.artificial_stars import ArtificialStars
 from constants import (
     HeaderTags, ImageHeaderTags, SCI, BGD, RES, VERBOSE_TAG, AP_FILE, BGD_FILE,
     FITS_EXTENSION, DQ, AREA, WHT, ExitStates, TableColumn, N_COLUMNS,
@@ -810,7 +810,7 @@ class StarbugBase(StarBugInterface):
         end_state: ExitStates
         end_state = self.detect()
         if end_state != ExitStates.EXIT_SUCCESS:
-            p_error("failed to detect")
+            p_error("Failed to run detection successfully")
             return hstack((self._ast_star_source_list, test_result)), end_state
         self.aperture_photometry()
 
@@ -887,7 +887,8 @@ class StarbugBase(StarBugInterface):
         result_state: ExitStates
         if self._config.ast_load_psf:
             (result_state, self._psf) = Photometry.load_psf(
-                self._filter, self.info, self.log, self._f_name)
+                self._filter, self.info, self.log,
+                self._config.psf_file_override)
             if result_state != ExitStates.EXIT_SUCCESS:
                 p_error("Failure to execute load psf")
                 return result_state

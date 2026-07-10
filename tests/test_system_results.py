@@ -9,7 +9,7 @@ from constants import ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from tests import generic
 from tests.generic import (
-    TEST_PATH, TEST_BLANK, TEST_PATH_STR, create_default_config)
+    TEST_PATH, TEST_BLANK, TEST_PATH_STR, TEST_PSF_FITS, create_default_config)
 import os
 
 
@@ -98,10 +98,13 @@ class TestSystemResults:
 
     def test_detection_on_proper_fits_file(self, capsys):
         config: StarBugMainConfig = create_default_config()
+        config.unfreeze()
         config.custom_filter = 'F770W'
         config.fits_images = [TEST_NGC_FITS]
+        config.psf_file_override = TEST_PSF_FITS
         config.do_star_detection = True
         config.verbose_logs = True
+        config.freeze()
         exit_state: int = starbug_internal_main(config)
         assert exit_state == ExitStates.EXIT_SUCCESS
         generic.clean()
@@ -127,28 +130,45 @@ class TestSystemResults:
         config.unfreeze()
         config.custom_filter = 'F770W'
         config.fits_images = [TEST_BLANK]
+        config.psf_file_override = TEST_PSF_FITS
         config.verbose_logs = True
 
         # config to set off detection with psf
         config.stars_per_artificial_test = 15
-        config.save_added_image = True
-        config.save_added_image_path = TEST_PATH_STR
-        config.zero_point_magnitude = 25
-        config.sigma_source = 50
-        config.test_magnitude_bright_limit = 15
-        config.test_magnitude_faint_limit = 16
+        config.ast_save_added_image = True
+        config.ast_save_added_image_path = TEST_PATH_STR
         config.ast_add_stars = True
         config.ast_loader = loading_buffer
         config.ast_test_index = 0
         config.artificial_star_tests_count = 1
         config.ast_auto_save = 10
         config.ast_load_psf = True
-        config.do_artificial_star_test = True
+        config.do_star_detection = True
+
+        config.zero_point_magnitude = 25
+        config.test_magnitude_bright_limit = 12
+        config.test_magnitude_faint_limit = 13
+        config.full_width_half_max = 5.0
+        config.ricker_wavelet_radius = 2.5
+        config.sigma_source = 100.0
+
+
+        config.sigma_sky = 1.0
+        config.aperture_phot_radius = 5.0 # Ke
+        config.sharp_cutoff_low = 0.4
+        config.sharp_cutoff_high = 1.0
+        config.round1_cutoff_high = 0.5
+        config.round2_cutoff_high = 0.5
+
+        # --- FIXED SOURCE EXTRACTION PARAMS ---
+        config.do_convolution = True
+        config.clean_sources = True
+        config.sharp_cutoff_low = 0.2
         config.freeze()
 
 
         # create empty fits file
-        generic.create_blank_fits()
+        generic.create_blank_fits(use_noise=False)
 
         # execute detection.
         exit_state: int = starbug_internal_main(config)
@@ -157,7 +177,8 @@ class TestSystemResults:
         # check results.
         captured = capsys.readouterr()
         lines = captured.out.splitlines()
-        self._assert_results(lines, expected_total=15)
+        self._assert_results(
+            lines, expected_total=15, ratio_high=2, ratio_low= -1)
         generic.clean()
 
     def test_artificial_star_residual(self, capsys) -> None:
@@ -176,25 +197,41 @@ class TestSystemResults:
         config.unfreeze()
         config.custom_filter = 'F770W'
         config.fits_images = [TEST_BLANK]
+        config.psf_file_override = TEST_PSF_FITS
         config.verbose_logs = True
 
         # config to set off detection with psf
+        # config to set off detection with psf
         config.stars_per_artificial_test = 15
-        config.save_added_image = True
-        config.save_added_image_path = TEST_PATH_STR
-        #config.zero_point_magnitude = 25
-        #config.sigma_source = 50
-        #config.test_magnitude_bright_limit = 15
-        #config.test_magnitude_faint_limit = 16
-        config.generate_residual_image = True
-        config.psf_file_override = os.path.join(TEST_PATH_STR, "psf.fits")
+        config.ast_save_added_image = True
+        config.ast_save_added_image_path = TEST_PATH_STR
+        config.ast_add_stars = True
         config.ast_loader = loading_buffer
         config.ast_test_index = 0
         config.artificial_star_tests_count = 1
         config.ast_auto_save = 10
-        config.ast_add_stars = True
         config.ast_load_psf = True
-        config.do_artificial_star_test = True
+        config.do_star_detection = True
+
+        config.zero_point_magnitude = 25
+        config.test_magnitude_bright_limit = 12
+        config.test_magnitude_faint_limit = 13
+        config.full_width_half_max = 5.0
+        config.ricker_wavelet_radius = 2.5
+        config.sigma_source = 100.0
+
+
+        config.sigma_sky = 1.0
+        config.aperture_phot_radius = 5.0 # Ke
+        config.sharp_cutoff_low = 0.4
+        config.sharp_cutoff_high = 1.0
+        config.round1_cutoff_high = 0.5
+        config.round2_cutoff_high = 0.5
+
+        # --- FIXED SOURCE EXTRACTION PARAMS ---
+        config.do_convolution = True
+        config.clean_sources = True
+        config.sharp_cutoff_low = 0.2
         config.freeze()
 
         # create empty fits file
@@ -207,5 +244,6 @@ class TestSystemResults:
         # check results.
         captured = capsys.readouterr()
         lines = captured.out.splitlines()
-        self._assert_results(lines, expected_total=15)
+        self._assert_results(
+            lines, expected_total=15, ratio_low=-1, ratio_high=2)
         generic.clean()

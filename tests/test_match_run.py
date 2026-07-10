@@ -23,7 +23,7 @@ from starbug2.command_line_interfaces.match import match_main
 from constants import ExitStates
 from tests.generic import (
     clean, TEST_IMAGE_FITS, TEST_FILTER_STRING, TEST_PATH_STR,
-    verify_test_data_exists, TEST_PATH)
+    verify_test_data_exists, TEST_PATH, TEST_PSF_FITS)
 
 OUT_1_FITS: Final[str] = str(os.path.join(TEST_PATH_STR, "out1.fits"))
 OUT_2_FITS: Final[str] = os.path.join(TEST_PATH_STR, "out2.fits")
@@ -65,62 +65,63 @@ def test_match_bad_input():
 def test_match_basic_run_through():
     starbug_main(
         f"starbug2 --output={TEST_PATH} -Do {OUT_1_FITS}"
-        f"   {TEST_IMAGE_FITS}"
+        f"   {TEST_IMAGE_FITS} -sPSF_FILE={TEST_PSF_FITS}"
         f" {TEST_FILTER_STRING}".split())
     starbug_main(
         f"starbug2 --output={TEST_PATH} -Do {OUT_2_FITS} "
-        f" {TEST_IMAGE_FITS}"
+        f" {TEST_IMAGE_FITS} -sPSF_FILE={TEST_PSF_FITS} "
         f" {TEST_FILTER_STRING}".split())
     assert (run(
-        f"starbug2-match --output={TEST_PATH}"
+        f"starbug2-match --output={TEST_PATH} -sPSF_FILE={TEST_PSF_FITS}"
         f" {OUT_1_AP_FITS}"
         f" {OUT_2_AP_FITS}"
         f" {TEST_FILTER_STRING}") == ExitStates.EXIT_SUCCESS)
     assert (run(
         f"starbug2-match"
         f" {OUT_1_AP_FITS}"
-        f" {OUT_2_AP_FITS}"
+        f" {OUT_2_AP_FITS} -sPSF_FILE={TEST_PSF_FITS}"
+        f" {TEST_FILTER_STRING} --output={TEST_PATH}") ==
+            ExitStates.EXIT_SUCCESS)
+    assert (run(
+        f"starbug2-match"
+        f" {OUT_1_AP_FITS}"
+        f" {OUT_2_AP_FITS} -sPSF_FILE={TEST_PSF_FITS}"
         f" {TEST_FILTER_STRING} --output={TEST_PATH}") ==
             ExitStates.EXIT_SUCCESS)
     assert (run(
         f"starbug2-match"
         f" {OUT_1_AP_FITS}"
         f" {OUT_2_AP_FITS}"
-        f" {TEST_FILTER_STRING} --output={TEST_PATH}") ==
+        f" {TEST_FILTER_STRING} --output={TEST_PATH} "
+        f"-sPSF_FILE={TEST_PSF_FITS}") ==
             ExitStates.EXIT_SUCCESS)
     assert (run(
         f"starbug2-match"
         f" {OUT_1_AP_FITS}"
         f" {OUT_2_AP_FITS}"
-        f" {TEST_FILTER_STRING} --output={TEST_PATH}") ==
-            ExitStates.EXIT_SUCCESS)
+        f" {TEST_FILTER_STRING} --output={TEST_PATH} "
+        f"-sPSF_FILE={TEST_PSF_FITS}") ==  ExitStates.EXIT_SUCCESS)
     assert (run(
         f"starbug2-match"
         f" {OUT_1_AP_FITS}"
         f" {OUT_2_AP_FITS}"
-        f" {TEST_FILTER_STRING} --output={TEST_PATH}") ==
-            ExitStates.EXIT_SUCCESS)
-    assert (run(
-        f"starbug2-match"
-        f" {OUT_1_AP_FITS}"
-        f" {OUT_2_AP_FITS}"
-        f" {TEST_FILTER_STRING} "
+        f" {TEST_FILTER_STRING} -sPSF_FILE={TEST_PSF_FITS} "
         f"--output={TEST_PATH}") == ExitStates.EXIT_SUCCESS)
 
 
 def test_mask():
     starbug_main(
         f"starbug2 --output={TEST_PATH} -Do "
-        f"{OUT_1_FITS}  {TEST_IMAGE_FITS}"
+        f"{OUT_1_FITS}  {TEST_IMAGE_FITS} -sPSF_FILE={TEST_PSF_FITS}"
         f" -s FILTER=F444W".split())
     starbug_main(
         f"starbug2 --output={TEST_PATH} -Do"
-        f"{OUT_2_FITS}  {TEST_IMAGE_FITS}"
+        f"{OUT_2_FITS}  {TEST_IMAGE_FITS} -sPSF_FILE={TEST_PSF_FITS}"
         f" -s FILTER=F444W".split())
     assert run(
         f"starbug2-match --output={TEST_PATH} -vmF444W>20 "
-        f"{OUT_1_AP_FITS} "
-        f"{OUT_2_AP_FITS}") == ExitStates.EXIT_SUCCESS
+        f"{OUT_1_AP_FITS} {OUT_2_AP_FITS} "
+        f"-sPSF_FILE={TEST_PSF_FITS}") == ExitStates.EXIT_SUCCESS
 
 
 @pytest.fixture(autouse=True)

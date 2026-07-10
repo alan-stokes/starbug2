@@ -135,6 +135,12 @@ def starbug_parse_argv(argv: list[str]) -> StarBugMainConfig:
     _, argv = parse_cmd(argv)
     config.populate_params(
         argv, short_definition, long_definition, config.MAIN_FLAG_MAP)
+
+    # shut down loading psf if we're in one time runs
+    if config.use_main_one_time_runs():
+        config.unfreeze()
+        config.ast_load_psf = False
+        config.freeze()
     return config
 
 
