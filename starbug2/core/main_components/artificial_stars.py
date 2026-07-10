@@ -101,6 +101,12 @@ class ArtificialStars:
                      config.test_magnitude_faint_limit]
             }, config.ast_seed
         )
+
+        # utilizing the Pogsons brightness equation. it ensures an astronomical
+        # magnitude is converted to a linear flux density if the zero point
+        # magnitude is correct in that it "defined as the magnitude of a
+        # source that produces exactly $1\text{ Jy}$ of flux " see
+        # ref https://adsabs.harvard.edu/pdf/1983ApJ...266..713O#
         source_list.add_column(
             10.0 ** (
                 (config.zero_point_magnitude - source_list[TableColumn.MAG])
