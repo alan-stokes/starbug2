@@ -146,7 +146,7 @@ def test_add_stars_logic():
         image_data[comparison_mask]
     )
 
-    # check inside the star its not identical
+    # check inside the star it's not identical
     star_box_original = original_image_data[~comparison_mask]
     star_box_new = image_data[~comparison_mask]
     assert not np.array_equal(star_box_original, star_box_new)
