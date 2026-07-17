@@ -104,6 +104,7 @@ class TestSystemResults:
         config.psf_file_override = TEST_PSF_FITS
         config.do_star_detection = True
         config.verbose_logs = True
+        config.output_file = TEST_PATH_STR
         config.freeze()
         exit_state: int = starbug_internal_main(config)
         assert exit_state == ExitStates.EXIT_SUCCESS
@@ -136,6 +137,7 @@ class TestSystemResults:
         config.stars_per_artificial_test = 15
         config.ast_save_added_image = True
         config.ast_save_added_image_path = TEST_PATH_STR
+        config.output_file = TEST_PATH_STR
         config.ast_add_stars = True
         config.ast_loader = loading_buffer
         config.ast_test_index = 0
@@ -200,6 +202,7 @@ class TestSystemResults:
         config.fits_images = [TEST_BLANK]
         config.psf_file_override = TEST_PSF_FITS
         config.verbose_logs = True
+        config.output_file = TEST_PATH_STR
 
         # config to set off detection with psf
         config.stars_per_artificial_test = 15
