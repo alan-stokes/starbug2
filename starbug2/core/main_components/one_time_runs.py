@@ -18,14 +18,14 @@ import os
 from astropy.io.fits import PrimaryHDU, HDUList
 from astropy.table import Table
 
-from core.main_components.artificial_stars import compile_results
-from constants import ExitStates, HELP_STRINGS, Modes
-from core.star_bug_config import StarBugMainConfig
-from jwst_support.initialise_psf_data import (
+from starbug2.core.main_components.artificial_stars import compile_results
+from starbug2.constants import ExitStates, HELP_STRINGS, Modes
+from starbug2.core.star_bug_config import StarBugMainConfig
+from starbug2.jwst_support.initialise_psf_data import (
     init_starbug_for_jwst, generate_psf)
-from utilities import param
-from utilities.misc import generate_runscript
-from utilities.utils import (
+from starbug2.utilities import param
+from starbug2.utilities.misc import generate_runscript
+from starbug2.utilities.utils import (
     printf, get_version, usage, p_error, get_data_path, split_file_name,
     export_region, combine_tables, fill_nan)
 

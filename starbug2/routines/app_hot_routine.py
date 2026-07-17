@@ -24,7 +24,7 @@ from astropy.table import Column, Table, Row, QTable
 from photutils.aperture import (
     CircularAperture, CircularAnnulus, aperture_photometry, ApertureMask)
 
-from constants import (
+from starbug2.constants import (
     SourceFlags, DQFlags, TableColumn, HeaderTags, Modes, QTableColNames)
 from starbug2.utilities.utils import printf, p_error, warn
 

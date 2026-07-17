@@ -17,7 +17,7 @@ from typing import override, Final, Any
 import numpy as np
 import astropy.units as u
 from astropy.table import Table, hstack
-from constants import HeaderTags, TableColumn
+from starbug2.constants import HeaderTags, TableColumn
 from starbug2.utilities.filters import STAR_BUG_FILTERS
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.utilities.utils import (

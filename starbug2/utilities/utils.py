@@ -26,7 +26,7 @@ from astropy.wcs import WCS
 import numpy as np
 import requests
 
-from constants import (
+from starbug2.constants import (
     DEFAULT_COLOUR,
     TMP_OUT,
     TMP_FITS,

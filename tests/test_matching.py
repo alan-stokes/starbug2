@@ -19,7 +19,7 @@ from typing import Final
 
 import pytest
 
-from constants import HeaderTags, TableColumn
+from starbug2.constants import HeaderTags, TableColumn
 from starbug2.matching.band_match import BandMatch
 from starbug2.matching.cascade_match import CascadeMatch
 from starbug2.matching.exact_value_match import ExactValueMatch

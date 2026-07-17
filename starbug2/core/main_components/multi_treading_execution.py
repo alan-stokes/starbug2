@@ -20,10 +20,10 @@ from multiprocessing.pool import Pool as PoolType
 import numpy as np
 from astropy.table import Table
 
-from constants import FITS_EXTENSION, ExitStates
-from core.star_bug_config import StarBugMainConfig
-from core.starbug_main import StarbugBase
-from utilities.utils import p_error, split_file_name, printf
+from starbug2.constants import FITS_EXTENSION, ExitStates
+from starbug2.core.star_bug_config import StarBugMainConfig
+from starbug2.core.starbug_main import StarbugBase
+from starbug2.utilities.utils import p_error, split_file_name, printf
 
 
 def execute_star_bug_main(

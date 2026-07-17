@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 from typing import override, Any
 from astropy.table import Table
-from constants import TableColumn
+from starbug2.constants import TableColumn
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.utilities.utils import h_cascade, fill_nan
 

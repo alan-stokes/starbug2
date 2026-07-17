@@ -13,12 +13,12 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
-from starbug2.utilities import utils
 import numpy as np
 from astropy.table import Table
 from astropy.io import fits
 
-from constants import Units
+from starbug2.constants import Units
+from starbug2.utilities import utils
 from tests.generic import check_shape
 
 

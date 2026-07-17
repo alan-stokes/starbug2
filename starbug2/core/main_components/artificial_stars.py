@@ -25,8 +25,8 @@ from scipy.optimize import curve_fit
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
-from core.star_bug_config import StarBugMainConfig
-from constants import ExitStates, TableColumn
+from starbug2.core.star_bug_config import StarBugMainConfig
+from starbug2.constants import ExitStates, TableColumn
 
 try:
     import matplotlib.pyplot as plt

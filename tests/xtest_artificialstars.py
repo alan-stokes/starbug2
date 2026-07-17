@@ -18,7 +18,7 @@ from multiprocessing.shared_memory import SharedMemory
 import numpy as np
 
 from starbug2.command_line_interfaces.ast import ast_main
-from constants import ExitStates
+from starbug2.constants import ExitStates
 from tests.generic import TEST_IMAGE_FITS
 
 

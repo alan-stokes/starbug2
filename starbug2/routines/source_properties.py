@@ -18,7 +18,7 @@ import numpy as np
 from astropy.table import Table, QTable, hstack
 from photutils.detection import DAOStarFinder
 
-from constants import TableColumn
+from starbug2.constants import TableColumn
 from starbug2.utilities.utils import Loading, printf, p_error
 
 

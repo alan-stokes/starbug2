@@ -17,7 +17,7 @@ import stat
 import numpy as np
 from typing import List, Optional, TextIO, Dict
 
-from constants import (
+from starbug2.constants import (
     FITS_EXTENSION, FILE_NAME, HeaderTags, ImageHeaderTags)
 from astropy.io import fits
 from starbug2.utilities.utils import printf, p_error, split_file_name

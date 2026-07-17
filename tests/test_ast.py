@@ -23,11 +23,11 @@ import pytest
 from astropy.table import Table
 from photutils.psf import ImagePSF
 
-from core.star_bug_config import StarBugMainConfig
-from core.starbug_main import StarbugBase
-from generic import TEST_PATH_STR, TEST_PSF_FITS
+from starbug2.core.star_bug_config import StarBugMainConfig
+from starbug2.core.starbug_main import StarbugBase
+from tests.generic import TEST_PATH_STR, TEST_PSF_FITS
 from starbug2.command_line_interfaces.ast import ast_main
-from constants import ExitStates, TableColumn
+from starbug2.constants import ExitStates, TableColumn
 from tests import generic
 
 # main ast run
@@ -283,7 +283,7 @@ def test_ast_output_flux():
     entrance.run_starbug()
 
     # check output generated.
-
+    # clean setup
     generic.clean()
 
 

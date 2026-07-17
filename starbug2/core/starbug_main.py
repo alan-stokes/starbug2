@@ -33,11 +33,10 @@ from starbug2.constants import (
     HeaderTags, ImageHeaderTags, SCI, BGD, RES, VERBOSE_TAG, AP_FILE, BGD_FILE,
     FITS_EXTENSION, DQ, AREA, WHT, ExitStates, TableColumn, N_COLUMNS,
     TEST_TABLE_COLUMN_NAMES, DETECT, NOT_FOUND)
-from matching.generic_match import GenericMatch
+from starbug2.matching.generic_match import GenericMatch
 from starbug2.core.main_components.aperture_photometry import (
     AperturePhotometry)
 from starbug2.core.main_components.detect import Detect
-
 from starbug2.core.main_components.photometry import Photometry
 from starbug2.utilities.filters import STAR_BUG_FILTERS
 from starbug2.routines.background_estimate_routine import (

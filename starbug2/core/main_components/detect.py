@@ -19,7 +19,7 @@ from astropy.io.fits import ImageHDU, PrimaryHDU, Header
 from astropy.table import Column, Table
 from astropy.wcs import WCS
 
-from constants import ExitStates, TableColumn
+from starbug2.constants import ExitStates, TableColumn
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.routines.detection_routines import DetectionRoutine
 from starbug2.utilities.filters import STAR_BUG_FILTERS

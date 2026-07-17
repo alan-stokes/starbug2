@@ -5,7 +5,7 @@ from typing import Final
 import numpy as np
 
 from starbug2.command_line_interfaces.main import starbug_internal_main
-from constants import ExitStates
+from starbug2.constants import ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from tests import generic
 from tests.generic import (

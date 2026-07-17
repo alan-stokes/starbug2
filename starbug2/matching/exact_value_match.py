@@ -17,7 +17,7 @@ from typing import override, Any
 import numpy as np
 from astropy.table import Table, hstack, vstack
 
-from constants import TableColumn
+from starbug2.constants import TableColumn
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.utilities.utils import p_error, fill_nan
 

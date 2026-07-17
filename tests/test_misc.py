@@ -18,7 +18,7 @@ import os
 import pytest
 
 from starbug2.utilities.filters import STAR_BUG_FILTERS
-from constants import STARBUG_DATA_DIR
+from starbug2.constants import STARBUG_DATA_DIR
 from starbug2.jwst_support.initialise_psf_data import init_starbug_for_jwst
 from starbug2.core.star_bug_config import StarBugMainConfig
 from tests.generic import verify_test_data_exists

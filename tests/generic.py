@@ -23,7 +23,7 @@ import pytest
 from astropy.io import fits
 
 from starbug2.command_line_interfaces.main import starbug_internal_main
-from constants import (
+from starbug2.constants import (
     STAR_BUG_TEST_DAT_ENV, ImageHeaderTags, MIRI_STRING, MIRI_IMAGE,
     DEFAULT_BUNIT)
 from starbug2.jwst_support.initialise_psf_data import download_ap_corr_files
