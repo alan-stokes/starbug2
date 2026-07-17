@@ -92,11 +92,11 @@ def test_bgd():
                 f"{TEST_FILTER_STRING} -sPSF_FILE={TEST_PSF_FITS}") ==
             ExitStates.EXIT_SUCCESS)
     assert (run(f"starbug2 -d {TEST_IMAGE_AP_FITS} "
-               f"--background {TEST_IMAGE_FITS} "
-               f"{TEST_FILTER_STRING} -sPSF_FILE={TEST_PSF_FITS} ") ==
+                f"--background {TEST_IMAGE_FITS} "
+                f"{TEST_FILTER_STRING} -sPSF_FILE={TEST_PSF_FITS} ") ==
             ExitStates.EXIT_SUCCESS)
     assert (run(f"starbug2 -vf -B {TEST_IMAGE_FITS}"
-               f" {TEST_FILTER_STRING} -sPSF_FILE={TEST_PSF_FITS} ") ==
+                f" {TEST_FILTER_STRING} -sPSF_FILE={TEST_PSF_FITS} ") ==
             ExitStates.EXIT_SUCCESS)
     clean()
 
@@ -104,7 +104,7 @@ def test_bgd():
 def test_psf():
     clean()
     assert (run(f"starbug2 -DB {TEST_IMAGE_FITS}"
-               f" {TEST_FILTER_STRING} -sPSF_FILE={TEST_PSF_FITS} ") ==
+                f" {TEST_FILTER_STRING} -sPSF_FILE={TEST_PSF_FITS} ") ==
             ExitStates.EXIT_SUCCESS)
     assert run(f"starbug2 -d {TEST_IMAGE_AP_FITS} -b "
                f"{TEST_IMAGE_BGD_FITS} -P {TEST_IMAGE_FITS} "
@@ -129,7 +129,7 @@ def test_psf():
 def test_residual():
     clean()
     assert (run(f"starbug2 -DB {TEST_IMAGE_FITS} "
-               f"{TEST_FILTER_STRING} -sPSF_FILE={TEST_PSF_FITS} ") ==
+                f"{TEST_FILTER_STRING} -sPSF_FILE={TEST_PSF_FITS} ") ==
             ExitStates.EXIT_SUCCESS)
     assert run(
         f"starbug2 -sPSF_FILE={TEST_PSF_FITS} "

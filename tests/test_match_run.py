@@ -100,7 +100,7 @@ def test_match_basic_run_through():
         f" {OUT_1_AP_FITS}"
         f" {OUT_2_AP_FITS}"
         f" {TEST_FILTER_STRING} --output={TEST_PATH} "
-        f"-sPSF_FILE={TEST_PSF_FITS}") ==  ExitStates.EXIT_SUCCESS)
+        f"-sPSF_FILE={TEST_PSF_FITS}") == ExitStates.EXIT_SUCCESS)
     assert (run(
         f"starbug2-match"
         f" {OUT_1_AP_FITS}"

@@ -113,7 +113,6 @@ class TestSystemResults:
         lines = captured.out.splitlines()
         self._assert_results(lines, 4461, 4508, 21854, 3433, 18421, 0.8, 1.2)
 
-
     def test_detection_on_artificial_stars(self, capsys):
         generic.clean()
         c: np.ndarray = np.array([0, 0, 0], dtype=np.int64)
@@ -152,9 +151,9 @@ class TestSystemResults:
         config.ricker_wavelet_radius = 2.5
         config.sigma_source = 100.0
 
-
         config.sigma_sky = 1.0
-        config.aperture_phot_radius = 5.0 # Ke
+        # Ke
+        config.aperture_phot_radius = 5.0
         config.sharp_cutoff_low = 0.4
         config.sharp_cutoff_high = 1.0
         config.round1_cutoff_high = 0.5
@@ -165,7 +164,6 @@ class TestSystemResults:
         config.clean_sources = True
         config.sharp_cutoff_low = 0.2
         config.freeze()
-
 
         # create empty fits file
         generic.create_blank_fits(use_noise=False)
@@ -178,7 +176,7 @@ class TestSystemResults:
         captured = capsys.readouterr()
         lines = captured.out.splitlines()
         self._assert_results(
-            lines, expected_total=15, ratio_high=2, ratio_low= -1)
+            lines, expected_total=15, ratio_high=2, ratio_low=-1)
         generic.clean()
 
     def test_artificial_star_residual(self, capsys) -> None:

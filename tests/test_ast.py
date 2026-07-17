@@ -44,6 +44,7 @@ def run(s):
         s.split() + [generic.TEST_IMAGE_FITS], share_memory, loading_buffer
     )
 
+
 def update_config_for_fake_stars_into_blank(config: StarBugMainConfig) -> None:
     config.unfreeze()
     config.custom_filter = generic.TEST_CUSTOM_FILTER
@@ -155,8 +156,8 @@ def test_add_stars_logic():
     # do not check these pixels)
     comparison_mask = np.ones_like(original_image_data, dtype=bool)
     comparison_mask[
-        y_coord - half_width_y : y_coord + half_width_y,
-        x_coord - half_width_x : x_coord + half_width_x
+        y_coord - half_width_y: y_coord + half_width_y,
+        x_coord - half_width_x: x_coord + half_width_x
     ] = False
 
     # test outside fake star location it is identical
@@ -227,7 +228,7 @@ def test_results_for_execute_as_test():
 
         # Verify that at least one detection lies within our tolerance limit
         match_exists = np.any(distances <= matching_pixel_tolerance)
-        assert(match_exists == True)
+        assert match_exists
 
         # check that the background stars were not part of the found star
         distances = np.sqrt(
@@ -237,7 +238,7 @@ def test_results_for_execute_as_test():
                  TableColumn.Y_CENTROID] - orig_y) ** 2
         )
         match_exists = np.any(distances <= matching_pixel_tolerance)
-        assert(match_exists == False)
+        assert not match_exists
 
     generic.clean()
 
@@ -280,10 +281,12 @@ def test_ast_output_flux():
     entrance: StarbugBase = StarbugBase(
         config=config, f_name=generic.TEST_BLANK, ap_file=None, bkg_file=None)
     entrance.run_starbug()
+
+    # check output generated.
+
     generic.clean()
 
 
 if __name__ == "__main__":
     # This allows you to run the harsh test directly.
-    #test_run_harsh_inputs()
-    test_results_for_execute_as_test()
+    test_run_harsh_inputs()
