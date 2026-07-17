@@ -20,10 +20,10 @@ import numpy as np
 from time import sleep
 from astropy.table import Table
 
-from core.main_components.multi_treading_execution import (
+from starbug2.core.main_components.multi_treading_execution import (
     execute_one_core_run_ast, execute_multicore_ast)
-from core.main_components.one_time_runs import ast_one_time_runs
-from constants import ExitStates
+from starbug2.core.main_components.one_time_runs import ast_one_time_runs
+from starbug2.constants import ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
 from starbug2.utilities.utils import printf, p_error, parse_cmd

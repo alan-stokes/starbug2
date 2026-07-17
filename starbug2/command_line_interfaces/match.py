@@ -20,7 +20,7 @@ import numpy as np
 from astropy.table import Table, vstack
 from astropy.units import Quantity
 from starbug2.utilities import utils
-from constants import (
+from starbug2.constants import (
      STAR_BUG_MIRI, NIRCAM, MATCH_COLS, TableColumn, ExitStates, HeaderTags)
 from starbug2.utilities.filters import STAR_BUG_FILTERS
 from starbug2.matching.band_match import BandMatch

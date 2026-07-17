@@ -22,10 +22,10 @@ from astropy.table import Table
 from astropy.utils.exceptions import AstropyDeprecationWarning, AstropyWarning
 import photutils
 
-from core.main_components.multi_treading_execution import (
+from starbug2.core.main_components.multi_treading_execution import (
     execute_multi_core_main, execute_one_core_run_main)
-from core.main_components.one_time_runs import starbug_one_time_runs
-from constants import (
+from starbug2.core.main_components.one_time_runs import starbug_one_time_runs
+from starbug2.constants import (
     ExitStates, LOGO, READ_THE_DOCS_URL)
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.core.star_bug_config import StarBugMainConfig
