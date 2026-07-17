@@ -12,26 +12,21 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-import os
 import sys
 from multiprocessing.shared_memory import SharedMemory
 from multiprocessing import Process, shared_memory
 
 import numpy as np
-import glob
 from time import sleep
 from astropy.table import Table
-from astropy.io.fits import HDUList
 
 from core.main_components.multi_treading_execution import (
     execute_one_core_run_ast, execute_multicore_ast)
 from core.main_components.one_time_runs import ast_one_time_runs
-from constants import ExitStates, TableColumn
+from constants import ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
-from core.main_components.artificial_stars import compile_results
-from starbug2.utilities.utils import (
-    printf, p_error, combine_tables,  parse_cmd)
+from starbug2.utilities.utils import printf, p_error, parse_cmd
 
 import photutils
 
@@ -164,56 +159,31 @@ def execute_ast(
 
 
 def top_compile_results(
-        outs: list[Table | None], config: StarBugMainConfig,
-        f_name: str) -> None:
+        outs: list[Table | None], f_name: str,
+        old_config: StarBugMainConfig) -> None:
     """
     compiles the results.
     :param outs: the result out tables
     :type outs: list[Table | None]
-    :param config: the main starbug config
-    :type config: StarBugMainConfig
     :param f_name: the first fits file name.
     :type f_name: str
+    :param old_config: the old config
+    :type old_config: StarBugMainConfig
     :return: None
     :rtype: None
     """
-    raw: Table | None = outs[0]
-    for res in outs[1:]:
-        raw = combine_tables(raw, res)
-    assert raw is not None
+    config = StarBugMainConfig()
+    config.unfreeze()
+    config.custom_filter = old_config.custom_filter
+    config.fits_images = old_config.fits_images
+    config.psf_file_override = old_config.psf_file_override
+    config.ast_out_tables = outs
+    config._ast_load_psf = False
+    config.do_artificial_star_test_results = True
     star_bug_base: StarbugBase = StarbugBase(
         f_name, config, ap_file=config.ap_file,
         bkg_file=config.background_file)
-    if config.verbose_logs:
-        printf("-> compiling results\n")
-        printf("-> flux recovery: %.2g\n" % (
-            np.nanmean(raw[TableColumn.FLUX] /
-                       raw[TableColumn.FLUX_DET])))
-
-    results: HDUList
-    filter_string: str | None = star_bug_base.filter
-    assert filter_string is not None
-    assert raw is not None
-    if (results := compile_results(
-            raw, image=star_bug_base.main_image().data,
-            filter_string=filter_string,
-            plot_ast=config.ast_plot_filename)):
-        out_dir: str
-        b_name: str
-        out_dir, b_name, _ = StarbugBase.sort_output_names(
-            f_name, param_output=config.output_file)
-        if config.verbose_logs:
-            printf("--> %s/%s-ast.fits\n" % (out_dir, b_name))
-        results.writeto(
-            "%s/%s-ast.fits" % (out_dir, b_name),  overwrite=True)
-
-        # autosave clean-up
-        # noinspection SpellCheckingInspection
-        for _f_name in glob.glob("sbast-autosave*.tmp"):
-            _f_name: str
-            os.remove(_f_name)
-    else:
-        p_error("results compilation failed\n")
+    star_bug_base.run_starbug()
 
 
 def ast_main(
@@ -236,7 +206,7 @@ def ast_main(
 
     f_name: str = config.fits_images[0]
     outs: list[Table | None] = execute_ast(config, f_name, loading_buffer)
-    top_compile_results(outs, config, f_name)
+    top_compile_results(outs, f_name, config)
 
     # Wrapped fix to handle rapid multiprocess teardowns safely
     try:

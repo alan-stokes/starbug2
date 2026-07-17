@@ -90,7 +90,7 @@ def execute_star_bug_main(
 
 
 def execute_artificial_stars(
-        f_name: str, config: StarBugMainConfig) -> Table | None:
+        f_name: str, config: StarBugMainConfig) -> list[Table] | None:
     """
     Multiprocessing worker function to run artificial star tests on a given
     file.
@@ -100,9 +100,9 @@ def execute_artificial_stars(
     :type config: StarBugMainConfig
     :return: The generated artificial stars recovery catalogue table, or
              None if the file doesn't exist.
-    :rtype: astropy.table.Table or None.
+    :rtype: list[astropy.table.Table] or None.
     """
-    out: Table | None = None
+    out: list[Table] | None = None
     if os.path.exists(f_name):
         star_bug_base: StarbugBase = StarbugBase(
             f_name, config, ap_file=config.ap_file,
@@ -148,10 +148,10 @@ def execute_multicore_ast(
         per_process_config.verbose_logs = index == 0
         per_process_config.ast_test_index = index
         per_process_config.do_artificial_star_test = True
-        per_process_config.ast_add_stars = True
         per_process_config.ast_loader = loading_buffer
-        per_process_config.ast_seed = (
-            config.ast_seed + (index * per_process_n_test))
+        if config.ast_seed is not None:
+            per_process_config.ast_seed = (
+                config.ast_seed + (index * per_process_n_test))
         per_process_config.freeze()
 
     # execute
@@ -206,7 +206,6 @@ def execute_one_core_run_ast(
     config.unfreeze()
     config.n_cores = 1
     config.do_artificial_star_test = True
-    config.ast_add_stars = True
     config.ast_loader = loading_buffer
     config.freeze()
 

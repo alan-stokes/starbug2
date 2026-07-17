@@ -109,8 +109,8 @@ class ArtificialStars:
         # ref https://adsabs.harvard.edu/pdf/1983ApJ...266..713O#
         source_list.add_column(
             10.0 ** (
-                (config.zero_point_magnitude - source_list[TableColumn.MAG])
-                / 2.5),
+                (source_list[TableColumn.MAG] - config.zero_point_magnitude)
+                / -2.5),
             name=TableColumn.FLUX)
         source_list.remove_column(TableColumn.ID)
 
@@ -122,7 +122,7 @@ class ArtificialStars:
             make_model_image(
                 shape, image_psf, source_list,
                 model_shape=image_psf.data.shape)
-            * scale_factor)
+            / scale_factor)
 
         # apply the new data to the original image.
         image[n_hdu].data += star_overlay
@@ -158,19 +158,22 @@ def get_completeness(test_result: Table) -> Table:
     offsets: np.ndarray = np.zeros(len(bins))
     means: np.ndarray = np.zeros(len(bins))
 
-    i_bins: np.ndarray = np.asarray(np.digitize(
+    i_bins: np.ndarray = np.atleast_1d(np.digitize(
         test_result[TableColumn.MAG], bins=bins))
     for i in range(max(i_bins)):
-        binned: Table = test_result[(i_bins == i)]
-        if binned:
-            percents[i] = float(sum(binned[TableColumn.STATUS])) / len(binned)
+        indices = np.where(i_bins == i)[0]
+        if len(indices) > 0:
+            binned: Table = test_result[indices]
+            if len(binned) > 0:
+                percents[i] = float(
+                    sum(binned[TableColumn.STATUS])) / len(binned)
 
-        mag_inj: np.ndarray = -2.5 * np.log10(binned[TableColumn.FLUX])
-        mag_det: np.ndarray = -2.5 * np.log10(binned[TableColumn.FLUX_DET])
-        errors[i] = np.nanstd(mag_inj - mag_det)
-        means[i] = np.nanmean(mag_inj - mag_det)
-        offsets[i] = np.nanmedian(
-            binned[TableColumn.FLUX] / binned[TableColumn.FLUX_DET])
+            mag_inj: np.ndarray = -2.5 * np.log10(binned[TableColumn.FLUX])
+            mag_det: np.ndarray = -2.5 * np.log10(binned[TableColumn.FLUX_DET])
+            errors[i] = np.nanstd(mag_inj - mag_det)
+            means[i] = np.nanmean(mag_inj - mag_det)
+            offsets[i] = np.nanmedian(
+                binned[TableColumn.FLUX] / binned[TableColumn.FLUX_DET])
 
     out: Table = Table(
         [bins, percents, errors, offsets],
@@ -200,11 +203,11 @@ def get_spatial_completeness(
         return None
 
     x_bins: np.ndarray = np.arange(
-        min(test_result[TableColumn.X_0]),
-        max(test_result[TableColumn.X_0]), int(res))
+        min(np.atleast_1d(test_result[TableColumn.X_0])),
+        max(np.atleast_1d(test_result[TableColumn.X_0])), int(res))
     y_bins: np.ndarray = np.arange(
-        min(test_result[TableColumn.Y_0]),
-        max(test_result[TableColumn.Y_0]), int(res))
+        min(np.atleast_1d(test_result[TableColumn.Y_0])),
+        max(np.atleast_1d(test_result[TableColumn.Y_0])), int(res))
     percents: np.ndarray = np.zeros(image.shape)
 
     xi: int

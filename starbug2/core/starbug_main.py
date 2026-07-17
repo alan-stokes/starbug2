@@ -12,7 +12,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-
+import glob
 import os
 import sys
 from typing import Tuple, Dict, List, cast, Any
@@ -27,7 +27,8 @@ from astropy.io.fits import (
     PrimaryHDU, ImageHDU, HDUList, Header, open, BinTableHDU)
 from astropy.table import hstack, Table, QTable
 
-from core.main_components.artificial_stars import ArtificialStars
+from core.main_components.artificial_stars import (
+    ArtificialStars, compile_results)
 from constants import (
     HeaderTags, ImageHeaderTags, SCI, BGD, RES, VERBOSE_TAG, AP_FILE, BGD_FILE,
     FITS_EXTENSION, DQ, AREA, WHT, ExitStates, TableColumn, N_COLUMNS,
@@ -46,7 +47,7 @@ from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.interfaces.star_bug_interface import StarBugInterface
 from starbug2.utilities.utils import (
     collapse_header, get_version, ext_names, printf, split_file_name, p_error,
-    warn, import_table, reindex, get_data_path)
+    warn, import_table, reindex, get_data_path, combine_tables)
 
 
 class StarbugBase(StarBugInterface):
@@ -133,7 +134,7 @@ class StarbugBase(StarBugInterface):
         self._source_stats: np.ndarray | None = None
         self._psf: np.ndarray | None = psf
         self._ast_star_source_list: QTable | None = None
-        self._ast_test_results: Table | None = None
+        self._ast_test_results: list[Table] | None = config.ast_out_tables
 
         # Overridden configs
         self._ap_file: str | None = ap_file
@@ -757,7 +758,7 @@ class StarbugBase(StarBugInterface):
         if (self._config.ast_auto_save > 0 and
                 not test % self._config.ast_auto_save):
             # noinspection SpellCheckingInspection
-            self._ast_test_results.write(
+            result_table.write(
                 "sbast-autosave%d.tmp" % test, overwrite=True,
                 format="fits")
         return passed
@@ -800,6 +801,11 @@ class StarbugBase(StarBugInterface):
         :return: the results data, and the exit state.
         :rtype: Tuple[Table, ExitStates]
         """
+        (result_state, self._ast_star_source_list, self._image) = (
+            ArtificialStars.add_stars(
+                self._image, self._config, 0, self.main_image(), self.psf,
+                self.n_hdu))
+
         test_result: Table = Table(
             np.full((len(self._ast_star_source_list), 4), np.nan),
             names=[TableColumn.X_DET, TableColumn.Y_DET, TableColumn.FLUX_DET,
@@ -870,12 +876,53 @@ class StarbugBase(StarBugInterface):
         return (hstack((self._ast_star_source_list, test_result)),
                 ExitStates.EXIT_SUCCESS)
 
+    def _do_artificial_star_test_result(
+            self, config: StarBugMainConfig) -> ExitStates:
+        """
+        executes the artificial test output
+        :param config: the main config.
+        :return: the exit state
+        :rtype: ExitStates
+        """
+        raw: Table | None = self._ast_test_results[0]
+        for res in self._ast_test_results[1:]:
+            raw = combine_tables(raw, res)
+        assert raw is not None
+        if config.verbose_logs:
+            printf("-> compiling results\n")
+            printf("-> flux recovery: %.2g\n" % (
+                np.nanmean(raw[TableColumn.FLUX] /
+                           raw[TableColumn.FLUX_DET])))
+
+        results: HDUList
+        assert raw is not None
+        if (results := compile_results(
+                raw, image=self.main_image().data,
+                filter_string=self.filter,
+                plot_ast=config.ast_plot_filename)):
+            if config.verbose_logs:
+                printf("--> %s/%s-ast.fits\n" % (self._out_dir, self._b_name))
+            results.writeto(
+                "%s/%s-ast.fits" % (
+                    self._out_dir, self._b_name),  overwrite=True)
+
+            # autosave clean-up
+            # noinspection SpellCheckingInspection
+            for _f_name in glob.glob("sbast-autosave*.tmp"):
+                _f_name: str
+                os.remove(_f_name)
+        else:
+            p_error("results compilation failed\n")
+            return ExitStates.EXIT_FAIL
+        return ExitStates.EXIT_SUCCESS
+
     def run_starbug(
             self, config: StarBugMainConfig | None = None) -> ExitStates:
         """
         executes the main logic flows.
         :param config: the starbug config
-        :return:
+        :return: the exit state
+        :rtype: ExitStates
         """
         if config is not None:
             self._config = config
@@ -905,14 +952,15 @@ class StarbugBase(StarBugInterface):
             if result_state != ExitStates.EXIT_SUCCESS:
                 p_error("Failed to execute artificial star test")
                 return result_state
+        if self._config.do_artificial_star_test_results:
+            result_state = self._do_artificial_star_test_result(self._config)
+            if result_state != ExitStates.EXIT_SUCCESS:
+                p_error("Failed to execute artificial star test results")
+                return result_state
         if self._config.do_star_detection:
             result_state = self.detect()
             if result_state != ExitStates.EXIT_SUCCESS:
                 p_error("Failed to execute detection")
-                return result_state
-            result_state = self.aperture_photometry()
-            if result_state != ExitStates.EXIT_SUCCESS:
-                p_error("Failed to execute aperture_photometry")
                 return result_state
         if self._config.do_bgd_estimate:
             result_state = self.bgd_estimate()
@@ -1004,7 +1052,7 @@ class StarbugBase(StarBugInterface):
         return self._detections
 
     @property
-    def ast_test_results(self) -> Table:
+    def ast_test_results(self) -> list[Table] | None:
         return self._ast_test_results
 
     @property

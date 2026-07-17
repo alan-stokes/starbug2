@@ -16,6 +16,7 @@ import getopt
 import os
 import numpy as np
 from astropy import units
+from astropy.table import Table
 from astropy.units import Quantity
 from typing import Dict, Tuple, Final, Any
 from parse import parse
@@ -270,6 +271,8 @@ class StarBugMainConfig:
 
         # artificial stars params
         self._do_artificial_star_test: bool = False
+        self._do_artificial_star_test_results: bool = False
+        self._ast_out_tables: list[Table] | None = None
         self._ast_recover: bool = False
         self._ast_auto_save: int = 100
         self._ast_no_background: bool = False
@@ -769,6 +772,7 @@ class StarBugMainConfig:
     @do_star_detection.setter
     def do_star_detection(self, value: bool) -> None:
         self._do_star_detection = value
+        self._do_aperture_photometry = value
 
     @property
     def do_source_geometry(self) -> bool:
@@ -1500,6 +1504,22 @@ class StarBugMainConfig:
     @ast_no_psf_phot.setter
     def ast_no_psf_phot(self, value: bool) -> None:
         self._ast_no_psf_phot = value
+
+    @property
+    def do_artificial_star_test_results(self) -> bool:
+        return self._do_artificial_star_test_results
+
+    @do_artificial_star_test_results.setter
+    def do_artificial_star_test_results(self, value: bool) -> None:
+        self._do_artificial_star_test_results = value
+
+    @property
+    def ast_out_tables(self) -> list[Table] | None:
+        return self._ast_out_tables
+
+    @ast_out_tables.setter
+    def ast_out_tables(self, value: list[Table]) -> None:
+        self._ast_out_tables = value
 
     # =======================================
     # matching properties

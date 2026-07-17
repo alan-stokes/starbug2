@@ -44,7 +44,10 @@ from starbug2.utilities.filters import STAR_BUG_FILTERS
 
 # different print methods (why are we not using loggers?)
 def printf(s: str) -> int:
-    return sys.stdout.write(s)
+    if s.endswith("\n"):
+        return sys.stdout.write(s)
+    else:
+        return puts(s)
 
 
 def p_error(s: str) -> int:

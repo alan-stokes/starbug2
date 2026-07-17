@@ -192,50 +192,29 @@ class TestSystemResults:
         # set up config for creating psf
         generic.make_psf_for_blank()
 
+        # create empty fits file
+        generic.create_blank_fits()
+
         # set up config for artificial stars
         config: StarBugMainConfig = create_default_config()
         config.unfreeze()
-        config.custom_filter = 'F770W'
+        config.custom_filter = generic.TEST_CUSTOM_FILTER
         config.fits_images = [TEST_BLANK]
         config.psf_file_override = TEST_PSF_FITS
         config.verbose_logs = True
 
-        # config to set off detection with psf
         # config to set off detection with psf
         config.stars_per_artificial_test = 15
         config.ast_save_added_image = True
         config.ast_save_added_image_path = TEST_PATH_STR
         config.ast_add_stars = True
         config.ast_loader = loading_buffer
-        config.ast_test_index = 0
-        config.artificial_star_tests_count = 1
-        config.ast_auto_save = 10
-        config.ast_load_psf = True
         config.do_star_detection = True
-
-        config.zero_point_magnitude = 25
-        config.test_magnitude_bright_limit = 12
-        config.test_magnitude_faint_limit = 13
-        config.full_width_half_max = 5.0
-        config.ricker_wavelet_radius = 2.5
+        config.ast_seed = 42
+        config.test_magnitude_bright_limit = 15
+        config.test_magnitude_faint_limit = 16
         config.sigma_source = 100.0
-
-
-        config.sigma_sky = 1.0
-        config.aperture_phot_radius = 5.0 # Ke
-        config.sharp_cutoff_low = 0.4
-        config.sharp_cutoff_high = 1.0
-        config.round1_cutoff_high = 0.5
-        config.round2_cutoff_high = 0.5
-
-        # --- FIXED SOURCE EXTRACTION PARAMS ---
-        config.do_convolution = True
-        config.clean_sources = True
-        config.sharp_cutoff_low = 0.2
         config.freeze()
-
-        # create empty fits file
-        generic.create_blank_fits()
 
         # execute detection / phot / residual.
         exit_state: int = starbug_internal_main(config)

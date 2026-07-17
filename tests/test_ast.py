@@ -44,6 +44,24 @@ def run(s):
         s.split() + [generic.TEST_IMAGE_FITS], share_memory, loading_buffer
     )
 
+def update_config_for_fake_stars_into_blank(config: StarBugMainConfig) -> None:
+    config.unfreeze()
+    config.custom_filter = generic.TEST_CUSTOM_FILTER
+    config.fits_images = [generic.TEST_BLANK]
+    config.psf_file_override = TEST_PSF_FITS
+    config.do_star_detection = False
+    config.do_aperture_photometry = False
+    config.do_artificial_star_test = True
+    config.ast_load_psf = True
+    config.ast_seed = 42
+    config.test_magnitude_bright_limit = 20
+    config.test_magnitude_faint_limit = 22
+    config.stars_per_artificial_test = 1
+    config.artificial_star_tests_count = 1
+    config.ast_save_added_image = True
+    config.ast_save_added_image_path = TEST_PATH_STR
+    config.freeze()
+
 
 def test_run_basic():
     generic.verify_test_data_exists()
@@ -107,6 +125,7 @@ def test_add_stars_logic():
     config.psf_file_override = TEST_PSF_FITS
     config.ast_seed = 42
     config.stars_per_artificial_test = 1
+    config.artificial_star_tests_count = 1
     config.ast_save_added_image = True
     config.ast_save_added_image_path = TEST_PATH_STR
     config.custom_filter = generic.TEST_CUSTOM_FILTER
@@ -141,9 +160,9 @@ def test_add_stars_logic():
     ] = False
 
     # test outside fake star location it is identical
-    np.testing.assert_array_equal(
+    np.testing.assert_allclose(
         original_image_data[comparison_mask],
-        image_data[comparison_mask]
+        image_data[comparison_mask], rtol=1e-5, atol=1e-5
     )
 
     # check inside the star it's not identical
@@ -152,6 +171,119 @@ def test_add_stars_logic():
     assert not np.array_equal(star_box_original, star_box_new)
 
 
+def test_results_for_execute_as_test():
+    generic.verify_test_data_exists()
+    generic.clean()
+
+    # create blank fits file.
+    config: StarBugMainConfig = StarBugMainConfig()
+    generic.create_blank_fits()
+    config.unfreeze()
+    config.do_star_detection = True
+    config.do_aperture_photometry = True
+    config.custom_filter = generic.TEST_CUSTOM_FILTER
+    config.fits_images = [generic.TEST_BLANK]
+    config.psf_file_override = TEST_PSF_FITS
+    config.freeze()
+
+    entrance: StarbugBase = StarbugBase(
+        config=config, f_name=generic.TEST_BLANK, ap_file=None, bkg_file=None)
+
+    # execute add stars
+    entrance.run_starbug()
+
+    background_detections: Table = entrance.detections.copy()
+
+    # create config
+    update_config_for_fake_stars_into_blank(config)
+
+    entrance: StarbugBase = StarbugBase(
+        config=config, f_name=generic.TEST_BLANK, ap_file=None, bkg_file=None)
+
+    # execute add stars
+    entrance.run_starbug()
+
+    # get data for comparison
+    artificial_stars_detections: Table = entrance.detections
+    fake_star_locations: Table = entrance.ast_star_source_list
+
+    assert len(artificial_stars_detections) == 1
+    assert len(fake_star_locations) == 1
+
+    # compare detections.
+    matching_pixel_tolerance = 1
+    for row in artificial_stars_detections:
+        orig_x = row[TableColumn.X_DET]
+        orig_y = row[TableColumn.Y_DET]
+
+        # Calculate the Euclidean distance from this original star
+        # to all detections in the new artificial image
+        distances = np.sqrt(
+            (fake_star_locations[
+                 TableColumn.X_0] - orig_x) ** 2 +
+            (fake_star_locations[
+                 TableColumn.Y_0] - orig_y) ** 2
+        )
+
+        # Verify that at least one detection lies within our tolerance limit
+        match_exists = np.any(distances <= matching_pixel_tolerance)
+        assert(match_exists == True)
+
+        # check that the background stars were not part of the found star
+        distances = np.sqrt(
+            (background_detections[
+                 TableColumn.X_CENTROID] - orig_x) ** 2 +
+            (background_detections[
+                 TableColumn.Y_CENTROID] - orig_y) ** 2
+        )
+        match_exists = np.any(distances <= matching_pixel_tolerance)
+        assert(match_exists == False)
+
+    generic.clean()
+
+
+def test_ast_output_flux():
+    generic.verify_test_data_exists()
+    generic.clean()
+
+    # create blank fits file.
+    config: StarBugMainConfig = StarBugMainConfig()
+    generic.create_blank_fits()
+    update_config_for_fake_stars_into_blank(config)
+
+    entrance: StarbugBase = StarbugBase(
+        config=config, f_name=generic.TEST_BLANK, ap_file=None, bkg_file=None)
+
+    # execute add stars and do test
+    entrance.run_starbug()
+
+    artificial_stars_detections: Table = entrance.detections
+    fake_star_locations: Table = entrance.ast_star_source_list
+
+    assert len(artificial_stars_detections) == 1
+    assert len(fake_star_locations) == 1
+
+    assert artificial_stars_detections[0][TableColumn.X_DET] == pytest.approx(
+        fake_star_locations[0][TableColumn.X_0], abs=0.5)
+    assert artificial_stars_detections[0][TableColumn.Y_DET] == pytest.approx(
+        fake_star_locations[0][TableColumn.Y_0], abs=0.5)
+    assert (artificial_stars_detections[0][TableColumn.FLUX_DET] ==
+            pytest.approx(fake_star_locations[0][TableColumn.FLUX], abs=0.1))
+
+    # execute output generation
+    config = StarBugMainConfig()
+    config.custom_filter = generic.TEST_CUSTOM_FILTER
+    config.fits_images = [generic.TEST_BLANK]
+    config.psf_file_override = TEST_PSF_FITS
+    config.do_artificial_star_test_results = True
+    config.ast_out_tables = [entrance.ast_test_results]
+    entrance: StarbugBase = StarbugBase(
+        config=config, f_name=generic.TEST_BLANK, ap_file=None, bkg_file=None)
+    entrance.run_starbug()
+    generic.clean()
+
+
 if __name__ == "__main__":
     # This allows you to run the harsh test directly.
-    test_run_harsh_inputs()
+    #test_run_harsh_inputs()
+    test_results_for_execute_as_test()

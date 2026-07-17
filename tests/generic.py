@@ -131,14 +131,14 @@ def create_blank_fits(size=(2048, 2048), use_noise=True):
     print(f"Generating blank space image of size {size[0]}x{size[1]}...")
 
     # Create a 2D numpy array of zeros (using float32 for standard precision)
-    blank_data = np.zeros(size, dtype=np.float32)
+    blank_data = np.zeros(size, dtype=np.float64)
 
     # Create background noise: mean of 10.0 counts, standard deviation of 1.0
     rng = np.random.default_rng(seed=TEST_SEED)
     if use_noise:
         background_noise = rng.normal(loc=10.0, scale=1, size=blank_data.shape)
     else:
-        background_noise = np.zeros(size, dtype=np.float32)
+        background_noise = np.zeros(size, dtype=np.float64)
 
     # Wrap the data inside a Primary HDU
     primary_hdu = fits.PrimaryHDU(data=background_noise)
