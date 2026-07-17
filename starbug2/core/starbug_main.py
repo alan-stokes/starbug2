@@ -27,9 +27,9 @@ from astropy.io.fits import (
     PrimaryHDU, ImageHDU, HDUList, Header, open, BinTableHDU)
 from astropy.table import hstack, Table, QTable
 
-from core.main_components.artificial_stars import (
+from starbug2.core.main_components.artificial_stars import (
     ArtificialStars, compile_results)
-from constants import (
+from starbug2.constants import (
     HeaderTags, ImageHeaderTags, SCI, BGD, RES, VERBOSE_TAG, AP_FILE, BGD_FILE,
     FITS_EXTENSION, DQ, AREA, WHT, ExitStates, TableColumn, N_COLUMNS,
     TEST_TABLE_COLUMN_NAMES, DETECT, NOT_FOUND)
