@@ -54,8 +54,8 @@ def test_ast_output_data():
     update_config_for_fake_stars_into_blank(config)
     config.unfreeze()
     config.verbose_logs = True
-    config.sigma_sky = 5.13
-    config.sigma_source = 6
+    config.sigma_sky = 150
+    config.sigma_source = 150
     config.freeze()
 
     entrance: StarbugBase = StarbugBase(

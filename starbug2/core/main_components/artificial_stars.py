@@ -16,8 +16,6 @@ import os
 import numpy as np
 from typing import cast, Any, Tuple, Callable, Dict
 
-from astropy.io.fits import ImageHDU, PrimaryHDU
-from fontTools.varLib.instancer import AxisLimits
 from photutils.datasets import make_model_image, make_random_models_table
 from astropy.table import Table, QTable, Column
 from astropy.io import fits
@@ -27,7 +25,7 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
 from starbug2.core.star_bug_config import StarBugMainConfig
-from starbug2.constants import ExitStates, TableColumn
+from starbug2.constants import ExitStates, TableColumn, ERR
 
 try:
     import matplotlib.pyplot as plt
@@ -37,7 +35,7 @@ except ImportError:
     import matplotlib.pyplot as plt
 
 from starbug2.utilities.utils import (
-    printf, p_error, get_mj_ysr2jy_scale_factor, warn, flux_to_pogson_mag)
+    printf, p_error, get_mj_ysr2jy_scale_factor, warn, flux_to_pogson_mag, ext_names)
 
 
 class ArtificialStars:
@@ -64,9 +62,8 @@ class ArtificialStars:
     @staticmethod
     def add_stars(
             base_image: fits.HDUList, config: StarBugMainConfig,
-            buffer: int, main_image: ImageHDU | PrimaryHDU,
-            psf: np.ndarray | None,
-            n_hdu: int) -> Tuple[ExitStates, QTable, fits.HDUList]:
+            buffer: int, psf: np.ndarray | None, n_hdu: int) -> Tuple[
+                ExitStates, QTable, fits.HDUList]:
         """
         adds new stars to the image.
         :param base_image: copy of the current image
@@ -75,8 +72,6 @@ class ArtificialStars:
         :type config: StarBugMainConfig
         :param buffer: the buffer
         :type buffer: int
-        :param main_image: the main image
-        :type main_image: ImageHDU | PrimaryHDU
         :param psf: the point source function
         :type psf: np.ndarray | None
         :param n_hdu: the n_hdu.
@@ -90,7 +85,9 @@ class ArtificialStars:
         # in memory, it is still accessing the file directly. So a copy avoids
         # corrupting the original file.
         image: fits.HDUList = base_image.__deepcopy__()
+
         shape: list[int, int] = image[n_hdu].shape # noqa
+        main_image = image[n_hdu]
 
         # create list of fake star locations and add new magnitudes
         source_list: QTable = make_random_models_table(
@@ -134,10 +131,11 @@ class ArtificialStars:
                 / scale_factor)
 
             # apply the new data to the original image.
-            image[n_hdu].data += star_overlay
-            image['SCI'].data += star_overlay
-            image['ERR'].data += np.sqrt(np.abs(image['SCI'].data))
+            main_image.data += star_overlay
+            if ERR in ext_names(image):
+                image[ERR].data += np.sqrt(np.abs(main_image.data))
 
+            # add extra columns
             total_star_flux = float(np.sum(star_overlay * scale_factor))
             retrieved_flux.append(total_star_flux)
             added_mag, _= flux_to_pogson_mag(retrieved_flux)
@@ -146,22 +144,24 @@ class ArtificialStars:
             retrieved_mag_diff.append(
                 single_source_table[TableColumn.MAG] - added_mag)
 
-        source_list["TOTAL_FLUX_ADDED"] = retrieved_flux
-        source_list["TOTAL_MAG"] = retrieved_mag
-        source_list["TOTAL_DIFF_MAG"] = retrieved_mag_diff
+        source_list[TableColumn.TOTAL_FLUX_ADDED] = retrieved_flux
+        source_list[TableColumn.TOTAL_MAG] = retrieved_mag
+        source_list[TableColumn.TOTAL_DIFF_MAG] = retrieved_mag_diff
 
         # if told to generate the added list. generate.
         if config.ast_save_added_image:
-            image.writeto(os.path.join(
+            main_image.writeto(os.path.join(
                 config.ast_save_added_image_path,
                 f"inserted_image_for_test_{config.ast_test_index}.fits"))
             source_list.write(os.path.join(
                 config.ast_save_added_image_path,
                 f"stars_data_for_test_{config.ast_test_index}.fits"))
 
-        source_list.remove_column("TOTAL_FLUX_ADDED")
-        source_list.remove_column("TOTAL_MAG")
-        source_list.remove_column("TOTAL_DIFF_MAG")
+        # the rest of the code don't want these values, so delete them from the
+        # source list.
+        source_list.remove_column(TableColumn.TOTAL_FLUX_ADDED)
+        source_list.remove_column(TableColumn.TOTAL_MAG)
+        source_list.remove_column(TableColumn.TOTAL_DIFF_MAG)
 
         # hand back the source list, the new image, and the exit state.
         return ExitStates.EXIT_SUCCESS, source_list, image

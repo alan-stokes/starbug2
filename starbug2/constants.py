@@ -193,6 +193,9 @@ class TableColumn(str, Enum):
     ROUNDNESS2 = "roundness2"
     RA_1 = "RA_1"
     RA_2 = "RA_2"
+    TOTAL_FLUX_ADDED = "TOTAL_FLUX_ADDED"
+    TOTAL_MAG = "TOTAL_MAG"
+    TOTAL_DIFF_MAG = "TOTAL_DIFF_MAG"
 
     # needed as the table system doenst seem to handle enums properly
     def __str__(self) -> str:

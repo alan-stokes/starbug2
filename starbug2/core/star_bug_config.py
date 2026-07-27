@@ -443,6 +443,26 @@ class StarBugMainConfig:
         return cls._generate_get_opt_definitions(cls.PLOT_FLAG_MAP)
 
     @staticmethod
+    def parse_value(val_str: str) -> int | float | str:
+        # Clean up tracking whitespaces while they are guaranteed to be
+        # strings
+        raw_value = val_str.strip()
+
+        # Default fallback type is the cleaned string itself
+        value: int | float | str = raw_value
+
+        # Attempt numeric type conversions safely
+        try:
+            if '.' in raw_value:
+                value = float(raw_value)
+            else:
+                value = int(raw_value)
+        except (ValueError, AttributeError, TypeError):
+            # If conversion fails, value remains a string
+            pass
+        return value
+
+    @staticmethod
     def parse_param(line: str) -> Dict[str, int | float | str]:
         """
         Parse a parameter line
@@ -471,20 +491,9 @@ class StarBugMainConfig:
             # Clean up tracking whitespaces while they are guaranteed to be
             # strings
             key = key_str.strip()
-            raw_value = val_str.strip()
 
-            # Default fallback type is the cleaned string itself
-            value: int | float | str = raw_value
-
-            # Attempt numeric type conversions safely
-            try:
-                if '.' in raw_value:
-                    value = float(raw_value)
-                else:
-                    value = int(raw_value)
-            except (ValueError, AttributeError, TypeError):
-                # If conversion fails, value remains a string
-                pass
+            value: int | float | str
+            value = StarBugMainConfig.parse_value(val_str)
 
             # Special case environmental variables expansions for paths
             if (key in (HeaderTags.OUTPUT, AP_FILE, BGD_FILE, PSF_FILE)
@@ -925,8 +934,8 @@ class StarBugMainConfig:
         self._output_file = value
 
     @property
-    def hdu_name(self) -> str:
-        return self._hdu_name
+    def hdu_name(self) -> str | int | float:
+        return StarBugMainConfig.parse_value(self._hdu_name)
 
     @hdu_name.setter
     def hdu_name(self, value: str) -> None:

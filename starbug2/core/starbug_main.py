@@ -703,7 +703,7 @@ class StarbugBase(StarBugInterface):
         e_names: list[str] = ext_names(self._image)
 
         # HDU_NAME in param file
-        n: str = str(self._config.hdu_name)
+        n: str | float | int = self._config.hdu_name
         if n and n in e_names:
             self._n_hdu = e_names.index(n)
             return self._image[n]
@@ -805,8 +805,7 @@ class StarbugBase(StarBugInterface):
         """
         (result_state, self._ast_star_source_list, self._image) = (
             ArtificialStars.add_stars(
-                self._image, self._config, 0, self.main_image(), self.psf,
-                self.n_hdu))
+                self._image, self._config, 0, self.psf, self.n_hdu))
 
         test_result: Table = Table(
             np.full((len(self._ast_star_source_list), 4), np.nan),
@@ -955,8 +954,7 @@ class StarbugBase(StarBugInterface):
         if self._config.ast_add_stars:
             (result_state, self._ast_star_source_list, self._image) = (
                 ArtificialStars.add_stars(
-                    self._image, self._config, 0, self.main_image(), self.psf,
-                    self.n_hdu))
+                    self._image, self._config, 0, self.psf, self.n_hdu))
             if result_state != ExitStates.EXIT_SUCCESS:
                 p_error("Failure to execute add stars to image")
                 return result_state
