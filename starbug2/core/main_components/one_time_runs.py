@@ -173,13 +173,15 @@ def ast_one_time_runs(config: StarBugMainConfig) -> ExitStates:
                     p_error(f"failed to read table at path {f_name}")
                     return ExitStates.EXIT_FAIL
                 raw = combine_tables(raw, read_table)
-            results: HDUList
+            results: dict[str, HDUList]
             assert raw is not None
             if (results := compile_results(
-                    fill_nan(raw), plot_ast="recovered.pdf")):
+                    fill_nan(raw), config, plot_ast="recovered.pdf")):
                 printf("-> successful recovery!\n--> %s\n" % (
                     f_name := "recovered.fits"))
-                results.writeto(f_name, overwrite=True)
+                for result_file_name in results.keys():
+                    results[result_file_name].writeto(
+                        f"{result_file_name}{f_name}", overwrite=True)
             else:
                 p_error("something went wrong\n")
         else:

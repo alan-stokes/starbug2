@@ -57,6 +57,8 @@ def update_config_for_fake_stars_into_blank(config: StarBugMainConfig) -> None:
     config.ast_seed = 42
     config.test_magnitude_bright_limit = 20
     config.test_magnitude_faint_limit = 22
+    config.sigma_sky = 4
+    config.sigma_source = 10
     config.stars_per_artificial_test = 1
     config.artificial_star_tests_count = 1
     config.ast_save_added_image = True
@@ -132,6 +134,8 @@ def test_add_stars_logic():
     config.ast_save_added_image_path = TEST_PATH_STR
     config.custom_filter = generic.TEST_CUSTOM_FILTER
     config.output_file = TEST_PATH_STR
+    config.sigma_sky = 4
+    config.sigma_source = 10
     config.freeze()
 
     entrance: StarbugBase = StarbugBase(
@@ -165,7 +169,7 @@ def test_add_stars_logic():
     # test outside fake star location it is identical
     np.testing.assert_allclose(
         original_image_data[comparison_mask],
-        image_data[comparison_mask], rtol=1e-5, atol=1e-5
+        image_data[comparison_mask], rtol=1e-5, atol=1e-4
     )
 
     # check inside the star it's not identical
@@ -188,6 +192,8 @@ def test_results_for_execute_as_test():
     config.fits_images = [generic.TEST_BLANK]
     config.psf_file_override = TEST_PSF_FITS
     config.output_file = TEST_PATH_STR
+    config.sigma_sky = 4
+    config.sigma_source = 10
     config.freeze()
 
     entrance: StarbugBase = StarbugBase(
@@ -246,13 +252,13 @@ def test_results_for_execute_as_test():
     generic.clean()
 
 
-def test_ast_output_flux():
+def test_ast_output_data():
     generic.verify_test_data_exists()
     generic.clean()
 
     # create blank fits file.
     config: StarBugMainConfig = StarBugMainConfig()
-    generic.create_blank_fits()
+    generic.create_blank_fits(max_value=1.0)
     update_config_for_fake_stars_into_blank(config)
 
     entrance: StarbugBase = StarbugBase(

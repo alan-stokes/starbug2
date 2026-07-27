@@ -32,7 +32,7 @@ from starbug2.interfaces.star_bug_interface import StarBugInterface
 from starbug2.routines.psf_phot_routine import PSFPhotRoutine
 from starbug2.utilities.filters import STAR_BUG_FILTERS, FilterStruct
 from starbug2.utilities.utils import (
-    flux2mag, p_error, parse_unit, warn, get_data_path,
+    flux_to_pogson_mag, p_error, parse_unit, warn, get_data_path,
     get_mj_ysr2jy_scale_factor, reindex)
 
 
@@ -595,7 +595,7 @@ class Photometry:
 
         mag: float
         mag_err: float
-        mag, mag_err = flux2mag(
+        mag, mag_err = flux_to_pogson_mag(
             psf_cat[TableColumn.FLUX], psf_cat[TableColumn.E_FLUX])
 
         filter_string: str = (

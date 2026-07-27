@@ -17,8 +17,9 @@ import numpy as np
 from typing import cast, Any, Tuple, Callable, Dict
 
 from astropy.io.fits import ImageHDU, PrimaryHDU
+from fontTools.varLib.instancer import AxisLimits
 from photutils.datasets import make_model_image, make_random_models_table
-from astropy.table import Table, QTable
+from astropy.table import Table, QTable, Column
 from astropy.io import fits
 from photutils.psf import ImagePSF
 from scipy.optimize import curve_fit
@@ -36,7 +37,7 @@ except ImportError:
     import matplotlib.pyplot as plt
 
 from starbug2.utilities.utils import (
-    printf, p_error, get_mj_ysr2jy_scale_factor, warn)
+    printf, p_error, get_mj_ysr2jy_scale_factor, warn, flux_to_pogson_mag)
 
 
 class ArtificialStars:
@@ -118,20 +119,49 @@ class ArtificialStars:
         scale_factor: float | int = (
             get_mj_ysr2jy_scale_factor(main_image))
         image_psf = ImagePSF(psf)
-        star_overlay: np.ndarray = (
-            make_model_image(
-                shape, image_psf, source_list,
-                model_shape=image_psf.data.shape)
-            / scale_factor)
 
-        # apply the new data to the original image.
-        image[n_hdu].data += star_overlay
+        # for sanity sakes. let's run them 1 at a time and get the difference
+        # between what flux is asked for and what's added.
+        retrieved_flux: list = []
+        retrieved_mag: list = []
+        retrieved_mag_diff: list = []
+        for i in range(len(source_list)):
+            single_source_table = source_list[i:i+1]
+            star_overlay: np.ndarray = (
+                make_model_image(
+                    shape, image_psf, single_source_table,
+                    model_shape=image_psf.data.shape)
+                / scale_factor)
+
+            # apply the new data to the original image.
+            image[n_hdu].data += star_overlay
+            image['SCI'].data += star_overlay
+            image['ERR'].data += np.sqrt(np.abs(image['SCI'].data))
+
+            total_star_flux = float(np.sum(star_overlay * scale_factor))
+            retrieved_flux.append(total_star_flux)
+            added_mag, _= flux_to_pogson_mag(retrieved_flux)
+            added_mag = added_mag + config.zero_point_magnitude
+            retrieved_mag.append(added_mag)
+            retrieved_mag_diff.append(
+                single_source_table[TableColumn.MAG] - added_mag)
+
+        source_list["TOTAL_FLUX_ADDED"] = retrieved_flux
+        source_list["TOTAL_MAG"] = retrieved_mag
+        source_list["TOTAL_DIFF_MAG"] = retrieved_mag_diff
 
         # if told to generate the added list. generate.
         if config.ast_save_added_image:
             image.writeto(os.path.join(
                 config.ast_save_added_image_path,
                 f"inserted_image_for_test_{config.ast_test_index}.fits"))
+            source_list.write(os.path.join(
+                config.ast_save_added_image_path,
+                f"stars_data_for_test_{config.ast_test_index}.fits"))
+
+        source_list.remove_column("TOTAL_FLUX_ADDED")
+        source_list.remove_column("TOTAL_MAG")
+        source_list.remove_column("TOTAL_DIFF_MAG")
 
         # hand back the source list, the new image, and the exit state.
         return ExitStates.EXIT_SUCCESS, source_list, image
@@ -160,20 +190,31 @@ def get_completeness(test_result: Table) -> Table:
 
     i_bins: np.ndarray = np.atleast_1d(np.digitize(
         test_result[TableColumn.MAG], bins=bins))
-    for i in range(max(i_bins)):
+    for i in range(1, int(max(bins)) + 1):
         indices = np.where(i_bins == i)[0]
-        if len(indices) > 0:
-            binned: Table = test_result[indices]
-            if len(binned) > 0:
-                percents[i] = float(
-                    sum(binned[TableColumn.STATUS])) / len(binned)
+        # skip if no data.
+        if len(indices) == 0:
+            continue
 
-            mag_inj: np.ndarray = -2.5 * np.log10(binned[TableColumn.FLUX])
-            mag_det: np.ndarray = -2.5 * np.log10(binned[TableColumn.FLUX_DET])
-            errors[i] = np.nanstd(mag_inj - mag_det)
-            means[i] = np.nanmean(mag_inj - mag_det)
-            offsets[i] = np.nanmedian(
-                binned[TableColumn.FLUX] / binned[TableColumn.FLUX_DET])
+        # process data
+        binned: Table = test_result[indices]
+        if len(binned) > 0:
+            percents[i] = float(
+                sum(binned[TableColumn.STATUS])) / len(binned)
+
+        mag_inj: np.ndarray
+        mag_det: np.ndarray
+
+        # as were comparing differences. we do not need to worry about
+        # Zero Point.
+        mag_inj, _ = flux_to_pogson_mag(binned[TableColumn.FLUX])
+        mag_det, _ = flux_to_pogson_mag(binned[TableColumn.FLUX_DET])
+
+        mag_difference: np.ndarray = mag_inj - mag_det
+        errors[i] = np.nanstd(mag_difference)
+        means[i] = np.nanmean(mag_difference)
+        offsets[i] = np.nanmedian(
+            binned[TableColumn.FLUX] / binned[TableColumn.FLUX_DET])
 
     out: Table = Table(
         [bins, percents, errors, offsets],
@@ -223,7 +264,7 @@ def get_spatial_completeness(
                 (test_result[TableColumn.Y_0] < yo))
             binned: Table = test_result[mask]
             if len(binned):
-                percents[int(xi): int(xo), int(yi): int(yo)] = (
+                percents[int(yi): int(yo), int(xi): int(xo)] = (
                     float(np.sum(binned[TableColumn.STATUS])) / len(binned))
     return percents
 
@@ -241,7 +282,7 @@ def estimate_completeness_mag(ast: Table) -> (
         - **fit** (*list*): The fitting parameters to the logistic curve
                             $f(x) = \frac{l}{1 + exp(-k(x - x_0))}$ formatted
                             as ``[l, x_0, k]``.
-        - **complete** (*list*): Magnitude of 70% and 50% completeness.
+        - **complete** (*list*): Magnitude of 90%, 70% and 50% completeness.
     :rtype: tuple[list, list]
     """
     fit: Tuple[float, float, float] | None = None
@@ -296,11 +337,167 @@ def scurve(
     return limit / (1 + np.exp(-k * (x - xo)))
 
 
+def plot_mid_plot(
+        ax: Axes, mag_true: Column, delta_mag, bin_centers, med_offsets,
+        std_offsets) -> None:
+    ax.scatter(
+        mag_true,
+        delta_mag,
+        alpha=0.05,
+        c='gray',
+        s=2,
+        label='Individual ASTs'
+    )
+
+    # Reference line at 0 offset (no bias)
+    ax.axhline(0, color='black', linestyle='--', linewidth=1, alpha=0.7)
+
+    # Binned median trend line
+    ax.plot(
+        bin_centers,
+        med_offsets,
+        color='red',
+        linewidth=2,
+        label='Median Offset'
+    )
+
+    # Error band representing spread
+    ax.fill_between(
+        bin_centers,
+        med_offsets - std_offsets,
+        med_offsets + std_offsets,
+        color='red',
+        alpha=0.2
+    )
+
+    ax.set_ylabel(r'$\Delta m$ ($m_{\mathrm{det}} - m_{\mathrm{inj}}$)')
+    # Zoom in on the bias zone (-0.5 to +0.5 mag is standard)
+    ax.set_ylim(-0.5, 0.5)
+    ax.grid(True, linestyle=':', alpha=0.6)
+    ax.legend(loc='upper left')
+
+
+def plot_top_plot(
+        ax: Axes, completeness_raw: Table,
+        completeness: Tuple[float, float, float],
+        cfit: Tuple[float, float, float], filter_string: str,
+        plot_ast: str) -> None:
+    ax.scatter(
+        completeness_raw[TableColumn.MAG],
+        completeness_raw[TableColumn.REC], c='k', lw=0, s=8)
+    ax.plot(completeness_raw[TableColumn.MAG],
+            scurve(completeness_raw[TableColumn.MAG], *cfit),
+            c='g',
+            label=r"$f(x)=\frac{%.2f}{1+e^{%.2f("r"x-%.2f)}}$" % (
+                cfit[0], cfit[1], cfit[2]))
+    ax.axvline(
+        completeness[0], c="seagreen", ls='--',
+        label=("90%%:%.2f" % completeness[0]), lw=0.75)
+    ax.axvline(
+        completeness[1], c="seagreen", ls='-.',
+        label=("70%%:%.2f" % completeness[1]), lw=0.75)
+    ax.axvline(
+        completeness[2], c="seagreen", ls=':',
+        label=("50%%:%.2f" % completeness[2]), lw=0.75)
+    ax.scatter(completeness, (0.9, 0.7, 0.5), marker='*', c='teal', s=10)
+    ax.tick_params(direction="in", top=True, right=True)
+    ax.set_title("Artificial Star Test")
+    ax.set_xlabel(filter_string)
+    ax.set_ylabel("Fraction Recovered")
+    ax.set_yticks([0, .25, .5, .75, 1])
+    ax.legend(loc="lower left", frameon=False, fontsize=8)
+    plt.tight_layout()
+    printf("--> %s\n" % plot_ast)
+
+def photometric_bias(
+        raw: Table) -> Tuple[Table, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    generate the photometric bias data
+    :param raw: the result table.
+    :type raw: table.
+    :return: the differences in magnitude, the centers of each bin,
+    the medium offsets, the standard deviation offsets.
+    :rtype Tuple[Table, np.ndarray, np.ndarray, np.ndarray]
+    """
+    bins: np.ndarray = np.arange(
+        np.floor(np.nanmin(raw[TableColumn.MAG])),
+        np.ceil(np.nanmax(raw[TableColumn.MAG])),
+        0.1)
+    mag_det, _ = flux_to_pogson_mag(raw[TableColumn.FLUX_DET])
+
+    delta_mag: Table = raw[TableColumn.MAG] - mag_det
+    med_offsets = np.full(len(bins) - 1, np.nan)
+    std_offsets = np.full(len(bins) - 1, np.nan)
+    bin_centers = 0.5 * (bins[:-1] + bins[1:])
+
+    for i in range(1, len(bins)):
+        # Select stars in the current magnitude bin
+        mask = ((raw[TableColumn.MAG] >= bins[i -1]) &
+                (raw[TableColumn.MAG] < bins[i]))
+        bin_deltas = delta_mag[mask]
+        valid_deltas = bin_deltas[np.isfinite(bin_deltas)]
+
+        if len(valid_deltas) > 0:
+            med_offsets[i - 1] = np.nanmedian(valid_deltas)
+        # Use 16th to 84th percentile / 2 or std for error bounds
+        std_offsets[i - 1] = np.nanstd(valid_deltas)
+    return delta_mag, bin_centers, med_offsets, std_offsets
+
+
+def _generate_head(
+        completeness: Tuple[float, float, float],
+        cfit: Tuple[float, float, float],
+        filter_string: str) ->  Dict[str, str | float]:
+    """
+    generates the head of the results table.
+    :param completeness: the completeness
+    :type completeness:  Tuple[float, float, float]
+    :param cfit: the coefficients.
+    :type cfit:  Tuple[float, float, float]
+    :param filter_string:  the filter string.
+    :type filter_string: str
+    :return:
+    """
+    head: Dict[str, str | float] = {
+        "COMPLETE_FN": "F(x)=l/(1+exp(-k(x-xo)))", "l": cfit[0],
+        "k": cfit[1], "xo": cfit[2]}
+    for i, frac in enumerate((90, 70, 50)):
+        if completeness[i] and not np.isnan(completeness[i]):
+            printf(
+                "-> complete to %d%%: %s=%.2f\n" % (
+                    frac, filter_string, completeness[i]))
+            head["COMPLETE %d%%" % frac] = str(completeness[i])
+    return head
+
+
+def add_mag_columns(raw: Table, config: StarBugMainConfig) -> Table:
+    """
+    adds extra columns for astrophysics's to use so they could generate
+     their own plots.
+    :param raw: the raw table.
+    :param config: the config object.
+    :type config: StarBugMainConfig
+    :return: a new table with MAG detection and MAG difference columns
+             inserted.
+    :rtype: Table
+    """
+    mag_det: np.ndarray
+    mag_det, _ = flux_to_pogson_mag(raw[TableColumn.FLUX_DET])
+    mag_det += config.zero_point_magnitude
+    mag_difference: np.ndarray
+    mag_difference: np.ndarray = raw[TableColumn.MAG] - mag_det
+
+    raw_data: Table = raw.copy()
+    raw_data.add_column(mag_det, name=TableColumn.MAG_DET)
+    raw_data.add_column(mag_difference, name=TableColumn.MAG_DIFF)
+    return raw_data
+
+
 def compile_results(
-        raw: Table,
+        raw: Table, config: StarBugMainConfig,
         image: np.ndarray | None = None,
         plot_ast: str | None = None,
-        filter_string: str = "m") -> fits.HDUList:
+        filter_string: str = "m") -> dict[str, fits.HDUList]:
     """
     Compile all the raw data into usable results
 
@@ -312,6 +509,8 @@ def compile_results(
     :type plot_ast: str or None
     :param filter_string: the filter string
     :type filter_string: str
+    :param config: the config object
+    :type config: StarBugMainConfig
     :return: the results
     :rtype: fits.HDUList
     """
@@ -322,54 +521,36 @@ def compile_results(
     cfit, completeness = estimate_completeness_mag(completeness_raw)
     spatial_completeness: np.ndarray | None = (
         get_spatial_completeness(raw, image, res=10))
+    delta_mag, bin_centers, med_offsets, std_offsets = photometric_bias(raw)
 
-    head: Dict[str, str | float] = {
-        "COMPLETE_FN": "F(x)=l/(1+exp(-k(x-xo)))", "l": cfit[0],
-        "k": cfit[1], "xo": cfit[2]}
-    for i, frac in enumerate((90, 70, 50)):
-        if completeness[i] and not np.isnan(completeness[i]):
-            printf(
-                "-> complete to %d%%: %s=%.2f\n" % (
-                    frac, filter_string, completeness[i]))
-            head["COMPLETE %d%%" % frac] = str(completeness[i])
+    head: Dict[str, str | float]
+    head = _generate_head(completeness, cfit, filter_string)
 
-    # needed for spatial_completeness as it expects an 'array.pyi',
-    # got 'ndarray' instead.
-    results: fits.HDUList = fits.HDUList(
-        [fits.PrimaryHDU(header=fits.Header(head)),
-         fits.BinTableHDU(data=completeness_raw, name="AST"),
-         fits.BinTableHDU(data=raw, name="RAW"),
-         fits.ImageHDU(data=cast(Any, spatial_completeness), name="CMP")])
+    # add mag out and mag difference columns to the raw table.
+    mag_raw = add_mag_columns(raw, config)
+
+    results: dict[str, fits.HDUList] = {
+        "-ast.fits": fits.HDUList(
+            [fits.PrimaryHDU(header=fits.Header(head)),
+             fits.BinTableHDU(data=completeness_raw, name="AST"),
+             fits.BinTableHDU(data=mag_raw, name="RAW")]),
+        "-ast-spatial.fits": fits.HDUList(
+            [fits.PrimaryHDU(header=fits.Header(head)),
+             fits.ImageHDU(data=cast(Any, spatial_completeness), name="CMP")])}
 
     if plot_ast:
         fig: Figure
-        ax: Axes
-        fig, ax = plt.subplots(1, figsize=(3.5, 3), dpi=300)
-        ax.scatter(
-            completeness_raw[TableColumn.MAG],
-            completeness_raw[TableColumn.REC], c='k', lw=0, s=8)
-        ax.plot(completeness_raw[TableColumn.MAG],
-                scurve(completeness_raw[TableColumn.MAG], *cfit),
-                c='g',
-                label=r"$f(x)=\frac{%.2f}{1+e^{%.2f("r"x-%.2f)}}$" % (
-                    cfit[0], cfit[1], cfit[2]))
-        ax.axvline(
-            completeness[0], c="seagreen", ls='--',
-            label=("90%%:%.2f" % completeness[0]), lw=0.75)
-        ax.axvline(
-            completeness[1], c="seagreen", ls='-.',
-            label=("70%%:%.2f" % completeness[1]), lw=0.75)
-        ax.axvline(
-            completeness[2], c="seagreen", ls=':',
-            label=("50%%:%.2f" % completeness[2]), lw=0.75)
-        ax.scatter(completeness, (0.9, 0.7, 0.5), marker='*', c='teal', s=10)
-        ax.tick_params(direction="in", top=True, right=True)
-        ax.set_title("Artificial Star Test")
-        ax.set_xlabel(filter_string)
-        ax.set_ylabel("Fraction Recovered")
-        ax.set_yticks([0, .25, .5, .75, 1])
-        ax.legend(loc="lower left", frameon=False, fontsize=8)
-        plt.tight_layout()
+        ax1: Axes
+        ax2: Axes
+        ax3: Axes
+        fig, (ax1, ax2, ax3) = plt.subplots(
+            3, figsize=(8, 10), dpi=300, sharex=True)
+
+        plot_top_plot(
+            ax1, completeness_raw, completeness, cfit, filter_string,
+            plot_ast)
+        plot_mid_plot(
+            ax2, raw[TableColumn.MAG], delta_mag, bin_centers, med_offsets,
+            std_offsets)
         fig.savefig(plot_ast, dpi=300)
-        printf("--> %s\n" % plot_ast)
     return results

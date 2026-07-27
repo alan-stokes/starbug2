@@ -121,7 +121,7 @@ class StarBugInterface(ABC):
         pass
 
     @abstractmethod
-    def photometry_routine(self) -> ExitStates:
+    def psf_photometry_routine(self) -> ExitStates:
         """
         Full photometry routine
         Saves the result as a table self._psf_catalogue,

@@ -207,10 +207,9 @@ class StarbugBase(StarBugInterface):
                              "there may be undefined behaviour.\n")
 
                     self._filter = self._config.custom_filter
-                    assert self._filter is not None
                     if ((HeaderTags.FILTER in main_image.header) and
-                        (main_image.header[HeaderTags.FILTER] in
-                         STAR_BUG_FILTERS.keys())):
+                            (main_image.header[HeaderTags.FILTER] in
+                            STAR_BUG_FILTERS.keys())):
                         self._filter = main_image.header[HeaderTags.FILTER]
                         assert self._filter is not None
                         if self._full_width_half_max < 0:
@@ -507,7 +506,7 @@ class StarbugBase(StarBugInterface):
         return ExitStates.EXIT_SUCCESS
 
     # noinspection SpellCheckingInspection
-    def photometry_routine(self) -> ExitStates:
+    def psf_photometry_routine(self) -> ExitStates:
         """
         Full photometry routine
         Saves the result as a table self._psf_catalogue,
@@ -738,10 +737,14 @@ class StarbugBase(StarBugInterface):
             self, result_table: Table, passed: int, test: int) -> int:
         """
         executes ast processing
-        :param result_table: the result table
-        :param passed: how many passed
+        :param result_table: the result table.
+        :type result_table: Table
+        :param passed: how many passed.
+        :type passed: int
         :param test: what test id were in.
+        :type test: int
         :return: the new passed total.
+        :rtype: int
         """
         passed += sum(result_table[TableColumn.STATUS])
         self._ast_test_results[
@@ -811,15 +814,15 @@ class StarbugBase(StarBugInterface):
                    TableColumn.STATUS])
         threshold: Quantity = 2 * units.arcsec
 
-        # Run detection on the image
+        # Run detection on the image and check it worked
         end_state: ExitStates
         end_state = self.detect()
         if end_state != ExitStates.EXIT_SUCCESS:
             p_error("Failed to run detection successfully")
             return hstack((self._ast_star_source_list, test_result)), end_state
-        self.aperture_photometry()
 
-        # check detection worked
+        # run aperture and check it worked
+        end_state = self.aperture_photometry()
         if end_state != ExitStates.EXIT_SUCCESS:
             p_error("Failed to execute aperture photometry")
             return hstack((self._ast_star_source_list, test_result)), end_state
@@ -847,8 +850,12 @@ class StarbugBase(StarBugInterface):
 
         # Run background
         if (sum(test_result[TableColumn.STATUS])
-            and (self._config.ast_no_background
-                 or not self.bgd_estimate())):
+                and self._config.ast_no_background):
+
+            end_state = self.bgd_estimate()
+            if end_state != ExitStates.EXIT_SUCCESS:
+                (hstack((self._ast_star_source_list, test_result)),
+                 ExitStates.EXIT_SUCCESS)
 
             # estimate if there were detections
             self._detections = test_result
@@ -859,7 +866,13 @@ class StarbugBase(StarBugInterface):
                     ExitStates.EXIT_SUCCESS)
 
             # Run PSF photometry on detected sources
-            self.photometry_routine()
+            end_state = self.psf_photometry_routine()
+            if end_state != ExitStates.EXIT_SUCCESS:
+                p_error("Failed to execute photometry photometry")
+                return (hstack((self._ast_star_source_list, test_result)),
+                        end_state)
+
+
             psf_catalogue = self.psf_catalogue
             assert psf_catalogue is not None
             psf_catalogue.rename_columns(
@@ -893,17 +906,18 @@ class StarbugBase(StarBugInterface):
                 np.nanmean(raw[TableColumn.FLUX] /
                            raw[TableColumn.FLUX_DET])))
 
-        results: HDUList
+        results: dict[str, HDUList]
         assert raw is not None
         if (results := compile_results(
-                raw, image=self.main_image().data,
+                raw, config, image=self.main_image().data,
                 filter_string=self.filter,
                 plot_ast=config.ast_plot_filename)):
-            if config.verbose_logs:
-                printf("--> %s/%s-ast.fits\n" % (self._out_dir, self._b_name))
-            results.writeto(
-                "%s/%s-ast.fits" % (
-                    self._out_dir, self._b_name),  overwrite=True)
+            for file_name in results.keys():
+                if config.verbose_logs:
+                    printf(f"--> {self._out_dir}/{self._b_name}{file_name}")
+                results[file_name].writeto(
+                    f"{self._out_dir}/{self._b_name}{file_name}",
+                    overwrite=True)
 
             # autosave clean-up
             # noinspection SpellCheckingInspection
@@ -983,7 +997,7 @@ class StarbugBase(StarBugInterface):
                 return result_state
         if (self._config.do_photometry_routine or
                 self._config.generate_residual_image):
-            result_state = self.photometry_routine()
+            result_state = self.psf_photometry_routine()
             if result_state != ExitStates.EXIT_SUCCESS:
                 p_error("Failed to execute photometry_routine")
                 return result_state

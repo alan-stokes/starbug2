@@ -22,7 +22,7 @@ from starbug2.constants import HeaderTags, SourceFlags, TableColumn
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.utilities.utils import (
     Loading, printf, remove_duplicates, p_error, fill_nan, tab2array,
-    find_col_names, flux2mag)
+    find_col_names, flux_to_pogson_mag)
 
 
 class GenericMatch:
@@ -470,7 +470,7 @@ class GenericMatch:
                 if error_column in average_table.colnames else None)
             mag: np.ndarray
             mag_err: np.ndarray
-            mag, mag_err = flux2mag(
+            mag, mag_err = flux_to_pogson_mag(
                 average_table[TableColumn.FLUX], flux_err=ecol)
             mag += zp_mag
 

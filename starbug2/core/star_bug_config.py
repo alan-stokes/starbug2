@@ -20,11 +20,12 @@ from astropy.table import Table
 from astropy.units import Quantity
 from typing import Dict, Tuple, Final, Any
 from parse import parse
+from pathlib import Path
 
 from starbug2.constants import (
     SCI, DEFAULT_COLOUR, HeaderTags, AP_FILE, BGD_FILE, PSF_FILE, TableColumn,
     STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, PROBLEMATIC_FILTER_ID,
-    PROBLEMATIC_FILTER_WARNING, DEFAULT_PARAM_TEMPLATE, STARBUG_DATA_DIR,
+    PROBLEMATIC_FILTER_WARNING, STARBUG_DATA_DIR,
     DEFAULT_FULL_WIDTH_HALF_MAX, DEFAULT_MIN_MAG, DEFAULT_MAX_MAG)
 from starbug2.utilities.filters import FilterStruct
 from starbug2.utilities.utils import p_error, get_version, warn
@@ -598,7 +599,11 @@ class StarBugMainConfig:
             else:
                 format_dictionary[key] = "" if val is None else str(val)
 
-        return DEFAULT_PARAM_TEMPLATE.format(
+        # populate default param file.
+        default_template: Path = (
+            Path(__file__).parent / "default_param_file.txt")
+        template_str = default_template.read_text(encoding="utf-8")
+        return template_str.format(
             version_str=version_str, **format_dictionary)
 
     def do_generate_local_param_file(self) -> None:
@@ -606,7 +611,13 @@ class StarBugMainConfig:
         writes a local param file based off the state of this config.
         :return: None
         """
-        with open("starbug.param", "w") as fp:
+        # handle output file
+        path: str = "starbug.param"
+        if self._output_file is not None:
+            path = os.path.join(self._output_file, "starbug.param")
+
+        # generate new param file
+        with open(path, "w") as fp:
             fp.write(self.generate_default_param_file_text(get_version()))
 
     def update(self, update_values: dict[str, str | int | float]) -> None:
@@ -637,6 +648,7 @@ class StarBugMainConfig:
     def _normalize_threshold(
             self, threshold: float | int | np.ndarray | list | Quantity) -> (
             None | np.ndarray | Quantity):
+        # noinspection SpellCheckingInspection
         """
         Normalises threshold inputs to ensure they possess the 'arcsec' unit.
         - Unitless Quantities -> scaled to arcsec

@@ -22,10 +22,10 @@ from starbug2.constants import (
     HeaderTags)
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.interfaces.star_bug_interface import StarBugInterface
-from starbug2.routines.app_hot_routine import APPhotRoutine
+from starbug2.routines.app_phot_routine import APPhotRoutine
 from starbug2.utilities.utils import (
-    printf, p_error, warn, ext_names, flux2mag, reindex, export_table,
-    get_data_path)
+    printf, p_error, warn, ext_names, flux_to_pogson_mag, reindex,
+    export_table, get_data_path)
 
 
 class AperturePhotometry:
@@ -236,7 +236,7 @@ class AperturePhotometry:
         # Extract magnitudes
         mag: float
         mag_err: float
-        mag, mag_err = flux2mag(
+        mag, mag_err = flux_to_pogson_mag(
             ap_cat[TableColumn.FLUX], ap_cat[TableColumn.E_FLUX])
 
         # Add columns to the catalogue

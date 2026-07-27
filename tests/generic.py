@@ -25,7 +25,7 @@ from astropy.io import fits
 from starbug2.command_line_interfaces.main import starbug_internal_main
 from starbug2.constants import (
     STAR_BUG_TEST_DAT_ENV, ImageHeaderTags, MIRI_STRING, MIRI_IMAGE,
-    DEFAULT_BUNIT)
+    DEFAULT_BUNIT, HeaderTags)
 from starbug2.jwst_support.initialise_psf_data import download_ap_corr_files
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.utilities.utils import get_data_path
@@ -98,8 +98,8 @@ def clean() -> None:
     files.remove(TEST_README)
     for file_name in files:
         os.remove(file_name)
-    if os.path.exists("starbug.param"):
-        os.remove("starbug.param")
+    if os.path.exists("dat/starbug.param"):
+        os.remove("dat/starbug.param")
 
 
 def check_shape(c, out) -> None:
@@ -119,13 +119,17 @@ def check_shape(c, out) -> None:
                 assert a == b
 
 
-def create_blank_fits(size=(2048, 2048), use_noise=True):
+def create_blank_fits(
+        size: tuple[int, int]=(2048, 2048), use_noise: bool=True,
+        max_value: float=0.001):
     """
     creates a blank fits file.
     :param size: the size of the fits file.
     :type size: Tuple[int, int]
     :param use_noise: bool to test if we use background noise
     :type use_noise: false
+    :param max_value: highest value in the background.
+    :type max_value: float
     :return: None
     """
     print(f"Generating blank space image of size {size[0]}x{size[1]}...")
@@ -136,7 +140,8 @@ def create_blank_fits(size=(2048, 2048), use_noise=True):
     # Create background noise: mean of 10.0 counts, standard deviation of 1.0
     rng = np.random.default_rng(seed=TEST_SEED)
     if use_noise:
-        background_noise = rng.normal(loc=10.0, scale=1, size=blank_data.shape)
+        raw_noise = rng.normal(loc=max_value, scale=0.10, size=blank_data.shape)
+        background_noise = np.clip(raw_noise, a_min=0.0, a_max=None)
     else:
         background_noise = np.zeros(size, dtype=np.float64)
 
@@ -154,12 +159,40 @@ def create_blank_fits(size=(2048, 2048), use_noise=True):
     header[ImageHeaderTags.BUN_IT] = DEFAULT_BUNIT
     header[ImageHeaderTags.PIXAR_SR] = 9.31e-14
     header[ImageHeaderTags.PIXAR_A2] = 0.00396
+    header[ImageHeaderTags.TELESCOPE] = "JWST"
+    header[ImageHeaderTags.JWST] = 1
+    header[HeaderTags.FILTER] = "F770W"
+
+    # 2. SCI Extension (Science Data)
+    sci_hdu = fits.ImageHDU(data=background_noise, name="SCI")
+    # Copy relevant headers to SCI HDU if required by starbug
+    sci_hdu.header[ImageHeaderTags.BUN_IT] = DEFAULT_BUNIT
+    sci_hdu.header[ImageHeaderTags.DETECTOR] = MIRI_IMAGE
+    sci_hdu.header[ImageHeaderTags.INSTRUMENT] = MIRI_STRING
+    sci_hdu.header[ImageHeaderTags.PIXAR_SR] = 9.31e-14
+    sci_hdu.header[ImageHeaderTags.PIXAR_A2] = 0.00396
+
+    # 3. ERR Extension (Uncertainties / Error map)
+    err_data = np.sqrt(np.abs(background_noise))
+    err_hdu = fits.ImageHDU(data=err_data, name="ERR")
+
+    # 4. DQ Extension (Data Quality flags - 0 means good pixel)
+    dq_data = np.zeros(size, dtype=np.int32)
+    dq_hdu = fits.ImageHDU(data=dq_data, name="DQ")  # type: ignore
+
+    # 5. AREA Extension (Pixel area map - set to 1.0 or nominal pixel scale)
+    area_data = np.ones(size, dtype=np.float32)
+    area_hdu = fits.ImageHDU(data=area_data, name="AREA")
+
+    # Combine all HDUs into an HDUList
+    hdu_list: fits.HDUList = fits.HDUList(
+        [primary_hdu, sci_hdu, err_hdu, dq_hdu, area_hdu])
 
     # Write the file out to disk
     # overwrite=True ensures test scripts can recreate this file on
     # every run
-    primary_hdu.writeto(TEST_BLANK, overwrite=True)
-    print(f"✅ Successfully saved to {TEST_BLANK}")
+    hdu_list.writeto(TEST_BLANK, overwrite=True)
+    print(f"Successfully saved to {TEST_BLANK}")
 
 
 def make_psf_for_blank() -> None:
