@@ -223,8 +223,8 @@ def test_results_for_execute_as_test():
     # compare detections.
     matching_pixel_tolerance = 1
     for row in artificial_stars_detections:
-        orig_x = row[TableColumn.X_DET]
-        orig_y = row[TableColumn.Y_DET]
+        orig_x = row[TableColumn.X_CENTROID]
+        orig_y = row[TableColumn.Y_CENTROID]
 
         # Calculate the Euclidean distance from this original star
         # to all detections in the new artificial image
@@ -273,11 +273,11 @@ def test_ast_output_data():
     assert len(artificial_stars_detections) == 1
     assert len(fake_star_locations) == 1
 
-    assert artificial_stars_detections[0][TableColumn.X_DET] == pytest.approx(
-        fake_star_locations[0][TableColumn.X_0], abs=0.5)
-    assert artificial_stars_detections[0][TableColumn.Y_DET] == pytest.approx(
-        fake_star_locations[0][TableColumn.Y_0], abs=0.5)
-    assert (artificial_stars_detections[0][TableColumn.FLUX_DET] ==
+    assert (artificial_stars_detections[0][TableColumn.X_CENTROID] ==
+            pytest.approx(fake_star_locations[0][TableColumn.X_0], abs=0.5))
+    assert (artificial_stars_detections[0][TableColumn.Y_CENTROID] ==
+            pytest.approx(fake_star_locations[0][TableColumn.Y_0], abs=0.5))
+    assert (artificial_stars_detections[0][TableColumn.FLUX] ==
             pytest.approx(fake_star_locations[0][TableColumn.FLUX], abs=0.1))
 
     # execute output generation
