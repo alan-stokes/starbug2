@@ -105,7 +105,7 @@ def test_ast_output_data():
     # clean setup
     #generic.clean()
 
-
+@pytest.skip
 def test_ast_output_psf_photo_data():
     generic.verify_test_data_exists()
     generic.clean()

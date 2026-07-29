@@ -212,9 +212,10 @@ class TestSystemResults:
         config.ast_loader = loading_buffer
         config.do_star_detection = True
         config.ast_seed = 42
-        config.test_magnitude_bright_limit = 15
-        config.test_magnitude_faint_limit = 16
-        config.sigma_source = 100.0
+        config.test_magnitude_bright_limit = 20
+        config.test_magnitude_faint_limit = 22
+        config.sigma_sky = 4
+        config.sigma_source = 10
         config.freeze()
 
         # execute detection / phot / residual.
