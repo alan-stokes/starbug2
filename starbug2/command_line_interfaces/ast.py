@@ -149,17 +149,20 @@ def execute_ast(
     results: list[Tuple[Table | None, ExitStates]]
     if (n_cores := config.n_cores) is None or n_cores == 1:
         results = execute_one_core_run_ast(config, loading_buffer)
-        outs = results[0][0]
-        exit_state = results[0][1]
     else:
-        outs, exit_state_as_list = execute_multicore_ast(
+        results = execute_multicore_ast(
             config, loading_buffer, n_cores)
-        all_successful = all(
-            state == ExitStates.EXIT_SUCCESS for state in exit_state_as_list)
-        if not all_successful:
-            exit_state = ExitStates.EXIT_MIXED
-        else:
-            exit_state = ExitStates.EXIT_SUCCESS
+
+    # figure out if all workers finished successfully.
+    outs: list[Table | None] = [
+        table for table, _ in results if table is not None]
+    worker_states: list[ExitStates] = [state for _, state in results]
+    if all(s == ExitStates.EXIT_SUCCESS for s in worker_states):
+        exit_state = ExitStates.EXIT_SUCCESS
+    elif any(s == ExitStates.EXIT_SUCCESS for s in worker_states):
+        exit_state = ExitStates.EXIT_MIXED
+    else:
+        exit_state = ExitStates.EXIT_FAIL
 
     # force finish
     loading_buffer[0] = loading_buffer[1]
