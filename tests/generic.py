@@ -120,8 +120,8 @@ def check_shape(c, out) -> None:
 
 
 def create_blank_fits(
-        size: tuple[int, int]=(2048, 2048), use_noise: bool=True,
-        max_value: float=0.001):
+        size: tuple[int, int] = (2048, 2048), use_noise: bool = True,
+        max_value: float = 0.001):
     """
     creates a blank fits file.
     :param size: the size of the fits file.
@@ -140,7 +140,8 @@ def create_blank_fits(
     # Create background noise: mean of 10.0 counts, standard deviation of 1.0
     rng = np.random.default_rng(seed=TEST_SEED)
     if use_noise:
-        raw_noise = rng.normal(loc=max_value, scale=0.10, size=blank_data.shape)
+        raw_noise = rng.normal(
+            loc=max_value, scale=0.10, size=blank_data.shape)
         background_noise = np.clip(raw_noise, a_min=0.0, a_max=None)
     else:
         background_noise = np.zeros(size, dtype=np.float64)

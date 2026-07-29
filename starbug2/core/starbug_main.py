@@ -209,7 +209,7 @@ class StarbugBase(StarBugInterface):
                     self._filter = self._config.custom_filter
                     if ((HeaderTags.FILTER in main_image.header) and
                             (main_image.header[HeaderTags.FILTER] in
-                            STAR_BUG_FILTERS.keys())):
+                                STAR_BUG_FILTERS.keys())):
                         self._filter = main_image.header[HeaderTags.FILTER]
                         assert self._filter is not None
                         if self._full_width_half_max < 0:
@@ -870,7 +870,6 @@ class StarbugBase(StarBugInterface):
                 p_error("Failed to execute photometry photometry")
                 return (hstack((self._ast_star_source_list, test_result)),
                         end_state)
-
 
             psf_catalogue = self.psf_catalogue
             assert psf_catalogue is not None

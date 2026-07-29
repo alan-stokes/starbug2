@@ -36,7 +36,8 @@ except ImportError:
     import matplotlib.pyplot as plt
 
 from starbug2.utilities.utils import (
-    printf, p_error, get_mj_ysr2jy_scale_factor, warn, flux_to_pogson_mag, ext_names)
+    printf, p_error, get_mj_ysr2jy_scale_factor, warn, flux_to_pogson_mag,
+    ext_names)
 
 
 class ArtificialStars:
@@ -139,7 +140,7 @@ class ArtificialStars:
             # add extra columns
             total_star_flux = float(np.sum(star_overlay * scale_factor))
             retrieved_flux.append(total_star_flux)
-            added_mag, _= flux_to_pogson_mag(total_star_flux)
+            added_mag, _ = flux_to_pogson_mag(total_star_flux)
             added_mag = added_mag + config.zero_point_magnitude
             retrieved_mag.append(added_mag)
             retrieved_mag_diff.append(
@@ -415,6 +416,7 @@ def plot_top_plot(
     plt.tight_layout()
     printf("--> %s\n" % plot_ast)
 
+
 def photometric_bias(
         raw: Table) -> Tuple[Table, np.ndarray, np.ndarray, np.ndarray]:
     """
@@ -438,7 +440,7 @@ def photometric_bias(
 
     for i in range(1, len(bins)):
         # Select stars in the current magnitude bin
-        mask = ((raw[TableColumn.MAG] >= bins[i -1]) &
+        mask = ((raw[TableColumn.MAG] >= bins[i - 1]) &
                 (raw[TableColumn.MAG] < bins[i]))
         bin_deltas = delta_mag[mask]
         valid_deltas = bin_deltas[np.isfinite(bin_deltas)]
@@ -453,7 +455,7 @@ def photometric_bias(
 def _generate_head(
         completeness: Tuple[float, float, float],
         cfit: Tuple[float, float, float],
-        filter_string: str) ->  Dict[str, str | float]:
+        filter_string: str) -> Dict[str, str | float]:
     """
     generates the head of the results table.
     :param completeness: the completeness

@@ -64,7 +64,6 @@ def test_ast_output_data():
     # execute add stars and do test
     entrance.run_starbug()
 
-
     artificial_stars_detections: Table = entrance.detections
     fake_star_locations: Table = entrance.ast_star_source_list
 
@@ -77,7 +76,6 @@ def test_ast_output_data():
             pytest.approx(fake_star_locations[0][TableColumn.Y_0], abs=0.5))
     assert (artificial_stars_detections[0][TableColumn.FLUX] ==
             pytest.approx(fake_star_locations[0][TableColumn.FLUX], abs=0.1))
-
 
     # execute output generation
     config = StarBugMainConfig()
@@ -130,7 +128,6 @@ def test_ast_output_psf_photo_data():
     # execute add stars and do test
     entrance.run_starbug()
 
-
     artificial_stars_detections: Table = entrance.detections
     fake_star_locations: Table = entrance.ast_star_source_list
 
@@ -143,7 +140,6 @@ def test_ast_output_psf_photo_data():
             pytest.approx(fake_star_locations[0][TableColumn.Y_0], abs=0.5))
     assert (artificial_stars_detections[0][TableColumn.FLUX_DET] ==
             pytest.approx(fake_star_locations[0][TableColumn.FLUX], abs=0.1))
-
 
     # execute output generation
     config = StarBugMainConfig()
