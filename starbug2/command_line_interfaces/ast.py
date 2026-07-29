@@ -15,6 +15,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import sys
 from multiprocessing.shared_memory import SharedMemory
 from multiprocessing import Process, shared_memory
+from typing import Tuple
 
 import numpy as np
 from time import sleep
@@ -59,12 +60,10 @@ def ast_parse_argv(argv: list[str]) -> StarBugMainConfig:
     :return: the config class
     :rtype: StarBugMainConfig
     """
-    cmd, argv = parse_cmd(argv)
-    argv: list[str]
+    config: StarBugMainConfig = StarBugMainConfig()
     short_definition: str
     long_definition: list[str]
 
-    config: StarBugMainConfig = StarBugMainConfig()
     short_definition, long_definition = (
         config.generate_ast_get_opt_definitions())
     _, argv = parse_cmd(argv)
@@ -117,7 +116,7 @@ def start_buffer(loading_buffer: np.ndarray, n_tests: int) -> Process:
 
 def execute_ast(
         config: StarBugMainConfig, f_name: str,
-        loading_buffer: np.ndarray) -> list[Table | None]:
+        loading_buffer: np.ndarray) -> Tuple[list[Table | None], ExitStates]:
     """
     determine execution state in terms of processors available and execute.
     :param config: the main config
@@ -127,7 +126,7 @@ def execute_ast(
     :param loading_buffer: the loading buffer.
     :type loading_buffer: np.ndarray
     :return: the results
-    :rtype: list[Table | None]
+    :rtype: Tuple[list[Table | None], ExitStates]
     """
     # ensure we read in the psf and image objects and fill the config
     # accordingly
@@ -146,16 +145,27 @@ def execute_ast(
 
     # Initialise output container tracking tables
     outs: list[Table | None]
+    exit_state: ExitStates
+    results: list[Tuple[Table | None, ExitStates]]
     if (n_cores := config.n_cores) is None or n_cores == 1:
-        outs = execute_one_core_run_ast(config, loading_buffer)
+        results = execute_one_core_run_ast(config, loading_buffer)
+        outs = results[0][0]
+        exit_state = results[0][1]
     else:
-        outs = execute_multicore_ast(config, loading_buffer, n_cores)
+        outs, exit_state_as_list = execute_multicore_ast(
+            config, loading_buffer, n_cores)
+        all_successful = all(
+            state == ExitStates.EXIT_SUCCESS for state in exit_state_as_list)
+        if not all_successful:
+            exit_state = ExitStates.EXIT_MIXED
+        else:
+            exit_state = ExitStates.EXIT_SUCCESS
 
     # force finish
     loading_buffer[0] = loading_buffer[1]
     loading.join()
 
-    return outs
+    return outs, exit_state
 
 
 def top_compile_results(
@@ -192,7 +202,7 @@ def ast_main(
 
     config: StarBugMainConfig = ast_parse_argv(argv)
 
-    exit_code: ExitStates = ExitStates.EXIT_SUCCESS
+    exit_code: ExitStates
     if config.use_ast_one_time_runs():
         if exit_code := ast_one_time_runs(config):
             share_memory.unlink()
@@ -205,7 +215,13 @@ def ast_main(
         return ExitStates.EXIT_FAIL
 
     f_name: str = config.fits_images[0]
-    outs: list[Table | None] = execute_ast(config, f_name, loading_buffer)
+    outs: list[Table | None]
+    outs, exit_code = execute_ast(config, f_name, loading_buffer)
+
+    # verify it worked
+    if exit_code != ExitStates.EXIT_SUCCESS:
+        return exit_code
+
     top_compile_results(outs, f_name, config)
 
     # Wrapped fix to handle rapid multiprocess teardowns safely

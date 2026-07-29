@@ -16,6 +16,7 @@ import copy
 import os
 from multiprocessing import Pool
 from multiprocessing.pool import Pool as PoolType
+from typing import Tuple
 
 import numpy as np
 from astropy.table import Table
@@ -90,7 +91,8 @@ def execute_star_bug_main(
 
 
 def execute_artificial_stars(
-        f_name: str, config: StarBugMainConfig) -> list[Table] | None:
+        f_name: str,
+        config: StarBugMainConfig) -> Tuple[list[Table] | None, ExitStates]:
     """
     Multiprocessing worker function to run artificial star tests on a given
     file.
@@ -100,22 +102,23 @@ def execute_artificial_stars(
     :type config: StarBugMainConfig
     :return: The generated artificial stars recovery catalogue table, or
              None if the file doesn't exist.
-    :rtype: list[astropy.table.Table] or None.
+    :rtype: Tuple[list[astropy.table.Table] or None., ExitState]
     """
     out: list[Table] | None = None
+    exit_state: ExitStates = ExitStates.EXIT_FAIL
     if os.path.exists(f_name):
         star_bug_base: StarbugBase = StarbugBase(
             f_name, config, ap_file=config.ap_file,
             bkg_file=config.background_file, psf=config.ast_psf,
             filter_string=config.custom_filter)
-        star_bug_base.run_starbug(config)
+        exit_state = star_bug_base.run_starbug(config)
         out = star_bug_base.ast_test_results
-    return out
+    return out, exit_state
 
 
 def execute_multicore_ast(
         config: StarBugMainConfig, loading_buffer: np.ndarray,
-        n_cores: int) -> list[Table | None]:
+        n_cores: int) -> list[Tuple[Table | None, ExitStates]]:
     """
     executes tests utilising multicore functionality.
     :param config: the main starbug config
@@ -125,7 +128,7 @@ def execute_multicore_ast(
     :param loading_buffer: the loading buffer
     :type loading_buffer: np.ndarray
     :return: the result tables.
-    :rtype: list[Table | None].
+    :rtype: Tuple[list[Table | None], ExitStates]
     """
     # create the initial params
     worker_tasks = [
@@ -193,7 +196,7 @@ def execute_multi_core_main(
 
 def execute_one_core_run_ast(
         config: StarBugMainConfig,
-        loading_buffer: np.ndarray) -> list[Table | None]:
+        loading_buffer: np.ndarray) -> list[Tuple[Table | None, ExitStates]]:
     """
     executes tests utilising 1 core.
     :param config: the main starbug config
