@@ -34,8 +34,8 @@ def update_config_for_fake_stars_into_blank(config: StarBugMainConfig) -> None:
     config.do_artificial_star_test = True
     config.ast_load_psf = True
     config.ast_seed = 42
-    config.test_magnitude_bright_limit = 1
-    config.test_magnitude_faint_limit = 2
+    config.test_magnitude_bright_limit = 20
+    config.test_magnitude_faint_limit = 22
     config.stars_per_artificial_test = 1
     config.artificial_star_tests_count = 1
     config.ast_save_added_image = True
@@ -54,8 +54,8 @@ def test_ast_output_data():
     update_config_for_fake_stars_into_blank(config)
     config.unfreeze()
     config.verbose_logs = True
-    config.sigma_sky = 150
-    config.sigma_source = 150
+    config.sigma_sky = 4
+    config.sigma_source = 10
     config.freeze()
 
     entrance: StarbugBase = StarbugBase(
@@ -76,6 +76,72 @@ def test_ast_output_data():
     assert (artificial_stars_detections[0][TableColumn.Y_CENTROID] ==
             pytest.approx(fake_star_locations[0][TableColumn.Y_0], abs=0.5))
     assert (artificial_stars_detections[0][TableColumn.FLUX] ==
+            pytest.approx(fake_star_locations[0][TableColumn.FLUX], abs=0.1))
+
+
+    # execute output generation
+    config = StarBugMainConfig()
+    config.custom_filter = generic.TEST_CUSTOM_FILTER
+    config.fits_images = [generic.TEST_BLANK]
+    config.psf_file_override = TEST_PSF_FITS
+    config.do_artificial_star_test_results = True
+    config.plot_ast = os.path.join(TEST_PATH_STR, "plot")
+    config.ast_plot_filename = os.path.join(TEST_PATH_STR, "plot")
+    config.ast_out_tables = [entrance.ast_test_results]
+    config.ast_save_added_image_path = TEST_PATH_STR
+    config.output_file = TEST_PATH_STR
+
+    entrance: StarbugBase = StarbugBase(
+        config=config, f_name=generic.TEST_BLANK, ap_file=None, bkg_file=None)
+    entrance.run_starbug()
+
+    # check output generated.
+    output_file: str = os.path.join(TEST_PATH_STR, "blank-ast.fits")
+    output_file2: str = os.path.join(TEST_PATH_STR, "plot.png")
+    assert os.path.exists(output_file)
+    assert os.path.exists(output_file2)
+
+    config.generate_local_param_file = True
+    starbug_one_time_runs(config)
+
+    # clean setup
+    #generic.clean()
+
+
+def test_ast_output_psf_photo_data():
+    generic.verify_test_data_exists()
+    generic.clean()
+
+    # create blank fits file.
+    config: StarBugMainConfig = StarBugMainConfig()
+    generic.create_blank_fits()
+    update_config_for_fake_stars_into_blank(config)
+    config.unfreeze()
+    config.verbose_logs = True
+    config.sigma_sky = 4
+    config.sigma_source = 10
+    config.ast_no_background = False
+    config.ast_no_psf_phot = False
+    config.freeze()
+
+    entrance: StarbugBase = StarbugBase(
+        config=config, f_name=generic.TEST_BLANK, ap_file=None, bkg_file=None)
+
+    # execute add stars and do test
+    entrance.run_starbug()
+
+
+    artificial_stars_detections: Table = entrance.detections
+    fake_star_locations: Table = entrance.ast_star_source_list
+
+    assert len(artificial_stars_detections) == 1
+    assert len(fake_star_locations) == 1
+
+    assert (artificial_stars_detections[0][TableColumn.X_DET] ==
+            pytest.approx(fake_star_locations[0][TableColumn.X_0], abs=0.5))
+    assert (artificial_stars_detections[0][TableColumn.Y_DET] ==
+            pytest.approx(fake_star_locations[0][TableColumn.Y_0], abs=0.5))
+    assert (artificial_stars_detections[0][TableColumn.FLUX_DET] ==
             pytest.approx(fake_star_locations[0][TableColumn.FLUX], abs=0.1))
 
 

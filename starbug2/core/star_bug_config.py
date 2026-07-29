@@ -276,8 +276,8 @@ class StarBugMainConfig:
         self._ast_out_tables: list[Table] | None = None
         self._ast_recover: bool = False
         self._ast_auto_save: int = 100
-        self._ast_no_background: bool = False
-        self._ast_no_psf_phot: bool = False
+        self._ast_no_background: bool = True
+        self._ast_no_psf_phot: bool = True
         self._save_added_image: bool = False
         self._save_added_image_path: str = ""
         self._ast_seed: int | None = None

@@ -146,7 +146,7 @@ def create_blank_fits(
         background_noise = np.zeros(size, dtype=np.float64)
 
     # Wrap the data inside a Primary HDU
-    primary_hdu = fits.PrimaryHDU(data=background_noise)
+    primary_hdu = fits.PrimaryHDU()
 
     # Add essential metadata headers so pipeline loaders don't choke
     header = primary_hdu.header

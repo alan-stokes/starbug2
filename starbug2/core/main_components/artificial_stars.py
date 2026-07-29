@@ -16,6 +16,7 @@ import os
 import numpy as np
 from typing import cast, Any, Tuple, Callable, Dict
 
+from astropy.io.fits import ImageHDU, PrimaryHDU
 from photutils.datasets import make_model_image, make_random_models_table
 from astropy.table import Table, QTable, Column
 from astropy.io import fits
@@ -86,8 +87,8 @@ class ArtificialStars:
         # corrupting the original file.
         image: fits.HDUList = base_image.__deepcopy__()
 
-        shape: list[int, int] = image[n_hdu].shape # noqa
-        main_image = image[n_hdu]
+        shape: tuple[int, int] = image[n_hdu].shape # noqa
+        main_image: ImageHDU | PrimaryHDU = image[n_hdu]
 
         # create list of fake star locations and add new magnitudes
         source_list: QTable = make_random_models_table(
@@ -123,7 +124,8 @@ class ArtificialStars:
         retrieved_mag: list = []
         retrieved_mag_diff: list = []
         for i in range(len(source_list)):
-            single_source_table = source_list[i:i+1]
+            single_source_table = source_list[i: i + 1]
+
             star_overlay: np.ndarray = (
                 make_model_image(
                     shape, image_psf, single_source_table,
@@ -131,18 +133,20 @@ class ArtificialStars:
                 / scale_factor)
 
             # apply the new data to the original image.
-            main_image.data += star_overlay
-            if ERR in ext_names(image):
-                image[ERR].data += np.sqrt(np.abs(main_image.data))
+            main_image_new_data = main_image.data + star_overlay
+            image[n_hdu].data = main_image_new_data
 
             # add extra columns
             total_star_flux = float(np.sum(star_overlay * scale_factor))
             retrieved_flux.append(total_star_flux)
-            added_mag, _= flux_to_pogson_mag(retrieved_flux)
+            added_mag, _= flux_to_pogson_mag(total_star_flux)
             added_mag = added_mag + config.zero_point_magnitude
             retrieved_mag.append(added_mag)
             retrieved_mag_diff.append(
-                single_source_table[TableColumn.MAG] - added_mag)
+                float(single_source_table[TableColumn.MAG][0]) - added_mag)
+
+        if ERR in ext_names(image):
+            image[ERR].data += np.sqrt(np.abs(main_image.data))
 
         source_list[TableColumn.TOTAL_FLUX_ADDED] = retrieved_flux
         source_list[TableColumn.TOTAL_MAG] = retrieved_mag
@@ -150,7 +154,9 @@ class ArtificialStars:
 
         # if told to generate the added list. generate.
         if config.ast_save_added_image:
-            main_image.writeto(os.path.join(
+            os.makedirs(config.ast_save_added_image_path, exist_ok=True)
+            image.verify('fix')
+            image.writeto(os.path.join(
                 config.ast_save_added_image_path,
                 f"inserted_image_for_test_{config.ast_test_index}.fits"))
             source_list.write(os.path.join(

@@ -849,7 +849,7 @@ class StarbugBase(StarBugInterface):
 
         # Run background
         if (sum(test_result[TableColumn.STATUS])
-                and self._config.ast_no_background):
+                and not self._config.ast_no_background):
 
             end_state = self.bgd_estimate()
             if end_state != ExitStates.EXIT_SUCCESS:
