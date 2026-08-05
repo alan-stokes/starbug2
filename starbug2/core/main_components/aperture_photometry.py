@@ -12,6 +12,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+import os
 from typing import Callable, Tuple
 
 import numpy as np
@@ -113,11 +114,11 @@ class AperturePhotometry:
         if _ap_corr_f_name := config.ap_corr_file_override:
             ap_corr_f_name = _ap_corr_f_name
         elif info.get(ImageHeaderTags.INSTRUMENT) == NIRCAM_STRING:
-            ap_corr_f_name = (
-                "%s/apcorr_nircam.fits" % get_data_path())
+            ap_corr_f_name = os.path.join(
+                get_data_path(), "apcorr_nircam.fits")
         elif info.get(ImageHeaderTags.INSTRUMENT) == MIRI_STRING:
-            ap_corr_f_name = (
-                "%s/apcorr_miri.fits" % get_data_path())
+            ap_corr_f_name = os.path.join(
+                get_data_path(), "apcorr_miri.fits")
 
         if ap_corr_f_name:
             log("-> apcorr file: %s\n" % ap_corr_f_name)

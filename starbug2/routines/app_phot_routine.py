@@ -57,7 +57,6 @@ class APPhotRoutine:
             raise FileNotFoundError("cant find the table filename")
 
         tmp: Table = Table.read(table_f_name, format="fits")
-
         t_ap_corr: Table
         if HeaderTags.FILTER_LOWER in tmp.colnames:
             t_ap_corr = tmp[(tmp[HeaderTags.FILTER_LOWER] == filter_string)]

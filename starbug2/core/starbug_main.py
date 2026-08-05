@@ -59,7 +59,7 @@ class StarbugBase(StarBugInterface):
 
     @staticmethod
     def sort_output_names(
-        f_name: str, param_output: str | None = None
+        f_name: str | None, param_output: str | None = None
     ) -> Tuple[str, str, str]:
         """
         This is a useful function that looks at both an input file and a set
@@ -705,7 +705,8 @@ class StarbugBase(StarBugInterface):
         # HDU_NAME in param file
         n: str | float | int = self._config.hdu_name
         if n and n in e_names:
-            self._n_hdu = e_names.index(n)
+            s_n: str = cast(str, n)
+            self._n_hdu = e_names.index(s_n)
             return self._image[n]
 
         # index?
@@ -747,9 +748,11 @@ class StarbugBase(StarBugInterface):
         :rtype: int
         """
         passed += sum(result_table[TableColumn.STATUS])
-        self._ast_test_results[
-            (test - 1) * self._config.stars_per_artificial_test:
-            test * self._config.stars_per_artificial_test] = result_table
+        assert self._ast_test_results is not None
+        start_idx = (test - 1) * self._config.stars_per_artificial_test
+        end_idx = test * self._config.stars_per_artificial_test
+        self._ast_test_results[start_idx:end_idx] = (
+            [row for row in result_table])
 
         if self._config.ast_loader is not None:
             self._config.ast_loader[0] += 1
@@ -777,13 +780,13 @@ class StarbugBase(StarBugInterface):
             return result
 
         # build result table
-        self._ast_test_results: Table = Table(
+        self._ast_test_results: Table = [Table(
             np.full(
                 (self._config.artificial_star_tests_count *
                  self._config.stars_per_artificial_test,
                  N_COLUMNS),
                 np.nan),
-            names=TEST_TABLE_COLUMN_NAMES)
+            names=TEST_TABLE_COLUMN_NAMES)]
         passed: int = 0
 
         # execute tests
@@ -807,8 +810,10 @@ class StarbugBase(StarBugInterface):
             ArtificialStars.add_stars(
                 self._image, self._config, 0, self.psf, self.n_hdu))
 
+        results: list[Table] | None = self._ast_test_results
+        assert results is not None
         test_result: Table = Table(
-            np.full((len(self._ast_star_source_list), 4), np.nan),
+            np.full((len(results), 4), np.nan),
             names=[TableColumn.X_DET, TableColumn.Y_DET, TableColumn.FLUX_DET,
                    TableColumn.STATUS])
         threshold: Quantity = 2 * units.arcsec
@@ -818,16 +823,16 @@ class StarbugBase(StarBugInterface):
         end_state = self.detect()
         if end_state != ExitStates.EXIT_SUCCESS:
             p_error("Failed to run detection successfully")
-            return hstack((self._ast_star_source_list, test_result)), end_state
+            return hstack((results, test_result)), end_state
 
         # run aperture and check it worked
         end_state = self.aperture_photometry()
         if end_state != ExitStates.EXIT_SUCCESS:
             p_error("Failed to execute aperture photometry")
-            return hstack((self._ast_star_source_list, test_result)), end_state
+            return hstack((results, test_result)), end_state
 
         # Check for detection in output
-        for i, src in enumerate(self._ast_star_source_list):  # type: ignore
+        for i, src in enumerate(results):  # type: ignore
             separations: np.ndarray = (
                 np.sqrt(
                     (src[TableColumn.X_0] -
@@ -853,23 +858,20 @@ class StarbugBase(StarBugInterface):
 
             end_state = self.bgd_estimate()
             if end_state != ExitStates.EXIT_SUCCESS:
-                (hstack((self._ast_star_source_list, test_result)),
-                 ExitStates.EXIT_SUCCESS)
+                (hstack((results, test_result)), ExitStates.EXIT_SUCCESS)
 
             # estimate if there were detections
             self._detections = test_result
 
             if self._config.ast_no_psf_phot:
                 return (
-                    hstack((self._ast_star_source_list, test_result)),
-                    ExitStates.EXIT_SUCCESS)
+                    hstack((results, test_result)), ExitStates.EXIT_SUCCESS)
 
             # Run PSF photometry on detected sources
             end_state = self.psf_photometry_routine()
             if end_state != ExitStates.EXIT_SUCCESS:
                 p_error("Failed to execute photometry photometry")
-                return (hstack((self._ast_star_source_list, test_result)),
-                        end_state)
+                return hstack((results, test_result)), end_state
 
             psf_catalogue = self.psf_catalogue
             assert psf_catalogue is not None
@@ -879,11 +881,10 @@ class StarbugBase(StarBugInterface):
                 (TableColumn.X_INIT, TableColumn.Y_INIT,
                  TableColumn.XY_DEV_))
             matched: Table = GenericMatch(threshold=threshold)(
-                [self._ast_star_source_list, psf_catalogue],
-                cartesian=True)
+                [results, psf_catalogue], cartesian=True)
             test_result[TableColumn.FLUX_DET] = (
                 matched[:len(test_result)][TableColumn.FLUX_2])
-        return (hstack((self._ast_star_source_list, test_result)),
+        return (hstack((results, test_result)),
                 ExitStates.EXIT_SUCCESS)
 
     def _do_artificial_star_test_result(
@@ -1016,9 +1017,12 @@ class StarbugBase(StarBugInterface):
             ImageHeaderTags.PIXAR_SR]
         if self._image:
             for hdu in self._image:
-                out.update(
-                    {(key, hdu.header[key]) for key in keys
-                     if key in hdu.header})
+                for key in keys:
+                    # Only add the key if it exists in the header AND
+                    # hasn't already been populated by an earlier HDU
+                    # (like PRIMARY)
+                    if key in hdu.header and key not in out:
+                        out[key] = str(hdu.header[key])
         return out
 
     @property

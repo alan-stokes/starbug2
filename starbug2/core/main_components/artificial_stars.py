@@ -63,13 +63,13 @@ class ArtificialStars:
 
     @staticmethod
     def add_stars(
-            base_image: fits.HDUList, config: StarBugMainConfig,
+            base_image: fits.HDUList | None, config: StarBugMainConfig,
             buffer: int, psf: np.ndarray | None, n_hdu: int) -> Tuple[
                 ExitStates, QTable, fits.HDUList]:
         """
         adds new stars to the image.
         :param base_image: copy of the current image
-        :type base_image: fits.HDUList
+        :type base_image: fits.HDUList or None
         :param config: the main config
         :type config: StarBugMainConfig
         :param buffer: the buffer
@@ -86,6 +86,7 @@ class ArtificialStars:
         # this line is due to the fits file being a lazy reader. so this is not
         # in memory, it is still accessing the file directly. So a copy avoids
         # corrupting the original file.
+        assert base_image is not None
         image: fits.HDUList = base_image.__deepcopy__()
 
         shape: tuple[int, int] = image[n_hdu].shape # noqa
@@ -387,7 +388,7 @@ def plot_mid_plot(
 def plot_top_plot(
         ax: Axes, completeness_raw: Table,
         completeness: Tuple[float, float, float],
-        cfit: Tuple[float, float, float], filter_string: str,
+        cfit: Tuple[float, float, float], filter_string: str | None,
         plot_ast: str) -> None:
     ax.scatter(
         completeness_raw[TableColumn.MAG],
@@ -409,6 +410,8 @@ def plot_top_plot(
     ax.scatter(completeness, (0.9, 0.7, 0.5), marker='*', c='teal', s=10)
     ax.tick_params(direction="in", top=True, right=True)
     ax.set_title("Artificial Star Test")
+
+    assert filter_string is not None
     ax.set_xlabel(filter_string)
     ax.set_ylabel("Fraction Recovered")
     ax.set_yticks([0, .25, .5, .75, 1])
@@ -455,7 +458,7 @@ def photometric_bias(
 def _generate_head(
         completeness: Tuple[float, float, float],
         cfit: Tuple[float, float, float],
-        filter_string: str) -> Dict[str, str | float]:
+        filter_string: str | None) -> Dict[str, str | float]:
     """
     generates the head of the results table.
     :param completeness: the completeness
@@ -463,7 +466,7 @@ def _generate_head(
     :param cfit: the coefficients.
     :type cfit:  Tuple[float, float, float]
     :param filter_string:  the filter string.
-    :type filter_string: str
+    :type filter_string: str | None
     :return:
     """
     head: Dict[str, str | float] = {
@@ -505,7 +508,7 @@ def compile_results(
         raw: Table, config: StarBugMainConfig,
         image: np.ndarray | None = None,
         plot_ast: str | None = None,
-        filter_string: str = "m") -> dict[str, fits.HDUList]:
+        filter_string: str | None = "m") -> dict[str, fits.HDUList]:
     """
     Compile all the raw data into usable results
 
@@ -516,7 +519,7 @@ def compile_results(
     :param plot_ast: the save plot file name
     :type plot_ast: str or None
     :param filter_string: the filter string
-    :type filter_string: str
+    :type filter_string: str | None
     :param config: the config object
     :type config: StarBugMainConfig
     :return: the results

@@ -678,6 +678,7 @@ class Photometry:
             stars: np.ndarray = make_model_image(
                 image_data.shape, psf_model, _tmp,
                 model_shape=(size, size))
+
             residual: np.ndarray = image_data - (bgd + stars)
             residuals = (
                 residual / get_mj_ysr2jy_scale_factor(main_image))
