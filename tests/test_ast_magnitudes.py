@@ -19,12 +19,11 @@ import numpy as np
 import pytest
 from astropy.table import Table
 
-from constants import ExitStates
-from core.main_components.one_time_runs import starbug_one_time_runs
+from starbug2.constants import ExitStates, TableColumn
+from starbug2.core.main_components.one_time_runs import starbug_one_time_runs
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
 from tests.generic import TEST_PATH_STR, TEST_PSF_FITS
-from starbug2.constants import TableColumn
 from tests import generic
 
 FIXED_FILTER_FOR_SCIENCE_CONFIDENCE = "F444W"
