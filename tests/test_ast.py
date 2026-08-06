@@ -148,7 +148,8 @@ def test_add_stars_logic():
     entrance.run_starbug()
 
     # extract locations and new image data.
-    locations: Table = entrance.ast_star_source_list
+    locations: Table | None = entrance.ast_star_source_list
+    assert locations is not None
     image_data: np.ndarray = entrance.main_image().data.copy()
 
     # set to 0 all the values in both images where these fake star has affected
@@ -202,7 +203,9 @@ def test_results_for_execute_as_test():
     # execute add stars
     entrance.run_starbug()
 
-    background_detections: Table = entrance.detections.copy()
+    detections: Table | None = entrance.detections
+    assert detections is not None
+    background_detections: Table = detections.copy()
 
     # create config
     update_config_for_fake_stars_into_blank(config)
@@ -214,8 +217,11 @@ def test_results_for_execute_as_test():
     entrance.run_starbug()
 
     # get data for comparison
-    artificial_stars_detections: Table = entrance.detections
-    fake_star_locations: Table = entrance.ast_star_source_list
+    artificial_stars_detections: Table | None = entrance.detections
+    fake_star_locations: Table | None = entrance.ast_star_source_list
+
+    assert artificial_stars_detections is not None
+    assert fake_star_locations is not None
 
     assert len(artificial_stars_detections) == 1
     assert len(fake_star_locations) == 1
@@ -223,8 +229,8 @@ def test_results_for_execute_as_test():
     # compare detections.
     matching_pixel_tolerance = 1
     for row in artificial_stars_detections:
-        orig_x = row[TableColumn.X_CENTROID]
-        orig_y = row[TableColumn.Y_CENTROID]
+        orig_x = row[TableColumn.X_DET]
+        orig_y = row[TableColumn.Y_DET]
 
         # Calculate the Euclidean distance from this original star
         # to all detections in the new artificial image
@@ -267,17 +273,19 @@ def test_ast_output_data():
     # execute add stars and do test
     entrance.run_starbug()
 
-    artificial_stars_detections: Table = entrance.detections
-    fake_star_locations: Table = entrance.ast_star_source_list
+    artificial_stars_detections: Table | None = entrance.detections
+    fake_star_locations: Table | None = entrance.ast_star_source_list
 
+    assert artificial_stars_detections is not None
+    assert fake_star_locations is not None
     assert len(artificial_stars_detections) == 1
     assert len(fake_star_locations) == 1
 
-    assert (artificial_stars_detections[0][TableColumn.X_CENTROID] ==
+    assert (artificial_stars_detections[0][TableColumn.X_DET] ==
             pytest.approx(fake_star_locations[0][TableColumn.X_0], abs=0.5))
-    assert (artificial_stars_detections[0][TableColumn.Y_CENTROID] ==
+    assert (artificial_stars_detections[0][TableColumn.Y_DET] ==
             pytest.approx(fake_star_locations[0][TableColumn.Y_0], abs=0.5))
-    assert (artificial_stars_detections[0][TableColumn.FLUX] ==
+    assert (artificial_stars_detections[0][TableColumn.FLUX_DET] ==
             pytest.approx(fake_star_locations[0][TableColumn.FLUX], abs=0.1))
 
     # execute output generation

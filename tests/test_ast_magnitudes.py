@@ -103,11 +103,11 @@ def test_ast_output_data():
     assert len(artificial_stars_detections) == 1
     assert len(fake_star_locations) == 1
 
-    assert (artificial_stars_detections[0][TableColumn.X_CENTROID] ==
+    assert (artificial_stars_detections[0][TableColumn.X_DET] ==
             pytest.approx(fake_star_locations[0][TableColumn.X_0], abs=0.5))
-    assert (artificial_stars_detections[0][TableColumn.Y_CENTROID] ==
+    assert (artificial_stars_detections[0][TableColumn.Y_DET] ==
             pytest.approx(fake_star_locations[0][TableColumn.Y_0], abs=0.5))
-    assert (artificial_stars_detections[0][TableColumn.FLUX] ==
+    assert (artificial_stars_detections[0][TableColumn.FLUX_DET] ==
             pytest.approx(fake_star_locations[0][TableColumn.FLUX], abs=0.1))
 
     # execute output generation

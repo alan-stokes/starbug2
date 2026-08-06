@@ -207,6 +207,7 @@ class StarbugBase(StarBugInterface):
                              "there may be undefined behaviour.\n")
 
                     self._filter = self._config.custom_filter
+                    assert self._filter is not None
                     if ((HeaderTags.FILTER in main_image.header) and
                             (main_image.header[HeaderTags.FILTER] in
                                 STAR_BUG_FILTERS.keys())):
@@ -735,24 +736,18 @@ class StarbugBase(StarBugInterface):
         return self._image[0]
 
     def _ast_result_processing(
-            self, result_table: Table, passed: int, test: int) -> int:
+        self, result_table: Table, passed: int, test: int) -> int:
         """
         executes ast processing
-        :param result_table: the result table.
-        :type result_table: Table
-        :param passed: how many passed.
-        :type passed: int
+        :param result_table: the result table
+        :param passed: how many passed
         :param test: what test id were in.
-        :type test: int
         :return: the new passed total.
-        :rtype: int
         """
         passed += sum(result_table[TableColumn.STATUS])
-        assert self._ast_test_results is not None
-        start_idx = (test - 1) * self._config.stars_per_artificial_test
-        end_idx = test * self._config.stars_per_artificial_test
-        self._ast_test_results[start_idx:end_idx] = (
-            [row for row in result_table])
+        self._ast_test_results[
+            (test - 1) * self._config.stars_per_artificial_test:
+            test * self._config.stars_per_artificial_test] = result_table
 
         if self._config.ast_loader is not None:
             self._config.ast_loader[0] += 1
@@ -761,7 +756,7 @@ class StarbugBase(StarBugInterface):
                     test * self._config.stars_per_artificial_test))
 
         if (self._config.ast_auto_save > 0 and
-                not test % self._config.ast_auto_save):
+            not test % self._config.ast_auto_save):
             # noinspection SpellCheckingInspection
             result_table.write(
                 "sbast-autosave%d.tmp" % test, overwrite=True,
@@ -780,13 +775,13 @@ class StarbugBase(StarBugInterface):
             return result
 
         # build result table
-        self._ast_test_results: Table = [Table(
+        self._ast_test_results: Table = Table(
             np.full(
                 (self._config.artificial_star_tests_count *
                  self._config.stars_per_artificial_test,
                  N_COLUMNS),
                 np.nan),
-            names=TEST_TABLE_COLUMN_NAMES)]
+            names=TEST_TABLE_COLUMN_NAMES)
         passed: int = 0
 
         # execute tests
@@ -808,31 +803,30 @@ class StarbugBase(StarBugInterface):
         """
         (result_state, self._ast_star_source_list, self._image) = (
             ArtificialStars.add_stars(
-                self._image, self._config, 0, self.psf, self.n_hdu))
+                self._image, self._config, 0, self.psf,
+                self.n_hdu))
 
-        results: list[Table] | None = self._ast_test_results
-        assert results is not None
         test_result: Table = Table(
-            np.full((len(results), 4), np.nan),
+            np.full((len(self._ast_star_source_list), 4), np.nan),
             names=[TableColumn.X_DET, TableColumn.Y_DET, TableColumn.FLUX_DET,
                    TableColumn.STATUS])
         threshold: Quantity = 2 * units.arcsec
 
-        # Run detection on the image and check it worked
+        # Run detection on the image
         end_state: ExitStates
         end_state = self.detect()
         if end_state != ExitStates.EXIT_SUCCESS:
             p_error("Failed to run detection successfully")
-            return hstack((results, test_result)), end_state
+            return hstack((self._ast_star_source_list, test_result)), end_state
+        self.aperture_photometry()
 
-        # run aperture and check it worked
-        end_state = self.aperture_photometry()
+        # check detection worked
         if end_state != ExitStates.EXIT_SUCCESS:
             p_error("Failed to execute aperture photometry")
-            return hstack((results, test_result)), end_state
+            return hstack((self._ast_star_source_list, test_result)), end_state
 
         # Check for detection in output
-        for i, src in enumerate(results):  # type: ignore
+        for i, src in enumerate(self._ast_star_source_list):  # type: ignore
             separations: np.ndarray = (
                 np.sqrt(
                     (src[TableColumn.X_0] -
@@ -854,25 +848,19 @@ class StarbugBase(StarBugInterface):
 
         # Run background
         if (sum(test_result[TableColumn.STATUS])
-                and not self._config.ast_no_background):
-
-            end_state = self.bgd_estimate()
-            if end_state != ExitStates.EXIT_SUCCESS:
-                (hstack((results, test_result)), ExitStates.EXIT_SUCCESS)
+            and (self._config.ast_no_background
+                 or not self.bgd_estimate())):
 
             # estimate if there were detections
             self._detections = test_result
 
             if self._config.ast_no_psf_phot:
                 return (
-                    hstack((results, test_result)), ExitStates.EXIT_SUCCESS)
+                    hstack((self._ast_star_source_list, test_result)),
+                    ExitStates.EXIT_SUCCESS)
 
             # Run PSF photometry on detected sources
-            end_state = self.psf_photometry_routine()
-            if end_state != ExitStates.EXIT_SUCCESS:
-                p_error("Failed to execute photometry photometry")
-                return hstack((results, test_result)), end_state
-
+            self.psf_photometry_routine()
             psf_catalogue = self.psf_catalogue
             assert psf_catalogue is not None
             psf_catalogue.rename_columns(
@@ -881,14 +869,15 @@ class StarbugBase(StarBugInterface):
                 (TableColumn.X_INIT, TableColumn.Y_INIT,
                  TableColumn.XY_DEV_))
             matched: Table = GenericMatch(threshold=threshold)(
-                [results, psf_catalogue], cartesian=True)
+                [self._ast_star_source_list, psf_catalogue],
+                cartesian=True)
             test_result[TableColumn.FLUX_DET] = (
                 matched[:len(test_result)][TableColumn.FLUX_2])
-        return (hstack((results, test_result)),
+        return (hstack((self._ast_star_source_list, test_result)),
                 ExitStates.EXIT_SUCCESS)
 
     def _do_artificial_star_test_result(
-            self, config: StarBugMainConfig) -> ExitStates:
+        self, config: StarBugMainConfig) -> ExitStates:
         """
         executes the artificial test output
         :param config: the main config.

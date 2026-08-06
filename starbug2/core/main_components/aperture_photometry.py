@@ -25,8 +25,8 @@ from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.interfaces.star_bug_interface import StarBugInterface
 from starbug2.routines.app_phot_routine import APPhotRoutine
 from starbug2.utilities.utils import (
-    printf, p_error, warn, ext_names, flux_to_pogson_mag, reindex,
-    export_table, get_data_path)
+    p_error, warn, ext_names, flux_to_pogson_mag, reindex, export_table,
+    get_data_path)
 
 
 class AperturePhotometry:
@@ -269,7 +269,6 @@ class AperturePhotometry:
         detections.meta[HeaderTags.FILTER] = filter_string
 
         f_name = "%s/%s-ap.fits" % (out_dir, b_name)
-        printf(f"going to save ap file at {f_name}")
         log("--> %s\n" % f_name)
         export_table(detections, f_name, header=header)
 
