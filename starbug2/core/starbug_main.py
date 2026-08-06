@@ -736,7 +736,7 @@ class StarbugBase(StarBugInterface):
         return self._image[0]
 
     def _ast_result_processing(
-        self, result_table: Table, passed: int, test: int) -> int:
+            self, result_table: Table, passed: int, test: int) -> int:
         """
         executes ast processing
         :param result_table: the result table
@@ -745,7 +745,8 @@ class StarbugBase(StarBugInterface):
         :return: the new passed total.
         """
         passed += sum(result_table[TableColumn.STATUS])
-        self._ast_test_results[
+        assert self._ast_test_results is not None
+        self._ast_test_results[0][
             (test - 1) * self._config.stars_per_artificial_test:
             test * self._config.stars_per_artificial_test] = result_table
 
@@ -756,7 +757,7 @@ class StarbugBase(StarBugInterface):
                     test * self._config.stars_per_artificial_test))
 
         if (self._config.ast_auto_save > 0 and
-            not test % self._config.ast_auto_save):
+                not test % self._config.ast_auto_save):
             # noinspection SpellCheckingInspection
             result_table.write(
                 "sbast-autosave%d.tmp" % test, overwrite=True,
@@ -775,13 +776,13 @@ class StarbugBase(StarBugInterface):
             return result
 
         # build result table
-        self._ast_test_results: Table = Table(
+        self._ast_test_results: list[Table] = [Table(
             np.full(
                 (self._config.artificial_star_tests_count *
                  self._config.stars_per_artificial_test,
                  N_COLUMNS),
                 np.nan),
-            names=TEST_TABLE_COLUMN_NAMES)
+            names=TEST_TABLE_COLUMN_NAMES)]
         passed: int = 0
 
         # execute tests
@@ -805,6 +806,7 @@ class StarbugBase(StarBugInterface):
             ArtificialStars.add_stars(
                 self._image, self._config, 0, self.psf,
                 self.n_hdu))
+        assert self._ast_star_source_list is not None
 
         test_result: Table = Table(
             np.full((len(self._ast_star_source_list), 4), np.nan),
@@ -877,13 +879,14 @@ class StarbugBase(StarBugInterface):
                 ExitStates.EXIT_SUCCESS)
 
     def _do_artificial_star_test_result(
-        self, config: StarBugMainConfig) -> ExitStates:
+            self, config: StarBugMainConfig) -> ExitStates:
         """
         executes the artificial test output
         :param config: the main config.
         :return: the exit state
         :rtype: ExitStates
         """
+        assert self._ast_test_results is not None
         raw: Table | None = self._ast_test_results[0]
         for res in self._ast_test_results[1:]:
             raw = combine_tables(raw, res)

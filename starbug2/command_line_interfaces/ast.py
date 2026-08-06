@@ -146,16 +146,21 @@ def execute_ast(
     # Initialise output container tracking tables
     outs: list[Table | None]
     exit_state: ExitStates
-    results: list[Tuple[Table | None, ExitStates]]
+    results: list[Tuple[list[Table] | None, ExitStates]]
     if (n_cores := config.n_cores) is None or n_cores == 1:
         results = execute_one_core_run_ast(config, loading_buffer)
     else:
         results = execute_multicore_ast(
             config, loading_buffer, n_cores)
 
+    # Unpack tables
+    outs: list[Table] = [
+        sub_table
+        for tables, _ in results if tables is not None
+        for sub_table in tables
+    ]
+
     # figure out if all workers finished successfully.
-    outs: list[Table | None] = [
-        table for table, _ in results if table is not None]
     worker_states: list[ExitStates] = [state for _, state in results]
     if all(s == ExitStates.EXIT_SUCCESS for s in worker_states):
         exit_state = ExitStates.EXIT_SUCCESS

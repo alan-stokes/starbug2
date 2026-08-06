@@ -118,7 +118,7 @@ def execute_artificial_stars(
 
 def execute_multicore_ast(
         config: StarBugMainConfig, loading_buffer: np.ndarray,
-        n_cores: int) -> list[Tuple[Table | None, ExitStates]]:
+        n_cores: int) -> list[Tuple[list[Table] | None, ExitStates]]:
     """
     executes tests utilising multicore functionality.
     :param config: the main starbug config
@@ -152,9 +152,10 @@ def execute_multicore_ast(
         per_process_config.ast_test_index = index
         per_process_config.do_artificial_star_test = True
         per_process_config.ast_loader = loading_buffer
-        if config.ast_seed is not None:
+        ast_seed: int | None = config.ast_seed
+        if ast_seed is not None:
             per_process_config.ast_seed = (
-                config.ast_seed + (index * per_process_n_test))
+                ast_seed + (index * per_process_n_test))
         per_process_config.freeze()
 
     # execute
@@ -196,7 +197,8 @@ def execute_multi_core_main(
 
 def execute_one_core_run_ast(
         config: StarBugMainConfig,
-        loading_buffer: np.ndarray) -> list[Tuple[Table | None, ExitStates]]:
+        loading_buffer: np.ndarray) -> (
+            list[Tuple[list[Table] | None, ExitStates]]):
     """
     executes tests utilising 1 core.
     :param config: the main starbug config

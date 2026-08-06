@@ -296,7 +296,7 @@ def test_ast_output_data():
     config.do_artificial_star_test_results = True
     config.plot_ast = os.path.join(TEST_PATH_STR, "plot")
     config.ast_plot_filename = os.path.join(TEST_PATH_STR, "plot")
-    config.ast_out_tables = [entrance.ast_test_results]
+    config.ast_out_tables = entrance.ast_test_results
     config.ast_save_added_image_path = TEST_PATH_STR
     config.output_file = TEST_PATH_STR
 
