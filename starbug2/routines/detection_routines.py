@@ -13,7 +13,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
-from typing import Optional
+from typing import Optional, cast
 from collections.abc import Callable
 
 import numpy as np
@@ -31,7 +31,7 @@ from photutils.detection import StarFinderBase, DAOStarFinder, find_peaks
 
 from starbug2.constants import TableColumn
 from starbug2.routines.source_properties import SourceProperties
-from starbug2.utils import printf
+from starbug2.utilities.utils import printf
 
 
 class DetectionRoutine(StarFinderBase):
@@ -275,9 +275,9 @@ class DetectionRoutine(StarFinderBase):
 
         kernel: RickerWavelet2DKernel = (
             RickerWavelet2DKernel(self.ricker_r))
-        conv: np.ndarray = convolve(data, kernel.array)
-        corr: np.ndarray = match_template(
-            conv / np.amax(conv), kernel.array)
+        conv: np.ndarray = cast(np.ndarray, convolve(data, kernel.array))
+        corr: np.ndarray = cast(np.ndarray, match_template(
+            conv / np.amax(conv), kernel.array))
         detections: Table = self.detect(corr, use_find_peaks=True)
         if detections:
             detections[TableColumn.X_PEAK] += kernel.shape[0] // 2

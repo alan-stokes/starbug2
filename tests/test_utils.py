@@ -13,12 +13,12 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
-from starbug2 import utils
 import numpy as np
 from astropy.table import Table
 from astropy.io import fits
 
 from starbug2.constants import Units
+from starbug2.utilities import utils
 from tests.generic import check_shape
 
 
@@ -50,53 +50,53 @@ def test_split_f_name() -> None:
 
 def test_flux2mag() -> None:
     # Input shape validation
-    assert len(utils.flux2mag(1, None, zp=1)[0]) == 1
-    assert len(utils.flux2mag(np.ones(10), None, zp=1)[0]) == 10
-    assert len(utils.flux2mag(np.full(10, np.nan), None, zp=1)[0]) == 10
+    assert len(utils.flux_to_pogson_mag(1, None)[0]) == 1
+    assert len(utils.flux_to_pogson_mag(np.ones(10), None)[0]) == 10
+    assert len(utils.flux_to_pogson_mag(np.full(10, np.nan), None)[0]) == 10
 
-    a, b = utils.flux2mag(np.empty(10), np.empty(10), zp=1)
+    a, b = utils.flux_to_pogson_mag(np.empty(10), np.empty(10))
     assert len(a) == len(b)
-    a, b = utils.flux2mag(1, 1, zp=1)
+    a, b = utils.flux_to_pogson_mag(1, 1)
     assert len(a) == len(b)
-    a, b = utils.flux2mag(0, 0, zp=1)
+    a, b = utils.flux_to_pogson_mag(0, 0)
     assert len(a) == len(b)
 
     # Normal flux validation
     flux = np.array([1, 100, 999, 123, 3.4, 87654, np.pi])
     flux_err = None
-    mag, mag_err = utils.flux2mag(flux, flux_err, zp=1)
+    mag, mag_err = utils.flux_to_pogson_mag(flux, flux_err)
     assert np.all(np.isclose(mag, -2.5 * np.log10(flux)))
 
     # Boundary fluxes
     flux = np.array([0, 0.0, -1, np.nan])
     flux_err = None
-    mag, mag_err = utils.flux2mag(flux, flux_err, zp=1)
+    mag, mag_err = utils.flux_to_pogson_mag(flux, flux_err)
     assert np.isnan(mag).all()
 
     # should be -inf
-    assert utils.flux2mag(np.inf)[0] == -np.inf
+    assert utils.flux_to_pogson_mag(np.inf)[0] == -np.inf
 
     # Should be nan
-    assert np.isnan(utils.flux2mag(-np.inf)[0])
+    assert np.isnan(utils.flux_to_pogson_mag(-np.inf)[0])
 
     # flux_err
     flux = np.array([1234, 1, 0.00001, 10])
     flux_err = np.array([1, 100, 123456, 1.234567])
-    mag, mag_err = utils.flux2mag(np.ones(flux.shape), flux_err, zp=1)
+    mag, mag_err = utils.flux_to_pogson_mag(np.ones(flux.shape), flux_err)
 
     # flux all 1
     assert np.all(np.equal(
         mag_err, 2.5 * np.log10(1.0 + (flux_err / np.ones(flux.shape)))))
-    mag, mag_err = utils.flux2mag(flux, flux_err, zp=1)
+    mag, mag_err = utils.flux_to_pogson_mag(flux, flux_err)
 
     # random fluxes
     assert np.all(np.equal(
         mag_err, 2.5 * np.log10(1.0 + (flux_err / flux))))
 
     # boundary flux_errs
-    assert utils.flux2mag(1, None, zp=1)[1] == 0
-    assert np.isnan(utils.flux2mag(1, np.nan, zp=1)[1])
-    assert np.isnan(utils.flux2mag(1, -1, zp=1)[1])
+    assert utils.flux_to_pogson_mag(1, None)[1] == 0
+    assert np.isnan(utils.flux_to_pogson_mag(1, np.nan)[1])
+    assert np.isnan(utils.flux_to_pogson_mag(1, -1)[1])
 
 
 def test_find_col_names() -> None:

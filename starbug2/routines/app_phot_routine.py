@@ -26,7 +26,7 @@ from photutils.aperture import (
 
 from starbug2.constants import (
     SourceFlags, DQFlags, TableColumn, HeaderTags, Modes, QTableColNames)
-from starbug2.utils import printf, p_error, warn
+from starbug2.utilities.utils import printf, p_error, warn
 
 
 class APPhotRoutine:
@@ -57,7 +57,6 @@ class APPhotRoutine:
             raise FileNotFoundError("cant find the table filename")
 
         tmp: Table = Table.read(table_f_name, format="fits")
-
         t_ap_corr: Table
         if HeaderTags.FILTER_LOWER in tmp.colnames:
             t_ap_corr = tmp[(tmp[HeaderTags.FILTER_LOWER] == filter_string)]

@@ -18,8 +18,8 @@ from typing import Final
 
 import pytest
 from starbug2.constants import STAR_BUG_PARAMS, PROBLEMATIC_FILTER_WARNING
-from starbug2.star_bug_config import StarBugMainConfig
-from tests.generic import TEST_PATH_STR, verify_test_data_exists
+from starbug2.core.star_bug_config import StarBugMainConfig
+from tests.generic import TEST_PATH_STR, verify_test_data_exists, TEST_PATH
 
 TEST_PARAM_PATH: Final[str] = os.path.join(
     TEST_PATH_STR, "../param_files/old_format.param")
@@ -54,7 +54,7 @@ def test_load_default_params():
 def test_load_params():
     config: StarBugMainConfig = StarBugMainConfig.load_params("does_not_exist")
 
-    os.system("starbug2 --local-param")
+    os.system(f"starbug2 --local-param --output={TEST_PATH}")
     second_config: StarBugMainConfig = (
         StarBugMainConfig.load_params("starbug.param"))
 
@@ -62,25 +62,26 @@ def test_load_params():
         assert getattr(config, value) == getattr(second_config, value)
     assert second_config.param_tag == STAR_BUG_PARAMS
     assert config.param_tag == STAR_BUG_PARAMS
-    os.remove("starbug.param")
+    os.remove(os.path.join(TEST_PATH, "starbug.param"))
 
 
 def test_update_params():
-    os.system("starbug2 --local-param")
-    os.system("sed -i s/PARAM/PARAM1/g starbug.param")
+    os.system(f"starbug2 --local-param --output={TEST_PATH}")
+    os.system(
+        f"sed -i s/PARAM/PARAM1/g {os.path.join(TEST_PATH, 'starbug.param')}")
 
     with pytest.raises(
         TypeError,
         match="Param PARAM1 no longer works within Starbug2. Please "
               "execute starbug2 --update-param"):
-        StarBugMainConfig.load_params("starbug.param")
-    os.remove("starbug.param")
+        StarBugMainConfig.load_params(os.path.join(TEST_PATH, 'starbug.param'))
+    os.remove(os.path.join(TEST_PATH, 'starbug.param'))
 
 
 def test_update_params_no_changes():
-    os.system("starbug2 --local-param")
-    os.system("starbug2 --update-param")
-    os.remove("starbug.param")
+    os.system(f"starbug2 --local-param --output={TEST_PATH}")
+    os.system(f"starbug2 --update-param --output={TEST_PATH}")
+    os.remove(os.path.join(TEST_PATH, 'starbug.param'))
 
 
 def test_update_params_old_to_new():

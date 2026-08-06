@@ -13,22 +13,24 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
-# noinspection SpellCheckingInspection
 from typing import List, Final
 from enum import Enum
 from pathlib import Path
 import os
 
-# the filter id which we've had to adjsut the bin size to allow it to
-# initilise without errors.
+# the filter id which we've had to adjust the bin size to allow it to
+# initialise without errors.
 PROBLEMATIC_FILTER_ID = "F150W2"
 PROBLEMATIC_FILTER_WARNING = (
     "Caution needed with F150W2 photometric accuracy. More info"
     "can be found in ("
     "https://github.com/alan-stokes/starbug2/issues/2)")
 
+# noinspection SpellCheckingInspection
 STARBUG_DATA_DIR: Final[str] = "STARBUG_DATDIR"
+# noinspection SpellCheckingInspection
 WEBBPSF_PATH_ENV_VAR: Final[str] = "WEBBPSF_PATH"
+# noinspection SpellCheckingInspection
 STAR_BUG_PARAMS: Final[str] = "STARBUGII PARAMETERS"
 STAR_BUG_TEST_DAT_ENV: Final[str] = "STARBUG_TEST_DIR"
 
@@ -36,6 +38,10 @@ STAR_BUG_TEST_DAT_ENV: Final[str] = "STARBUG_TEST_DIR"
 DEFAULT_FULL_WIDTH_HALF_MAX = 2.0
 DEFAULT_PSF_FILE_NAME = "psf.fits"
 DEFAULT_COLOUR: Final[str] = "green"
+DEFAULT_MIN_MAG: Final[int] = 28
+DEFAULT_MAX_MAG: Final[int] = 18
+DEFAULT_BUNIT = "MJy/sr"
+
 # how many characters we will allow by default.
 N_MIS_MATCHES: Final[int] = 10
 
@@ -50,20 +56,23 @@ URL_DOCS: Final[str] = (
 READ_THE_DOCS_URL: Final[str] = "https://starbug2.readthedocs.io/en/latest/"
 
 # fit urls
+# noinspection SpellCheckingInspection
 JWST_MIRI_APCORR_0010_FITS_URL: Final[str] = (
     "https://jwst-crds.stsci.edu/unchecked_get/references/jwst/"
     "jwst_miri_apcorr_0010.fits"
 )
+# noinspection SpellCheckingInspection
 JWST_NIRCAM_APCORR_0004_FITS_URL: Final[str] = (
     "https://jwst-crds.stsci.edu/unchecked_get/references/jwst/"
     "jwst_nircam_apcorr_0004.fits"
 )
-
-# abvega offset urls
+# noinspection SpellCheckingInspection
+# ab vega offset urls
 JWST_MIRI_ABVEGA_OFFSET_URL: Final[str] = (
     "https://jwst-crds.stsci.edu/unchecked_get/references/jwst/"
     "jwst_miri_abvegaoffset_0001.asdf"
 )
+# noinspection SpellCheckingInspection
 JWST_NIRCAM_ABVEGA_OFFSET_URL: Final[str] = (
     "https://jwst-crds.stsci.edu/unchecked_get/references/jwst/"
     "jwst_nircam_abvegaoffset_0002.asdf"
@@ -88,6 +97,13 @@ AP_FILE: Final[str] = "AP_FILE"
 BGD_FILE: Final[str] = "BGD_FILE"
 PSF_FILE: Final[str] = "PSF_FILE"
 
+# the number of columns in the test table.
+N_COLUMNS: Final[int] = 8
+
+# flags inside the artificial stars results table.
+NOT_FOUND: Final[int] = 0
+DETECT: Final[int] = 1
+
 
 # SOURCE FLAGS
 class SourceFlags(int, Enum):
@@ -98,7 +114,7 @@ class SourceFlags(int, Enum):
     SRC_VAR = 0x04
     # psf fit with fixed centroid
     SRC_FIX = 0x08
-    # source unknown (this isnt used anywhere!)
+    # source unknown (this isn't used anywhere!)
     SRC_UKN = 0x10
 
 
@@ -123,10 +139,10 @@ class ExitStates(int, Enum):
     EXIT_MIXED = 3
 
 
-# table column enum to be used to amtch table col names
+# table column enum to be used to match table col names
+# noinspection SpellCheckingInspection
 class TableColumn(str, Enum):
     """Table column names used across the pipeline."""
-
     CAT_NUM = "Catalogue_Number"
     RA = "RA"
     DEC = "DEC"
@@ -154,6 +170,8 @@ class TableColumn(str, Enum):
     ID = "id"
     MAG = "mag"
     MAG_UPPER = "MAG"
+    MAG_DET = "mag_det"
+    MAG_DIFF = "mag_diff"
     ERROR_MAG = "eMAG"
     STATUS = "status"
     REC = "rec"
@@ -175,6 +193,9 @@ class TableColumn(str, Enum):
     ROUNDNESS2 = "roundness2"
     RA_1 = "RA_1"
     RA_2 = "RA_2"
+    TOTAL_FLUX_ADDED = "TOTAL_FLUX_ADDED"
+    TOTAL_MAG = "TOTAL_MAG"
+    TOTAL_DIFF_MAG = "TOTAL_DIFF_MAG"
 
     # needed as the table system doenst seem to handle enums properly
     def __str__(self) -> str:
@@ -197,16 +218,17 @@ class QTableColNames(str, Enum):
     SUM_0 = "aperture_sum_0"
     SUM_1 = "aperture_sum_1"
 
-    # needed as the table system doenst seem to handle enums properly
+    # needed as the table system does not seem to handle enums properly
     def __str__(self) -> str:
         return self.value
 
-    # needed as the table system doenst seem to handle enums properly
+    # needed as the table system does not seem to handle enums properly
     def __format__(self, format_spec: str) -> str:
         return self.value.__format__(format_spec)
 
 
 # tag for header
+# noinspection SpellCheckingInspection
 class HeaderTags(str, Enum):
     FILTER_LOWER = "filter"
     FILTER = "FILTER"
@@ -234,6 +256,7 @@ class HeaderTags(str, Enum):
 
 
 # tags for image header
+# noinspection SpellCheckingInspection
 class ImageHeaderTags(str, Enum):
     DETECTOR = "DETECTOR"
     TELESCOPE = "TELESCOP"
@@ -258,6 +281,7 @@ VERBOSE_TAG: Final[str] = "VERBOSE"
 
 
 # mode labels.
+# noinspection SpellCheckingInspection
 class Modes(str, Enum):
     DETECTION = "DETECTION"
     BACKGROUND = "BACKGROUND"
@@ -267,11 +291,12 @@ class Modes(str, Enum):
     CLEAR = "CLEAR"
 
 
-# HASHDEFS
+# HASH DEFS
 STAR_BUG_MIRI: Final[int] = 1
 NIRCAM: Final[int] = 2
 NIRCAM_STRING: Final[str] = "NIRCAM"
 MIRI_STRING: Final[str] = "MIRI"
+# noinspection SpellCheckingInspection
 MIRI_IMAGE = "MIRIMAGE"
 
 
@@ -282,11 +307,19 @@ class DetectorLengths(int, Enum):
 
 
 # enum unit
+# noinspection SpellCheckingInspection
 class Units(int, Enum):
     PIX = 0
     ARCSEC = 1
     ARCMIN = 2
     DEG = 3
+
+
+# the column names of the rsult table used by artificial stars
+TEST_TABLE_COLUMN_NAMES: Final[List[str]] = [
+    TableColumn.X_0, TableColumn.Y_0, TableColumn.MAG, TableColumn.FLUX,
+    TableColumn.X_DET, TableColumn.Y_DET, TableColumn.FLUX_DET,
+    TableColumn.STATUS]
 
 
 # text based logo (using raw string to bypass escape characters)
@@ -295,7 +328,8 @@ _LOGO_PATH = Path(os.path.join(
 LOGO: Final[str] = _LOGO_PATH.read_text(encoding="utf-8") + "%s"
 
 # dictionary of help strings for specific modes (
-# DETECTION, BACKGROUND, APPHOT, PSFPHOT, MATCHOUTPUTS).
+# DETECTION, BACKGROUND, APP_HOT, PSF_PHOT, MATCH_OUTPUTS).
+# noinspection SpellCheckingInspection
 HELP_STRINGS = {
     Modes.DETECTION:
         """
@@ -432,284 +466,3 @@ HELP_STRINGS = {
                                  must be present in
         """,
 }
-
-# Named Constant Template for Default Parameter Files
-DEFAULT_PARAM_TEMPLATE: Final[str] = """## STARBUG CONFIG FILE
-# Generated with starbug2-v{version_str}
-PARAM       =  STARBUGII PARAMETERS     // COMMENT
-
-## GENERIC
-// (0:false 1:true)
-VERBOSE     = {VERBOSE}
-
-// Directory or filename to output to
-OUTPUT      = {OUTPUT}
-
-// If using a non standard HDU name, name it here (str or int)
-HDUNAME     = {HDUNAME}
-
-// Set a custom filter for the image
-FILTER      = {FILTER}
-
-## DETECTION
-// Custom FWHM for image (-1 to use WEBBPSF)
-FWHM        = {FWHM}
-
-// Number of sigma above the median to clip out as background
-SIGSKY      = {SIGSKY}
-
-// Source value minimum N sigma above background
-SIGSRC      = {SIGSRC}
-
-// Run background2D step (usually finds more sources but takes time)
-DOBGD2D     = {DOBGD2D}
-
-// Run convolution step (usually finds more sources)
-DOCONVL     = {DOCONVL}
-
-// Run source cleaning after detection (removes likely contaminants)
-CLEANSRC    = {CLEANSRC}
-
-// Lower limit of source sharpness (0 is not sharp)
-SHARP_LO    = {SHARP_LO}
-
-// Upper limit of source sharpness (1 is sharp)
-SHARP_HI    = {SHARP_HI}
-
-// Limit of source roundness1 (|roundness|>>0 is less round)
-ROUND1_HI   = {ROUND1_HI}
-
-// Limit of source roundness2 (|roundness|>>0 is less round)
-ROUND2_HI   = {ROUND2_HI}
-
-// Lower limit on source smoothness (0 is not smooth)
-SMOOTH_LO   = {SMOOTH_LO}
-
-// Upper limit on source smoothness (1 is smooth)
-SMOOTH_HI   = {SMOOTH_HI}
-
-// Radius (pix) of ricker wavelet
-RICKER_R    = {RICKER_R}
-
-## APERTURE PHOTOMETRY
-// Radius in number of pixels
-APPHOT_R    = {APPHOT_R}
-
-// Fraction encircled energy (mutually exclusive with APPHOT_R)
-ENCENERGY   = {ENCENERGY}
-
-// Sky annulus inner radius
-SKY_RIN     = {SKY_RIN}
-
-// Sky annulus outer radius
-SKY_ROUT    = {SKY_ROUT}
-
-// Aperture correction file. See full manual for details
-APCORR_FILE = {APCORR_FILE}
-
-## BACKGROUND ESTIMATION
-// Aperture masking fixed radius (if zero, starbug will scale radii)
-BGD_R       = {BGD_R}
-
-// Aperture mask radius profile scaling factor
-PROF_SCALE  = {PROF_SCALE}
-
-// Aperture mask radius profile slope
-PROF_SLOPE  = {PROF_SLOPE}
-
-// Background estimation kernel size (pix)
-BOX_SIZE    = {BOX_SIZE}
-
-// Output region file to check the aperture mask radii
-BGD_CHECKFILE = {BGD_CHECKFILE}
-
-## PHOTOMETRY
-// Detection file to use instead of detecting
-AP_FILE     = {AP_FILE}
-
-// Background estimation file
-BGD_FILE    = {BGD_FILE}
-
-// Non default PSF file
-PSF_FILE    = {PSF_FILE}
-
-// When loading an AP_FILE, do you want to use WCS or xy values (if available)
-USE_WCS     = {USE_WCS}
-
-// Zero point (mag) to add to the magnitude columns
-ZP_MAG      = {ZP_MAG}
-
-// Minimum distance for grouping (pixels) between two sources
-CRIT_SEP    = {CRIT_SEP}
-
-// Force centroid position (1) or allow psf fitting to fit position too (0)
-FORCE_POS   = {FORCE_POS}
-
-// Maximum deviation from initial guess centroid position
-MAX_XYDEV   = {MAX_XYDEV}
-
-// Set fit size of psf (>0) or -1 to take PSF file dimensions
-PSF_SIZE    = {PSF_SIZE}
-
-// Generate a residual image
-GEN_RESIDUAL = {GEN_RESIDUAL}
-
-## SOURCE STATS
-// Run crowding metric calculation (execution time scales N^2)
-CALC_CROWD  = {CALC_CROWD}
-
-## CATALOGUE MATCHING
-// Matching separation threshold in units arcsec
-MATCH_THRESH = {MATCH_THRESH}
-
-// EXTRA columns to include in output matched table i.e sharpness
-MATCH_COLS   = {MATCH_COLS}
-
-// Keep sources that appear in NUM >= NEXP_THRESH (if -1 keep everything)
-NEXP_THRESH  = {NEXP_THRESH}
-
-// Bridge --band matching NIRCam and MIRI catalogues by ensuring NIRCam
-// catalogue has a match in BRIDGE_COL
-BRIDGE_COL   = {BRIDGE_COL}
-
-## ARTIFICIAL STAR TESTS
-// Number of artificial star tests
-NTESTS      = {NTESTS}
-
-// Number of stars per artificial test
-NSTARS      = {NSTARS}
-
-// Number of pixels to crop around artificial star
-SUBIMAGE    = {SUBIMAGE}
-
-// Bright limit of test magnitude
-MAX_MAG     = {MAX_MAG}
-
-// Faint limit of test magnitude
-MIN_MAG     = {MIN_MAG}
-
-// Output AST result as image with this filename
-PLOTAST     = {PLOTAST}
-
-## MISC EXTRAS
-// DS9 region colour
-REGION_COL  = {REGION_COL}
-
-// Scale region to flux if possible
-REGION_SCAL = {REGION_SCAL}
-
-// Region radius default
-REGION_RAD  = {REGION_RAD}
-
-// X column name to use for region
-REGION_XCOL = {REGION_XCOL}
-
-// Y column name to use for region
-REGION_YCOL = {REGION_YCOL}
-
-// If X/Y column names correspond to WCS values
-REGION_WCS  = {REGION_WCS}
-
-// detector name used within psf generation
-DET_NAME = {DET_NAME}
-
-// region table file name for generating regions
-REGION_TAB = {REGION_TAB}
-
-## ADDITIONAL UNSETTABLE / DERIVED PARAMETERS
-// Custom analytical parameter grouping identifier string
-PARAM_TAG   = {PARAM}
-
-## PIPELINE SWITCHES (BYPASS COMMAND LINE FLAGS)
-// Run aperture photometry stage (0:false 1:true)
-RUN_APPHOT  = {RUN_APPHOT}
-
-// Run background estimation stage (0:false 1:true)
-RUN_BGD_EST = {RUN_BGD_EST}
-
-// Run star detection stage (0:false 1:true)
-RUN_DETECT  = {RUN_DETECT}
-
-// Run source geometry analysis stage (0:false 1:true)
-RUN_GEOM    = {RUN_GEOM}
-
-// Run catalogue matching stage (0:false 1:true)
-RUN_MATCH   = {RUN_MATCH}
-
-// Run PSF photometry routine (0:false 1:true)
-RUN_PSFPHOT = {RUN_PSFPHOT}
-
-// Run background subtraction stage (0:false 1:true)
-RUN_BGDSUB  = {RUN_BGDSUB}
-
-## SYSTEM & EXECUTION CONTROL
-// Number of processor cores to use for calculation
-NCORES      = {NCORES}
-
-// Find files automatically (0:false 1:true)
-FIND_FILE   = {FIND_FILE}
-
-## EXTRA RUN GENERATION COMMAND SWITCHES
-// Execute JWST data initialization steps (0:false 1:true)
-INIT_JWST   = {INIT_JWST}
-
-// Trigger PSF generation logic (0:false 1:true)
-GEN_PSF     = {GEN_PSF}
-
-// Trigger automation run generation scripts (0:false 1:true)
-GEN_RUN     = {GEN_RUN}
-
-// Filename target string to output generated region file
-GEN_REGION  = {GEN_REGION}
-
-## ADVANCED ARTIFICIAL STAR TEST CONTROLS
-// Recover previous artificial star test state (0:false 1:true)
-AST_RECOVER = {AST_RECOVER}
-
-// Save frequency of progress during artificial star tests
-AST_AUTOSAVE = {AST_AUTOSAVE}
-
-// Disable background logic during artificial star tests (0:false 1:true)
-AST_NO_BGD  = {AST_NO_BGD}
-
-// Disable PSF photometry during artificial star tests (0:false 1:true)
-AST_NO_PSF  = {AST_NO_PSF}
-
-## CATALOGUE MATCHING MODE SWITCHES
-// Process matched catalogue across multiple bands (0:false 1:true)
-MATCH_BAND  = {MATCH_BAND}
-
-// Run matching in cascade execution sequence (0:false 1:true)
-MATCH_CASCADE = {MATCH_CASCADE}
-
-// Use dither offsets during matching calculations (0:false 1:true)
-MATCH_DITHER = {MATCH_DITHER}
-
-// Require exact row criteria matches across tables (0:false 1:true)
-MATCH_EXACT = {MATCH_EXACT}
-
-// Force a full evaluation run across matching pipelines (0:false 1:true)
-MATCH_FULL  = {MATCH_FULL}
-
-// Use generic operating specifications for matching (0:false 1:true)
-MATCH_GENERIC = {MATCH_GENERIC}
-
-// Error column label name target string for evaluation
-MATCH_ERR_COL = {MATCH_ERR_COL}
-
-// Expression filter string for processing match masks
-MATCH_MASK_EVAL = {MATCH_MASK_EVAL}
-
-## DIAGNOSTIC PLOTTING MODULE SWITCHES
-// Enable interactive test mode plotting panels (0:false 1:true)
-PLOT_TEST   = {PLOT_TEST}
-
-// Dark frame visualization profile layout (0:false 1:true)
-PLOT_DARK   = {PLOT_DARK}
-
-// Visual parameter validation target inspection parameter key
-PLOT_INSPECT = {PLOT_INSPECT}
-
-// Target design stylesheet pattern configuration profile name
-PLOT_STYLE  = {PLOT_STYLE}
-"""

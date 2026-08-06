@@ -37,14 +37,17 @@ from starbug2.constants import (
     ExitStates,
     REST_SUCCESS_CODE,
     Units,
-    ImageHeaderTags,
+    ImageHeaderTags, STARBUG_DATA_DIR, DEFAULT_BUNIT,
 )
-from starbug2.filters import STAR_BUG_FILTERS
+from starbug2.utilities.filters import STAR_BUG_FILTERS
 
 
 # different print methods (why are we not using loggers?)
 def printf(s: str) -> int:
-    return sys.stdout.write(s)
+    if s.endswith("\n"):
+        return sys.stdout.write(s)
+    else:
+        return puts(s)
 
 
 def p_error(s: str) -> int:
@@ -597,10 +600,10 @@ def ext_names(hdu_list: fits.HDUList | None) -> List[str]:
     return [ext.name for ext in hdu_list]
 
 
-def flux2mag(
+# noinspection SpellCheckingInspection
+def flux_to_pogson_mag(
     raw_flux: np.ndarray | float,
-    flux_err: Column | None | np.ndarray | int | float = None,
-    zp: float = 1.0,
+    flux_err: Column | None | np.ndarray | int | float = None
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Convert flux to magnitude in an arbitrary system.
 
@@ -610,8 +613,6 @@ def flux2mag(
     :type raw_flux: list of floats or float or None or ndarray
     :param flux_err: List of known flux uncertainties
     :type flux_err: list of floats or float or None or ndarray
-    :param zp: Zero point flux value
-    :type zp: float.
     :return: tuple of (Source magnitudes, Magnitude errors ).
     :rtype: tuple (ndarray, ndarray).
     """
@@ -629,26 +630,11 @@ def flux2mag(
 
         mask: np.ndarray = mask_flux & mask_f_err
 
-        mag[mask_flux] = -2.5 * np.log10(flux[mask_flux] / zp)
+        mag[mask_flux] = -2.5 * np.log10(flux[mask_flux])
         mag_err[mask] = 2.5 * np.log10(1.0 + (flux_err_arr[mask] / flux[mask]))
     mag[flux == np.inf] = -np.inf
 
     return mag, mag_err
-
-
-def flux_2_ab_mag(
-    flux: float, flux_err: Column | None = None
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Convert flux to AB magnitudes.
-
-    :param flux: Source flux values.
-    :type flux: float
-    :param flux_err: Source flux error values if known.
-    :type flux_err: float
-    :return: Magnitude in AB system
-    :rtype: tuple[ndarray, ndarray]
-    """
-    return flux2mag(flux, flux_err, zp=3631.0)
 
 
 def wget(address: str, f_name: str | None = None) -> ExitStates:
@@ -725,7 +711,7 @@ def get_mj_ysr2jy_scale_factor(
     :rtype float
     """
     scale_factor: float = 1.0
-    if ext.header.get(ImageHeaderTags.BUN_IT) == "MJy/sr":
+    if ext.header.get(ImageHeaderTags.BUN_IT) == DEFAULT_BUNIT:
         if ImageHeaderTags.PIXAR_SR in ext.header:
             scale_factor = 1e6 * float(ext.header[ImageHeaderTags.PIXAR_SR])
     return scale_factor
@@ -848,6 +834,18 @@ def parse_cmd(args: List[str]) -> Tuple[str, List[str]]:
     """
     cmd = os.path.basename(args[0])
     return cmd, args[1:]
+
+
+def get_data_path() -> str:
+    """
+    Returns the data path.
+
+    :return: The data path
+    :rtype: str
+    """
+    env_path: str | None = os.getenv(STARBUG_DATA_DIR)
+    return (env_path if env_path else
+            "%s/.local/share/starbug" % (os.getenv("HOME")))
 
 
 if __name__ == "__main__":

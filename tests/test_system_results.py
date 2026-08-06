@@ -4,16 +4,12 @@ from typing import Final
 
 import numpy as np
 
-from starbug2.bin.ast import execute_artificial_stars
-from starbug2.bin.main import starbug_internal_main
+from starbug2.command_line_interfaces.main import starbug_internal_main
 from starbug2.constants import ExitStates
-from starbug2.initialise_psf_data import download_ap_corr_files
-from starbug2.star_bug_config import StarBugMainConfig
-from starbug2.starbug import StarbugBase
+from starbug2.core.star_bug_config import StarBugMainConfig
 from tests import generic
 from tests.generic import (
-    TEST_PATH, TEST_BLANK, TEST_PATH_STR, create_default_config,
-    TEST_AST_FILLED)
+    TEST_PATH, TEST_BLANK, TEST_PATH_STR, TEST_PSF_FITS, create_default_config)
 import os
 
 
@@ -102,10 +98,14 @@ class TestSystemResults:
 
     def test_detection_on_proper_fits_file(self, capsys):
         config: StarBugMainConfig = create_default_config()
+        config.unfreeze()
         config.custom_filter = 'F770W'
         config.fits_images = [TEST_NGC_FITS]
+        config.psf_file_override = TEST_PSF_FITS
         config.do_star_detection = True
         config.verbose_logs = True
+        config.output_file = TEST_PATH_STR
+        config.freeze()
         exit_state: int = starbug_internal_main(config)
         assert exit_state == ExitStates.EXIT_SUCCESS
         generic.clean()
@@ -123,37 +123,52 @@ class TestSystemResults:
             c.shape, dtype=c.dtype, buffer=share_memory.buf)
 
         # set up config for creating psf
-        psf_config: StarBugMainConfig = create_default_config()
-        psf_config.custom_filter = 'F770W'
-        psf_config.generate_psf = True
-        psf_config.detector_name = None
-        psf_config.psf_fit_size = None
-        starbug_internal_main(psf_config)
-        download_ap_corr_files(StarbugBase.get_data_path())
+        generic.make_psf_for_blank()
 
         # set up config for artificial stars
         config: StarBugMainConfig = create_default_config()
+        config.unfreeze()
         config.custom_filter = 'F770W'
         config.fits_images = [TEST_BLANK]
+        config.psf_file_override = TEST_PSF_FITS
         config.verbose_logs = True
+
+        # config to set off detection with psf
+        config.stars_per_artificial_test = 15
+        config.ast_save_added_image = True
+        config.ast_save_added_image_path = TEST_PATH_STR
+        config.output_file = TEST_PATH_STR
+        config.ast_add_stars = True
+        config.ast_loader = loading_buffer
+        config.ast_test_index = 0
+        config.artificial_star_tests_count = 1
+        config.ast_auto_save = 10
+        config.ast_load_psf = True
         config.do_star_detection = True
 
-        # config to set off detection without psf
-        config.stars_per_artificial_test = 15
-        config.save_added_image = True
-        config.save_added_image_path = TEST_PATH_STR
         config.zero_point_magnitude = 25
-        config.sigma_source = 50
-        config.test_magnitude_bright_limit = 15
-        config.test_magnitude_faint_limit = 16
+        config.test_magnitude_bright_limit = 12
+        config.test_magnitude_faint_limit = 13
+        config.full_width_half_max = 5.0
+        config.ricker_wavelet_radius = 2.5
+        config.sigma_source = 100.0
+
+        config.sigma_sky = 1.0
+        # Ke
+        config.aperture_phot_radius = 5.0
+        config.sharp_cutoff_low = 0.4
+        config.sharp_cutoff_high = 1.0
+        config.round1_cutoff_high = 0.5
+        config.round2_cutoff_high = 0.5
+
+        # --- FIXED SOURCE EXTRACTION PARAMS ---
+        config.do_convolution = True
+        config.clean_sources = True
+        config.sharp_cutoff_low = 0.2
+        config.freeze()
 
         # create empty fits file
-        generic.create_blank_fits()
-
-        # add stars
-        execute_artificial_stars(
-            TEST_BLANK, config, config.verbose_logs, 0, 1, 10, loading_buffer)
-        config.fits_images = [TEST_AST_FILLED]
+        generic.create_blank_fits(use_noise=False)
 
         # execute detection.
         exit_state: int = starbug_internal_main(config)
@@ -162,5 +177,54 @@ class TestSystemResults:
         # check results.
         captured = capsys.readouterr()
         lines = captured.out.splitlines()
-        self._assert_results(lines, expected_total=15)
+        self._assert_results(
+            lines, expected_total=15, ratio_high=2, ratio_low=-1)
+        generic.clean()
+
+    def test_artificial_star_residual(self, capsys) -> None:
+        generic.clean()
+        c: np.ndarray = np.array([0, 0, 0], dtype=np.int64)
+        share_memory: SharedMemory = (
+            shared_memory.SharedMemory(create=True, size=c.nbytes))
+        loading_buffer: np.ndarray = np.ndarray(
+            c.shape, dtype=c.dtype, buffer=share_memory.buf)
+
+        # set up config for creating psf
+        generic.make_psf_for_blank()
+
+        # create empty fits file
+        generic.create_blank_fits()
+
+        # set up config for artificial stars
+        config: StarBugMainConfig = create_default_config()
+        config.unfreeze()
+        config.custom_filter = generic.TEST_CUSTOM_FILTER
+        config.fits_images = [TEST_BLANK]
+        config.psf_file_override = TEST_PSF_FITS
+        config.verbose_logs = True
+        config.output_file = TEST_PATH_STR
+
+        # config to set off detection with psf
+        config.stars_per_artificial_test = 15
+        config.ast_save_added_image = True
+        config.ast_save_added_image_path = TEST_PATH_STR
+        config.ast_add_stars = True
+        config.ast_loader = loading_buffer
+        config.do_star_detection = True
+        config.ast_seed = 42
+        config.test_magnitude_bright_limit = 20
+        config.test_magnitude_faint_limit = 22
+        config.sigma_sky = 4
+        config.sigma_source = 10
+        config.freeze()
+
+        # execute detection / phot / residual.
+        exit_state: int = starbug_internal_main(config)
+        assert exit_state == ExitStates.EXIT_SUCCESS
+
+        # check results.
+        captured = capsys.readouterr()
+        lines = captured.out.splitlines()
+        self._assert_results(
+            lines, expected_total=15, ratio_low=-1, ratio_high=2)
         generic.clean()

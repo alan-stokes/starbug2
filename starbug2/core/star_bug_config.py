@@ -16,15 +16,19 @@ import getopt
 import os
 import numpy as np
 from astropy import units
+from astropy.table import Table
 from astropy.units import Quantity
 from typing import Dict, Tuple, Final, Any
 from parse import parse
+from pathlib import Path
 
 from starbug2.constants import (
     SCI, DEFAULT_COLOUR, HeaderTags, AP_FILE, BGD_FILE, PSF_FILE, TableColumn,
     STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, PROBLEMATIC_FILTER_ID,
-    PROBLEMATIC_FILTER_WARNING, DEFAULT_PARAM_TEMPLATE, STARBUG_DATA_DIR)
-from starbug2.utils import p_error, get_version, warn
+    PROBLEMATIC_FILTER_WARNING, STARBUG_DATA_DIR,
+    DEFAULT_FULL_WIDTH_HALF_MAX, DEFAULT_MIN_MAG, DEFAULT_MAX_MAG)
+from starbug2.utilities.filters import FilterStruct
+from starbug2.utilities.utils import p_error, get_version, warn
 
 
 class StarBugMainConfig:
@@ -175,6 +179,7 @@ class StarBugMainConfig:
         "NEXP_THRESH": ("exposure_count_threshold", int),
         "BRIDGE_COL": ("bridge_band_column", str),
         # ARTIFICIAL STAR TESTS
+        "DO_AST": ("do_artificial_star_test", bool),
         "NTESTS": ("artificial_star_tests_count", int),
         "NSTARS": ("stars_per_artificial_test", int),
         "SUBIMAGE": ("sub_image_crop_size", int),
@@ -266,13 +271,24 @@ class StarBugMainConfig:
         self._n_cores: int = 1
 
         # artificial stars params
+        self._do_artificial_star_test: bool = False
+        self._do_artificial_star_test_results: bool = False
+        self._ast_out_tables: list[Table] | None = None
         self._ast_recover: bool = False
         self._ast_auto_save: int = 100
-        self._ast_no_background: bool = False
-        self._ast_no_psf_phot: bool = False
+        self._ast_no_background: bool = True
+        self._ast_no_psf_phot: bool = True
         self._save_added_image: bool = False
         self._save_added_image_path: str = ""
         self._ast_seed: int | None = None
+
+        # states saved in config as only access route into the runs for
+        # optimization purposes
+        self._ast_loader: np.ndarray | None = None
+        self._ast_test_index: int = 0
+        self._ast_psf: np.ndarray | None = None
+        self._ast_load_psf: bool = True
+        self._ast_add_stars: bool = False
 
         # matching params
         self._do_band_processing: bool = False
@@ -338,8 +354,8 @@ class StarBugMainConfig:
         self._artificial_star_tests_count: int = 100
         self._stars_per_artificial_test: int = 10
         self._sub_image_crop_size: int = 500
-        self._test_magnitude_bright_limit: int = 18
-        self._test_magnitude_faint_limit: int = 28
+        self._test_magnitude_bright_limit: int = DEFAULT_MAX_MAG
+        self._test_magnitude_faint_limit: int = DEFAULT_MIN_MAG
         self._ast_plot_filename: str | None = None
         self._region_colour: str = DEFAULT_COLOUR
         self._region_scale: bool = True
@@ -427,6 +443,26 @@ class StarBugMainConfig:
         return cls._generate_get_opt_definitions(cls.PLOT_FLAG_MAP)
 
     @staticmethod
+    def parse_value(val_str: str) -> int | float | str:
+        # Clean up tracking whitespaces while they are guaranteed to be
+        # strings
+        raw_value = val_str.strip()
+
+        # Default fallback type is the cleaned string itself
+        value: int | float | str = raw_value
+
+        # Attempt numeric type conversions safely
+        try:
+            if '.' in raw_value:
+                value = float(raw_value)
+            else:
+                value = int(raw_value)
+        except (ValueError, AttributeError, TypeError):
+            # If conversion fails, value remains a string
+            pass
+        return value
+
+    @staticmethod
     def parse_param(line: str) -> Dict[str, int | float | str]:
         """
         Parse a parameter line
@@ -455,20 +491,9 @@ class StarBugMainConfig:
             # Clean up tracking whitespaces while they are guaranteed to be
             # strings
             key = key_str.strip()
-            raw_value = val_str.strip()
 
-            # Default fallback type is the cleaned string itself
-            value: int | float | str = raw_value
-
-            # Attempt numeric type conversions safely
-            try:
-                if '.' in raw_value:
-                    value = float(raw_value)
-                else:
-                    value = int(raw_value)
-            except (ValueError, AttributeError, TypeError):
-                # If conversion fails, value remains a string
-                pass
+            value: int | float | str
+            value = StarBugMainConfig.parse_value(val_str)
 
             # Special case environmental variables expansions for paths
             if (key in (HeaderTags.OUTPUT, AP_FILE, BGD_FILE, PSF_FILE)
@@ -583,7 +608,11 @@ class StarBugMainConfig:
             else:
                 format_dictionary[key] = "" if val is None else str(val)
 
-        return DEFAULT_PARAM_TEMPLATE.format(
+        # populate default param file.
+        default_template: Path = (
+            Path(__file__).parent / "default_param_file.txt")
+        template_str = default_template.read_text(encoding="utf-8")
+        return template_str.format(
             version_str=version_str, **format_dictionary)
 
     def do_generate_local_param_file(self) -> None:
@@ -591,7 +620,13 @@ class StarBugMainConfig:
         writes a local param file based off the state of this config.
         :return: None
         """
-        with open("starbug.param", "w") as fp:
+        # handle output file
+        path: str = "starbug.param"
+        if self._output_file is not None:
+            path = os.path.join(self._output_file, "starbug.param")
+
+        # generate new param file
+        with open(path, "w") as fp:
             fp.write(self.generate_default_param_file_text(get_version()))
 
     def update(self, update_values: dict[str, str | int | float]) -> None:
@@ -622,6 +657,7 @@ class StarBugMainConfig:
     def _normalize_threshold(
             self, threshold: float | int | np.ndarray | list | Quantity) -> (
             None | np.ndarray | Quantity):
+        # noinspection SpellCheckingInspection
         """
         Normalises threshold inputs to ensure they possess the 'arcsec' unit.
         - Unitless Quantities -> scaled to arcsec
@@ -757,6 +793,7 @@ class StarBugMainConfig:
     @do_star_detection.setter
     def do_star_detection(self, value: bool) -> None:
         self._do_star_detection = value
+        self._do_aperture_photometry = value
 
     @property
     def do_source_geometry(self) -> bool:
@@ -897,8 +934,8 @@ class StarBugMainConfig:
         self._output_file = value
 
     @property
-    def hdu_name(self) -> str:
-        return self._hdu_name
+    def hdu_name(self) -> str | int | float:
+        return StarBugMainConfig.parse_value(self._hdu_name)
 
     @hdu_name.setter
     def hdu_name(self, value: str) -> None:
@@ -926,6 +963,22 @@ class StarBugMainConfig:
     @full_width_half_max.setter
     def full_width_half_max(self, value: float) -> None:
         self._full_width_half_max = value
+
+    def full_width_half_max_with_filter(
+            self, filter_struct: FilterStruct | None) -> float:
+        """
+        figure the full_width_half_max from the filter struct
+        :param filter_struct: the filter struct.
+        :type filter_struct: FilterStruct
+        :return: the full_width_half_max
+        :rtype: float
+        """
+        if self._full_width_half_max > 0:
+            return self._full_width_half_max
+        elif filter_struct:
+            return filter_struct.full_width_half_max
+        else:
+            return DEFAULT_FULL_WIDTH_HALF_MAX
 
     @property
     def sigma_sky(self) -> float:
@@ -1362,6 +1415,54 @@ class StarBugMainConfig:
     # ===============================
 
     @property
+    def ast_add_stars(self) -> bool:
+        return self._ast_add_stars
+
+    @ast_add_stars.setter
+    def ast_add_stars(self, value) -> None:
+        self._ast_add_stars = value
+
+    @property
+    def ast_load_psf(self) -> bool:
+        return self._ast_load_psf
+
+    @ast_load_psf.setter
+    def ast_load_psf(self, value: bool) -> None:
+        self._ast_load_psf = value
+
+    @property
+    def ast_psf(self) -> np.ndarray | None:
+        return self._ast_psf
+
+    @ast_psf.setter
+    def ast_psf(self, value: np.ndarray | None) -> None:
+        self._ast_psf = value
+
+    @property
+    def do_artificial_star_test(self) -> bool:
+        return self._do_artificial_star_test
+
+    @do_artificial_star_test.setter
+    def do_artificial_star_test(self, value: bool) -> None:
+        self._do_artificial_star_test = value
+
+    @property
+    def ast_loader(self) -> np.ndarray:
+        return self._ast_loader
+
+    @ast_loader.setter
+    def ast_loader(self, value: np.ndarray) -> None:
+        self._ast_loader = value
+
+    @property
+    def ast_test_index(self) -> int:
+        return self._ast_test_index
+
+    @ast_test_index.setter
+    def ast_test_index(self, value: int) -> None:
+        self._ast_test_index = value
+
+    @property
     def ast_seed(self) -> int | None:
         return self._ast_seed
 
@@ -1370,19 +1471,19 @@ class StarBugMainConfig:
         self._ast_seed = value
 
     @property
-    def save_added_image_path(self) -> str:
+    def ast_save_added_image_path(self) -> str:
         return self._save_added_image_path
 
-    @save_added_image_path.setter
-    def save_added_image_path(self, value: str) -> None:
+    @ast_save_added_image_path.setter
+    def ast_save_added_image_path(self, value: str) -> None:
         self._save_added_image_path = value
 
     @property
-    def save_added_image(self) -> bool:
+    def ast_save_added_image(self) -> bool:
         return self._save_added_image
 
-    @save_added_image.setter
-    def save_added_image(self, value: bool) -> None:
+    @ast_save_added_image.setter
+    def ast_save_added_image(self, value: bool) -> None:
         self._save_added_image = value
 
     @property
@@ -1424,6 +1525,22 @@ class StarBugMainConfig:
     @ast_no_psf_phot.setter
     def ast_no_psf_phot(self, value: bool) -> None:
         self._ast_no_psf_phot = value
+
+    @property
+    def do_artificial_star_test_results(self) -> bool:
+        return self._do_artificial_star_test_results
+
+    @do_artificial_star_test_results.setter
+    def do_artificial_star_test_results(self, value: bool) -> None:
+        self._do_artificial_star_test_results = value
+
+    @property
+    def ast_out_tables(self) -> list[Table] | None:
+        return self._ast_out_tables
+
+    @ast_out_tables.setter
+    def ast_out_tables(self, value: list[Table]) -> None:
+        self._ast_out_tables = value
 
     # =======================================
     # matching properties

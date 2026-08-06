@@ -20,7 +20,7 @@ from photutils.aperture import CircularAperture, aperture_photometry
 from photutils.psf import PSFPhotometry, SourceGrouper, ImagePSF
 
 from starbug2.constants import TableColumn
-from starbug2.utils import printf, p_error, warn
+from starbug2.utilities.utils import printf, p_error, warn
 
 
 class _Grouper(SourceGrouper):
