@@ -828,6 +828,7 @@ class StarbugBase(StarBugInterface):
             return hstack((self._ast_star_source_list, test_result)), end_state
 
         # Check for detection in output
+        assert self._detections is not None
         for i, src in enumerate(self._ast_star_source_list):  # type: ignore
             separations: np.ndarray = (
                 np.sqrt(
