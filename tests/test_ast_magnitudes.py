@@ -28,7 +28,7 @@ from tests import generic
 
 FIXED_FILTER_FOR_SCIENCE_CONFIDENCE = "F444W"
 
-# these values come from an execution of starbug2 on a macbook, as grounding
+# these values come from an execution of starbug2 on a MacBook, as grounding
 # values for verifying that the newest starbug 2 generates the same values.
 X_COORD_LOCATION_OLD_STARBUG: Final = 77.74946
 DETECTED_MAG_OLD_STARBUG: Final = 21.78636
@@ -69,7 +69,7 @@ def update_config_for_fake_stars_into_image_fits(
 
 def test_ast_output_data():
     """
-    tests that artificial stars can generate the correct output utilizing
+    tests that artificial stars can generate the correct output utilising
     a test fits file.
     :return: None
     """
