@@ -18,7 +18,7 @@ import os
 from astropy.table import Table
 from numpy.testing import assert_array_equal
 
-from constants import TableColumn
+from starbug2.constants import TableColumn
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
 from test_ast_magnitudes import FIXED_FILTER_FOR_SCIENCE_CONFIDENCE
