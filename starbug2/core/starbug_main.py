@@ -852,30 +852,29 @@ class StarbugBase(StarBugInterface):
         # Run background
         if (sum(test_result[TableColumn.STATUS])
             and (self._config.ast_no_background
-                 or not self.bgd_estimate())):
+                 or self._config.ast_no_psf_phot)):
 
-            # estimate if there were detections
-            self._detections = test_result
-
-            if self._config.ast_no_psf_phot:
-                return (
-                    hstack((self._ast_star_source_list, test_result)),
-                    ExitStates.EXIT_SUCCESS)
+            # do background.
+            if not self._config.ast_no_background:
+                self.bgd_estimate()
 
             # Run PSF photometry on detected sources
-            self.psf_photometry_routine()
-            psf_catalogue = self.psf_catalogue
-            assert psf_catalogue is not None
-            psf_catalogue.rename_columns(
-                (TableColumn.X_INIT, TableColumn.Y_INIT,
-                 TableColumn.XY_DEV),
-                (TableColumn.X_INIT, TableColumn.Y_INIT,
-                 TableColumn.XY_DEV_))
-            matched: Table = GenericMatch(threshold=threshold)(
-                [self._ast_star_source_list, psf_catalogue],
-                cartesian=True)
-            test_result[TableColumn.FLUX_DET] = (
-                matched[:len(test_result)][TableColumn.FLUX_2])
+            if not self._config.ast_no_psf_phot:
+                self.psf_photometry_routine()
+                psf_catalogue = self.psf_catalogue
+                assert psf_catalogue is not None
+                psf_catalogue.rename_columns(
+                    (TableColumn.X_INIT, TableColumn.Y_INIT,
+                     TableColumn.XY_DEV),
+                    (TableColumn.X_INIT, TableColumn.Y_INIT,
+                     TableColumn.XY_DEV_))
+                matched: Table = GenericMatch(threshold=threshold)(
+                    [self._ast_star_source_list, psf_catalogue],
+                    cartesian=True)
+                test_result[TableColumn.FLUX_DET] = (
+                    matched[:len(test_result)][TableColumn.FLUX_2])
+            # update to ensure detections are adjusted after the results.
+            self._detections = test_result
         return (hstack((self._ast_star_source_list, test_result)),
                 ExitStates.EXIT_SUCCESS)
 

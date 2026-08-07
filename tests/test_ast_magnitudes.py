@@ -31,12 +31,11 @@ FIXED_FILTER_FOR_SCIENCE_CONFIDENCE = "F444W"
 # these values come from an execution of starbug2 on a macbook, as grounding
 # values for verifying that the newest starbug 2 generates the same values.
 X_COORD_LOCATION_OLD_STARBUG: Final = 77.74946
-MAG_DIFF_OLD_STARBUG: Final = 0.0867
 DETECTED_MAG_OLD_STARBUG: Final = 21.78636
 DETECTED_ERROR_OLD_STARBUG: Final = 0.09465
 
 
-def update_config_for_fake_stars_into_blank(
+def update_config_for_fake_stars_into_image_fits(
         config: StarBugMainConfig,
         custom_filter: str = FIXED_FILTER_FOR_SCIENCE_CONFIDENCE) -> None:
     """
@@ -80,7 +79,8 @@ def test_ast_output_data():
     # create blank fits file.
     config: StarBugMainConfig = StarBugMainConfig()
     generic.create_blank_fits()
-    update_config_for_fake_stars_into_blank(config, generic.TEST_CUSTOM_FILTER)
+    update_config_for_fake_stars_into_image_fits(
+        config, generic.TEST_CUSTOM_FILTER)
     config.unfreeze()
     config.verbose_logs = True
     config.sigma_sky = 4
@@ -131,6 +131,7 @@ def test_ast_output_data():
     assert os.path.exists(output_file)
     assert os.path.exists(output_file2)
 
+    # generate local param file for sending back to starbug1
     config.generate_local_param_file = True
     starbug_one_time_runs(config)
 
@@ -150,7 +151,7 @@ def test_ast_output_psf_photo_data():
     # create blank fits file.
     config: StarBugMainConfig = StarBugMainConfig()
     generic.create_blank_fits()
-    update_config_for_fake_stars_into_blank(config)
+    update_config_for_fake_stars_into_image_fits(config)
     config.unfreeze()
     config.verbose_logs = True
     config.sigma_sky = 4
@@ -172,14 +173,14 @@ def test_ast_output_psf_photo_data():
 
     assert artificial_stars_detections is not None
     assert fake_star_locations is not None
-    assert len(artificial_stars_detections) == 1
+    assert len(artificial_stars_detections) == 10
     assert len(fake_star_locations) == 1
 
-    assert (artificial_stars_detections[0][TableColumn.X_DET] ==
+    assert (artificial_stars_detections[3][TableColumn.X_CENTROID] ==
             pytest.approx(fake_star_locations[0][TableColumn.X_0], abs=0.5))
-    assert (artificial_stars_detections[0][TableColumn.Y_DET] ==
+    assert (artificial_stars_detections[3][TableColumn.Y_CENTROID] ==
             pytest.approx(fake_star_locations[0][TableColumn.Y_0], abs=0.5))
-    assert (artificial_stars_detections[0][TableColumn.FLUX_DET] ==
+    assert (artificial_stars_detections[3][TableColumn.FLUX] ==
             pytest.approx(fake_star_locations[0][TableColumn.FLUX], abs=0.1))
 
     # execute output generation
@@ -215,8 +216,8 @@ def test_ast_output_psf_photo_data():
     # check output values are sensible.
     ast_file: Table = Table.read(
         os.path.join(TEST_PATH_STR, "image-ast.fits"), format="fits", hdu=2)
-    assert (ast_file[TableColumn.MAG_DIFF] ==
-            pytest.approx(MAG_DIFF_OLD_STARBUG, 0.1))
+    assert (ast_file[TableColumn.MAG_DET] ==
+            pytest.approx(DETECTED_MAG_OLD_STARBUG, 0.1))
 
     ap_file: Table = Table.read(
         os.path.join(TEST_PATH_STR, "image-ap.fits"), hdu=1)
