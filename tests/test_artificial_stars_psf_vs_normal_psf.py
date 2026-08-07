@@ -21,7 +21,7 @@ from numpy.testing import assert_array_equal
 from starbug2.constants import TableColumn
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
-from test_ast_magnitudes import FIXED_FILTER_FOR_SCIENCE_CONFIDENCE
+from tests.test_ast_magnitudes import FIXED_FILTER_FOR_SCIENCE_CONFIDENCE
 from tests.generic import TEST_PATH_STR, TEST_PSF_FITS
 from tests import generic
 
