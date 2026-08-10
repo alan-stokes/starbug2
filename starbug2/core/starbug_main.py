@@ -829,27 +829,11 @@ class StarbugBase(StarBugInterface):
 
         # Check for detection in output
         assert self._detections is not None
-        for i, src in enumerate(self._ast_star_source_list):  # type: ignore
-            separations: np.ndarray = (
-                np.sqrt(
-                    (src[TableColumn.X_0] -
-                     self._detections[TableColumn.X_CENTROID]) ** 2
-                    + (src[TableColumn.Y_0] -
-                       self._detections[TableColumn.Y_CENTROID]) ** 2)
-                * threshold.unit)
-            best_match: int = np.argmin(separations)  # noqa
-            if separations[best_match] < threshold:
-                test_result[TableColumn.X_DET][i] = (
-                    self._detections[TableColumn.X_CENTROID][best_match])
-                test_result[TableColumn.Y_DET][i] = (
-                    self._detections[TableColumn.Y_CENTROID][best_match])
-                test_result[TableColumn.FLUX_DET][i] = (
-                    self._detections[TableColumn.FLUX][best_match])
-                test_result[TableColumn.STATUS][i] = DETECT
-            else:
-                test_result[TableColumn.STATUS][i] = NOT_FOUND
+        self._ast_determine_if_sources_found(
+            test_result, threshold, TableColumn.X_CENTROID,
+            TableColumn.Y_CENTROID, TableColumn.FLUX)
 
-        # Run background
+        # Run background and psf if needed
         if (sum(test_result[TableColumn.STATUS])
             and (self._config.ast_no_background
                  or self._config.ast_no_psf_phot)):
@@ -873,10 +857,54 @@ class StarbugBase(StarBugInterface):
                     cartesian=True)
                 test_result[TableColumn.FLUX_DET] = (
                     matched[:len(test_result)][TableColumn.FLUX_2])
+
             # update to ensure detections are adjusted after the results.
             self._detections = test_result
+
+            # verify detections were found.
+            self._ast_determine_if_sources_found(
+                test_result, threshold, TableColumn.X_DET, TableColumn.Y_DET,
+                TableColumn.FLUX_DET)
         return (hstack((self._ast_star_source_list, test_result)),
                 ExitStates.EXIT_SUCCESS)
+
+    def _ast_determine_if_sources_found(
+            self, test_result: Table, threshold: Quantity, x_column_label: str,
+            y_column_label: str, flux_label: str) -> None:
+        """
+        determines if the detections found the artificial stars.
+        :param test_result: The results table.
+        :type test_result: Table
+        :param threshold: The threshold.
+        :type threshold: Quantity.
+        :param x_column_label: the label for the x column (
+                                between X_CENTROID, X_DET)
+        :param y_column_label: the label for the y column (
+                                between Y_CENTROID, Y_DET)
+        :param flux_label: the label for the flux column (
+                           between FLUX and FLUX_DET)
+        :return: None
+        """
+        assert self._detections is not None
+        for i, src in enumerate(self._ast_star_source_list):  # type: ignore
+            separations: np.ndarray = (
+                np.sqrt(
+                    (src[TableColumn.X_0] -
+                     self._detections[x_column_label]) ** 2
+                    + (src[TableColumn.Y_0] -
+                       self._detections[y_column_label]) ** 2)
+                * threshold.unit)
+            best_match: int = np.argmin(separations)  # noqa
+            if separations[best_match] < threshold:
+                test_result[TableColumn.X_DET][i] = (
+                    self._detections[x_column_label][best_match])
+                test_result[TableColumn.Y_DET][i] = (
+                    self._detections[y_column_label][best_match])
+                test_result[TableColumn.FLUX_DET][i] = (
+                    self._detections[flux_label][best_match])
+                test_result[TableColumn.STATUS][i] = DETECT
+            else:
+                test_result[TableColumn.STATUS][i] = NOT_FOUND
 
     def _do_artificial_star_test_result(
             self, config: StarBugMainConfig) -> ExitStates:
