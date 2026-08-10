@@ -96,6 +96,7 @@ def update_config_for_basic_into_image_fits(
     config.output_file = TEST_PATH_STR
     config.freeze()
 
+
 def find_mask_for_artificial_star(
         fake_star_locations: Table, ap_file: Table, x_label: str) -> int:
     """
