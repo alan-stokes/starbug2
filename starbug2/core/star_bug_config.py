@@ -1447,7 +1447,7 @@ class StarBugMainConfig:
         self._do_artificial_star_test = value
 
     @property
-    def ast_loader(self) -> np.ndarray:
+    def ast_loader(self) -> np.ndarray | None:
         return self._ast_loader
 
     @ast_loader.setter
@@ -1703,3 +1703,53 @@ class StarBugMainConfig:
             return
 
         super().__setattr__(key, value)
+
+    def __str__(self) -> str:
+        """Returns a formatted, categorised string representation of the
+           configuration."""
+
+        # Helper to format array shapes or lengths instead of full objects
+        def _fmt(val: object) -> str:
+            if isinstance(val, list):
+                return f"list(len={len(val)})"
+            if hasattr(val, "shape"):  # NumPy arrays / Astropy tables
+                return f"array(shape={getattr(val, 'shape')})"
+            return repr(val)
+
+        return (
+            f"<{self.__class__.__name__} (\n"
+            f"  [Meta]\n"
+            f"    frozen={self._frozen}, verbose_logs={self._verbose_logs}, "
+            f"    n_cores={self._n_cores}\n"
+            f"  [Main Actions]\n"
+            f"    aperture_phot={self._do_aperture_photometry}, "
+            f"    bgd_estimate={self._do_bgd_estimate}, "
+            f"star_detection={self._do_star_detection}, "
+            f"matching={self._do_matching}, "
+            f"phot_routine={self._do_photometry_routine},"
+            f"bgd_subtraction={self._do_bgd_subtraction}\n"
+            f"  [Files & Paths]\n"
+            f"    param_file={self._param_file!r}, ap_file={self._ap_file!r}, "
+            f"bgd_file={self._background_file!r},"
+            f" output_file={self._output_file!r}, "
+            f"fits_images={_fmt(self._fits_images)}\n"
+            f"  [Instrument & Filters]\n"
+            f"    hdu_name={self._hdu_name!r}, filter={self._filter!r},"
+            f" detector={self._detector_name!r}\n"
+            f"  [Photometry & Geometry]\n"
+            f"    fwhm={self._full_width_half_max}, "
+            f"sigma_sky={self._sigma_sky}, "
+            f"sigma_source={self._sigma_source}, "
+            f"ap_radius={self._aperture_phot_radius}, "
+            f"sky_annulus=[{self._sky_annulus_inner_radius}, "
+            f"{self._sky_annulus_outer_radius}]\n"
+            f"  [Artificial Stars (AST)]\n"
+            f"    do_ast={self._do_artificial_star_test}, "
+            f"tests_count={self._artificial_star_tests_count}, "
+            f"stars_per_test={self._stars_per_artificial_test}, "
+            f"ast_loader={_fmt(self._ast_loader)}\n"
+            f")>"
+        )
+
+    def __repr__(self) -> str:
+        return self.__str__()

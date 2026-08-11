@@ -134,6 +134,7 @@ class StarbugBase(StarBugInterface):
         self._psf: np.ndarray | None = psf
         self._ast_star_source_list: QTable | None = None
         self._ast_test_results: list[Table] | None = config.ast_out_tables
+        self._ast_detections: Table | None = None
 
         # Overridden configs
         self._ap_file: str | None = ap_file
@@ -427,6 +428,22 @@ class StarbugBase(StarBugInterface):
             mask: np.ndarray = ~(
                 np.isnan(source_list[TableColumn.X_CENTROID])
                 | np.isnan(source_list[TableColumn.Y_CENTROID]))
+            if TableColumn.CAT_NUM in source_list.colnames:
+                source_list.remove_column(TableColumn.CAT_NUM)
+            if TableColumn.SMOOTHNESS in source_list.colnames:
+                source_list.remove_column(TableColumn.SMOOTHNESS)
+            if TableColumn.FLUX in source_list.colnames:
+                source_list.remove_column(TableColumn.FLUX)
+            if TableColumn.E_FLUX in source_list.colnames:
+                source_list.remove_column(TableColumn.E_FLUX)
+            if TableColumn.SKY in source_list.colnames:
+                source_list.remove_column(TableColumn.SKY)
+            if TableColumn.FLAG in source_list.colnames:
+                source_list.remove_column(TableColumn.FLAG)
+            if f"{self._filter}" in source_list.colnames:
+                source_list.remove_column(f"{self._filter}")
+            if f"e{self._filter}" in source_list.colnames:
+                source_list.remove_column(f"e{self._filter}")
 
             bgd: BackGroundEstimateRoutine = BackGroundEstimateRoutine(
                 source_list[mask],
@@ -835,16 +852,25 @@ class StarbugBase(StarBugInterface):
 
         # Run background and psf if needed
         if (sum(test_result[TableColumn.STATUS])
-            and (self._config.ast_no_background
-                 or self._config.ast_no_psf_phot)):
+            and not (self._config.ast_no_background
+                     or self._config.ast_no_psf_phot)):
 
             # do background.
             if not self._config.ast_no_background:
-                self.bgd_estimate()
+                end_state = self.bgd_estimate()
+                if end_state != ExitStates.EXIT_SUCCESS:
+                    p_error("Failed to execute ast psf background")
+                    return hstack(
+                        (self._ast_star_source_list, test_result)), end_state
 
             # Run PSF photometry on detected sources
             if not self._config.ast_no_psf_phot:
-                self.psf_photometry_routine()
+                end_state = self.psf_photometry_routine()
+                if end_state != ExitStates.EXIT_SUCCESS:
+                    p_error("Failed to execute ast psf photometry")
+                    return hstack(
+                        (self._ast_star_source_list, test_result)), end_state
+
                 psf_catalogue = self.psf_catalogue
                 assert psf_catalogue is not None
                 psf_catalogue.rename_columns(
@@ -858,13 +884,15 @@ class StarbugBase(StarBugInterface):
                 test_result[TableColumn.FLUX_DET] = (
                     matched[:len(test_result)][TableColumn.FLUX_2])
 
-            # update to ensure detections are adjusted after the results.
-            self._detections = test_result
-
             # verify detections were found.
             self._ast_determine_if_sources_found(
-                test_result, threshold, TableColumn.X_DET, TableColumn.Y_DET,
-                TableColumn.FLUX_DET)
+                test_result, threshold, TableColumn.X_CENTROID,
+                TableColumn.X_CENTROID, TableColumn.FLUX)
+
+        # update to ensure detections are adjusted after the results.
+        self._ast_detections = test_result
+
+        # return the combination.
         return (hstack((self._ast_star_source_list, test_result)),
                 ExitStates.EXIT_SUCCESS)
 
@@ -1092,3 +1120,7 @@ class StarbugBase(StarBugInterface):
     @property
     def out_dir(self) -> str | None:
         return self._out_dir
+
+    @property
+    def ast_detections(self) -> Table | None:
+        return self._ast_detections

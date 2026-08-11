@@ -86,6 +86,8 @@ def test_ast_output_data():
     config.sigma_sky = 4
     config.sigma_source = 10
     config.generate_residual_image = True
+    config.ast_no_psf_phot = False
+    config.ast_no_background = False
     config.freeze()
 
     entrance: StarbugBase = StarbugBase(
@@ -94,7 +96,7 @@ def test_ast_output_data():
     # execute add stars and do test
     entrance.run_starbug()
 
-    artificial_stars_detections: Table | None = entrance.detections
+    artificial_stars_detections: Table | None = entrance.ast_detections
     fake_star_locations: Table | None = entrance.ast_star_source_list
 
     assert artificial_stars_detections is not None
@@ -168,19 +170,19 @@ def test_ast_output_psf_photo_data():
     # execute add stars and do test
     entrance.run_starbug()
 
-    artificial_stars_detections: Table | None = entrance.detections
+    artificial_stars_detections: Table | None = entrance.ast_detections
     fake_star_locations: Table | None = entrance.ast_star_source_list
 
     assert artificial_stars_detections is not None
     assert fake_star_locations is not None
-    assert len(artificial_stars_detections) == 10
+    assert len(artificial_stars_detections) == 1
     assert len(fake_star_locations) == 1
 
-    assert (artificial_stars_detections[3][TableColumn.X_CENTROID] ==
+    assert (artificial_stars_detections[0][TableColumn.X_DET] ==
             pytest.approx(fake_star_locations[0][TableColumn.X_0], abs=0.5))
-    assert (artificial_stars_detections[3][TableColumn.Y_CENTROID] ==
+    assert (artificial_stars_detections[0][TableColumn.Y_DET] ==
             pytest.approx(fake_star_locations[0][TableColumn.Y_0], abs=0.5))
-    assert (artificial_stars_detections[3][TableColumn.FLUX] ==
+    assert (artificial_stars_detections[0][TableColumn.FLUX_DET] ==
             pytest.approx(fake_star_locations[0][TableColumn.FLUX], abs=0.1))
 
     # execute output generation

@@ -50,7 +50,6 @@ def update_config_for_fake_stars_into_image_fits(
     config.ast_seed = 42
     config.sigma_sky = 4
     config.sigma_source = 10
-    config.generate_residual_image = True
     config.test_magnitude_bright_limit = 20
     config.test_magnitude_faint_limit = 22
     config.stars_per_artificial_test = 1
@@ -89,8 +88,8 @@ def update_config_for_basic_into_image_fits(
     config.ast_load_psf = True
     config.sigma_sky = 4
     config.sigma_source = 10
+    config.do_bgd_estimate = True
     config.do_photometry_routine = use_psf
-    config.generate_residual_image = True
     config.test_magnitude_bright_limit = 20
     config.test_magnitude_faint_limit = 22
     config.output_file = TEST_PATH_STR
@@ -135,7 +134,7 @@ def test_artificial_stars_vs_basic():
     # execute add stars and do artificial test
     entrance.run_starbug()
 
-    artificial_stars_detections: Table | None = entrance.detections
+    artificial_stars_detections: Table | None = entrance.ast_detections
     fake_star_locations: Table | None = entrance.ast_star_source_list
     output_file: str = os.path.join(TEST_PATH_STR, "image-ast.fits")
 
@@ -148,7 +147,7 @@ def test_artificial_stars_vs_basic():
 
     # execute basic detection and aperture.
     config: StarBugMainConfig = StarBugMainConfig()
-    update_config_for_basic_into_image_fits(config, True)
+    update_config_for_basic_into_image_fits(config, False)
     entrance: StarbugBase = StarbugBase(
         config=config,
         f_name=os.path.join(TEST_PATH_STR, "inserted_image_for_test_0.fits"),
@@ -251,7 +250,8 @@ def test_artificial_stars_vs_basic_psf():
     # execute add stars and do artificial test
     entrance.run_starbug()
 
-    artificial_stars_detections: Table | None = entrance.detections
+    artificial_stars_detections: Table | None = entrance.ast_detections
+    ast_basic_detections: Table | None = entrance.detections
     fake_star_locations: Table | None = entrance.ast_star_source_list
     output_file: str = os.path.join(TEST_PATH_STR, "image-ast.fits")
 
@@ -260,10 +260,10 @@ def test_artificial_stars_vs_basic_psf():
     assert fake_star_locations is not None
     fake_star_index = find_mask_for_artificial_star(
         fake_star_locations, artificial_stars_detections,
-        TableColumn.X_CENTROID)
+        TableColumn.X_DET)
 
     assert os.path.exists(output_file)
-    ast_file: Table = Table.read(
+    ast_ast_file: Table = Table.read(
         os.path.join(TEST_PATH_STR, "image-ast.fits"),
         format="fits", hdu=2).copy()
     ast_ap_file: Table = Table.read(
@@ -273,7 +273,7 @@ def test_artificial_stars_vs_basic_psf():
 
     # execute basic detection and aperture.
     config: StarBugMainConfig = StarBugMainConfig()
-    update_config_for_basic_into_image_fits(config, False)
+    update_config_for_basic_into_image_fits(config, True)
     entrance: StarbugBase = StarbugBase(
         config=config,
         f_name=os.path.join(TEST_PATH_STR, "inserted_image_for_test_0.fits"),
@@ -329,28 +329,30 @@ def test_artificial_stars_vs_basic_psf():
     assert artificial_stars_detections is not None
     assert fake_star_locations is not None
     assert basic_stars_detections is not None
+    assert ast_basic_detections is not None
 
     # verify table sizes
-    assert len(artificial_stars_detections) == 10
+    assert len(artificial_stars_detections) == 1
     assert len(fake_star_locations) == 1
     assert len(basic_stars_detections) == 10
+    assert len(ast_basic_detections) == 10
 
     # verify mag from ast
     assert_array_equal(
-        ast_file[TableColumn.MAG_DET],
-        basic_ap_file[FIXED_FILTER_FOR_SCIENCE_CONFIDENCE][fake_star_index]
+        ast_ast_file[TableColumn.MAG_DET],
+        basic_psf_file[FIXED_FILTER_FOR_SCIENCE_CONFIDENCE][fake_star_index]
     )
     assert_array_equal(
-        ast_file[TableColumn.MAG_DET],
-        ast_ap_file[FIXED_FILTER_FOR_SCIENCE_CONFIDENCE][fake_star_index]
+        ast_ast_file[TableColumn.MAG_DET],
+        ast_psf_file[FIXED_FILTER_FOR_SCIENCE_CONFIDENCE][fake_star_index]
     )
     assert_array_equal(
-        ast_file[TableColumn.X_DET],
+        ast_ast_file[TableColumn.X_DET],
         basic_ap_file[TableColumn.X_CENTROID][fake_star_index]
     )
     assert_array_equal(
-        ast_file[TableColumn.Y_DET],
-        basic_ap_file[TableColumn.Y_CENTROID][fake_star_index])
+        ast_ast_file[TableColumn.Y_DET],
+        basic_psf_file[TableColumn.Y_CENTROID][fake_star_index])
 
     # verify psf files are identical.
     assert_array_equal(

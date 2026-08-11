@@ -54,9 +54,6 @@ class ArtificialStars:
 
         base_shape: np.ndarray = np.copy(main_image_shape)
         if any(base_shape < config.sub_image_crop_size):
-            config.unfreeze()
-            config.sub_image_crop_size = min(base_shape)
-            config.freeze()
             p_error("sub image size greater than image size, setting to "
                     "'safe' value %d.\n" % config.sub_image_crop_size)
         return ExitStates.EXIT_SUCCESS
