@@ -256,11 +256,11 @@ def test_artificial_stars_vs_basic_psf():
     output_file: str = os.path.join(TEST_PATH_STR, "image-ast.fits")
 
     # find location
-    assert artificial_stars_detections is not None
+    assert ast_basic_detections is not None
     assert fake_star_locations is not None
     fake_star_index = find_mask_for_artificial_star(
-        fake_star_locations, artificial_stars_detections,
-        TableColumn.X_DET)
+        fake_star_locations, ast_basic_detections,
+        TableColumn.X_CENTROID)
 
     assert os.path.exists(output_file)
     ast_ast_file: Table = Table.read(
@@ -348,11 +348,11 @@ def test_artificial_stars_vs_basic_psf():
     )
     assert_array_equal(
         ast_ast_file[TableColumn.X_DET],
-        basic_ap_file[TableColumn.X_CENTROID][fake_star_index]
+        basic_psf_file[TableColumn.X_INIT][fake_star_index]
     )
     assert_array_equal(
         ast_ast_file[TableColumn.Y_DET],
-        basic_psf_file[TableColumn.Y_CENTROID][fake_star_index])
+        basic_psf_file[TableColumn.Y_INIT][fake_star_index])
 
     # verify psf files are identical.
     assert_array_equal(
