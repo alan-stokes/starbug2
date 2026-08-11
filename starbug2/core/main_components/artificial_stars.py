@@ -54,9 +54,6 @@ class ArtificialStars:
 
         base_shape: np.ndarray = np.copy(main_image_shape)
         if any(base_shape < config.sub_image_crop_size):
-            config.unfreeze()
-            config.sub_image_crop_size = min(base_shape)
-            config.freeze()
             p_error("sub image size greater than image size, setting to "
                     "'safe' value %d.\n" % config.sub_image_crop_size)
         return ExitStates.EXIT_SUCCESS
@@ -103,7 +100,7 @@ class ArtificialStars:
             }, config.ast_seed
         )
 
-        # utilizing the Pogsons brightness equation. it ensures an astronomical
+        # utilising the Pogsons brightness equation. it ensures an astronomical
         # magnitude is converted to a linear flux density if the zero point
         # magnitude is correct in that it "defined as the magnitude of a
         # source that produces exactly $1\text{ Jy}$ of flux " see
@@ -182,7 +179,7 @@ def get_completeness(test_result: Table) -> Table:
 
     :param test_result: The output from auto_run.
     :type test_result: astropy.table.Table
-    :return: A table containing percent completeness as a function of
+    :return: A table containing percentage completeness as a function of
              magnitude.
     :rtype: astropy.table.Table
     """
@@ -326,7 +323,7 @@ def scurve(
     """
     S-curve function to fit completeness results to.
 
-    math::  f(x) = \\frac{l}(1 + \\exp(-k(x - x_0)))
+    math::  f(x) = \\frac{l}(1 + exp(-k(x - x_0)))
 
     :param x: Magnitude range or array to input into the function.
     :type x: list or numpy.ndarray
@@ -378,6 +375,7 @@ def plot_mid_plot(
         alpha=0.2
     )
 
+    # noinspection SpellCheckingInspection
     ax.set_ylabel(r'$\Delta m$ ($m_{\mathrm{det}} - m_{\mathrm{inj}}$)')
     # Zoom in on the bias zone (-0.5 to +0.5 mag is standard)
     ax.set_ylim(-0.5, 0.5)
@@ -426,9 +424,9 @@ def photometric_bias(
     generate the photometric bias data
     :param raw: the result table.
     :type raw: table.
-    :return: the differences in magnitude, the centers of each bin,
+    :return: the differences in magnitude, the centres of each bin,
     the medium offsets, the standard deviation offsets.
-    :rtype Tuple[Table, np.ndarray, np.ndarray, np.ndarray]
+    :rtype: Tuple[Table, np.ndarray, np.ndarray, np.ndarray]
     """
     bins: np.ndarray = np.arange(
         np.floor(np.nanmin(raw[TableColumn.MAG])),

@@ -55,6 +55,8 @@ def update_config_for_fake_stars_into_blank(config: StarBugMainConfig) -> None:
     config.do_artificial_star_test = True
     config.ast_load_psf = True
     config.ast_seed = 42
+    config.ast_no_psf_phot = False
+    config.ast_no_background = False
     config.test_magnitude_bright_limit = 20
     config.test_magnitude_faint_limit = 22
     config.sigma_sky = 4
@@ -189,6 +191,8 @@ def test_results_for_execute_as_test():
     config.unfreeze()
     config.do_star_detection = True
     config.do_aperture_photometry = True
+    config.ast_no_psf_phot = False
+    config.ast_no_background = False
     config.custom_filter = generic.TEST_CUSTOM_FILTER
     config.fits_images = [generic.TEST_BLANK]
     config.psf_file_override = TEST_PSF_FITS
@@ -217,7 +221,7 @@ def test_results_for_execute_as_test():
     entrance.run_starbug()
 
     # get data for comparison
-    artificial_stars_detections: Table | None = entrance.detections
+    artificial_stars_detections: Table | None = entrance.ast_detections
     fake_star_locations: Table | None = entrance.ast_star_source_list
 
     assert artificial_stars_detections is not None
@@ -273,7 +277,7 @@ def test_ast_output_data():
     # execute add stars and do test
     entrance.run_starbug()
 
-    artificial_stars_detections: Table | None = entrance.detections
+    artificial_stars_detections: Table | None = entrance.ast_detections
     fake_star_locations: Table | None = entrance.ast_star_source_list
 
     assert artificial_stars_detections is not None

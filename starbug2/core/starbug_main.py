@@ -134,6 +134,7 @@ class StarbugBase(StarBugInterface):
         self._psf: np.ndarray | None = psf
         self._ast_star_source_list: QTable | None = None
         self._ast_test_results: list[Table] | None = config.ast_out_tables
+        self._ast_detections: Table | None = None
 
         # Overridden configs
         self._ap_file: str | None = ap_file
@@ -427,6 +428,22 @@ class StarbugBase(StarBugInterface):
             mask: np.ndarray = ~(
                 np.isnan(source_list[TableColumn.X_CENTROID])
                 | np.isnan(source_list[TableColumn.Y_CENTROID]))
+            if TableColumn.CAT_NUM in source_list.colnames:
+                source_list.remove_column(TableColumn.CAT_NUM)
+            if TableColumn.SMOOTHNESS in source_list.colnames:
+                source_list.remove_column(TableColumn.SMOOTHNESS)
+            if TableColumn.FLUX in source_list.colnames:
+                source_list.remove_column(TableColumn.FLUX)
+            if TableColumn.E_FLUX in source_list.colnames:
+                source_list.remove_column(TableColumn.E_FLUX)
+            if TableColumn.SKY in source_list.colnames:
+                source_list.remove_column(TableColumn.SKY)
+            if TableColumn.FLAG in source_list.colnames:
+                source_list.remove_column(TableColumn.FLAG)
+            if f"{self._filter}" in source_list.colnames:
+                source_list.remove_column(f"{self._filter}")
+            if f"e{self._filter}" in source_list.colnames:
+                source_list.remove_column(f"e{self._filter}")
 
             bgd: BackGroundEstimateRoutine = BackGroundEstimateRoutine(
                 source_list[mask],
@@ -829,55 +846,93 @@ class StarbugBase(StarBugInterface):
 
         # Check for detection in output
         assert self._detections is not None
+        self._ast_determine_if_sources_found(
+            test_result, threshold, TableColumn.X_CENTROID,
+            TableColumn.Y_CENTROID, TableColumn.FLUX)
+
+        # Run background and psf if needed
+        if (sum(test_result[TableColumn.STATUS])
+            and not (self._config.ast_no_background
+                     or self._config.ast_no_psf_phot)):
+
+            # do background.
+            if not self._config.ast_no_background:
+                end_state = self.bgd_estimate()
+                if end_state != ExitStates.EXIT_SUCCESS:
+                    p_error("Failed to execute ast psf background")
+                    return hstack(
+                        (self._ast_star_source_list, test_result)), end_state
+
+            # Run PSF photometry on detected sources
+            if not self._config.ast_no_psf_phot:
+                end_state = self.psf_photometry_routine()
+                if end_state != ExitStates.EXIT_SUCCESS:
+                    p_error("Failed to execute ast psf photometry")
+                    return hstack(
+                        (self._ast_star_source_list, test_result)), end_state
+
+                psf_catalogue = self.psf_catalogue
+                assert psf_catalogue is not None
+                psf_catalogue.rename_columns(
+                    (TableColumn.X_INIT, TableColumn.Y_INIT,
+                     TableColumn.XY_DEV),
+                    (TableColumn.X_INIT, TableColumn.Y_INIT,
+                     TableColumn.XY_DEV_))
+                matched: Table = GenericMatch(threshold=threshold)(
+                    [self._ast_star_source_list, psf_catalogue],
+                    cartesian=True)
+                test_result[TableColumn.FLUX_DET] = (
+                    matched[:len(test_result)][TableColumn.FLUX_2])
+
+            # verify detections were found.
+            self._ast_determine_if_sources_found(
+                test_result, threshold, TableColumn.X_CENTROID,
+                TableColumn.X_CENTROID, TableColumn.FLUX)
+
+        # update to ensure detections are adjusted after the results.
+        self._ast_detections = test_result
+
+        # return the combination.
+        return (hstack((self._ast_star_source_list, test_result)),
+                ExitStates.EXIT_SUCCESS)
+
+    def _ast_determine_if_sources_found(
+            self, test_result: Table, threshold: Quantity, x_column_label: str,
+            y_column_label: str, flux_label: str) -> None:
+        """
+        determines if the detections found the artificial stars.
+        :param test_result: The results table.
+        :type test_result: Table
+        :param threshold: The threshold.
+        :type threshold: Quantity.
+        :param x_column_label: the label for the x column (
+                                between X_CENTROID, X_DET)
+        :param y_column_label: the label for the y column (
+                                between Y_CENTROID, Y_DET)
+        :param flux_label: the label for the flux column (
+                           between FLUX and FLUX_DET)
+        :return: None
+        """
+        assert self._detections is not None
         for i, src in enumerate(self._ast_star_source_list):  # type: ignore
             separations: np.ndarray = (
                 np.sqrt(
                     (src[TableColumn.X_0] -
-                     self._detections[TableColumn.X_CENTROID]) ** 2
+                     self._detections[x_column_label]) ** 2
                     + (src[TableColumn.Y_0] -
-                       self._detections[TableColumn.Y_CENTROID]) ** 2)
+                       self._detections[y_column_label]) ** 2)
                 * threshold.unit)
             best_match: int = np.argmin(separations)  # noqa
             if separations[best_match] < threshold:
                 test_result[TableColumn.X_DET][i] = (
-                    self._detections[TableColumn.X_CENTROID][best_match])
+                    self._detections[x_column_label][best_match])
                 test_result[TableColumn.Y_DET][i] = (
-                    self._detections[TableColumn.Y_CENTROID][best_match])
+                    self._detections[y_column_label][best_match])
                 test_result[TableColumn.FLUX_DET][i] = (
-                    self._detections[TableColumn.FLUX][best_match])
+                    self._detections[flux_label][best_match])
                 test_result[TableColumn.STATUS][i] = DETECT
             else:
                 test_result[TableColumn.STATUS][i] = NOT_FOUND
-
-        # Run background
-        if (sum(test_result[TableColumn.STATUS])
-            and (self._config.ast_no_background
-                 or not self.bgd_estimate())):
-
-            # estimate if there were detections
-            self._detections = test_result
-
-            if self._config.ast_no_psf_phot:
-                return (
-                    hstack((self._ast_star_source_list, test_result)),
-                    ExitStates.EXIT_SUCCESS)
-
-            # Run PSF photometry on detected sources
-            self.psf_photometry_routine()
-            psf_catalogue = self.psf_catalogue
-            assert psf_catalogue is not None
-            psf_catalogue.rename_columns(
-                (TableColumn.X_INIT, TableColumn.Y_INIT,
-                 TableColumn.XY_DEV),
-                (TableColumn.X_INIT, TableColumn.Y_INIT,
-                 TableColumn.XY_DEV_))
-            matched: Table = GenericMatch(threshold=threshold)(
-                [self._ast_star_source_list, psf_catalogue],
-                cartesian=True)
-            test_result[TableColumn.FLUX_DET] = (
-                matched[:len(test_result)][TableColumn.FLUX_2])
-        return (hstack((self._ast_star_source_list, test_result)),
-                ExitStates.EXIT_SUCCESS)
 
     def _do_artificial_star_test_result(
             self, config: StarBugMainConfig) -> ExitStates:
@@ -1065,3 +1120,7 @@ class StarbugBase(StarBugInterface):
     @property
     def out_dir(self) -> str | None:
         return self._out_dir
+
+    @property
+    def ast_detections(self) -> Table | None:
+        return self._ast_detections
