@@ -762,7 +762,7 @@ class StarbugBase(StarBugInterface):
         :param test: what test id were in.
         :return: the new passed total.
         """
-        passed += sum(result_table[TableColumn.STATUS])
+        passed += sum(result_table[TableColumn.FOUND])
         assert self._ast_test_results is not None
         self._ast_test_results[0][
             (test - 1) * self._config.stars_per_artificial_test:
@@ -829,7 +829,7 @@ class StarbugBase(StarBugInterface):
         test_result: Table = Table(
             np.full((len(self._ast_star_source_list), 4), np.nan),
             names=[TableColumn.X_DET, TableColumn.Y_DET, TableColumn.FLUX_DET,
-                   TableColumn.STATUS])
+                   TableColumn.FOUND])
         threshold: Quantity = 2 * units.arcsec
 
         # Run detection on the image
@@ -852,7 +852,7 @@ class StarbugBase(StarBugInterface):
             TableColumn.Y_CENTROID, TableColumn.FLUX)
 
         # Run background and psf if needed
-        if (sum(test_result[TableColumn.STATUS])
+        if (sum(test_result[TableColumn.FOUND])
             and not (self._config.ast_no_background
                      or self._config.ast_no_psf_phot)):
 
@@ -931,9 +931,9 @@ class StarbugBase(StarBugInterface):
                     self._detections[y_column_label][best_match])
                 test_result[TableColumn.FLUX_DET][i] = (
                     self._detections[flux_label][best_match])
-                test_result[TableColumn.STATUS][i] = DETECT
+                test_result[TableColumn.FOUND][i] = DETECT
             else:
-                test_result[TableColumn.STATUS][i] = NOT_FOUND
+                test_result[TableColumn.FOUND][i] = NOT_FOUND
 
     def _do_artificial_star_test_result(
             self, config: StarBugMainConfig) -> ExitStates:

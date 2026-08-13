@@ -42,32 +42,58 @@ class StarBugMainConfig:
     # None for short_flag means it only has a long version
     # noinspection SpellCheckingInspection
     MAIN_FLAG_MAP: Dict[Tuple[str | None, str, Any, str], str] = {
-        ('A', 'apphot', bool, ""): 'do_aperture_photometry',
-        ('B', 'background', bool, ""): 'do_bgd_estimate',
-        ('C', 'custom_psf', bool, ""): 'do_custom_psf',
-        ('D', 'detect', bool, ""): 'do_star_detection',
-        ('f', 'find', bool, ""): 'find_file',
-        ('G', 'geom', bool, ""): 'do_source_geometry',
-        ('h', 'help', bool, ""): 'show_help',
-        ('M', 'match', bool, ""): 'do_matching',
-        ('P', 'psf', bool, ""): 'do_photometry_routine',
-        ('S', 'subbgd', bool, ""): 'do_bgd_subtraction',
-        ('v', 'verbose', bool, ""): 'verbose_logs',
-        ('b', 'bgdfile', str, ""): 'background_file',
-        ('d', 'apfile', str, ""): 'ap_file',
-        ('n', 'ncores', int, ""): 'n_cores',
-        ('o', 'output', str, ""): 'output_file',
-        ('p', 'param', str, ""): 'param_file',
-        ('s', 'set', str, ""): 'set_parameter',
-        (None, 'init', bool, ""): 'execute_jwst_initialisation',
-        (None, 'generate-psf', bool, ""): 'generate_psf',
-        (None, 'local-param', bool, ""): 'generate_local_param_file',
-        (None, 'generate-region', bool, ""): 'generate_region',
-        (None, 'version', bool, ""): 'show_version',
-        (None, 'generate-run', bool, ""): 'generate_run',
-        (None, 'update-param', bool, ""): 'update_param',
-        (None, 'debug', bool, ""): 'debug_mode',
-        (None, 'dev', bool, ""): 'dev_mode',
+        ('A', 'apphot', bool,
+         "run aperture photometry on a source list"): 'do_aperture_photometry',
+        ('B', 'background', bool,
+         "run background estimation"): 'do_bgd_estimate',
+        ('C', 'custom_psf', bool, "run creating custom psf"): 'do_custom_psf',
+        ('D', 'detect', bool, "run source detection"): 'do_star_detection',
+        ('f', 'find', bool,
+         "attempt to find associated -ap -bgd files"): 'find_file',
+        ('G', 'geom', bool,
+         "calculate geometric stats on source list"): 'do_source_geometry',
+        ('h', 'help', bool, "display uasage information"): 'show_help',
+        ('M', 'match', bool,
+         "match outputs from all input image files"): 'do_matching',
+        ('P', 'psf', bool, "run psf photometry"): 'do_photometry_routine',
+        ('S', 'subbgd', bool,
+         "subtract background from image"): 'do_bgd_subtraction',
+        ('v', 'verbose', bool, "display verbose outputs"): 'verbose_logs',
+        ('b', 'bgdfile', str,
+         "load background (-bgd.fits) file"): 'background_file',
+        ('d', 'apfile', str,
+         "load a source detection (-ap.fits) file to skip the source "
+         "detection step"): 'ap_file',
+        ('n', 'ncores', int,
+         "number of CPU cores to split process between"): 'n_cores',
+        ('o', 'output', str, "output directory"): 'output_file',
+        ('p', 'param', str, "load parameter file"): 'param_file',
+        ('s',
+         'set',
+         str,
+         "set value in parameter file at runtime (-s SIGSKY=3)"):
+            'set_parameter',
+        (None, 'init', bool, "Initialise Starbug (post install)"):
+            'execute_jwst_initialisation',
+        (None,
+         'generate-psf',
+         bool,
+         "Generate a single PSF. Set FILTER, DET_NAME, PSF_SIZE with -s"):
+            'generate_psf',
+        (None,
+         'local-param',
+         bool,
+         "Make a local copy of the default parameter file"):
+            'generate_local_param_file',
+        (None, 'generate-region', bool,
+         "Make a ds9 region file with a detection file"): 'generate_region',
+        (None, 'version', bool, "Print starbug2 version"): 'show_version',
+        (None, 'generate-run', bool,
+         "Generate a simple run script"): 'generate_run',
+        (None, 'update-param', bool,
+         "Update an out-of-date local parameter file"): 'update_param',
+        (None, 'debug', bool, "turn on debug mode"): 'debug_mode',
+        (None, 'dev', bool, "turn on dev mode"): 'dev_mode',
     }
 
     # A single master map linking (Short Flag, Long Flag) to the internal
@@ -595,7 +621,7 @@ class StarBugMainConfig:
             if os.path.exists(f"./{DEFAULT_PARAM_FILE_NAME}"):
                 self._param_file = DEFAULT_PARAM_FILE_NAME
                 config = self.load_params(self._param_file)
-
+                print(config)
                 # move from one config to another.
                 format_dictionary: dict[str, str] = {}
                 for key, (prop, target_type) in (
@@ -603,6 +629,8 @@ class StarBugMainConfig:
                     val = getattr(config, prop)
                     format_dictionary[key] = val
                 self.update(format_dictionary)
+
+                print(config)
 
                 # reapply the params from direct command line
                 for opt, opt_arg in opts:
@@ -1770,6 +1798,24 @@ class StarBugMainConfig:
             lines.append(f"{flag_col} : {desc}")
         lines.append("\n")
         return "\n".join(lines)
+
+    def generate_help_string(self) -> str:
+        lines = [
+            "StarbugII - JWST PSF photometry",
+            "usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] "
+            "[-n ncores] [-o ouput] [-p file.param] [-s opt=val] "
+            "image.fits ..."
+        ]
+        for (short_flag, long_flag, val_type, desc), _ in (
+            self.MAIN_FLAG_MAP.items()):
+            short_str = f"-{short_flag}" if short_flag else "  "
+            long_str = f"--{long_flag}"
+            type_hint = "" if val_type is bool else f" <{val_type.__name__}>"
+            flag_col = f"  {short_str:<4} {long_str:<18}{type_hint:<8}"
+            lines.append(f"{flag_col} : {desc}")
+        lines.append("\n")
+        return "\n".join(lines)
+
 
     def __setattr__(self, key: str, value: Any) -> None:
         # Check if the class is frozen, allowing the internal '_frozen'

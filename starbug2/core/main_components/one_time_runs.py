@@ -115,7 +115,7 @@ def show_help(config: StarBugMainConfig) -> ExitStates:
     :return: early when complete.
     :rtype: ExitStates
     """
-    usage(__doc__, verbose=config.verbose_logs)
+    usage(config.generate_help_string(), verbose=config.verbose_logs)
 
     if config.do_star_detection:
         p_error(HELP_STRINGS[Modes.DETECTION])

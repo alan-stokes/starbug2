@@ -175,15 +175,16 @@ class TableColumn(str, Enum):
     MAG_DET = "mag_det"
     MAG_DIFF = "mag_diff"
     ERROR_MAG = "eMAG"
-    STATUS = "status"
-    REC = "rec"
+    FOUND = "found"
+    COMP_FRAC = "Comp_fraction"
     PARAM = "PARAM"
     X_INIT = "x_init"
     Y_INIT = "y_init"
     XY_DEV = "xydev"
     XY_DEV_ = "_xydev"
-    ERR_LOWER = "err"
-    OFF = "off"
+    ERR = "Empirical_phot_error"
+    OFF = "Ratio_Fin_Fout"
+    AST_MAG = "Injected_mag"
     X_FIT = "x_fit"
     Y_FIT = "y_fit"
     Q_FIT = "qfit"
@@ -341,7 +342,7 @@ class FileExtensions(str, Enum):
 TEST_TABLE_COLUMN_NAMES: Final[List[str]] = [
     TableColumn.X_0, TableColumn.Y_0, TableColumn.MAG, TableColumn.FLUX,
     TableColumn.X_DET, TableColumn.Y_DET, TableColumn.FLUX_DET,
-    TableColumn.STATUS]
+    TableColumn.FOUND]
 
 
 # text based logo (using raw string to bypass escape characters)
