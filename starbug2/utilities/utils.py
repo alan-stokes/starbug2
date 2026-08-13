@@ -808,6 +808,9 @@ def usage(docstring: str | None, verbose: bool | int = 0) -> int:
     :param verbose: if to do so in verbose mode
     :return: 1 when complete.
     """
+    print("S")
+    print(docstring)
+    print("S")
     if docstring is None:
         return 1
 

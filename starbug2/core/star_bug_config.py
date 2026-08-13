@@ -41,33 +41,33 @@ class StarBugMainConfig:
     # Format: (short_flag, long_flag, type) -> property_name
     # None for short_flag means it only has a long version
     # noinspection SpellCheckingInspection
-    MAIN_FLAG_MAP: Dict[Tuple[str | None, str, Any], str] = {
-        ('A', 'apphot', bool): 'do_aperture_photometry',
-        ('B', 'background', bool): 'do_bgd_estimate',
-        ('C', 'custom_psf', bool): 'do_custom_psf',
-        ('D', 'detect', bool): 'do_star_detection',
-        ('f', 'find', bool): 'find_file',
-        ('G', 'geom', bool): 'do_source_geometry',
-        ('h', 'help', bool): 'show_help',
-        ('M', 'match', bool): 'do_matching',
-        ('P', 'psf', bool): 'do_photometry_routine',
-        ('S', 'subbgd', bool): 'do_bgd_subtraction',
-        ('v', 'verbose', bool): 'verbose_logs',
-        ('b', 'bgdfile', str): 'background_file',
-        ('d', 'apfile', str): 'ap_file',
-        ('n', 'ncores', int): 'n_cores',
-        ('o', 'output', str): 'output_file',
-        ('p', 'param', str): 'param_file',
-        ('s', 'set', str): 'set_parameter',
-        (None, 'init', bool): 'execute_jwst_initialisation',
-        (None, 'generate-psf', bool): 'generate_psf',
-        (None, 'local-param', bool): 'generate_local_param_file',
-        (None, 'generate-region', bool): 'generate_region',
-        (None, 'version', bool): 'show_version',
-        (None, 'generate-run', bool): 'generate_run',
-        (None, 'update-param', bool): 'update_param',
-        (None, 'debug', bool): 'debug_mode',
-        (None, 'dev', bool): 'dev_mode',
+    MAIN_FLAG_MAP: Dict[Tuple[str | None, str, Any, str], str] = {
+        ('A', 'apphot', bool, ""): 'do_aperture_photometry',
+        ('B', 'background', bool, ""): 'do_bgd_estimate',
+        ('C', 'custom_psf', bool, ""): 'do_custom_psf',
+        ('D', 'detect', bool, ""): 'do_star_detection',
+        ('f', 'find', bool, ""): 'find_file',
+        ('G', 'geom', bool, ""): 'do_source_geometry',
+        ('h', 'help', bool, ""): 'show_help',
+        ('M', 'match', bool, ""): 'do_matching',
+        ('P', 'psf', bool, ""): 'do_photometry_routine',
+        ('S', 'subbgd', bool, ""): 'do_bgd_subtraction',
+        ('v', 'verbose', bool, ""): 'verbose_logs',
+        ('b', 'bgdfile', str, ""): 'background_file',
+        ('d', 'apfile', str, ""): 'ap_file',
+        ('n', 'ncores', int, ""): 'n_cores',
+        ('o', 'output', str, ""): 'output_file',
+        ('p', 'param', str, ""): 'param_file',
+        ('s', 'set', str, ""): 'set_parameter',
+        (None, 'init', bool, ""): 'execute_jwst_initialisation',
+        (None, 'generate-psf', bool, ""): 'generate_psf',
+        (None, 'local-param', bool, ""): 'generate_local_param_file',
+        (None, 'generate-region', bool, ""): 'generate_region',
+        (None, 'version', bool, ""): 'show_version',
+        (None, 'generate-run', bool, ""): 'generate_run',
+        (None, 'update-param', bool, ""): 'update_param',
+        (None, 'debug', bool, ""): 'debug_mode',
+        (None, 'dev', bool, ""): 'dev_mode',
     }
 
     # A single master map linking (Short Flag, Long Flag) to the internal
@@ -75,58 +75,75 @@ class StarBugMainConfig:
     # Format: (short_flag, long_flag, type) -> property_name
     # None for short_flag means it only has a long version
     # noinspection SpellCheckingInspection
-    AST_FLAG_MAP: Dict[Tuple[str | None, str, Any], str] = {
-        ("h", "help", bool): 'show_ast_help',
-        ('v', 'verbose', bool): 'verbose_logs',
-        ('n', 'ncores', int): 'n_cores',
-        ('p', 'param', str): 'param_file',
-        ('s', 'set', str): 'set_parameter',
-        ('o', 'output', str): 'output_file',
-        ('N', 'ntests', int): "artificial_star_tests_count",
-        ('S', 'nstars', int): "stars_per_artificial_test",
-        ('R', 'recover', bool): "ast_recover",
-        (None, 'autosave', int): "ast_auto_save",
-        (None, 'no-background', bool): "ast_no_background",
-        (None, 'no-psfphot', bool): "ast_no_psf_phot",
-        (None, 'save_added_image', bool): "save_added_image",
-        (None, 'save_added_image_path', str): "save_added_image_path",
-        (None, 'do_artificial_star_test_results',
-         bool): "do_artificial_star_test_results",
-        (None, 'seed', int): "ast_seed"
+    AST_FLAG_MAP: Dict[Tuple[str | None, str, Any, str], str] = {
+        ("h", "help", bool, "show help screen"): 'show_ast_help',
+        ('v', 'verbose', bool, "show verbose stdout output"): 'verbose_logs',
+        ('n', 'ncores', int,
+         "number of cores to split the tests over"): 'n_cores',
+        ('p', 'param', str, "load a parameter file"): 'param_file',
+        ('s', 'set', str,
+         'set parameter at runtime with syntax '
+         '"-s KEY=VALUE"'): 'set_parameter',
+        ('o', 'output', str,
+         "output directory or filename to export results to"): 'output_file',
+        ('N', 'ntests', int, "number of tests to run"):
+            "artificial_star_tests_count",
+        ('S', 'nstars', int, "number of stars to inject per test"):
+            "stars_per_artificial_test",
+        ('R', 'recover', bool, "recover incomplete test autosave files"):
+            "ast_recover",
+        (None, 'autosave', int, "frequency of quick save outputs"):
+            "ast_auto_save",
+        (None, 'no-background', bool,
+         "turn off background estimation routine"): "ast_no_background",
+        (None, 'no-psfphot', bool, "turn off psf photometry routine"):
+            "ast_no_psf_phot",
+        (None, 'save_added_image', bool,
+         "turn on outputting the image with fake stars added"):
+            "save_added_image",
+        (None, 'save_added_image_path', str,
+         "The path to where to save the star with fake stars"):
+            "save_added_image_path",
+        (None, 'do_artificial_star_test_results', bool,
+         "Turn on the recording of the results."):
+            "do_artificial_star_test_results",
+        (None, 'seed', int,
+         "The random seed to initisialse the artifical tests from"):
+            "ast_seed"
     }
 
     # noinspection SpellCheckingInspection
-    MATCH_FLAG_MAP: Dict[Tuple[str | None, str, Any], str] = {
+    MATCH_FLAG_MAP: Dict[Tuple[str | None, str, Any, str], str] = {
         # Boolean Switches (No arguments)
-        ('B', 'band', bool): 'do_band_processing',
-        ('C', 'cascade', bool): 'do_cascade',
-        ('G', 'generic', bool): 'generic_mode',
-        ('X', 'exact', bool): 'exact_match',
-        ('e', 'error', str): 'error_col',
-        ('f', 'full', bool): 'full_run',
-        ('h', 'help', bool): 'show_match_help',
-        ('m', 'mask', str): 'mask_eval',
-        ('o', 'output', str): 'output_file',
-        ('p', 'param', str): 'param_file',
-        ('s', 'set', str): 'set_parameter',
-        ('v', 'verbose', bool): 'verbose_logs',
-        (None, 'band-depr', bool): 'band_deprecated',
-        (None, 'dither', bool): 'use_dither',
+        ('B', 'band', bool, ""): 'do_band_processing',
+        ('C', 'cascade', bool, ""): 'do_cascade',
+        ('G', 'generic', bool, ""): 'generic_mode',
+        ('X', 'exact', bool, ""): 'exact_match',
+        ('e', 'error', str, ""): 'error_col',
+        ('f', 'full', bool, ""): 'full_run',
+        ('h', 'help', bool, ""): 'show_match_help',
+        ('m', 'mask', str, ""): 'mask_eval',
+        ('o', 'output', str, ""): 'output_file',
+        ('p', 'param', str, ""): 'param_file',
+        ('s', 'set', str, ""): 'set_parameter',
+        ('v', 'verbose', bool, ""): 'verbose_logs',
+        (None, 'band-depr', bool, ""): 'band_deprecated',
+        (None, 'dither', bool, ""): 'use_dither',
     }
 
     # noinspection SpellCheckingInspection
-    PLOT_FLAG_MAP: Dict[Tuple[str | None, str, Any], str] = {
+    PLOT_FLAG_MAP: Dict[Tuple[str | None, str, Any, str], str] = {
         # Boolean Switches (No arguments)
-        ('h', 'help', bool): 'show_plot_help',
-        ('v', 'verbose', bool): 'verbose_logs',
-        ('X', 'test', bool): 'test_mode',
-        (None, 'apfile', bool): 'ap_file',
-        (None, 'dark', bool): 'dark_mode',
+        ('h', 'help', bool, ""): 'show_plot_help',
+        ('v', 'verbose', bool, ""): 'verbose_logs',
+        ('X', 'test', bool, ""): 'test_mode',
+        (None, 'apfile', bool, ""): 'ap_file',
+        (None, 'dark', bool, ""): 'dark_mode',
 
         # Options with Arguments (Strings)
-        ('I', 'inspect', str): 'inspect_parameter',
-        ('o', 'output', str): 'output_file',
-        ('d', 'style', str): 'plot_style',
+        ('I', 'inspect', str, ""): 'inspect_parameter',
+        ('o', 'output', str, ""): 'output_file',
+        ('d', 'style', str, ""): 'plot_style',
     }
 
     # Comprehensive mapping configuration linking keys to internal
@@ -393,7 +410,7 @@ class StarBugMainConfig:
         short_opts_compiled = ""
         long_opts_compiled = []
 
-        for (short_flag, long_flag, data_type) in param_map.keys():
+        for (short_flag, long_flag, data_type, _) in param_map.keys():
             suffix = "" if data_type is bool else "="
             long_opts_compiled.append(f"{long_flag}{suffix}")
 
@@ -541,7 +558,7 @@ class StarBugMainConfig:
     def populate_params(
             self, argv: list[str], short_definition: str,
             long_definition: list[str],
-            param_map: dict[tuple[str | None, str, Any], str]) -> None:
+            param_map: dict[tuple[str | None, str, Any, str], str]) -> None:
         """
         populates the config from command line requests
         :param argv: the command line
@@ -559,7 +576,7 @@ class StarBugMainConfig:
             # strip down to raw option label text
             clean_opt = opt.lstrip('-')
 
-            for (short_flag, long_flag, data_type), property_name in (
+            for (short_flag, long_flag, data_type, _), property_name in (
                     param_map.items()):
                 if clean_opt in (short_flag, long_flag):
                     if data_type is bool:
@@ -582,12 +599,28 @@ class StarBugMainConfig:
                 # move from one config to another.
                 format_dictionary: dict[str, str] = {}
                 for key, (prop, target_type) in (
-                    self.MAIN_PARAM_FILE_MAP.items()):
+                        self.MAIN_PARAM_FILE_MAP.items()):
                     val = getattr(config, prop)
                     format_dictionary[key] = val
-                print(format_dictionary)
                 self.update(format_dictionary)
 
+                # reapply the params from direct command line
+                for opt, opt_arg in opts:
+                    # strip down to raw option label text
+                    clean_opt = opt.lstrip('-')
+
+                    for (short_flag, long_flag,
+                         data_type, _), property_name in (
+                            param_map.items()):
+                        if clean_opt in (short_flag, long_flag):
+                            if data_type is bool:
+                                setattr(self, property_name, True)
+                            else:
+                                # Casts string inputs to explicit types for
+                                # variables
+                                setattr(self, property_name,
+                                        data_type(opt_arg))
+                            break
 
     def got_valid_psf_generation_params(self) -> bool:
         """
@@ -618,7 +651,9 @@ class StarBugMainConfig:
         :return: bool if there is one time runs to run.
         :rtype: bool
         """
-        return self._show_ast_help or self._ast_recover
+        return (self._show_ast_help or self._ast_recover or
+                self._do_artificial_star_test or
+                self._do_artificial_star_test_results)
 
     def generate_default_param_file_text(self, version_str: str) -> str:
         """
@@ -649,7 +684,6 @@ class StarBugMainConfig:
         """
         # handle output file
         path: str = DEFAULT_PARAM_FILE_NAME
-        print(self._output_file)
         if self._output_file is not None:
             path = os.path.join(self._output_file, DEFAULT_PARAM_FILE_NAME)
 
@@ -1718,6 +1752,24 @@ class StarBugMainConfig:
     @plot_style.setter
     def plot_style(self, value: str | None) -> None:
         self._plot_style = value
+
+    def generate_ast_help_string(self) -> str:
+        """Dynamically constructs the CLI usage text from AST_FLAG_MAP."""
+        lines = [
+            "StarbugII Artificial Star Testing",
+            "usage: starbug2-ast [-vh] [-N ntests] [-n ncores] "
+            "[-p file.param] [-S nstars] [-s opt=val] image.fits",
+        ]
+
+        for (short_flag, long_flag, val_type, desc), _ in (
+                self.AST_FLAG_MAP.items()):
+            short_str = f"-{short_flag}" if short_flag else "  "
+            long_str = f"--{long_flag}"
+            type_hint = "" if val_type is bool else f" <{val_type.__name__}>"
+            flag_col = f"  {short_str:<4} {long_str:<18}{type_hint:<8}"
+            lines.append(f"{flag_col} : {desc}")
+        lines.append("\n")
+        return "\n".join(lines)
 
     def __setattr__(self, key: str, value: Any) -> None:
         # Check if the class is frozen, allowing the internal '_frozen'

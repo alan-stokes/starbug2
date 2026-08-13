@@ -30,6 +30,7 @@ from starbug2.utilities.utils import (
     printf, get_version, usage, p_error, get_data_path, split_file_name,
     export_region, combine_tables, fill_nan)
 
+
 def generate_region(config: StarBugMainConfig) -> ExitStates:
     """
     executes any one time runs as required by the config
@@ -220,7 +221,7 @@ def ast_one_time_runs(config: StarBugMainConfig) -> ExitStates:
     :rtype: ExitStates
     """
     if config.show_ast_help:
-        usage(__doc__, verbose=config.verbose_logs)
+        usage(config.generate_ast_help_string(), verbose=config.verbose_logs)
         return ExitStates.EXIT_EARLY
 
     if config.ast_recover:

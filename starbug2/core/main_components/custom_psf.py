@@ -59,10 +59,11 @@ class CustomPSF:
         finder: DAOStarFinder = DAOStarFinder(
             threshold=threshold, fwhm=config.full_width_half_max)
         sources: Table | None = finder(data)
-        hsize: float = float((config.custom_psf_size_pixels - 1) / 2)
+        h_size: float = float((config.custom_psf_size_pixels - 1) / 2)
 
         # locate stars not on the edge of the image (within capture area).
-        stars: EPSFStars = CustomPSF.extract_stars()
+        stars: EPSFStars = CustomPSF.extract_stars(
+            sources, h_size, data, config)
 
         # build e-PSF.
         epsf_builder: EPSFBuilder = EPSFBuilder(
@@ -106,7 +107,7 @@ class CustomPSF:
     @staticmethod
     def write_files_to_disk(
             output_dir: str, epsf: ImagePSF,
-        fitted_stars: EPSFStars) -> ExitStates:
+            fitted_stars: EPSFStars) -> ExitStates:
         # write new psf into a .fits file for further use.
         new_psf_header: Header = Header()
         assert output_dir is not None

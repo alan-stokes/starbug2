@@ -82,7 +82,7 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o ouput]
    -M  --match           : match outputs from all input image files
    -P  --psf             : run psf photometry
    -S  --subbgd          : subtract background from image
-   -C  --custom_psf      : generates a custom point spread function from a 
+   -C  --custom_psf      : generates a custom point spread function from a
                            image.
 
    -b  --bgdfile         : load background (-bgd.fits) file

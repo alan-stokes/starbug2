@@ -26,7 +26,8 @@ import warnings
 
 import logging
 from astropy import log
-from astropy.utils.exceptions import AstropyDeprecationWarning, AstropyWarning, AstropyUserWarning
+from astropy.utils.exceptions import (
+    AstropyDeprecationWarning, AstropyWarning, AstropyUserWarning)
 from astropy.utils.metadata import MergeConflictWarning
 
 from starbug2.core.main_components.multi_treading_execution import (
