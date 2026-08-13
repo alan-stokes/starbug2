@@ -24,6 +24,8 @@ from astropy.wcs import WCS
 from photutils.datasets import make_model_image
 
 from photutils.psf import ImagePSF
+
+from constants import FileExtensions
 from starbug2.constants import (
     TableColumn, ExitStates, HeaderTags, SourceFlags, Units, ImageHeaderTags,
     MIRI_STRING, MIRI_IMAGE, DetectorLengths, NIRCAM, BGD_FILE, AP_FILE)
@@ -614,8 +616,8 @@ class Photometry:
 
         reindex(psf_catalogue)
 
-        file_name: str = (
-            "%s/%s-psf.fits" % (out_dir, b_name))
+        assert out_dir is not None
+        file_name: str = os.path.join(out_dir, f"{b_name}{FileExtensions.PSF}")
         log("--> %s\n" % file_name)
         BinTableHDU(
             data=psf_catalogue,
@@ -684,10 +686,11 @@ class Photometry:
                 residual / get_mj_ysr2jy_scale_factor(main_image))
             header: Header = header
             header.update(wcs.to_header())
+            assert out_dir is not None
             ImageHDU(
                 data=cast(Any, residuals),
                 name="RES", header=header).writeto(
-                "%s/%s-res.fits" % (out_dir, b_name),
+                os.path.join(out_dir, f"{b_name}{FileExtensions.RESIDUE}"),
                 overwrite=True)
         return residuals
 

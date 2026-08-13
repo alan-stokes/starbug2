@@ -27,12 +27,13 @@ from astropy.io.fits import (
     PrimaryHDU, ImageHDU, HDUList, Header, open, BinTableHDU)
 from astropy.table import hstack, Table, QTable
 
+from constants import FileExtensions
 from starbug2.core.main_components.artificial_stars import (
     ArtificialStars, compile_results)
 from starbug2.constants import (
     HeaderTags, ImageHeaderTags, SCI, BGD, RES, VERBOSE_TAG, AP_FILE, BGD_FILE,
-    FITS_EXTENSION, DQ, AREA, WHT, ExitStates, TableColumn, N_COLUMNS,
-    TEST_TABLE_COLUMN_NAMES, DETECT, NOT_FOUND)
+    DQ, AREA, WHT, ExitStates, TableColumn, N_COLUMNS, TEST_TABLE_COLUMN_NAMES,
+    DETECT, NOT_FOUND)
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.core.main_components.aperture_photometry import (
     AperturePhotometry)
@@ -185,7 +186,7 @@ class StarbugBase(StarBugInterface):
             self._out_dir, self._b_name, extension = self.sort_output_names(
                 f_name, self._config.output_file)
 
-            if extension == FITS_EXTENSION:
+            if extension == FileExtensions.FITS:
                 if os.path.exists(f_name):
                     self.log("loaded: \"%s\"\n" % f_name)
                     self._image = open(f_name)
@@ -478,7 +479,9 @@ class StarbugBase(StarBugInterface):
             if self._background is None:
                 return ExitStates.EXIT_FAIL
 
-            f_name = "%s/%s-bgd.fits" % (self._out_dir, self._b_name)
+            assert self._out_dir is not None
+            f_name = os.path.join(
+                self._out_dir, f"{self._b_name}{FileExtensions.BACKGROUND}")
             self.log("--> %s\n" % f_name)
             self._background.writeto(f_name, overwrite=True)
 

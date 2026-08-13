@@ -44,7 +44,7 @@ def test_start():
     clean()
     assert run("starbug2 -h") == ExitStates.EXIT_EARLY
     assert run("starbug2 -vh") == ExitStates.EXIT_EARLY
-    assert run("starbug2 --version") == ExitStates.EXIT_SUCCESS
+    assert run("starbug2 --version") == ExitStates.EXIT_EARLY
     assert run("starbug2 -vDABPh") == ExitStates.EXIT_EARLY
     assert run("starbug2") == ExitStates.EXIT_FAIL
     clean()
@@ -52,8 +52,13 @@ def test_start():
 
 def test_param():
     clean()
-    assert run("starbug2 --local-param") == ExitStates.EXIT_SUCCESS
-    assert run("starbug2 --update-param") == ExitStates.EXIT_SUCCESS
+    assert (run(
+        f"starbug2 --local-param --output={TEST_PATH}") ==
+            ExitStates.EXIT_SUCCESS)
+    assert run("starbug2 --update-param") == ExitStates.EXIT_FAIL
+    param_file_path = os.path.join(TEST_PATH_STR, 'starbug.param')
+    assert (run(f"starbug2 --update-param -Sp{param_file_path}") ==
+            ExitStates.EXIT_SUCCESS)
     assert (run(
         f"starbug2 -p starbug.param {TEST_IMAGE_FITS}"
         f" {TEST_FILTER_STRING_NO_G} "

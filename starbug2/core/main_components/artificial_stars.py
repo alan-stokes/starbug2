@@ -25,6 +25,7 @@ from scipy.optimize import curve_fit
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
+from constants import FileExtensions
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.constants import ExitStates, TableColumn, ERR
 
@@ -539,11 +540,11 @@ def compile_results(
     mag_raw = add_mag_columns(raw, config)
 
     results: dict[str, fits.HDUList] = {
-        "-ast.fits": fits.HDUList(
+        FileExtensions.AST: fits.HDUList(
             [fits.PrimaryHDU(header=fits.Header(head)),
              fits.BinTableHDU(data=completeness_raw, name="AST"),
              fits.BinTableHDU(data=mag_raw, name="RAW")]),
-        "-ast-spatial.fits": fits.HDUList(
+        FileExtensions.AST_SPATIAL: fits.HDUList(
             [fits.PrimaryHDU(header=fits.Header(head)),
              fits.ImageHDU(data=cast(Any, spatial_completeness), name="CMP")])}
 

@@ -21,7 +21,7 @@ from typing import Tuple
 import numpy as np
 from astropy.table import Table
 
-from starbug2.constants import FITS_EXTENSION, ExitStates
+from starbug2.constants import ExitStates, FileExtensions
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
 from starbug2.utilities.utils import p_error, split_file_name, printf
@@ -52,7 +52,7 @@ def execute_star_bug_main(
     folder, file_name, ext = split_file_name(f_name)
 
     # check correct extension
-    if ext != FITS_EXTENSION:
+    if ext != FileExtensions.FITS:
         p_error("file must be type '.fits' not %s\n" % ext)
         return None
 
@@ -62,8 +62,9 @@ def execute_star_bug_main(
 
     # find file.
     if config.find_file:
-        ap: str = "%s/%s-ap.fits" % (folder, file_name)
-        bgd: str = "%s/%s-bgd.fits" % (folder, file_name)
+        ap: str = os.path.join(folder, f"{file_name}{FileExtensions.AP}")
+        bgd: str = (
+            os.path.join(folder, f"{file_name}{FileExtensions.BACKGROUND}"))
         if os.path.exists(ap) and config.ap_file is None:
             ap_file = ap
         if os.path.exists(bgd) and config.background_file is None:

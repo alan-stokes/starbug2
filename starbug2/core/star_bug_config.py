@@ -22,6 +22,7 @@ from typing import Dict, Tuple, Final, Any
 from parse import parse
 from pathlib import Path
 
+from constants import ExitStates
 from starbug2.constants import (
     SCI, DEFAULT_COLOUR, HeaderTags, AP_FILE, BGD_FILE, PSF_FILE, TableColumn,
     STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, PROBLEMATIC_FILTER_ID,
@@ -43,6 +44,7 @@ class StarBugMainConfig:
     MAIN_FLAG_MAP: Dict[Tuple[str | None, str, Any], str] = {
         ('A', 'apphot', bool): 'do_aperture_photometry',
         ('B', 'background', bool): 'do_bgd_estimate',
+        ('C', 'custom_psf', bool): 'do_custom_psf',
         ('D', 'detect', bool): 'do_star_detection',
         ('f', 'find', bool): 'find_file',
         ('G', 'geom', bool): 'do_source_geometry',
@@ -249,6 +251,7 @@ class StarBugMainConfig:
         self._do_matching: bool = False
         self._do_photometry_routine: bool = False
         self._do_bgd_subtraction: bool = False
+        self._do_custom_psf: bool = False
 
         # other actions
         self._generate_psf: bool = False
@@ -283,12 +286,15 @@ class StarBugMainConfig:
         self._ast_seed: int | None = None
 
         # states saved in config as only access route into the runs for
-        # optimization purposes
+        # optimisation purposes
         self._ast_loader: np.ndarray | None = None
         self._ast_test_index: int = 0
         self._ast_psf: np.ndarray | None = None
         self._ast_load_psf: bool = True
         self._ast_add_stars: bool = False
+
+        # parameters for custom psf generation.
+        self._custom_psf_size_pixels = 25
 
         # matching params
         self._do_band_processing: bool = False
@@ -584,7 +590,8 @@ class StarBugMainConfig:
             self._show_help or self._update_param or
             self._execute_jwst_initialisation or self._generate_psf or
             self._generate_run or self._generate_region or
-            self._generate_local_param_file or self._show_version)
+            self._generate_local_param_file or self._show_version or
+            self._do_custom_psf)
 
     def use_ast_one_time_runs(self) -> bool:
         """
@@ -615,10 +622,11 @@ class StarBugMainConfig:
         return template_str.format(
             version_str=version_str, **format_dictionary)
 
-    def do_generate_local_param_file(self) -> None:
+    def do_generate_local_param_file(self) -> ExitStates:
         """
         writes a local param file based off the state of this config.
-        :return: None
+        :return: exit state success when complete
+        :rtype: ExitStates
         """
         # handle output file
         path: str = "starbug.param"
@@ -628,6 +636,7 @@ class StarBugMainConfig:
         # generate new param file
         with open(path, "w") as fp:
             fp.write(self.generate_default_param_file_text(get_version()))
+        return ExitStates.EXIT_SUCCESS
 
     def update(self, update_values: dict[str, str | int | float]) -> None:
         """
@@ -743,6 +752,14 @@ class StarBugMainConfig:
     # ==========================================
 
     @property
+    def custom_psf_size_pixels(self) -> int:
+        return self._custom_psf_size_pixels
+
+    @custom_psf_size_pixels.setter
+    def custom_psf_size_pixels(self, value: int) -> None:
+        self._custom_psf_size_pixels = value
+
+    @property
     def show_help(self) -> bool:
         return self._show_help
 
@@ -769,6 +786,14 @@ class StarBugMainConfig:
     # ==========================================
     # MAIN ACTIONS
     # ==========================================
+
+    @property
+    def do_custom_psf(self) -> bool:
+        return self._do_custom_psf
+
+    @do_custom_psf.setter
+    def do_custom_psf(self, value: bool) -> None:
+        self._do_custom_psf = value
 
     @property
     def do_aperture_photometry(self) -> bool:

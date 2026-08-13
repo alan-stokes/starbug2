@@ -26,18 +26,11 @@ from astropy.wcs import WCS
 import numpy as np
 import requests
 
+from constants import FileExtensions
 from starbug2.constants import (
-    DEFAULT_COLOUR,
-    TMP_OUT,
-    TMP_FITS,
-    TableColumn,
-    HeaderTags,
-    FITS_EXTENSION,
-    N_MIS_MATCHES,
-    ExitStates,
-    REST_SUCCESS_CODE,
-    Units,
-    ImageHeaderTags, STARBUG_DATA_DIR, DEFAULT_BUNIT,
+    DEFAULT_COLOUR, TMP_OUT, TMP_FITS, TableColumn, HeaderTags,
+    N_MIS_MATCHES, ExitStates, REST_SUCCESS_CODE, Units, ImageHeaderTags,
+    STARBUG_DATA_DIR, DEFAULT_BUNIT,
 )
 from starbug2.utilities.filters import STAR_BUG_FILTERS
 
@@ -428,7 +421,7 @@ def import_table(f_name: str, verbose: bool | int = 0) -> Table | None:
 
     tab: Table | None = None
     if os.path.exists(f_name):
-        if os.path.splitext(f_name)[1] == FITS_EXTENSION:
+        if os.path.splitext(f_name)[1] == FileExtensions.FITS:
             tab = fill_nan(Table.read(f_name, format="fits"))
             if tab is None:
                 printf(f"table at {f_name} failed to read")

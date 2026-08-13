@@ -82,10 +82,6 @@ JWST_NIRCAM_ABVEGA_OFFSET_URL: Final[str] = (
 TMP_OUT: Final[str] = "/tmp/out.reg"
 TMP_FITS: Final[str] = "/tmp/starbug.fits"
 
-# the fits file extension
-FITS_EXTENSION: Final[str] = ".fits"
-FILE_NAME: Final[str] = "FILENAME"
-
 # HDU extension names
 DQ: Final[str] = "DQ"
 AREA: Final[str] = "AREA"
@@ -96,6 +92,7 @@ ERR: Final[str] = "ERR"
 AP_FILE: Final[str] = "AP_FILE"
 BGD_FILE: Final[str] = "BGD_FILE"
 PSF_FILE: Final[str] = "PSF_FILE"
+FILE_NAME: Final[str] = "FILENAME"
 
 # the number of columns in the test table.
 N_COLUMNS: Final[int] = 8
@@ -143,6 +140,8 @@ class ExitStates(int, Enum):
 # noinspection SpellCheckingInspection
 class TableColumn(str, Enum):
     """Table column names used across the pipeline."""
+    X = "x"
+    Y = "y"
     CAT_NUM = "Catalogue_Number"
     RA = "RA"
     DEC = "DEC"
@@ -313,6 +312,25 @@ class Units(int, Enum):
     ARCSEC = 1
     ARCMIN = 2
     DEG = 3
+
+
+# the fits file extension
+class FileExtensions(str, Enum):
+    FITS = ".fits"
+    AP = "-ap.fits"
+    AST = "-ast.fits"
+    AST_SPATIAL = "-ast-spatial.fits"
+    BACKGROUND = "-bgd.fits"
+    RESIDUE = "-res.fits"
+    PSF = "-psf.fits"
+
+    # needed as the table system doenst seem to handle enums properly
+    def __str__(self) -> str:
+        return self.value
+
+    # needed as the table system doenst seem to handle enums properly
+    def __format__(self, format_spec: str) -> str:
+        return self.value.__format__(format_spec)
 
 
 # the column names of the rsult table used by artificial stars
