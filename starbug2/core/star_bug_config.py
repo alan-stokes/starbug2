@@ -22,12 +22,12 @@ from typing import Dict, Tuple, Final, Any
 from parse import parse
 from pathlib import Path
 
-from starbug2.constants import ExitStates
+from starbug2.constants import ExitStates, DEFAULT_PARAM_FILE_NAME
 from starbug2.constants import (
     SCI, DEFAULT_COLOUR, HeaderTags, AP_FILE, BGD_FILE, PSF_FILE, TableColumn,
     STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, PROBLEMATIC_FILTER_ID,
-    PROBLEMATIC_FILTER_WARNING, STARBUG_DATA_DIR,
-    DEFAULT_FULL_WIDTH_HALF_MAX, DEFAULT_MIN_MAG, DEFAULT_MAX_MAG)
+    PROBLEMATIC_FILTER_WARNING, DEFAULT_FULL_WIDTH_HALF_MAX, DEFAULT_MIN_MAG,
+    DEFAULT_MAX_MAG)
 from starbug2.utilities.filters import FilterStruct
 from starbug2.utilities.utils import p_error, get_version, warn
 
@@ -319,7 +319,7 @@ class StarBugMainConfig:
         self._plot_style: str | None = None
 
         # param file defaults. These constants do not have justifications yet.
-        self._output_file: str | None = os.getenv(STARBUG_DATA_DIR)
+        self._output_file: str | None = None
         self._hdu_name: str = SCI
         self._filter: str | None = None
         self._full_width_half_max: float = -1.0
@@ -573,6 +573,22 @@ class StarBugMainConfig:
         # add the training args as target image files
         self.fits_images = args
 
+        # check for param file being set
+        if self._param_file is None:
+            if os.path.exists(f"./{DEFAULT_PARAM_FILE_NAME}"):
+                self._param_file = DEFAULT_PARAM_FILE_NAME
+                config = self.load_params(self._param_file)
+
+                # move from one config to another.
+                format_dictionary: dict[str, str] = {}
+                for key, (prop, target_type) in (
+                    self.MAIN_PARAM_FILE_MAP.items()):
+                    val = getattr(config, prop)
+                    format_dictionary[key] = val
+                print(format_dictionary)
+                self.update(format_dictionary)
+
+
     def got_valid_psf_generation_params(self) -> bool:
         """
         returns if the config has parameters set correctly to execute psf
@@ -632,9 +648,10 @@ class StarBugMainConfig:
         :rtype: ExitStates
         """
         # handle output file
-        path: str = "starbug.param"
+        path: str = DEFAULT_PARAM_FILE_NAME
+        print(self._output_file)
         if self._output_file is not None:
-            path = os.path.join(self._output_file, "starbug.param")
+            path = os.path.join(self._output_file, DEFAULT_PARAM_FILE_NAME)
 
         # generate new param file
         with open(path, "w") as fp:
@@ -662,7 +679,11 @@ class StarBugMainConfig:
             if target_type is bool:
                 # Converts parameter flags like 0 or 1 integers to standard
                 # Booleans
-                setattr(self, property_name, bool(int(raw_value)))
+                try:
+                    bool_val = bool(int(raw_value))
+                except ValueError:
+                    bool_val = bool(raw_value)
+                setattr(self, property_name, bool_val)
             else:
                 setattr(self, property_name, target_type(raw_value))
 
@@ -1726,7 +1747,7 @@ class StarBugMainConfig:
                     super().__setattr__(property_name, None)
                 elif target_type is bool:
                     try:
-                        val_str = int(val_str)
+                        val_str = bool(int(val_str))
                     except ValueError:
                         val_str = bool(val_str)
                     super().__setattr__(property_name, val_str)

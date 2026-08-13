@@ -78,6 +78,9 @@ JWST_NIRCAM_ABVEGA_OFFSET_URL: Final[str] = (
     "jwst_nircam_abvegaoffset_0002.asdf"
 )
 
+# the default file name as needed for params
+DEFAULT_PARAM_FILE_NAME = "starbug.param"
+
 # paths to temp files.
 TMP_OUT: Final[str] = "/tmp/out.reg"
 TMP_FITS: Final[str] = "/tmp/starbug.fits"
