@@ -15,11 +15,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
 from typing import List, Optional, Any, Final
 
-from constants import ExitStates
 from starbug2.constants import (
     JWST_MIRI_APCORR_0010_FITS_URL, JWST_NIRCAM_APCORR_0004_FITS_URL,
     JWST_MIRI_ABVEGA_OFFSET_URL, JWST_NIRCAM_ABVEGA_OFFSET_URL, NIRCAM,
-    WEBBPSF_PATH_ENV_VAR, DetectorLengths, STARBUG_DATA_DIR, STAR_BUG_MIRI)
+    WEBBPSF_PATH_ENV_VAR, DetectorLengths, STARBUG_DATA_DIR, STAR_BUG_MIRI,
+    ExitStates)
 from starbug2.utilities.filters import STAR_BUG_FILTERS, FilterStruct
 from astropy.io import fits
 

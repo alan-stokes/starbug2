@@ -323,6 +323,7 @@ class FileExtensions(str, Enum):
     BACKGROUND = "-bgd.fits"
     RESIDUE = "-res.fits"
     PSF = "-psf.fits"
+    CUSTOM_PSF = "-c-psf.fits"
 
     # needed as the table system doenst seem to handle enums properly
     def __str__(self) -> str:

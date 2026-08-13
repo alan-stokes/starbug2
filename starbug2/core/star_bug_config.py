@@ -22,7 +22,7 @@ from typing import Dict, Tuple, Final, Any
 from parse import parse
 from pathlib import Path
 
-from constants import ExitStates
+from starbug2.constants import ExitStates
 from starbug2.constants import (
     SCI, DEFAULT_COLOUR, HeaderTags, AP_FILE, BGD_FILE, PSF_FILE, TableColumn,
     STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, PROBLEMATIC_FILTER_ID,
@@ -90,6 +90,8 @@ class StarBugMainConfig:
         (None, 'no-psfphot', bool): "ast_no_psf_phot",
         (None, 'save_added_image', bool): "save_added_image",
         (None, 'save_added_image_path', str): "save_added_image_path",
+        (None, 'do_artificial_star_test_results',
+         bool): "do_artificial_star_test_results",
         (None, 'seed', int): "ast_seed"
     }
 
@@ -183,6 +185,7 @@ class StarBugMainConfig:
         # ARTIFICIAL STAR TESTS
         "DO_AST": ("do_artificial_star_test", bool),
         "NTESTS": ("artificial_star_tests_count", int),
+        "DO_AST_R": ("do_artificial_star_test_results", bool),
         "NSTARS": ("stars_per_artificial_test", int),
         "SUBIMAGE": ("sub_image_crop_size", int),
         "MAX_MAG": ("test_magnitude_bright_limit", int),
@@ -1722,7 +1725,11 @@ class StarBugMainConfig:
                 if val_str == "" or val_str.lower() == "none":
                     super().__setattr__(property_name, None)
                 elif target_type is bool:
-                    super().__setattr__(property_name, bool(int(val_str)))
+                    try:
+                        val_str = int(val_str)
+                    except ValueError:
+                        val_str = bool(val_str)
+                    super().__setattr__(property_name, val_str)
                 else:
                     super().__setattr__(property_name, target_type(val_str))
             return

@@ -26,7 +26,7 @@ from astropy.wcs import WCS
 import numpy as np
 import requests
 
-from constants import FileExtensions
+from starbug2.constants import FileExtensions
 from starbug2.constants import (
     DEFAULT_COLOUR, TMP_OUT, TMP_FITS, TableColumn, HeaderTags,
     N_MIS_MATCHES, ExitStates, REST_SUCCESS_CODE, Units, ImageHeaderTags,

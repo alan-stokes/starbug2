@@ -157,8 +157,8 @@ class DetectionRoutine(StarFinderBase):
             round_hi: float = max((self.round_1_hi, self.round_2_hi))
             find: DAOStarFinder = DAOStarFinder(
                 threshold=std * self.sig_src, fwhm=self.full_width_half_max,
-                sharplo=self.sharp_lo, sharphi=self.sharp_hi,
-                roundlo=-round_hi, roundhi=round_hi, peak_max=np.inf,
+                sharpness_range=(self.sharp_lo, self.sharp_hi),
+                roundness_range=(-round_hi, round_hi), peak_max=np.inf,
                 xycoords=xy_coords)
             catalogue = find.find_stars(data - bkg)
 

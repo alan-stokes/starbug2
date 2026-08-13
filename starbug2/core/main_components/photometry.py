@@ -24,11 +24,10 @@ from astropy.wcs import WCS
 from photutils.datasets import make_model_image
 
 from photutils.psf import ImagePSF
-
-from constants import FileExtensions
 from starbug2.constants import (
     TableColumn, ExitStates, HeaderTags, SourceFlags, Units, ImageHeaderTags,
-    MIRI_STRING, MIRI_IMAGE, DetectorLengths, NIRCAM, BGD_FILE, AP_FILE)
+    MIRI_STRING, MIRI_IMAGE, DetectorLengths, NIRCAM, BGD_FILE, AP_FILE,
+    FileExtensions)
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.interfaces.star_bug_interface import StarBugInterface
 from starbug2.routines.psf_phot_routine import PSFPhotRoutine

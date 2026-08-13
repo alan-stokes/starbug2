@@ -15,7 +15,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
 from typing import Dict
 
-from constants import ExitStates
+from starbug2.constants import ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.utilities.utils import printf, p_error, get_version
 

@@ -25,9 +25,8 @@ from scipy.optimize import curve_fit
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
-from constants import FileExtensions
 from starbug2.core.star_bug_config import StarBugMainConfig
-from starbug2.constants import ExitStates, TableColumn, ERR
+from starbug2.constants import ExitStates, TableColumn, ERR, FileExtensions
 
 try:
     import matplotlib.pyplot as plt
@@ -98,7 +97,7 @@ class ArtificialStars:
                 TableColumn.MAG:
                     [config.test_magnitude_bright_limit,
                      config.test_magnitude_faint_limit]
-            }, config.ast_seed
+            }, seed=config.ast_seed
         )
 
         # utilising the Pogsons brightness equation. it ensures an astronomical

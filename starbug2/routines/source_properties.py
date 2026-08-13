@@ -137,8 +137,8 @@ class SourceProperties:
              self._source_list[TableColumn.Y_CENTROID])).T
 
         dao_find: DAOStarFinder = DAOStarFinder(
-            -np.inf, full_width_half_max, sharplo=-np.inf, sharphi=np.inf,
-            roundlo=-np.inf, roundhi=np.inf, xycoords=xy_coords,
+            -np.inf, full_width_half_max, sharpness_range=(-np.inf, np.inf),
+            roundness_range=(-np.inf, np.inf), xycoords=xy_coords,
             peak_max=np.inf)
 
         # ABS protected access. yuck
