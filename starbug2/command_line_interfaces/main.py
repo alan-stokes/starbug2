@@ -16,6 +16,9 @@ import os
 import sys
 import warnings
 
+import logging
+from astropy import log
+
 from astropy.io.fits.verify import VerifyWarning
 from astropy.io.fits.header import Header
 from astropy.table import Table
@@ -41,6 +44,12 @@ warnings.filterwarnings(
 warnings.filterwarnings(
     "ignore", message=".*contains deprecated section.*",
     category=AstropyWarning)
+warnings.filterwarnings(
+    "ignore", category=AstropyWarning,
+    message=".*Input data contains invalid values*"
+)
+warnings.filterwarnings("ignore", message=".*invalid values.*")
+warnings.filterwarnings("ignore", message=".*sigma_clipping.*")
 
 # Handle RuntimeWarnings elegantly: Ignore expected ones (like NaN comparisons
 # during clipping), but let actual mathematical issues surface.
@@ -57,6 +66,7 @@ warnings.filterwarnings(
     category=VerifyWarning,
     message=".*Card is too long.*"
 )
+log.setLevel(logging.ERROR)
 
 # Force photutils to strictly return standard QTables globally
 photutils.future_column_names = True
@@ -72,10 +82,13 @@ usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] [-n ncores] [-o ouput]
    -M  --match           : match outputs from all input image files
    -P  --psf             : run psf photometry
    -S  --subbgd          : subtract background from image
+   -C  --custom_psf      : generates a custom point spread function from a
+                           image.
 
    -b  --bgdfile         : load background (-bgd.fits) file
    -d  --apfile  ap.fits : load a source detection (-ap.fits) file to skip the
                            source detection step
+
    -f  --find            : attempt to find associated -ap -bgd files
    -h  --help            : display uasage information
    -n  --ncores      num : number of CPU cores to split process between

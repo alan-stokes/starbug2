@@ -26,13 +26,12 @@ import numpy as np
 from astropy.io.fits import (
     PrimaryHDU, ImageHDU, HDUList, Header, open, BinTableHDU)
 from astropy.table import hstack, Table, QTable
-
 from starbug2.core.main_components.artificial_stars import (
     ArtificialStars, compile_results)
 from starbug2.constants import (
     HeaderTags, ImageHeaderTags, SCI, BGD, RES, VERBOSE_TAG, AP_FILE, BGD_FILE,
-    FITS_EXTENSION, DQ, AREA, WHT, ExitStates, TableColumn, N_COLUMNS,
-    TEST_TABLE_COLUMN_NAMES, DETECT, NOT_FOUND)
+    DQ, AREA, WHT, ExitStates, TableColumn, N_COLUMNS, TEST_TABLE_COLUMN_NAMES,
+    DETECT, NOT_FOUND, FileExtensions)
 from starbug2.matching.generic_match import GenericMatch
 from starbug2.core.main_components.aperture_photometry import (
     AperturePhotometry)
@@ -185,7 +184,7 @@ class StarbugBase(StarBugInterface):
             self._out_dir, self._b_name, extension = self.sort_output_names(
                 f_name, self._config.output_file)
 
-            if extension == FITS_EXTENSION:
+            if extension == FileExtensions.FITS:
                 if os.path.exists(f_name):
                     self.log("loaded: \"%s\"\n" % f_name)
                     self._image = open(f_name)
@@ -478,7 +477,9 @@ class StarbugBase(StarBugInterface):
             if self._background is None:
                 return ExitStates.EXIT_FAIL
 
-            f_name = "%s/%s-bgd.fits" % (self._out_dir, self._b_name)
+            assert self._out_dir is not None
+            f_name = os.path.join(
+                self._out_dir, f"{self._b_name}{FileExtensions.BACKGROUND}")
             self.log("--> %s\n" % f_name)
             self._background.writeto(f_name, overwrite=True)
 
@@ -761,7 +762,7 @@ class StarbugBase(StarBugInterface):
         :param test: what test id were in.
         :return: the new passed total.
         """
-        passed += sum(result_table[TableColumn.STATUS])
+        passed += sum(result_table[TableColumn.FOUND])
         assert self._ast_test_results is not None
         self._ast_test_results[0][
             (test - 1) * self._config.stars_per_artificial_test:
@@ -828,7 +829,7 @@ class StarbugBase(StarBugInterface):
         test_result: Table = Table(
             np.full((len(self._ast_star_source_list), 4), np.nan),
             names=[TableColumn.X_DET, TableColumn.Y_DET, TableColumn.FLUX_DET,
-                   TableColumn.STATUS])
+                   TableColumn.FOUND])
         threshold: Quantity = 2 * units.arcsec
 
         # Run detection on the image
@@ -851,7 +852,7 @@ class StarbugBase(StarBugInterface):
             TableColumn.Y_CENTROID, TableColumn.FLUX)
 
         # Run background and psf if needed
-        if (sum(test_result[TableColumn.STATUS])
+        if (sum(test_result[TableColumn.FOUND])
             and not (self._config.ast_no_background
                      or self._config.ast_no_psf_phot)):
 
@@ -930,9 +931,9 @@ class StarbugBase(StarBugInterface):
                     self._detections[y_column_label][best_match])
                 test_result[TableColumn.FLUX_DET][i] = (
                     self._detections[flux_label][best_match])
-                test_result[TableColumn.STATUS][i] = DETECT
+                test_result[TableColumn.FOUND][i] = DETECT
             else:
-                test_result[TableColumn.STATUS][i] = NOT_FOUND
+                test_result[TableColumn.FOUND][i] = NOT_FOUND
 
     def _do_artificial_star_test_result(
             self, config: StarBugMainConfig) -> ExitStates:

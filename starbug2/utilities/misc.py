@@ -18,7 +18,7 @@ import numpy as np
 from typing import List, Optional, TextIO, Dict
 
 from starbug2.constants import (
-    FITS_EXTENSION, FILE_NAME, HeaderTags, ImageHeaderTags)
+    FileExtensions, FILE_NAME, HeaderTags, ImageHeaderTags)
 from astropy.io import fits
 from starbug2.utilities.utils import printf, p_error, split_file_name
 
@@ -55,7 +55,7 @@ def generate_runscript(
             name: str
             ext: str
             d_name, name, ext = split_file_name(f_name)
-            if ext == FITS_EXTENSION:
+            if ext == FileExtensions.FITS:
                 fits_file: fits.HDUList = fits.open(f_name)
                 fits_file[0].header[FILE_NAME] = f_name
                 fits_files.append(fits_file)

@@ -14,6 +14,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
 from typing import Dict
+
+from starbug2.constants import ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.utilities.utils import printf, p_error, get_version
 
@@ -40,17 +42,18 @@ def _load_params_old(f_name: str | None) -> Dict[str, int | float | str]:
     return config
 
 
-def update_param_file(f_name: str | None) -> None:
+def update_param_file(f_name: str | None) -> ExitStates:
     """
     When the local parameter file is from an older version, add or remove the
     new or obsolete keys
 
     :param f_name: local file to update
     :type f_name: str
-    :return: None
+    :return: exit state based off if it succeeds.
+    :rtype: ExitStates
     """
     if f_name is None:
-        return
+        return ExitStates.EXIT_FAIL
 
     default_param = StarBugMainConfig()
 
@@ -87,5 +90,7 @@ def update_param_file(f_name: str | None) -> None:
         fpo.write("%s\n" % output)
         fpo.close()
         os.system("mv /tmp/starbug.param %s" % f_name)
+        return ExitStates.EXIT_SUCCESS
     else:
         p_error("local parameter file '%s' does not exist\n" % f_name)
+        return ExitStates.EXIT_FAIL

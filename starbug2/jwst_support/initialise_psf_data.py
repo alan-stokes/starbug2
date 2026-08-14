@@ -18,7 +18,8 @@ from typing import List, Optional, Any, Final
 from starbug2.constants import (
     JWST_MIRI_APCORR_0010_FITS_URL, JWST_NIRCAM_APCORR_0004_FITS_URL,
     JWST_MIRI_ABVEGA_OFFSET_URL, JWST_NIRCAM_ABVEGA_OFFSET_URL, NIRCAM,
-    WEBBPSF_PATH_ENV_VAR, DetectorLengths, STARBUG_DATA_DIR, STAR_BUG_MIRI)
+    WEBBPSF_PATH_ENV_VAR, DetectorLengths, STARBUG_DATA_DIR, STAR_BUG_MIRI,
+    ExitStates)
 from starbug2.utilities.filters import STAR_BUG_FILTERS, FilterStruct
 from astropy.io import fits
 
@@ -39,14 +40,15 @@ NIRCAM_LONG_DETECTORS: Final[list[str]] = ["NRCA5", "NRCB5"]
 
 
 # One time run functions
-def init_starbug_for_jwst(config: StarBugMainConfig) -> None:
+def init_starbug_for_jwst(config: StarBugMainConfig) -> ExitStates:
     """
      Initialise Starbug for jwst.
         - generate PSFs
         - download crds files
     :param config: the main config
     :type config: StarBugMainConfig
-    :return: None
+    :return: ExitStates
+    :rtype: ExitStates
     """
     printf("Initialising StarbugII\n")
 
@@ -58,6 +60,7 @@ def init_starbug_for_jwst(config: StarBugMainConfig) -> None:
         data_name))
     _generate_psfs(config)
     download_ap_corr_files(data_name)
+    return ExitStates.EXIT_SUCCESS
 
 
 def download_ap_corr_files(data_name: str) -> None:
@@ -156,7 +159,7 @@ def _generate_psf_single(
     for det in detectors:
         load.msg = "%6s %5s" % (filter_string, det)
         load.show()
-        psf: fits.PrimaryHDU | None = generate_psf(
+        psf: fits.PrimaryHDU | None = generate_jwst_psf(
             filter_string, det, None)
         if psf:
             psf.writeto(
@@ -168,7 +171,7 @@ def _generate_psf_single(
 
 
 # noinspection SpellCheckingInspection
-def generate_psf(
+def generate_jwst_psf(
         filter_string: str,
         detector: Optional[str] = None,
         fov_pixels: Optional[int] = None) -> fits.PrimaryHDU | None:

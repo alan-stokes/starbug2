@@ -78,13 +78,12 @@ JWST_NIRCAM_ABVEGA_OFFSET_URL: Final[str] = (
     "jwst_nircam_abvegaoffset_0002.asdf"
 )
 
+# the default file name as needed for params
+DEFAULT_PARAM_FILE_NAME = "starbug.param"
+
 # paths to temp files.
 TMP_OUT: Final[str] = "/tmp/out.reg"
 TMP_FITS: Final[str] = "/tmp/starbug.fits"
-
-# the fits file extension
-FITS_EXTENSION: Final[str] = ".fits"
-FILE_NAME: Final[str] = "FILENAME"
 
 # HDU extension names
 DQ: Final[str] = "DQ"
@@ -96,6 +95,7 @@ ERR: Final[str] = "ERR"
 AP_FILE: Final[str] = "AP_FILE"
 BGD_FILE: Final[str] = "BGD_FILE"
 PSF_FILE: Final[str] = "PSF_FILE"
+FILE_NAME: Final[str] = "FILENAME"
 
 # the number of columns in the test table.
 N_COLUMNS: Final[int] = 8
@@ -143,6 +143,8 @@ class ExitStates(int, Enum):
 # noinspection SpellCheckingInspection
 class TableColumn(str, Enum):
     """Table column names used across the pipeline."""
+    X = "x"
+    Y = "y"
     CAT_NUM = "Catalogue_Number"
     RA = "RA"
     DEC = "DEC"
@@ -173,15 +175,16 @@ class TableColumn(str, Enum):
     MAG_DET = "mag_det"
     MAG_DIFF = "mag_diff"
     ERROR_MAG = "eMAG"
-    STATUS = "status"
-    REC = "rec"
+    FOUND = "found"
+    COMP_FRAC = "Comp_fraction"
     PARAM = "PARAM"
     X_INIT = "x_init"
     Y_INIT = "y_init"
     XY_DEV = "xydev"
     XY_DEV_ = "_xydev"
-    ERR_LOWER = "err"
-    OFF = "off"
+    ERR = "Empirical_phot_error"
+    OFF = "Ratio_Fin_Fout"
+    AST_MAG = "Injected_mag"
     X_FIT = "x_fit"
     Y_FIT = "y_fit"
     Q_FIT = "qfit"
@@ -315,11 +318,31 @@ class Units(int, Enum):
     DEG = 3
 
 
+# the fits file extension
+class FileExtensions(str, Enum):
+    FITS = ".fits"
+    AP = "-ap.fits"
+    AST = "-ast.fits"
+    AST_SPATIAL = "-ast-spatial.fits"
+    BACKGROUND = "-bgd.fits"
+    RESIDUE = "-res.fits"
+    PSF = "-psf.fits"
+    CUSTOM_PSF = "-c-psf.fits"
+
+    # needed as the table system doenst seem to handle enums properly
+    def __str__(self) -> str:
+        return self.value
+
+    # needed as the table system doenst seem to handle enums properly
+    def __format__(self, format_spec: str) -> str:
+        return self.value.__format__(format_spec)
+
+
 # the column names of the rsult table used by artificial stars
 TEST_TABLE_COLUMN_NAMES: Final[List[str]] = [
     TableColumn.X_0, TableColumn.Y_0, TableColumn.MAG, TableColumn.FLUX,
     TableColumn.X_DET, TableColumn.Y_DET, TableColumn.FLUX_DET,
-    TableColumn.STATUS]
+    TableColumn.FOUND]
 
 
 # text based logo (using raw string to bypass escape characters)

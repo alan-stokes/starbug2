@@ -26,7 +26,7 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
 from starbug2.core.star_bug_config import StarBugMainConfig
-from starbug2.constants import ExitStates, TableColumn, ERR
+from starbug2.constants import ExitStates, TableColumn, ERR, FileExtensions
 
 try:
     import matplotlib.pyplot as plt
@@ -97,7 +97,7 @@ class ArtificialStars:
                 TableColumn.MAG:
                     [config.test_magnitude_bright_limit,
                      config.test_magnitude_faint_limit]
-            }, config.ast_seed
+            }, seed=config.ast_seed
         )
 
         # utilising the Pogsons brightness equation. it ensures an astronomical
@@ -139,7 +139,8 @@ class ArtificialStars:
             total_star_flux = float(np.sum(star_overlay * scale_factor))
             retrieved_flux.append(total_star_flux)
             added_mag, _ = flux_to_pogson_mag(total_star_flux)
-            added_mag = added_mag + config.zero_point_magnitude
+            added_mag = float(
+                np.squeeze(added_mag + config.zero_point_magnitude))
             retrieved_mag.append(added_mag)
             retrieved_mag_diff.append(
                 float(single_source_table[TableColumn.MAG][0]) - added_mag)
@@ -164,7 +165,11 @@ class ArtificialStars:
 
         # the rest of the code don't want these values, so delete them from the
         # source list.
+        source_list.replace_column(
+            TableColumn.FLUX, source_list[TableColumn.TOTAL_FLUX_ADDED])
         source_list.remove_column(TableColumn.TOTAL_FLUX_ADDED)
+        source_list.replace_column(
+            TableColumn.MAG, source_list[TableColumn.TOTAL_MAG])
         source_list.remove_column(TableColumn.TOTAL_MAG)
         source_list.remove_column(TableColumn.TOTAL_DIFF_MAG)
 
@@ -205,7 +210,7 @@ def get_completeness(test_result: Table) -> Table:
         binned: Table = test_result[indices]
         if len(binned) > 0:
             percents[i] = float(
-                sum(binned[TableColumn.STATUS])) / len(binned)
+                sum(binned[TableColumn.FOUND])) / len(binned)
 
         mag_inj: np.ndarray
         mag_det: np.ndarray
@@ -223,7 +228,7 @@ def get_completeness(test_result: Table) -> Table:
 
     out: Table = Table(
         [bins, percents, errors, offsets],
-        names=(TableColumn.MAG, TableColumn.REC, TableColumn.ERR_LOWER,
+        names=(TableColumn.AST_MAG, TableColumn.COMP_FRAC, TableColumn.ERR,
                TableColumn.OFF),
         dtype=(float, float, float, float))
     return out
@@ -270,7 +275,7 @@ def get_spatial_completeness(
             binned: Table = test_result[mask]
             if len(binned):
                 percents[int(yi): int(yo), int(xi): int(xo)] = (
-                    float(np.sum(binned[TableColumn.STATUS])) / len(binned))
+                    float(np.sum(binned[TableColumn.FOUND])) / len(binned))
     return percents
 
 
@@ -298,15 +303,16 @@ def estimate_completeness_mag(ast: Table) -> (
         lambda y, limit, k, xo: xo - (np.log((limit / y) - 1) / k)
     )
 
-    if len(set(ast.colnames) & {TableColumn.MAG, TableColumn.REC}) == 2:
+    if (len(set(ast.colnames) & {
+            TableColumn.AST_MAG, TableColumn.COMP_FRAC}) == 2):
         try:
             # need the *_ as the return tuple can be multiple sizes. The *_
             # allows the IDE to not freak out, especially as we don't care
             # about the rest of the return values.
             bounds = ([0.8, -np.inf, 0], [1.0, np.inf, np.inf])
             fit, *_ = curve_fit(
-                scurve, ast[TableColumn.MAG], ast[TableColumn.REC],
-                [1, -1, np.median(ast[TableColumn.MAG])],
+                scurve, ast[TableColumn.AST_MAG], ast[TableColumn.COMP_FRAC],
+                [1, -1, np.median(ast[TableColumn.AST_MAG])],
                 bounds=bounds)
             assert fit is not None
             completeness = (fn_i(0.9, *fit), fn_i(0.7, *fit), fn_i(0.5, *fit))
@@ -389,10 +395,10 @@ def plot_top_plot(
         cfit: Tuple[float, float, float], filter_string: str | None,
         plot_ast: str) -> None:
     ax.scatter(
-        completeness_raw[TableColumn.MAG],
-        completeness_raw[TableColumn.REC], c='k', lw=0, s=8)
-    ax.plot(completeness_raw[TableColumn.MAG],
-            scurve(completeness_raw[TableColumn.MAG], *cfit),
+        completeness_raw[TableColumn.AST_MAG],
+        completeness_raw[TableColumn.COMP_FRAC], c='k', lw=0, s=8)
+    ax.plot(completeness_raw[TableColumn.AST_MAG],
+            scurve(completeness_raw[TableColumn.AST_MAG], *cfit),
             c='g',
             label=r"$f(x)=\frac{%.2f}{1+e^{%.2f("r"x-%.2f)}}$" % (
                 cfit[0], cfit[1], cfit[2]))
@@ -539,11 +545,11 @@ def compile_results(
     mag_raw = add_mag_columns(raw, config)
 
     results: dict[str, fits.HDUList] = {
-        "-ast.fits": fits.HDUList(
+        FileExtensions.AST: fits.HDUList(
             [fits.PrimaryHDU(header=fits.Header(head)),
              fits.BinTableHDU(data=completeness_raw, name="AST"),
              fits.BinTableHDU(data=mag_raw, name="RAW")]),
-        "-ast-spatial.fits": fits.HDUList(
+        FileExtensions.AST_SPATIAL: fits.HDUList(
             [fits.PrimaryHDU(header=fits.Header(head)),
              fits.ImageHDU(data=cast(Any, spatial_completeness), name="CMP")])}
 
