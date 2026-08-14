@@ -620,35 +620,34 @@ class StarBugMainConfig:
         if self._param_file is None:
             if os.path.exists(f"./{DEFAULT_PARAM_FILE_NAME}"):
                 self._param_file = DEFAULT_PARAM_FILE_NAME
-                config = self.load_params(self._param_file)
-                print(config)
-                # move from one config to another.
-                format_dictionary: dict[str, str] = {}
-                for key, (prop, target_type) in (
-                        self.MAIN_PARAM_FILE_MAP.items()):
-                    val = getattr(config, prop)
-                    format_dictionary[key] = val
-                self.update(format_dictionary)
 
-                print(config)
+        if self._param_file is not None:
+            config = self.load_params(self._param_file)
+            # move from one config to another.
+            format_dictionary: dict[str, str] = {}
+            for key, (prop, target_type) in (
+                    self.MAIN_PARAM_FILE_MAP.items()):
+                val = getattr(config, prop)
+                format_dictionary[key] = val
+            self.update(format_dictionary)
 
-                # reapply the params from direct command line
-                for opt, opt_arg in opts:
-                    # strip down to raw option label text
-                    clean_opt = opt.lstrip('-')
+            # reapply the params from direct command line
+            for opt, opt_arg in opts:
+                # strip down to raw option label text
+                clean_opt = opt.lstrip('-')
 
-                    for (short_flag, long_flag,
-                         data_type, _), property_name in (
-                            param_map.items()):
-                        if clean_opt in (short_flag, long_flag):
-                            if data_type is bool:
-                                setattr(self, property_name, True)
-                            else:
-                                # Casts string inputs to explicit types for
-                                # variables
-                                setattr(self, property_name,
-                                        data_type(opt_arg))
-                            break
+                for (short_flag, long_flag,
+                     data_type, _), property_name in (
+                        param_map.items()):
+                    if clean_opt in (short_flag, long_flag):
+                        if data_type is bool:
+                            setattr(self, property_name, True)
+                        else:
+                            # Casts string inputs to explicit types for
+                            # variables
+                            setattr(self, property_name,
+                                    data_type(opt_arg))
+                        break
 
     def got_valid_psf_generation_params(self) -> bool:
         """

@@ -65,6 +65,8 @@ SUBIMAGE    = {SUBIMAGE}                // Number of pixels to crop around artif
 MAX_MAG     = {MAX_MAG}                 // Bright limit of test magnitude
 MIN_MAG     = {MIN_MAG}                 // Faint limit of test magnitude
 PLOTAST     = {PLOTAST}                 // Output AST result as image with this filename
+DO_AST      = {DO_AST}                       // Turns on artifical star test process
+DO_AST_R    = {DO_AST_R}                     // Turns on artifical star result process
 
 ## MISC EXTRAS
 REGION_COL  = {REGION_COL}              // DS9 region colour

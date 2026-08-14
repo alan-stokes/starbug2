@@ -183,6 +183,8 @@ def execute_ast(
     star_bug = StarbugBase(f_name, psf_image_config, None, None)
     star_bug.run_starbug()
     config.ast_psf = star_bug.psf
+    config.do_artificial_star_test = True
+    config.do_artificial_star_test_results = True
 
     # management
     if config.verbose_logs:

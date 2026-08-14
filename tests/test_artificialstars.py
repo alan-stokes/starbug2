@@ -19,7 +19,8 @@ import numpy as np
 
 from starbug2.command_line_interfaces.ast import ast_main
 from starbug2.constants import ExitStates
-from tests.generic import TEST_IMAGE_FITS, TEST_PSF_FITS
+from tests.generic import (
+    TEST_IMAGE_FITS, TEST_PSF_FITS, TEST_PATH_STR, verify_test_data_exists)
 
 
 def run_ast_main(*args: str) -> int:
@@ -45,9 +46,10 @@ def test_ast_main_execution_states() -> None:
     failures.
     """
     # Test behaviour with a valid, verified target image path
+    verify_test_data_exists()
     assert (run_ast_main(
-        TEST_IMAGE_FITS, "-s", "FILTER=F444W", "-s",
-        f"PSF_FILE={TEST_PSF_FITS}") == ExitStates.EXIT_SUCCESS)
+        TEST_IMAGE_FITS, "-s", "FILTER=F444W", f'--output={TEST_PATH_STR}',
+        "-s", f"PSF_FILE={TEST_PSF_FITS} ") == ExitStates.EXIT_SUCCESS)
 
     # Test behaviour with an unrecognised, non-existent target path
     assert run_ast_main("nope") == ExitStates.EXIT_FAIL

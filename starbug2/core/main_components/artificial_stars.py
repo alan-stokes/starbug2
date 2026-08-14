@@ -139,7 +139,8 @@ class ArtificialStars:
             total_star_flux = float(np.sum(star_overlay * scale_factor))
             retrieved_flux.append(total_star_flux)
             added_mag, _ = flux_to_pogson_mag(total_star_flux)
-            added_mag = added_mag + config.zero_point_magnitude
+            added_mag = float(
+                np.squeeze(added_mag + config.zero_point_magnitude))
             retrieved_mag.append(added_mag)
             retrieved_mag_diff.append(
                 float(single_source_table[TableColumn.MAG][0]) - added_mag)
