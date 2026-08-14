@@ -164,6 +164,7 @@ class CustomPSF:
 
         # Create an Astropy Table
         stars_table = Table(star_data)
+        stars_table.remove_column(TableColumn.ID)
         custom_file_name: str = os.path.join(
             output_dir, f"custom_fit_stars{FileExtensions.AP}")
         export_table(stars_table, custom_file_name, header=new_psf_header)

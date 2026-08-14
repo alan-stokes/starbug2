@@ -17,7 +17,8 @@ import pytest
 from command_line_interfaces.main import starbug_internal_main
 from constants import ExitStates
 from core.star_bug_config import StarBugMainConfig
-from generic import TEST_PATH_STR, TEST_IMAGE_FITS
+from generic import (
+    TEST_PATH_STR, TEST_IMAGE_FITS, clean, verify_test_data_exists)
 
 
 def create_config_file(
@@ -39,10 +40,13 @@ def create_config_file(
 
 
 def test_custom_psf() -> None:
+    clean()
+    verify_test_data_exists()
     config: StarBugMainConfig = create_config_file()
     exit_code: ExitStates
     exit_code = starbug_internal_main(config)
     assert exit_code == ExitStates.EXIT_SUCCESS
+    clean()
 
 
 def test_custom_psf_even_fail() -> None:
