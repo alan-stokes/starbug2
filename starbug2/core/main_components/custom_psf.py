@@ -63,6 +63,8 @@ class CustomPSF:
         h_size: float = float((config.custom_psf_size_pixels - 1) / 2)
 
         # locate stars not on the edge of the image (within capture area).
+        assert sources is not None
+        assert isinstance(data, ImageHDU)
         stars: EPSFStars = CustomPSF.extract_stars(
             sources, h_size, data, config)
 
@@ -80,14 +82,21 @@ class CustomPSF:
         return CustomPSF.write_files_to_disk(output_dir, epsf, fitted_stars)
 
     @staticmethod
-    def extract_stars(sources, h_size, data, config) -> EPSFStars:
-        """
+    def extract_stars(
+            sources: Table, h_size: float, data: ImageHDU,
+            config: StarBugMainConfig) -> EPSFStars:
+        """ extracts stars from the image.
         
-        :param sources:
-        :param h_size:
-        :param data:
-        :param config:
-        :return:
+        :param sources: the star locations.
+        :type sources: Table
+        :param h_size: the size of the window for detecting stars.
+        :type h_size: float
+        :param data: the image data.
+        :type data: ImagePSF
+        :param config: the config
+        :type config: StarBugMainConfig
+        :return: the extracted stars
+        :rtype: EPSFStars
         """
         assert sources is not None
         x: Column = sources[TableColumn.X_CENTROID]
@@ -117,6 +126,18 @@ class CustomPSF:
     def write_files_to_disk(
             output_dir: str, epsf: ImagePSF,
             fitted_stars: EPSFStars) -> ExitStates:
+        """
+        writes the new psf and the detected stars into files.
+
+        :param output_dir: the output dir
+        :type output_dir: str
+        :param epsf: the psf object
+        :type epsf: ImagePSF
+        :param fitted_stars: the stars being fitted.
+        :type fitted_stars: EPSFStars
+        :return: success if done
+        :rtype: ExitStates
+        """
         # write new psf into a .fits file for further use.
         new_psf_header: Header = Header()
         assert output_dir is not None
