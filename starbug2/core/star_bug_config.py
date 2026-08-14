@@ -71,7 +71,7 @@ class StarBugMainConfig:
          'set',
          str,
          "set value in parameter file at runtime (-s SIGSKY=3)"):
-            'set_parameter',
+        'set_parameter',
         (None, 'init', bool, "Initialise Starbug (post install)"):
             'execute_jwst_initialisation',
         (None,
@@ -1784,7 +1784,7 @@ class StarBugMainConfig:
             "image.fits ..."
         ]
         for (short_flag, long_flag, val_type, desc), _ in (
-            self.MAIN_FLAG_MAP.items()):
+                self.MAIN_FLAG_MAP.items()):
             short_str = f"-{short_flag}" if short_flag else "  "
             long_str = f"--{long_flag}"
             type_hint = "" if val_type is bool else f" <{val_type.__name__}>"
@@ -1792,7 +1792,6 @@ class StarBugMainConfig:
             lines.append(f"{flag_col} : {desc}")
         lines.append("\n")
         return "\n".join(lines)
-
 
     def __setattr__(self, key: str, value: Any) -> None:
         # Check if the class is frozen, allowing the internal '_frozen'

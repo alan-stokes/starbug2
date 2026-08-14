@@ -40,6 +40,7 @@ def create_working_param_file(
     config.freeze()
     starbug_internal_main(config)
 
+
 def test_artificial_star_command_line() -> None:
     """
     basic test of ast.
@@ -65,6 +66,7 @@ def test_artificial_star_command_line() -> None:
     assert len(ast_psf_file) == 1000
 
     generic.clean()
+
 
 def test_artificial_star_command_line_change_n_tests() -> None:
     """
@@ -144,7 +146,7 @@ def test_artificial_star_command_line_help() -> None:
 
     # execute the ast framework
     result = subprocess.run(
-        ["starbug2-ast", f"-h"],
+        ["starbug2-ast", "-h"],
         capture_output=True,
         text=True,
         check=False,
