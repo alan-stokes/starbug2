@@ -22,8 +22,10 @@ from astropy import log
 from astropy.io.fits.verify import VerifyWarning
 from astropy.io.fits.header import Header
 from astropy.table import Table
-from astropy.utils.exceptions import AstropyDeprecationWarning, AstropyWarning
+from astropy.utils.exceptions import (
+    AstropyDeprecationWarning, AstropyWarning, AstropyUserWarning)
 import photutils
+from astropy.utils.metadata import MergeConflictWarning
 
 from starbug2.core.main_components.multi_treading_execution import (
     execute_multi_core_main, execute_one_core_run_main)
@@ -39,6 +41,8 @@ from starbug2.utilities.utils import (
 
 # Target-silence only the specific Photutils/Astropy deprecation noise
 # without masking generic Runtime math errors globally.
+# Target-silence only the specific Photutils/Astropy deprecation noise
+# without masking generic Runtime math errors globally.
 warnings.filterwarnings(
     "ignore", category=AstropyDeprecationWarning)
 warnings.filterwarnings(
@@ -50,6 +54,7 @@ warnings.filterwarnings(
 )
 warnings.filterwarnings("ignore", message=".*invalid values.*")
 warnings.filterwarnings("ignore", message=".*sigma_clipping.*")
+warnings.filterwarnings("ignore", message=".*Cannot merge meta key*")
 
 # Handle RuntimeWarnings elegantly: Ignore expected ones (like NaN comparisons
 # during clipping), but let actual mathematical issues surface.
@@ -57,6 +62,8 @@ warnings.filterwarnings(
     "ignore", message=".*invalid value encountered.*", category=RuntimeWarning)
 warnings.filterwarnings(
     "ignore", message=".*divide by zero.*", category=RuntimeWarning)
+# Ignore all metadata merge conflict warnings
+warnings.filterwarnings("ignore", category=MergeConflictWarning)
 
 # --- FITS IO FORMATTING NOISE ---
 # These suppress warnings about FITS header compliance
@@ -65,6 +72,11 @@ warnings.filterwarnings(
     "ignore",
     category=VerifyWarning,
     message=".*Card is too long.*"
+)
+warnings.filterwarnings(
+    "ignore",
+    category=AstropyUserWarning,
+    message=".*cannot be added to FITS Header.*",
 )
 log.setLevel(logging.ERROR)
 

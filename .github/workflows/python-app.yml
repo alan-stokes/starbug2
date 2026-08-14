@@ -115,6 +115,7 @@
           run: |
             echo "Starting pre test filter psf setup"
             starbug2 --init -s FILTER=F444W
+            starbug2 --init -s FILTER=F770W
             echo "Command completed successfully!"
 
         - name: Test with pytest
