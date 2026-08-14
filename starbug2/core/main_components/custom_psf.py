@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import numpy
 import os
-from astropy.io.fits import ImageHDU, PrimaryHDU, Header, BinTableHDU
+from astropy.io.fits import Header, ImageHDU
 from astropy.nddata import NDData
 from photutils.detection import DAOStarFinder
 from photutils.psf import (
@@ -36,11 +36,12 @@ class CustomPSF:
     @staticmethod
     def execute_custom_e_psf(config: StarBugMainConfig) -> ExitStates:
         """
-        generates a epsf from photutils.
+        generates an epsf from photutils.
         follows the sample code from:
             https://photutils.readthedocs.io/en/latest/user_guide/
             epsf_building.html
         :param config: the config object
+        :type config: StarBugMainConfig
         :return: success if complete.
         :rtype: ExitStates
         """
@@ -48,7 +49,7 @@ class CustomPSF:
         # read in image from fits file
         base: StarbugBase = StarbugBase(
             config.fits_images[0], config, ap_file=None, bkg_file=None)
-        data: ImageHDU | PrimaryHDU = base.main_image()
+        data: numpy.ndarray = base.main_image().data
 
         # determine threshold.
         median_stat: float
@@ -58,13 +59,12 @@ class CustomPSF:
 
         # locate stars in fits image
         finder: DAOStarFinder = DAOStarFinder(
-            threshold=threshold, fwhm=config.full_width_half_max)
+            threshold=threshold, fwhm=base.full_width_half_max)
         sources: Table | None = finder(data)
         h_size: float = float((config.custom_psf_size_pixels - 1) / 2)
 
         # locate stars not on the edge of the image (within capture area).
         assert sources is not None
-        assert isinstance(data, ImageHDU)
         stars: EPSFStars = CustomPSF.extract_stars(
             sources, h_size, data, config)
 
@@ -83,16 +83,16 @@ class CustomPSF:
 
     @staticmethod
     def extract_stars(
-            sources: Table, h_size: float, data: ImageHDU,
+            sources: Table, h_size: float, data: numpy.ndarray,
             config: StarBugMainConfig) -> EPSFStars:
         """ extracts stars from the image.
-        
+
         :param sources: the star locations.
         :type sources: Table
         :param h_size: the size of the window for detecting stars.
         :type h_size: float
         :param data: the image data.
-        :type data: ImagePSF
+        :type data: numpy.ndarray
         :param config: the config
         :type config: StarBugMainConfig
         :return: the extracted stars
@@ -143,7 +143,7 @@ class CustomPSF:
         assert output_dir is not None
         file_name: str = os.path.join(
             output_dir, f"custom{FileExtensions.CUSTOM_PSF}")
-        BinTableHDU(data=epsf, header=new_psf_header).writeto(
+        ImageHDU(data=epsf.data, header=new_psf_header).writeto(
             file_name, overwrite=True)
 
         # write detected stars as a .ap file

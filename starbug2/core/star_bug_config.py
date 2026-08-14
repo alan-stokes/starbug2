@@ -844,6 +844,10 @@ class StarBugMainConfig:
     def custom_psf_size_pixels(self, value: int) -> None:
         self._custom_psf_size_pixels = value
 
+        if self._custom_psf_size_pixels % 2 == 0:
+            raise Exception("size in pixels needs to be a odd number.")
+
+
     @property
     def show_help(self) -> bool:
         return self._show_help

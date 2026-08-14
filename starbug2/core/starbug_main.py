@@ -1125,3 +1125,7 @@ class StarbugBase(StarBugInterface):
     @property
     def ast_detections(self) -> Table | None:
         return self._ast_detections
+
+    @property
+    def full_width_half_max(self) -> float:
+        return self._full_width_half_max

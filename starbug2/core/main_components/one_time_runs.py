@@ -164,7 +164,8 @@ def load_param(config: StarBugMainConfig) -> ExitStates:
     return ExitStates.EXIT_SUCCESS
 
 
-def starbug_one_time_runs(config: StarBugMainConfig) -> ExitStates:
+def starbug_one_time_runs(
+        config: StarBugMainConfig) -> ExitStates:
     """
     executes any one time runs as required by the config
     :param config: the main config
