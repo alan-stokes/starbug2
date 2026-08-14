@@ -13,14 +13,14 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 from astropy.table import Table
-
-import generic
-from command_line_interfaces.main import starbug_internal_main
-from constants import DEFAULT_PARAM_FILE_NAME, ExitStates
-from core.star_bug_config import StarBugMainConfig
-from generic import TEST_PATH_STR, TEST_IMAGE_FITS, TEST_PSF_FITS
 import subprocess
 import os
+
+import tests.generic as generic
+from starbug2.command_line_interfaces.main import starbug_internal_main
+from starbug2.constants import DEFAULT_PARAM_FILE_NAME, ExitStates
+from starbug2.core.star_bug_config import StarBugMainConfig
+from tests.generic import TEST_PATH_STR, TEST_IMAGE_FITS, TEST_PSF_FITS
 
 
 def create_working_param_file(
@@ -39,6 +39,7 @@ def create_working_param_file(
     config.psf_file_override = TEST_PSF_FITS
     config.freeze()
     starbug_internal_main(config)
+
 
 def test_artificial_star_command_line() -> None:
     """
@@ -65,6 +66,7 @@ def test_artificial_star_command_line() -> None:
     assert len(ast_psf_file) == 1000
 
     generic.clean()
+
 
 def test_artificial_star_command_line_change_n_tests() -> None:
     """
@@ -144,7 +146,7 @@ def test_artificial_star_command_line_help() -> None:
 
     # execute the ast framework
     result = subprocess.run(
-        ["starbug2-ast", f"-h"],
+        ["starbug2-ast", "-h"],
         capture_output=True,
         text=True,
         check=False,
