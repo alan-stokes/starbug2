@@ -12,13 +12,20 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+import logging
 import os
 import sys
+import warnings
 from typing import Any
 
 import numpy as np
+from astropy import log
+from astropy.io.fits.verify import VerifyWarning
 from astropy.table import Table, vstack
 from astropy.units import Quantity
+from astropy.utils.exceptions import AstropyUserWarning, AstropyDeprecationWarning, AstropyWarning
+from astropy.utils.metadata import MergeConflictWarning
+
 from starbug2.utilities import utils
 from starbug2.constants import (
      STAR_BUG_MIRI, NIRCAM, MATCH_COLS, TableColumn, ExitStates, HeaderTags)
@@ -34,6 +41,45 @@ import photutils
 
 # Force photutils to strictly return standard QTables globally
 photutils.future_column_names = True
+
+# Target-silence only the specific Photutils/Astropy deprecation noise
+# without masking generic Runtime math errors globally.
+warnings.filterwarnings(
+    "ignore", category=AstropyDeprecationWarning)
+warnings.filterwarnings(
+    "ignore", message=".*contains deprecated section.*",
+    category=AstropyWarning)
+warnings.filterwarnings(
+    "ignore", category=AstropyWarning,
+    message=".*Input data contains invalid values*"
+)
+warnings.filterwarnings("ignore", message=".*invalid values.*")
+warnings.filterwarnings("ignore", message=".*sigma_clipping.*")
+warnings.filterwarnings("ignore", message=".*Cannot merge meta key*")
+
+# Handle RuntimeWarnings elegantly: Ignore expected ones (like NaN comparisons
+# during clipping), but let actual mathematical issues surface.
+warnings.filterwarnings(
+    "ignore", message=".*invalid value encountered.*", category=RuntimeWarning)
+warnings.filterwarnings(
+    "ignore", message=".*divide by zero.*", category=RuntimeWarning)
+# Ignore all metadata merge conflict warnings
+warnings.filterwarnings("ignore", category=MergeConflictWarning)
+
+# --- FITS IO FORMATTING NOISE ---
+# These suppress warnings about FITS header compliance
+# (e.g., truncated comments) that do not affect scientific output.
+warnings.filterwarnings(
+    "ignore",
+    category=VerifyWarning,
+    message=".*Card is too long.*"
+)
+warnings.filterwarnings(
+    "ignore",
+    category=AstropyUserWarning,
+    message=".*cannot be added to FITS Header.*",
+)
+log.setLevel(logging.ERROR)
 
 
 def starbug_parse_argv(argv: list[str]) -> StarBugMainConfig:
