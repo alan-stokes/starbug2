@@ -40,8 +40,9 @@ class CustomPSF:
         follows the sample code from:
             https://photutils.readthedocs.io/en/latest/user_guide/
             epsf_building.html
-        :param config:
-        :return:
+        :param config: the config object
+        :return: success if complete.
+        :rtype: ExitStates
         """
 
         # read in image from fits file
@@ -80,6 +81,14 @@ class CustomPSF:
 
     @staticmethod
     def extract_stars(sources, h_size, data, config) -> EPSFStars:
+        """
+        
+        :param sources:
+        :param h_size:
+        :param data:
+        :param config:
+        :return:
+        """
         assert sources is not None
         x: Column = sources[TableColumn.X_CENTROID]
         y: Column = sources[TableColumn.Y_CENTROID]
