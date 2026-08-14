@@ -22,7 +22,8 @@ from astropy import log
 from astropy.io.fits.verify import VerifyWarning
 from astropy.io.fits.header import Header
 from astropy.table import Table
-from astropy.utils.exceptions import AstropyDeprecationWarning, AstropyWarning, AstropyUserWarning
+from astropy.utils.exceptions import (
+    AstropyDeprecationWarning, AstropyWarning, AstropyUserWarning)
 import photutils
 from astropy.utils.metadata import MergeConflictWarning
 

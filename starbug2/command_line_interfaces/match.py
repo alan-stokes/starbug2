@@ -23,7 +23,8 @@ from astropy import log
 from astropy.io.fits.verify import VerifyWarning
 from astropy.table import Table, vstack
 from astropy.units import Quantity
-from astropy.utils.exceptions import AstropyUserWarning, AstropyDeprecationWarning, AstropyWarning
+from astropy.utils.exceptions import (
+    AstropyUserWarning, AstropyDeprecationWarning, AstropyWarning)
 from astropy.utils.metadata import MergeConflictWarning
 
 from starbug2.utilities import utils
