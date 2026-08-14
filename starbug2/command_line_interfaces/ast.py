@@ -56,6 +56,7 @@ warnings.filterwarnings(
 )
 warnings.filterwarnings("ignore", message=".*invalid values.*")
 warnings.filterwarnings("ignore", message=".*sigma_clipping.*")
+warnings.filterwarnings("ignore", message=".*Cannot merge meta key*")
 
 # Handle RuntimeWarnings elegantly: Ignore expected ones (like NaN comparisons
 # during clipping), but let actual mathematical issues surface.

@@ -25,9 +25,8 @@ from pathlib import Path
 from starbug2.constants import ExitStates, DEFAULT_PARAM_FILE_NAME
 from starbug2.constants import (
     SCI, DEFAULT_COLOUR, HeaderTags, AP_FILE, BGD_FILE, PSF_FILE, TableColumn,
-    STAR_BUG_PARAMS, DEFAULT_PSF_FILE_NAME, PROBLEMATIC_FILTER_ID,
-    PROBLEMATIC_FILTER_WARNING, DEFAULT_FULL_WIDTH_HALF_MAX, DEFAULT_MIN_MAG,
-    DEFAULT_MAX_MAG)
+    STAR_BUG_PARAMS, PROBLEMATIC_FILTER_ID, PROBLEMATIC_FILTER_WARNING,
+    DEFAULT_FULL_WIDTH_HALF_MAX, DEFAULT_MIN_MAG, DEFAULT_MAX_MAG)
 from starbug2.utilities.filters import FilterStruct
 from starbug2.utilities.utils import p_error, get_version, warn
 
@@ -388,7 +387,7 @@ class StarBugMainConfig:
         self._profile_slope: float = 0.5
         self._background_box_size: int = 2
         self._bgd_check_file: str | None = None
-        self._psf_file_override: str = DEFAULT_PSF_FILE_NAME
+        self._psf_file_override: str | None = None
         self._use_wcs_values: bool = True
         self._zero_point_magnitude: float = 8.9
         self._critical_separation: float = 1.0
@@ -1271,11 +1270,11 @@ class StarBugMainConfig:
         self._bgd_check_file = value
 
     @property
-    def psf_file_override(self) -> str:
+    def psf_file_override(self) -> str | None:
         return self._psf_file_override
 
     @psf_file_override.setter
-    def psf_file_override(self, value: str) -> None:
+    def psf_file_override(self, value: str | None) -> None:
         self._psf_file_override = value
 
     @property
@@ -1786,6 +1785,7 @@ class StarBugMainConfig:
 
     def generate_ast_help_string(self) -> str:
         """Dynamically constructs the CLI usage text from AST_FLAG_MAP."""
+        # noinspection SpellCheckingInspection
         lines = [
             "StarbugII Artificial Star Testing",
             "usage: starbug2-ast [-vh] [-N ntests] [-n ncores] "
@@ -1803,6 +1803,7 @@ class StarBugMainConfig:
         return "\n".join(lines)
 
     def generate_help_string(self) -> str:
+        # noinspection SpellCheckingInspection
         lines = [
             "StarbugII - JWST PSF photometry",
             "usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] "

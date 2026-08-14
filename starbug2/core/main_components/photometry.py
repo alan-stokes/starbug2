@@ -175,9 +175,11 @@ class Photometry:
 
         if psf is None:
             result: ExitStates
+            psf_file_override: str | None = config.psf_file_override
+            assert psf_file_override is not None
             (result, psf) = Photometry.load_psf(
                 filter_string, info, log,
-                os.path.expandvars(config.psf_file_override))
+                os.path.expandvars(psf_file_override))
             if result != ExitStates.EXIT_SUCCESS:
                 p_error("unable to run photometry: no PSF loaded\n")
                 return ExitStates.EXIT_FAIL, None
