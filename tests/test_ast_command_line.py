@@ -14,11 +14,11 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 from astropy.table import Table
 
-import generic
-from command_line_interfaces.main import starbug_internal_main
-from constants import DEFAULT_PARAM_FILE_NAME, ExitStates
-from core.star_bug_config import StarBugMainConfig
-from generic import TEST_PATH_STR, TEST_IMAGE_FITS, TEST_PSF_FITS
+import tests.generic as generic
+from starbug2.command_line_interfaces.main import starbug_internal_main
+from starbug2.constants import DEFAULT_PARAM_FILE_NAME, ExitStates
+from starbug2.core.star_bug_config import StarBugMainConfig
+from tests.generic import TEST_PATH_STR, TEST_IMAGE_FITS, TEST_PSF_FITS
 import subprocess
 import os
 
