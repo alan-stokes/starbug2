@@ -38,6 +38,8 @@ TEST_PATH_STR: Final[str] = str(TEST_PATH)
 TEST_IMAGE_FITS: Final[str] = os.path.join(TEST_PATH, "image.fits")
 TEST_PSF_FITS: Final[str] = os.path.join(TEST_PATH, "psf.fits")
 TEST_NGC_FITS: Final[str] = os.path.join(TEST_PATH, "ngc6822_F770W_i2d.fits")
+TEST_JWST_FITS: Final[str] = os.path.join(
+    TEST_PATH, "jw01234-c1003_t005_miri_f770w_i2d.fits")
 TEST_README: Final[str] = os.path.join(TEST_PATH, "readme.txt")
 TEST_BLANK: Final[str] = str(os.path.join(str(TEST_PATH), "blank.fits"))
 TEST_AST_FILLED: Final[str] = str(
@@ -51,14 +53,16 @@ TEST_FILTER_STRING = "-s FILTER=F444W -G"
 GITHUB_RELEASE_URL = (
     "https://github.com/alan-stokes/starbug2/releases/download/TEST_DATA/")
 REQUIRED_FILES = [
-    "image.fits", "psf.fits", f"ngc6822_{TEST_CUSTOM_FILTER}_i2d.fits"]
+    "image.fits", "psf.fits", f"ngc6822_{TEST_CUSTOM_FILTER}_i2d.fits",
+    "jw01234-c1003_t005_miri_f770w_i2d.fits"]
 
 
 def verify_test_data_exists() -> None:
     # Check if the specific FITS file is missing
     if not (os.path.exists(TEST_IMAGE_FITS)
             and os.path.exists(TEST_PSF_FITS)
-            and os.path.exists(TEST_NGC_FITS)):
+            and os.path.exists(TEST_NGC_FITS)
+            and os.path.exists(TEST_JWST_FITS)):
         print(
             "\n⚠️ Test file missing due to merge. "
             "Downloading all from GitHub Releases...")
@@ -96,6 +100,7 @@ def clean() -> None:
     files.remove(TEST_PSF_FITS)
     files.remove(TEST_NGC_FITS)
     files.remove(TEST_README)
+    files.remove(TEST_JWST_FITS)
     for file_name in files:
         os.remove(file_name)
     if os.path.exists("dat/starbug.param"):
@@ -165,6 +170,7 @@ def create_blank_fits(
     header[HeaderTags.FILTER] = "F770W"
 
     # 2. SCI Extension (Science Data)
+    # noinspection PyTypeChecker
     sci_hdu = fits.ImageHDU(data=background_noise, name="SCI")
     # Copy relevant headers to SCI HDU if required by starbug
     sci_hdu.header[ImageHeaderTags.BUN_IT] = DEFAULT_BUNIT
@@ -175,6 +181,7 @@ def create_blank_fits(
 
     # 3. ERR Extension (Uncertainties / Error map)
     err_data = np.sqrt(np.abs(background_noise))
+    # noinspection PyTypeChecker
     err_hdu = fits.ImageHDU(data=err_data, name="ERR")
 
     # 4. DQ Extension (Data Quality flags - 0 means good pixel)
@@ -183,6 +190,7 @@ def create_blank_fits(
 
     # 5. AREA Extension (Pixel area map - set to 1.0 or nominal pixel scale)
     area_data = np.ones(size, dtype=np.float32)
+    # noinspection PyTypeChecker
     area_hdu = fits.ImageHDU(data=area_data, name="AREA")
 
     # Combine all HDUs into an HDUList

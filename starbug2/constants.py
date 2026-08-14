@@ -36,7 +36,6 @@ STAR_BUG_TEST_DAT_ENV: Final[str] = "STARBUG_TEST_DIR"
 
 # default values
 DEFAULT_FULL_WIDTH_HALF_MAX = 2.0
-DEFAULT_PSF_FILE_NAME = "psf.fits"
 DEFAULT_COLOUR: Final[str] = "green"
 DEFAULT_MIN_MAG: Final[int] = 28
 DEFAULT_MAX_MAG: Final[int] = 18

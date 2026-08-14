@@ -200,18 +200,17 @@ class StarbugBase(StarBugInterface):
                     if main_image.data is None:
                         warn("Image seems to be empty.\n")
 
-                    if ((val := main_image.header.get(
-                            ImageHeaderTags.TELESCOPE)) is None
-                            or (val.find(ImageHeaderTags.JWST) < 0)):
-                        warn("Telescope not JWST, "
-                             "there may be undefined behaviour.\n")
+                    if ImageHeaderTags.TELESCOPE in self.info.keys():
+                        val = self.info.get(ImageHeaderTags.TELESCOPE)
+                        if val is None or val.find(ImageHeaderTags.JWST) < 0:
+                            warn("Telescope not JWST, "
+                                 "there may be undefined behaviour.\n")
 
                     self._filter = self._config.custom_filter
-                    assert self._filter is not None
-                    if ((HeaderTags.FILTER in main_image.header) and
-                            (main_image.header[HeaderTags.FILTER] in
+                    if ((HeaderTags.FILTER in self.info.keys()) and
+                            (self.info[HeaderTags.FILTER] in
                                 STAR_BUG_FILTERS.keys())):
-                        self._filter = main_image.header[HeaderTags.FILTER]
+                        self._filter = self.info[HeaderTags.FILTER]
                         assert self._filter is not None
                         if self._full_width_half_max < 0:
                             self._full_width_half_max = (
