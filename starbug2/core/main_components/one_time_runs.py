@@ -18,7 +18,6 @@ import os
 from astropy.io.fits import PrimaryHDU, HDUList
 from astropy.table import Table
 
-from starbug2.core.main_components.custom_psf import CustomPSF
 from starbug2.core.main_components.artificial_stars import compile_results
 from starbug2.constants import ExitStates, HELP_STRINGS, Modes
 from starbug2.core.star_bug_config import StarBugMainConfig
@@ -205,9 +204,6 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> ExitStates:
     # generate local param file as requested
     if config.generate_local_param_file:
         return config.do_generate_local_param_file()
-
-    if config.do_custom_psf:
-        return CustomPSF.execute_custom_e_psf(config)
 
     return ExitStates.EXIT_FAIL
 
