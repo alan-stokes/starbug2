@@ -21,7 +21,6 @@ from photutils.psf import (
     EPSFBuilder, extract_stars, EPSFStars, EPSFBuildResult, ImagePSF)
 from astropy.stats import sigma_clipped_stats
 from astropy.table import Table, Column
-
 from starbug2.constants import TableColumn, FileExtensions, ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase

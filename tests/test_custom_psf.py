@@ -24,7 +24,7 @@ from generic import (
 
 
 def create_config_file(
-    config: StarBugMainConfig = StarBugMainConfig()) -> StarBugMainConfig:
+        config: StarBugMainConfig = StarBugMainConfig()) -> StarBugMainConfig:
     """
     generate the param file used for command line behaviour.
     :param config: the config, or uses a default
