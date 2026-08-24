@@ -25,7 +25,7 @@ from astropy.table import Table, Column
 from starbug2.constants import TableColumn, FileExtensions, ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
-from starbug2.utilities.utils import export_table
+from starbug2.utilities.utils import export_table, split_file_name
 
 
 class CustomPSF:
@@ -78,8 +78,10 @@ class CustomPSF:
         fitted_stars: EPSFStars = result.fitted_stars
 
         output_dir: str | None = config.output_file
+        _, b_name, _ = split_file_name(base.f_name)
         assert output_dir is not None
-        return CustomPSF.write_files_to_disk(output_dir, epsf, fitted_stars)
+        return CustomPSF.write_files_to_disk(
+            output_dir, epsf, fitted_stars, b_name)
 
     @staticmethod
     def extract_stars(
@@ -125,7 +127,7 @@ class CustomPSF:
     @staticmethod
     def write_files_to_disk(
             output_dir: str, epsf: ImagePSF,
-            fitted_stars: EPSFStars) -> ExitStates:
+            fitted_stars: EPSFStars, fits_file_name: str) -> ExitStates:
         """
         writes the new psf and the detected stars into files.
 
@@ -135,6 +137,8 @@ class CustomPSF:
         :type epsf: ImagePSF
         :param fitted_stars: the stars being fitted.
         :type fitted_stars: EPSFStars
+        :param fits_file_name: the fits file name.
+        :type fits_file_name: str
         :return: success if done
         :rtype: ExitStates
         """
@@ -142,7 +146,7 @@ class CustomPSF:
         new_psf_header: Header = Header()
         assert output_dir is not None
         file_name: str = os.path.join(
-            output_dir, f"custom{FileExtensions.CUSTOM_PSF}")
+            output_dir, f"{fits_file_name}_custom{FileExtensions.CUSTOM_PSF}")
         ImageHDU(data=epsf.data, header=new_psf_header).writeto(
             file_name, overwrite=True)
 
@@ -166,7 +170,8 @@ class CustomPSF:
         stars_table = Table(star_data)
         stars_table.remove_column(TableColumn.ID)
         custom_file_name: str = os.path.join(
-            output_dir, f"custom_fit_stars{FileExtensions.AP}")
+            output_dir,
+            f"{fits_file_name}_custom_fit_stars{FileExtensions.AP}")
         export_table(stars_table, custom_file_name, header=new_psf_header)
 
         return ExitStates.EXIT_SUCCESS

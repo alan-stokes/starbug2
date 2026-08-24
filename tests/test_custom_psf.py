@@ -12,6 +12,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+import os
+
 import pytest
 
 from command_line_interfaces.main import starbug_internal_main
@@ -46,6 +48,16 @@ def test_custom_psf() -> None:
     exit_code: ExitStates
     exit_code = starbug_internal_main(config)
     assert exit_code == ExitStates.EXIT_SUCCESS
+
+    # verify files were made as expected.
+    custom_stars_file: str = os.path.join(
+        TEST_PATH_STR, "image_custom_fit_stars-ap.fits")
+    custom_c_psf_file: str = os.path.join(
+        TEST_PATH_STR, "image_custom-c-psf.fits")
+
+    assert os.path.exists(custom_stars_file)
+    assert os.path.exists(custom_c_psf_file)
+
     clean()
 
 
