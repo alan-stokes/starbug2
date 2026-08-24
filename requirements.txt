@@ -7,5 +7,11 @@ webbpsf==2.0.0
 scikit-image==0.26.0
 matplotlib==3.11
 pytest==9.1.0
+pytest-qt==4.5.0
 stpsf==2.2.0
 requests==2.34.2
+pyqt6-sip
+PyQt6==6.11.0
+PyQt6-Qt6==6.11.2
+PyQt6-sip==13.12.0
+pyqtgraph==0.14.0

@@ -12,9 +12,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-import os
 
-import pytest
+import os
 
 from starbug2.command_line_interfaces.main import starbug_internal_main
 from starbug2.constants import ExitStates
@@ -22,16 +21,15 @@ from starbug2.core.star_bug_config import StarBugMainConfig
 from tests.generic import (
     TEST_PATH_STR, TEST_IMAGE_FITS, clean, verify_test_data_exists)
 
-
 def create_config_file(
-        config: StarBugMainConfig = StarBugMainConfig()) -> StarBugMainConfig:
+    config: StarBugMainConfig = StarBugMainConfig()) -> StarBugMainConfig:
     """
     generate the param file used for command line behaviour.
     :param config: the config, or uses a default
     :return: None
     """
     config.unfreeze()
-    config.do_custom_psf = True
+    config.do_custom_psf_gui = True
     config.custom_psf_size_pixels = 51
     config.output_file = TEST_PATH_STR
     config.fits_images = [TEST_IMAGE_FITS]
@@ -40,13 +38,21 @@ def create_config_file(
     config.freeze()
     return config
 
-
-def test_custom_psf() -> None:
+"""@pytest.mark.skipif(
+    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") is None or
+    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") == "false",
+    reason="Harsh stress test locked out of normal development runs due to "
+           "length of time to run, CPU resources required which nearly slags"
+           " the machine."
+)"""
+def test_custom_psf_gui(qtbot) -> None:
     clean()
     verify_test_data_exists()
     config: StarBugMainConfig = create_config_file()
     exit_code: ExitStates
+
     exit_code = starbug_internal_main(config)
+    qtbot.stopForInteraction()
     assert exit_code == ExitStates.EXIT_SUCCESS
 
     # verify files were made as expected.
@@ -59,14 +65,3 @@ def test_custom_psf() -> None:
     assert os.path.exists(custom_c_psf_file)
 
     clean()
-
-
-def test_custom_psf_even_fail() -> None:
-    """
-    ensures the system fails due to even pixels.
-    :return: None
-    """
-    config: StarBugMainConfig = create_config_file()
-    config.unfreeze()
-    with pytest.raises(Exception):
-        config.custom_psf_size_pixels = 50

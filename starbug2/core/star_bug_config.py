@@ -47,6 +47,8 @@ class StarBugMainConfig:
          "run background estimation"): 'do_bgd_estimate',
         ('C', 'custom_psf', bool, "run creating custom psf"): 'do_custom_psf',
         ('D', 'detect', bool, "run source detection"): 'do_star_detection',
+        ('E', "custom_psf_gui", bool,
+         "will turn on the custom psf gui"): 'do_custom_psf_gui',
         ('f', 'find', bool,
          "attempt to find associated -ap -bgd files"): 'find_file',
         ('G', 'geom', bool,
@@ -297,6 +299,7 @@ class StarBugMainConfig:
         self._do_photometry_routine: bool = False
         self._do_bgd_subtraction: bool = False
         self._do_custom_psf: bool = False
+        self._do_custom_psf_gui: bool = False
 
         # other actions
         self._generate_psf: bool = False
@@ -669,7 +672,7 @@ class StarBugMainConfig:
             self._execute_jwst_initialisation or self._generate_psf or
             self._generate_run or self._generate_region or
             self._generate_local_param_file or self._show_version or
-            self._do_custom_psf)
+            self._do_custom_psf or self._do_custom_psf_gui)
 
     def use_ast_one_time_runs(self) -> bool:
         """
@@ -881,6 +884,14 @@ class StarBugMainConfig:
     @do_custom_psf.setter
     def do_custom_psf(self, value: bool) -> None:
         self._do_custom_psf = value
+
+    @property
+    def do_custom_psf_gui(self) -> bool:
+        return self._do_custom_psf_gui
+
+    @do_custom_psf_gui.setter
+    def do_custom_psf_gui(self, value: bool) -> None:
+        self._do_custom_psf_gui = value
 
     @property
     def do_aperture_photometry(self) -> bool:

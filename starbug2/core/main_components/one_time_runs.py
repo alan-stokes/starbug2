@@ -18,6 +18,7 @@ import os
 from astropy.io.fits import PrimaryHDU, HDUList
 from astropy.table import Table
 
+from starbug2.core.custom_psf_gui.custom_psf_gui import CustomPSFGui
 from starbug2.core.main_components.custom_psf import CustomPSF
 from starbug2.core.main_components.artificial_stars import compile_results
 from starbug2.constants import ExitStates, HELP_STRINGS, Modes
@@ -209,6 +210,9 @@ def starbug_one_time_runs(
 
     if config.do_custom_psf:
         return CustomPSF.execute_custom_e_psf(config)
+
+    if config.do_custom_psf_gui:
+        return CustomPSFGui.execute_gui(config)
 
     return ExitStates.EXIT_FAIL
 
