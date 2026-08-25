@@ -18,10 +18,10 @@ import sys
 from pathlib import Path
 from typing import Tuple
 
-import numpy as np
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import QScrollArea, QComboBox, QListWidget, QAbstractItemView
+from PyQt6.QtWidgets import (
+    QScrollArea, QComboBox, QListWidget, QAbstractItemView)
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel,
     QPushButton, QGroupBox, QFormLayout, QDoubleSpinBox, QCheckBox)
@@ -43,6 +43,7 @@ from astropy.visualization import (
     ZScaleInterval,
 )
 
+from starbug2.core.custom_psf_gui.star_grid_panel import StarGridPanel
 from starbug2.constants import ExitStates, TableColumn, STAR_BUG_TEST_DAT_ENV
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
@@ -51,6 +52,9 @@ from starbug2.core.custom_psf_gui.clickable_circle_overlay import (
 
 # Search box radius in pixels
 RADIUS = 2.0
+
+# size of grid for ech star from center
+STAR_IMAGE_SIZE = 25
 
 # the geometry of the UI.
 GEOMETRY = (100, 100, 1200, 700)
@@ -186,14 +190,36 @@ class CustomPSFGui(QMainWindow):
         :return: 2D numpy array normalised to [0.0, 1.0] ready for
                  QImage/display.
         """
-        interval = INTERVAL_MAP.get(interval_name, MinMaxInterval())
-        if stretch_name == "Histogram":
+        # 1. Select Interval (Min max vs Z scale)
+        if interval_name == "Z scale":
+            interval = ZScaleInterval()
+        else:
+            interval = MinMaxInterval()
+
+        # 2. Select Stretch
+        if stretch_name == "Log":
+            stretch = LogStretch(a=1000.0)
+        elif stretch_name == "Power":
+            stretch = PowerStretch(a=2.0)
+        elif stretch_name == "Sqrt":
+            stretch = SqrtStretch()
+        elif stretch_name == "Squared":
+            stretch = SquaredStretch()
+        elif stretch_name == "AsinH":
+            stretch = AsinhStretch(a=0.1)
+        elif stretch_name == "SinH":
+            stretch = SinhStretch(a=0.5)
+        elif stretch_name == "Histogram":
             stretch = HistEqStretch(image_data)
         else:
-            stretch = STRETCH_MAP.get(stretch_name, LinearStretch())
+            stretch = LinearStretch()
+
+        # 3. Create Normalisation wrapper
         norm = ImageNormalize(
             image_data, interval=interval, stretch=stretch, clip=True
         )
+
+        # Return normalized floats [0.0, 1.0]
         return norm(image_data)
 
     @staticmethod
@@ -926,11 +952,38 @@ class CustomPSFGui(QMainWindow):
         # Pass display_data (scaled 0-1) to your Matplotlib canvas or
         # QImage renderer
         self._img_item.setImage(
-            display_data.T, autoLevels=False, level=(0.0, 1.0))
+            display_data.T, autoLevels=False, levels=(0.0, 1.0))
 
     def do_review_stars(self) -> None:
         """
         opens up the review panel which allows fine tune selection of stars
         :return: None
         """
-        pass
+        selected_stars_arrays: list[Tuple[str, np.ndarray]] = []
+
+        # verify data exists
+        if len(self._selected_stars) == 0:
+            return
+
+        # extract mini images for each selected star
+        for item in self._selected_stars:
+            star_id: str = item.split("Star_")[1]
+            row_mask = self._detected_stars[TableColumn.CAT_NUM] == star_id
+            matched_row = self._detected_stars[row_mask]
+            x_coord: float = float(matched_row[TableColumn.X_CENTROID][0])
+            y_coord: float = float(matched_row[TableColumn.Y_CENTROID][0])
+
+            x_center: int = int(round(x_coord))
+            y_center: int = int(round(y_coord))
+            img_height, img_width = self._image_data.shape
+
+            x_min: int = max(0, x_center - STAR_IMAGE_SIZE)
+            x_max: int = min(img_width, x_center + STAR_IMAGE_SIZE)
+            y_min: int = max(0, y_center - STAR_IMAGE_SIZE)
+            y_max: int = min(img_height, y_center + STAR_IMAGE_SIZE)
+
+            star_data: np.ndarray = self._image_data[y_min:y_max, x_min:x_max]
+            selected_stars_arrays.append((star_id, star_data))
+
+        dialog = StarGridPanel(parent=self, images=selected_stars_arrays)
+        dialog.exec()

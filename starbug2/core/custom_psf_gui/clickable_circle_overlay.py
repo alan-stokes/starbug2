@@ -15,7 +15,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import pyqtgraph as pg
 
 
-class ClickableCircleOverlay(pg.ROI):
+class ClickableCircleOverlay(pg.CircleROI):
     """Custom interactive circle overlay that highlights on click and reports
        its location."""
 
@@ -30,11 +30,26 @@ class ClickableCircleOverlay(pg.ROI):
         self._center_pos = pos
         self._callback = callback
 
+        # remove resize handles
+        for handle in self.getHandles()[:]:
+            self.removeHandle(handle)
+
         # Make the ROI shape circular visually
+        self.translatable = False
         self._aspectLocked = True
 
         # Style default appearance
         self.turn_off()
+
+    def addScaleHandle(self, *args, **kwargs):
+        """Override to prevent PyQtGraph from dynamically adding scale
+        handles."""
+        pass
+
+    def addRotateHandle(self, *args, **kwargs):
+        """Override to prevent PyQtGraph from dynamically adding rotate
+         handles."""
+        pass
 
     def mouseClickEvent(self, ev) -> None:
         """
