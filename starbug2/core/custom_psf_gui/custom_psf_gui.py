@@ -13,17 +13,37 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import copy
+import os
 import sys
+from pathlib import Path
 from typing import Tuple
 
 import numpy as np
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon
+from PyQt6.QtWidgets import QScrollArea, QComboBox, QListWidget, QAbstractItemView
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel,
-    QPushButton, QGroupBox, QFormLayout, QDoubleSpinBox)
+    QPushButton, QGroupBox, QFormLayout, QDoubleSpinBox, QCheckBox)
 from astropy.table import Table
 from pyqtgraph import ImageItem, GraphicsLayoutWidget, ViewBox
 
-from starbug2.constants import ExitStates, TableColumn
+import numpy as np
+from astropy.visualization import (
+    AsinhStretch,
+    HistEqStretch,
+    ImageNormalize,
+    LinearStretch,
+    LogStretch,
+    MinMaxInterval,
+    PowerStretch,
+    SinhStretch,
+    SqrtStretch,
+    SquaredStretch,
+    ZScaleInterval,
+)
+
+from starbug2.constants import ExitStates, TableColumn, STAR_BUG_TEST_DAT_ENV
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
 from starbug2.core.custom_psf_gui.clickable_circle_overlay import (
@@ -35,6 +55,23 @@ RADIUS = 2.0
 # the geometry of the UI.
 GEOMETRY = (100, 100, 1200, 700)
 
+# Mapping UI labels to Astropy stretch objects
+STRETCH_MAP = {
+    "Linear": LinearStretch(),
+    "Log": LogStretch(a=1000.0),
+    "Power": PowerStretch(a=2.0),
+    "Sqrt": SqrtStretch(),
+    "Squared": SquaredStretch(),
+    "AsinH": AsinhStretch(a=0.1),
+    "SinH": SinhStretch(a=0.5),
+    "Histogram": None
+}
+
+# Mapping UI labels to Astropy interval objects
+INTERVAL_MAP = {
+    "Min max": MinMaxInterval(),
+    "Z scale": ZScaleInterval(),
+}
 
 class CustomPSFGui(QMainWindow):
     """
@@ -56,6 +93,7 @@ class CustomPSFGui(QMainWindow):
         config_copy.do_aperture_photometry = True
         config_copy.do_photometry_routine = False
         config_copy.do_bgd_estimate = False
+        config_copy.clean_sources = False
 
         # turn off any other functionality.
         config_copy.execute_jwst_initialisation = False
@@ -110,6 +148,55 @@ class CustomPSFGui(QMainWindow):
         return CustomPSFGui._run_starbug_for_detection(config_copy)
 
     @staticmethod
+    def _register_desktop_entry(
+        icon_path: str, app_id: str = "starbug2") -> None:
+        """Creates a temporary .desktop entry so Linux window managers map
+        the taskbar icon correctly."""
+        desktop_dir = Path.home() / ".local" / "share" / "applications"
+        desktop_dir.mkdir(parents=True, exist_ok=True)
+
+        desktop_file = desktop_dir / f"{app_id}.desktop"
+
+        # Simple launcher definition linking the App ID to the image path
+        content = f"""[Desktop Entry]
+    Type=Application
+    Name=starbug2 PSF generator
+    Exec=python3
+    Icon={os.path.abspath(icon_path)}
+    Terminal=false
+    StartupWMClass={app_id}
+    """
+        try:
+            desktop_file.write_text(content)
+        except Exception as e:
+            print(f"Warning: Could not write desktop entry: {e}")
+
+    @staticmethod
+    def scale_astronomy_image(
+            image_data: np.ndarray, stretch_name: str,
+            interval_name: str) -> np.ndarray:
+        """Scales a 2D numpy image array using Astropy visualisation based on
+         UI selections.
+
+        :param image_data: Raw 2D numpy array of the astronomy image.
+        :param stretch_name: Selected item from scaling_list (
+                             e.g., 'Linear', 'AsinH').
+        :param interval_name: Selected item from scaling_list_mut (
+                              'Min max' or 'Z scale').
+        :return: 2D numpy array normalised to [0.0, 1.0] ready for
+                 QImage/display.
+        """
+        interval = INTERVAL_MAP.get(interval_name, MinMaxInterval())
+        if stretch_name == "Histogram":
+            stretch = HistEqStretch(image_data)
+        else:
+            stretch = STRETCH_MAP.get(stretch_name, LinearStretch())
+        norm = ImageNormalize(
+            image_data, interval=interval, stretch=stretch, clip=True
+        )
+        return norm(image_data)
+
+    @staticmethod
     def execute_gui(config: StarBugMainConfig) -> ExitStates:
         """
         generates a GUI via the command line arguments interface.
@@ -130,11 +217,48 @@ class CustomPSFGui(QMainWindow):
         assert image_data is not None
         assert detections is not None
 
+        test_path: str | None = os.environ.get(STAR_BUG_TEST_DAT_ENV)
+        assert test_path is not None
+        test_path: str = os.path.dirname(os.path.dirname(
+            os.path.dirname(test_path)))
+        image_path: str = os.path.join(
+            test_path, "docs", "source", "_static", "images")
+        icon_path: str = os.path.join(image_path, "starbug.png")
+
         # this allows us to debug whilst in test mode as well as working
         # via command line.
         # noinspection PyArgumentList
+
         gui_app = QApplication.instance() or QApplication(sys.argv)
+        app_id = "starbug2-psf-generator"
+
+        if os.path.exists(icon_path):
+            CustomPSFGui._register_desktop_entry(icon_path, app_id)
+
+        gui_app.setApplicationName("starbug2 PSF generator")
+        gui_app.setApplicationDisplayName("starbug2 PSF generator")
+        gui_app.setDesktopFileName(app_id)
+
+        # try getting the icon to appear.
+        app_icon: QIcon = QIcon()
+        if os.path.exists(icon_path):
+            app_icon = QIcon(icon_path)
+            if not app_icon.isNull():
+                gui_app.setWindowIcon(app_icon)
+            else:
+                print(
+                    f"Warning: Icon file found at {icon_path} but image "
+                    f"payload is invalid."
+                )
+        else:
+            print(f"Warning: Icon file not found at {icon_path}")
+
         custom_psf_gui = CustomPSFGui(image_data, detections, config)
+        custom_psf_gui.setWindowTitle("starbug2 PSF generator")
+
+        if not app_icon.isNull():
+            custom_psf_gui.setWindowIcon(app_icon)
+
         custom_psf_gui.show()
 
         try:
@@ -170,6 +294,25 @@ class CustomPSFGui(QMainWindow):
         self._detected_stars: Table = detections
         self._config = config
 
+        # detection form elements
+        self._full_width_half_max_spin: QDoubleSpinBox
+        self._sig_sky: QDoubleSpinBox
+        self._sig_source: QDoubleSpinBox
+        self._sharp_lo: QDoubleSpinBox
+        self._sharp_hi: QDoubleSpinBox
+        self._round1_hi: QDoubleSpinBox
+        self._round2_hi: QDoubleSpinBox
+        self._smooth_lo: QDoubleSpinBox
+        self._smooth_hi: QDoubleSpinBox
+        self._ricker_r: QDoubleSpinBox
+        self._do_bkg: QCheckBox
+        self._do_convolution: QCheckBox
+        self._clean_sources: QCheckBox
+
+        # psf form elements
+        self._detected_list: QComboBox
+        self._selected_list: QComboBox
+
         # Set up UI components (Side-by-side layout)
         self._set_up_components()
 
@@ -178,25 +321,47 @@ class CustomPSFGui(QMainWindow):
 
         # Add circles for selection from detections
         self._populate_star_circles()
+        self._populate_star_combos()
+
+    def _setup_central_widget(self) -> None:
+        """
+        builds the central widget.
+        :return: None
+        """
+        self._central_widget: QWidget = QWidget(self)
+        self.setCentralWidget(self._central_widget)
+        self._main_layout: QHBoxLayout = QHBoxLayout(self._central_widget)
+        self._central_widget.setObjectName("main_window_frame")
+        self._central_widget.setStyleSheet("""
+            QWidget#main_window_frame {
+                border: 2px solid #555555;
+                border-radius: 6px;
+            }
+            #main_window_frame > QWidget {
+                background-color: transparent;
+            }
+        """)
+
+        # add some padding
+        self._main_layout.setContentsMargins(8, 8, 8, 8)
+
 
     def _set_up_components(self) -> None:
         """
         sets up the GUI components
         :return: None
         """
-        self.setWindowTitle("StarbugII - Custom ePSF Selector")
+        self.setWindowTitle("StarbugII - Custom e-PSF Selector")
         self.setGeometry(*GEOMETRY)
 
         # Main Central Widget & Horizontal Layout
-        self._central_widget: QWidget = QWidget(self)
-        self.setCentralWidget(self._central_widget)
-        self._main_layout: QHBoxLayout = QHBoxLayout(self._central_widget)
+        self._setup_central_widget()
 
-        # Left Control Panel (Stretch = 1)
+        # Left Control Panel
         self._control_panel: QWidget = self._create_control_panel()
         self._main_layout.addWidget(self._control_panel, stretch=1)
 
-        # Right Image View Panel (Stretch = 1)
+        # Right Image View Panel
         self._graphics_layout: GraphicsLayoutWidget = GraphicsLayoutWidget()
         self._view_box: ViewBox = self._graphics_layout.addViewBox()
         self._view_box.setAspectLocked(True)
@@ -217,6 +382,267 @@ class CustomPSFGui(QMainWindow):
 
         self._main_layout.addWidget(self._graphics_layout, stretch=1)
 
+    def _add_detection_form_elements(self, param_form: QFormLayout) -> None:
+        """
+        adds the detection params to the form.
+
+        :param param_form: the form to add the params to.
+        :type param_form: QFormLayout
+        :return: None
+        """
+        self._full_width_half_max_spin = QDoubleSpinBox(self)
+        self._full_width_half_max_spin.setRange(0.5, 20.0)
+        self._full_width_half_max_spin.setValue(self._config.full_width_half_max)
+        param_form.addRow("FWHM (pixels):", self._full_width_half_max_spin)
+
+        self._sig_sky = QDoubleSpinBox(self)
+        self._sig_sky.setRange(0.5, 20.0)
+        self._sig_sky.setValue(self._config.sigma_sky)
+        param_form.addRow("sigma sky:", self._sig_sky)
+
+        self._sig_source = QDoubleSpinBox(self)
+        self._sig_source.setRange(0.5, 20.0)
+        self._sig_source.setValue(self._config.sigma_source)
+        param_form.addRow("sigma source:", self._sig_source)
+
+        self._sharp_lo = QDoubleSpinBox(self)
+        self._sharp_lo.setRange(0.5, 20.0)
+        self._sharp_lo.setValue(self._config.sharp_cutoff_low)
+        param_form.addRow("sharp low:", self._sharp_lo)
+
+        self._sharp_hi = QDoubleSpinBox(self)
+        self._sharp_hi.setRange(0.5, 20.0)
+        self._sharp_hi.setValue(self._config.sharp_cutoff_high)
+        param_form.addRow("sharp high:", self._sharp_hi)
+
+        self._round1_hi = QDoubleSpinBox(self)
+        self._round1_hi.setRange(0.5, 20.0)
+        self._round1_hi.setValue(self._config.round1_cutoff_high)
+        param_form.addRow("round 1 high:", self._round1_hi)
+
+        self._round2_hi = QDoubleSpinBox(self)
+        self._round2_hi.setRange(0.5, 20.0)
+        self._round2_hi.setValue(self._config.round2_cutoff_high)
+        param_form.addRow("round 2 high:", self._round2_hi)
+
+        self._smooth_lo = QDoubleSpinBox(self)
+        self._smooth_lo.setRange(0.5, 20.0)
+        self._smooth_lo.setValue(self._config.smooth_low)
+        param_form.addRow("sharp low:", self._smooth_lo)
+
+        self._smooth_hi = QDoubleSpinBox(self)
+        self._smooth_hi.setRange(0.5, 20.0)
+        self._smooth_hi.setValue(self._config.smooth_high)
+        param_form.addRow("sharp high:", self._smooth_hi)
+
+        self._ricker_r = QDoubleSpinBox(self)
+        self._ricker_r.setRange(0.5, 20.0)
+        self._ricker_r.setValue(self._config.ricker_wavelet_radius)
+        param_form.addRow("sharp high:", self._ricker_r)
+
+        # ensure the checkboxes are on same line
+        checkbox_container = QWidget(self)
+        checkbox_layout = QHBoxLayout(checkbox_container)
+        checkbox_layout.setContentsMargins(0, 0, 0, 0)
+
+        self._do_bkg = QCheckBox("background 2d", self)
+        self._do_bkg.setChecked(self._config.do_bgd_2d)
+        checkbox_layout.addWidget(self._do_bkg)
+
+        self._do_convolution = QCheckBox("do convolution", self)
+        self._do_convolution.setChecked(self._config.do_convolution)
+        checkbox_layout.addWidget(self._do_convolution)
+
+        self._clean_sources = QCheckBox("clean sources", self)
+        self._clean_sources.setChecked(self._config.clean_sources)
+        checkbox_layout.addWidget(self._clean_sources)
+        param_form.addRow("Options:", checkbox_container)
+
+    def _create_detection_param_group(self) -> QGroupBox:
+        """
+        creates the detection param group.
+        :return: the detection param group
+        :rtype: QGroupBox
+        """
+        detection_param_group = QGroupBox("Detection Parameters", self)
+
+        # support collapsing this detection param group.
+        detection_param_group.setCheckable(True)
+        detection_param_group.setChecked(True)
+
+        # Toggling the title checkbox hides/shows the form parameters inside
+        # noinspection PyUnresolvedReferences
+        detection_param_group.toggled.connect(
+            lambda checked: [
+                param_form.itemAt(i).widget().setVisible(checked)
+                for i in range(param_form.count())
+                if param_form.itemAt(i).widget()
+            ]
+        )
+
+        # populate the detection form elements.
+        param_form = QFormLayout(detection_param_group)
+        self._add_detection_form_elements(param_form)
+        return detection_param_group
+
+    def _create_buttons(self) -> Tuple[QPushButton, QPushButton]:
+        """
+        generates the buttons
+        :return: tuple of the redo detection button, and the do custom psf
+        button
+        :rtype: Tuple[QPushButton, QPushButton]
+        """
+        redo_detection_btn = QPushButton("Redo Detection", self)
+        # noinspection PyUnresolvedReferences
+        redo_detection_btn.clicked.connect(self.on_redo_detection)
+
+        do_custom_psf_btn = QPushButton("Generate Custom PSF", self)
+        do_custom_psf_btn.setStyleSheet("font-weight: bold;")
+        # noinspection PyUnresolvedReferences
+        do_custom_psf_btn.clicked.connect(self.on_generate_custom_psf)
+        return redo_detection_btn, do_custom_psf_btn
+
+    def _create_psf_stars_group(self):
+        psf_stars_group = QGroupBox("custom PSF selections", self)
+
+        # support collapsing this detection param group.
+        psf_stars_group.setCheckable(True)
+        psf_stars_group.setChecked(True)
+
+        def toggle_group_contents(checked: bool) -> None:
+            """
+            ensures disabled aspects for the psf star panel.
+            NOTE. the same work for the detections panel doesn't work, as the
+            group box doesn't like it and is more inclined to disable instead
+            of going invisible.
+            :param checked: if its to be visible or invisible.
+            :return: None
+            """
+            widgets = [
+                self._detected_list,
+                self._selected_list,
+                transfer_stars_to_selected,
+                transfer_stars_to_detections,
+            ]
+            for w in widgets:
+                w.setVisible(checked)
+                w.setEnabled(True)  # Overrides Qt's default gray-out behaviour
+
+        # Toggling the title checkbox hides/shows the form parameters inside
+        # noinspection PyUnresolvedReferences
+        psf_stars_group.toggled.connect(toggle_group_contents)
+
+        # create holder for the star selection
+        group_layout = QVBoxLayout(psf_stars_group)
+        dropdown_layout = QHBoxLayout()
+
+        # create the multi select drops downs.
+        self._detected_list = QListWidget(self)
+        self._selected_list = QListWidget(self)
+
+        # put them in multi select mode
+        self._detected_list.setSelectionMode(
+            QAbstractItemView.SelectionMode.MultiSelection
+        )
+        self._selected_list.setSelectionMode(
+            QAbstractItemView.SelectionMode.MultiSelection
+        )
+
+        # create automatic selection process.
+        automatic_psf_star_selection_btn = QPushButton(
+            "Automatic Selection", self)
+        # noinspection PyUnresolvedReferences
+        automatic_psf_star_selection_btn.clicked.connect(self.on_automatic)
+
+        # add to the layout.
+        group_layout.addWidget(automatic_psf_star_selection_btn)
+        dropdown_layout.addWidget(self._detected_list)
+        dropdown_layout.addWidget(self._selected_list)
+        group_layout.addLayout(dropdown_layout)
+
+        # add button
+        transfer_stars_to_selected = QPushButton("Move to selected ->", self)
+        # noinspection PyUnresolvedReferences
+        transfer_stars_to_selected.clicked.connect(
+            self.on_psf_add_star_selected)
+
+        transfer_stars_to_detections = QPushButton("Move back <-", self)
+        # noinspection PyUnresolvedReferences
+        transfer_stars_to_detections.clicked.connect(
+            self.on_psf_remove_star_selected)
+
+        # review button
+        review_selected = QPushButton("Review selection", self)
+        # noinspection PyUnresolvedReferences
+        review_selected.clicked.connect(self.do_review_stars)
+
+        group_layout.addWidget(transfer_stars_to_selected)
+        group_layout.addWidget(transfer_stars_to_detections)
+        group_layout.addWidget(review_selected)
+
+
+        return psf_stars_group
+
+    def _create_scaling_group(self) -> QGroupBox:
+        scale_param_group = QGroupBox("Scales Parameters", self)
+
+        # support collapsing this detection param group.
+        scale_param_group.setCheckable(True)
+        scale_param_group.setChecked(True)
+
+        # Toggling the title checkbox hides/shows the form parameters inside
+        # noinspection PyUnresolvedReferences
+        scale_param_group.toggled.connect(
+            lambda checked: [
+                param_form.itemAt(i).widget().setVisible(checked)
+                for i in range(param_form.count())
+                if param_form.itemAt(i).widget()
+            ]
+        )
+
+        self._scaling_list = QListWidget(self)
+        self._scaling_list.addItems([
+            "Linear", "Log", "Power", "Sqrt", "Squared", "AsinH", "SinH",
+            "Histogram"])
+        self._scaling_list.setCurrentRow(0)
+        # noinspection PyUnresolvedReferences
+        self._scaling_list.itemClicked.connect(self._on_scaling_item_clicked)
+        self.adjust_list_widget_height(self._scaling_list)
+
+        self._scaling_list_mut = QListWidget(self)
+        self._scaling_list_mut.addItems(["Min max", "Z scale"])
+        self._scaling_list_mut.setCurrentRow(0)
+        # noinspection PyUnresolvedReferences
+        self._scaling_list_mut.itemClicked.connect(self._on_scaling_item_clicked)
+        self.adjust_list_widget_height(self._scaling_list_mut)
+
+        # add to the form
+        param_form = QFormLayout(scale_param_group)
+        param_form.addRow(self._scaling_list)
+        param_form.addRow(self._scaling_list_mut)
+        return scale_param_group
+
+    @staticmethod
+    def adjust_list_widget_height(list_widget: QListWidget) -> None:
+        """
+        Resizes the QListWidget to fit its content items exactly.
+        :param list_widget: the wigit to resize.
+        :return: None
+        """
+        # Force layout recalculation to ensure valid row heights
+        list_widget.doItemsLayout()
+
+        # Sum total height of all items
+        total_height = 0
+        for i in range(list_widget.count()):
+            total_height += list_widget.sizeHintForRow(i)
+
+        # Add frame margin padding (top/bottom borders)
+        total_height += list_widget.frameWidth() * 2
+
+        # Set maximum height so it shrinks to content
+        list_widget.setMaximumHeight(total_height)
+
     def _create_control_panel(self) -> QWidget:
         """
         creates the control panel
@@ -224,8 +650,36 @@ class CustomPSFGui(QMainWindow):
         :rtype QWidget
         """
 
+        scroll_area = QScrollArea(self)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        scroll_area.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+
         control_panel: QWidget = QWidget(self)
         control_layout: QVBoxLayout = QVBoxLayout(control_panel)
+        control_panel.setObjectName("control_panel")
+
+        # Group Box: Detection Parameters
+        detection_param_group = self._create_detection_param_group()
+        scaling_group = self._create_scaling_group()
+        psf_stars_group = self._create_psf_stars_group()
+
+        # add to the control layout.
+        control_layout.addWidget(detection_param_group)
+
+        # Action Buttons
+        redo_detection_btn, do_custom_psf_btn = self._create_buttons()
+
+        # add to the control panel layout.
+        control_layout.addWidget(detection_param_group)
+        control_layout.addWidget(scaling_group)
+        control_layout.addWidget(psf_stars_group)
+        control_layout.addWidget(redo_detection_btn)
+        control_layout.addWidget(do_custom_psf_btn)
 
         # Status Label
         self._info_label: QLabel = QLabel(
@@ -233,46 +687,12 @@ class CustomPSFGui(QMainWindow):
         self._info_label.setWordWrap(True)
         control_layout.addWidget(self._info_label)
 
-        # Group Box: Detection Parameters
-        param_group = QGroupBox("Detection Parameters", self)
-        param_form = QFormLayout(param_group)
-
-        full_width_half_max_spin = QDoubleSpinBox(self)
-        full_width_half_max_spin.setRange(0.5, 20.0)
-        full_width_half_max_spin.setValue(self._config.full_width_half_max)
-        param_form.addRow("FWHM (pixels):", full_width_half_max_spin)
-
-        sig_sky = QDoubleSpinBox(self)
-        sig_sky.setRange(0.5, 20.0)
-        sig_sky.setValue(self._config.sigma_sky)
-        param_form.addRow("sigma sky:", sig_sky)
-
-        sig_source = QDoubleSpinBox(self)
-        sig_source.setRange(0.5, 20.0)
-        sig_source.setValue(self._config.sigma_source)
-        param_form.addRow("sigma source:", sig_source)
-
-        sharp_lo = QDoubleSpinBox(self)
-        sharp_lo.setRange(0.5, 20.0)
-        sharp_lo.setValue(self._config.sharp_cutoff_low)
-        param_form.addRow("sharp low:", sharp_lo)
-
-        control_layout.addWidget(param_group)
-
-        # Action Buttons
-        redo_detection_btn = QPushButton("Redo Detection", self)
-        # noinspection PyUnresolvedReferences
-        redo_detection_btn.clicked.connect(self.on_redo_detection)
-        control_layout.addWidget(redo_detection_btn)
-
-        do_custom_psf_btn = QPushButton("Generate Custom PSF", self)
-        do_custom_psf_btn.setStyleSheet("font-weight: bold;")
-        # noinspection PyUnresolvedReferences
-        do_custom_psf_btn.clicked.connect(self.on_generate_custom_psf)
-        control_layout.addWidget(do_custom_psf_btn)
-
+        # put everything at top
         control_layout.addStretch()
-        return control_panel
+
+        # add the control panel to the scroll area.
+        scroll_area.setWidget(control_panel)
+        return scroll_area
 
     def _create_nan_layer(self) -> None:
         """ creates the nan graphical layer.
@@ -282,7 +702,7 @@ class CustomPSFGui(QMainWindow):
         display_data = np.copy(self._image_data)
         nan_mask = np.isnan(display_data)
 
-        # Clean NaNs for main image rendering
+        # Clean Nans for main image rendering
         bg_median = float(np.nanmedian(display_data))
         display_data[nan_mask] = bg_median
 
@@ -292,13 +712,27 @@ class CustomPSFGui(QMainWindow):
         nan_lut = np.array([
             # Valid pixels -> transparent
             [0, 0, 0, 0],
-            # NaNs -> solid red
+            # Nans -> solid red
             [255, 0, 0, 255]
         ], dtype=np.uint8)
 
         self._nan_overlay_item.setImage(
             nan_mask.T.astype(np.uint8), levels=[0, 1], lut=nan_lut,
             autoLevels=False)
+
+    def _populate_star_combos(self) -> None:
+        """Populates dropdowns based on current detection state."""
+        self._detected_list.clear()
+        self._selected_list.clear()
+
+        # Populate detected dropdown with stars that are not currently selected
+        for star_id in self._circles_for_psf_generation.keys():
+            if star_id not in self._selected_stars:
+                self._detected_list.addItem(star_id)
+
+        # Populate selected dropdown
+        for star_id in self._selected_stars:
+            self._selected_list.addItem(star_id)
 
     def _populate_star_circles(self) -> None:
         """
@@ -325,6 +759,24 @@ class CustomPSFGui(QMainWindow):
             self._view_box.addItem(star_circle)
             self._circles_for_psf_generation[star_id] = star_circle
 
+    def _populate_star_lists(self) -> None:
+        """
+        updates the 2-star lists for the psf selection.
+        :return: None
+        """
+        self._detected_list.clear()
+        self._selected_list.clear()
+
+        # Populate detected stars list
+        star_id: str
+        for star_id in self._circles_for_psf_generation.keys():
+            if star_id not in self._selected_stars:
+                self._detected_list.addItem(star_id)
+
+        # Populate selected stars list
+        for star_id in self._selected_stars:
+            self._selected_list.addItem(star_id)
+
     def on_star_clicked(self, star_id: str, pos: tuple[float, float]) -> None:
         """
         callback when a star circle is selected.
@@ -347,6 +799,7 @@ class CustomPSFGui(QMainWindow):
             self._info_label.setText(
                 f"Selected: {star_id} at Pixel Coordinates (X={pos[0]:.2f}, "
                 f"Y={pos[1]:.2f})")
+        self._populate_star_lists()
 
     def on_redo_detection(self) -> None:
         """
@@ -356,7 +809,20 @@ class CustomPSFGui(QMainWindow):
         config_copy = CustomPSFGui._update_config(self._config)
         # add the values from the form.
         config_copy.unfreeze()
-
+        config_copy.full_width_half_max = (
+            self._full_width_half_max_spin.value())
+        config_copy.sigma_sky = self._sig_sky.value()
+        config_copy.sigma_source = self._sig_source.value()
+        config_copy.sharp_cutoff_low = self._sharp_lo.value()
+        config_copy.sharp_cutoff_high = self._sharp_hi.value()
+        config_copy.round1_cutoff_high = self._round1_hi.value()
+        config_copy.round2_cutoff_high = self._round2_hi.value()
+        config_copy.smooth_low = self._smooth_lo.value()
+        config_copy.smooth_high = self._smooth_hi.value()
+        config_copy.ricker_wavelet_radius = self._ricker_r.value()
+        config_copy.do_bgd_2d = self._do_bkg.isChecked()
+        config_copy.do_convolution = self._do_convolution.isChecked()
+        config_copy.clean_sources = self._clean_sources.isChecked()
         config_copy.freeze()
 
         # run and get new detections.
@@ -372,6 +838,7 @@ class CustomPSFGui(QMainWindow):
         self._detected_stars: Table = detections
         self._populate_star_circles()
         self._selected_stars.clear()
+        self._populate_star_lists()
 
         self._info_label.setText(
             "Detection redo complete. Click a star marker to select.")
@@ -386,5 +853,84 @@ class CustomPSFGui(QMainWindow):
 
         # run the custom psf process.
 
-        # open new viewer for the epsfs.
+        # open new viewer for the e-psf's.
+        pass
+
+    def on_psf_add_star_selected(self) -> None:
+        """
+        moves stars from the detections into the psf selection list.
+        :return: None
+        """
+        selected_items: list = self._detected_list.selectedItems()
+        if not selected_items:
+            return
+
+        for item in selected_items:
+            star_id: str = item.text()
+            if star_id not in self._selected_stars:
+                self._selected_stars.append(star_id)
+
+                # Highlight circle overlay on canvas
+                if star_id in self._circles_for_psf_generation:
+                    self._circles_for_psf_generation[star_id].turn_on()
+
+        self._populate_star_lists()
+
+    def on_psf_remove_star_selected(self) -> None:
+        """
+        removes stars selected from the psf remove and puts them back in the
+        detections list.
+        :return: None
+        """
+        selected_items: list = self._selected_list.selectedItems()
+        if not selected_items:
+            return
+
+        for item in selected_items:
+            star_id: str = item.text()
+            if star_id in self._selected_stars:
+                self._selected_stars.remove(star_id)
+
+                # Turn off highlight circle overlay on canvas
+                if star_id in self._circles_for_psf_generation:
+                    self._circles_for_psf_generation[star_id].turn_off()
+
+        self._populate_star_lists()
+
+    def on_automatic(self) -> None:
+        """
+        execute an automatic detection of stars for the psf.
+        :return: None
+        """
+        pass
+
+    def _on_scaling_item_clicked(self) -> None:
+        """
+        execute a scaling adjustment.
+        :return: None
+        """
+        selected_stretch_items = self._scaling_list.selectedItems()
+        selected_interval_items = self._scaling_list_mut.selectedItems()
+
+        if not selected_stretch_items or not selected_interval_items:
+            return
+
+        stretch_choice = selected_stretch_items[0].text()
+        interval_choice = selected_interval_items[0].text()
+
+        # Process image data using Astropy
+        display_data = CustomPSFGui.scale_astronomy_image(
+            self._image_data, stretch_choice, interval_choice
+        )
+
+        # Pass display_data (scaled 0-1) to your Matplotlib canvas or
+        # QImage renderer
+        self._img_item.setImage(
+            display_data.T, autoLevels=False, level=(0.0, 1.0))
+
+    def do_review_stars(self) -> None:
+        """
+        opens up the review panel which allows fine tune selection of stars
+        :return: None
+        """
         pass
