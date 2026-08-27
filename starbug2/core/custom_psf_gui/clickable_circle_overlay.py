@@ -68,7 +68,7 @@ class ClickableCircleOverlay(pg.CircleROI):
         turns the circle to not selected mode
         :return: None
         """
-        self.setPen(pg.mkPen(color='white', width=1.5))
+        self.setPen(pg.mkPen(color='red', width=1.5))
 
     def turn_on(self) -> None:
         """

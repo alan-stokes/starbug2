@@ -23,43 +23,51 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QVBoxLayout,
-    QWidget,
+    QWidget, QListWidget,
 )
 import pyqtgraph as pg
+from pyqtgraph import ImageItem
+
+from custom_psf_gui.scale_elements import ScaleElements
 
 
 class StarGridPanel(QDialog):
-    """Pop-up panel containing scale parameters and a grid of astronomical images."""
+    """Pop-up panel / solo gui containing scale parameters and a grid of
+       astronomical images with the ability to do PSF generation is solo."""
 
-    def __init__(self, images: List[Tuple[str, np.ndarray]], parent=None):
+    def __init__(
+            self, images: List[Tuple[str, np.ndarray]], sole_ui: bool,
+            parent=None):
+        """
+
+        :param images:
+        :param sole_ui:
+        :param parent:
+        """
         super().__init__(parent)
-        self.setWindowTitle("Image Inspection & Scaler")
+        self.setWindowTitle("Image Inspection & PSF generation")
         self.resize(800, 600)
-        self._images = images or []
+        self._images: List[Tuple[str, np.ndarray]] = images
+        self._image_items: List[ImageItem] = list()
+        self._solo: bool = sole_ui
 
-        # Main Layout
-        main_layout = QVBoxLayout(self)
+        # scale bits
+        self._scaling_list: QListWidget | None = None
+        self._scaling_list_mut: QListWidget | None = None
+        self._scale_builder: ScaleElements | None = None
 
-        # --- Top Section: Scaling Controls Panel ---
-        controls_layout = QHBoxLayout()
-        controls_layout.addWidget(
-            QLabel("Grid Parameters / Controls Panel Here")
-        )
+        # create the UI.
+        self._create_components()
 
-        # Example action button inside the dialog
-        apply_btn = QPushButton("Apply to Grid")
-        controls_layout.addWidget(apply_btn)
-        main_layout.addLayout(controls_layout)
-
-        # --- Bottom Section: Scrollable Grid of Images ---
-        scroll_area = QScrollArea(self)
+    def _create_image_viewer(self) -> QScrollArea:
+        scroll_area: QScrollArea = QScrollArea(self)
         scroll_area.setWidgetResizable(True)
 
-        grid_widget = QWidget(self)
-        grid_layout = QGridLayout(grid_widget)
+        grid_widget: QWidget = QWidget(self)
+        grid_layout: QGridLayout = QGridLayout(grid_widget)
 
         # Populate grid (e.g., 3 columns)
-        cols = 3
+        cols: int = 3
         for idx, (star_id, img_data) in enumerate(self._images):
             row = idx // cols
             col = idx % cols
@@ -69,10 +77,55 @@ class StarGridPanel(QDialog):
             view = win.addViewBox()
             view.setAspectLocked(True)
 
-            img_item = pg.ImageItem(img_data.T)
+            img_item: ImageItem = pg.ImageItem(img_data.T)
             view.addItem(img_item)
+            self._image_items.append(img_item)
 
             grid_layout.addWidget(win, row, col)
 
         scroll_area.setWidget(grid_widget)
+        return scroll_area
+
+    def _create_controls_layout(self) -> QHBoxLayout:
+        # --- Top Section: Scaling Controls Panel ---
+        controls_layout = QHBoxLayout()
+        controls_layout.addWidget(QLabel("Control Panel"))
+
+        # extract just the image data.
+        image_data = []
+        for star_id, img_data in self._images:
+            image_data.append(img_data)
+
+        # add scaling component
+        self._scale_builder: ScaleElements = ScaleElements(
+            image_data, self._image_items)
+        assert self._scale_builder is not None
+        scaling_group, self._scaling_list, self._scaling_list_mut = (
+            self._scale_builder.create_scaling_group(self))
+        controls_layout.addWidget(scaling_group)
+
+        # Example action button inside the GUI if in solo mode.
+        if self._solo:
+            apply_btn = QPushButton("Execute PSF generation")
+            controls_layout.addWidget(apply_btn)
+        else:
+            apply_btn = QPushButton("update PSF star selection")
+            controls_layout.addWidget(apply_btn)
+
+        return controls_layout
+
+    def _create_components(self) -> None:
+        """
+        builds the UI components.
+        :return: None
+        """
+
+        # Main Layout
+        main_layout = QVBoxLayout(self)
+
+        # --- Bottom Section: Scrollable Grid of Images ---
+        scroll_area: QScrollArea = self._create_image_viewer()
+        controls_layout: QHBoxLayout = self._create_controls_layout()
+
+        main_layout.addLayout(controls_layout)
         main_layout.addWidget(scroll_area)

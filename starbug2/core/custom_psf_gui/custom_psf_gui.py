@@ -29,20 +29,8 @@ from astropy.table import Table
 from pyqtgraph import ImageItem, GraphicsLayoutWidget, ViewBox
 
 import numpy as np
-from astropy.visualization import (
-    AsinhStretch,
-    HistEqStretch,
-    ImageNormalize,
-    LinearStretch,
-    LogStretch,
-    MinMaxInterval,
-    PowerStretch,
-    SinhStretch,
-    SqrtStretch,
-    SquaredStretch,
-    ZScaleInterval,
-)
 
+from custom_psf_gui.scale_elements import ScaleElements
 from starbug2.core.custom_psf_gui.star_grid_panel import StarGridPanel
 from starbug2.constants import ExitStates, TableColumn, STAR_BUG_TEST_DAT_ENV
 from starbug2.core.star_bug_config import StarBugMainConfig
@@ -53,29 +41,12 @@ from starbug2.core.custom_psf_gui.clickable_circle_overlay import (
 # Search box radius in pixels
 RADIUS = 2.0
 
-# size of grid for ech star from center
+# size of grid for ech star from centre
 STAR_IMAGE_SIZE = 25
 
 # the geometry of the UI.
 GEOMETRY = (100, 100, 1200, 700)
 
-# Mapping UI labels to Astropy stretch objects
-STRETCH_MAP = {
-    "Linear": LinearStretch(),
-    "Log": LogStretch(a=1000.0),
-    "Power": PowerStretch(a=2.0),
-    "Sqrt": SqrtStretch(),
-    "Squared": SquaredStretch(),
-    "AsinH": AsinhStretch(a=0.1),
-    "SinH": SinhStretch(a=0.5),
-    "Histogram": None
-}
-
-# Mapping UI labels to Astropy interval objects
-INTERVAL_MAP = {
-    "Min max": MinMaxInterval(),
-    "Z scale": ZScaleInterval(),
-}
 
 class CustomPSFGui(QMainWindow):
     """
@@ -174,53 +145,6 @@ class CustomPSFGui(QMainWindow):
             desktop_file.write_text(content)
         except Exception as e:
             print(f"Warning: Could not write desktop entry: {e}")
-
-    @staticmethod
-    def scale_astronomy_image(
-            image_data: np.ndarray, stretch_name: str,
-            interval_name: str) -> np.ndarray:
-        """Scales a 2D numpy image array using Astropy visualisation based on
-         UI selections.
-
-        :param image_data: Raw 2D numpy array of the astronomy image.
-        :param stretch_name: Selected item from scaling_list (
-                             e.g., 'Linear', 'AsinH').
-        :param interval_name: Selected item from scaling_list_mut (
-                              'Min max' or 'Z scale').
-        :return: 2D numpy array normalised to [0.0, 1.0] ready for
-                 QImage/display.
-        """
-        # 1. Select Interval (Min max vs Z scale)
-        if interval_name == "Z scale":
-            interval = ZScaleInterval()
-        else:
-            interval = MinMaxInterval()
-
-        # 2. Select Stretch
-        if stretch_name == "Log":
-            stretch = LogStretch(a=1000.0)
-        elif stretch_name == "Power":
-            stretch = PowerStretch(a=2.0)
-        elif stretch_name == "Sqrt":
-            stretch = SqrtStretch()
-        elif stretch_name == "Squared":
-            stretch = SquaredStretch()
-        elif stretch_name == "AsinH":
-            stretch = AsinhStretch(a=0.1)
-        elif stretch_name == "SinH":
-            stretch = SinhStretch(a=0.5)
-        elif stretch_name == "Histogram":
-            stretch = HistEqStretch(image_data)
-        else:
-            stretch = LinearStretch()
-
-        # 3. Create Normalisation wrapper
-        norm = ImageNormalize(
-            image_data, interval=interval, stretch=stretch, clip=True
-        )
-
-        # Return normalized floats [0.0, 1.0]
-        return norm(image_data)
 
     @staticmethod
     def execute_gui(config: StarBugMainConfig) -> ExitStates:
@@ -339,6 +263,14 @@ class CustomPSFGui(QMainWindow):
         self._detected_list: QComboBox
         self._selected_list: QComboBox
 
+        # image
+        self._img_item: ImageItem | None = None
+
+        # scale form elements
+        self._scaling_list: QListWidget | None = None
+        self._scaling_list_mut: QListWidget | None = None
+        self._scale_builder: ScaleElements | None = None
+
         # Set up UI components (Side-by-side layout)
         self._set_up_components()
 
@@ -371,22 +303,7 @@ class CustomPSFGui(QMainWindow):
         # add some padding
         self._main_layout.setContentsMargins(8, 8, 8, 8)
 
-
-    def _set_up_components(self) -> None:
-        """
-        sets up the GUI components
-        :return: None
-        """
-        self.setWindowTitle("StarbugII - Custom e-PSF Selector")
-        self.setGeometry(*GEOMETRY)
-
-        # Main Central Widget & Horizontal Layout
-        self._setup_central_widget()
-
-        # Left Control Panel
-        self._control_panel: QWidget = self._create_control_panel()
-        self._main_layout.addWidget(self._control_panel, stretch=1)
-
+    def _setup_right_panel(self) -> None:
         # Right Image View Panel
         self._graphics_layout: GraphicsLayoutWidget = GraphicsLayoutWidget()
         self._view_box: ViewBox = self._graphics_layout.addViewBox()
@@ -406,6 +323,23 @@ class CustomPSFGui(QMainWindow):
         self._view_box.setRange(
             xRange=(0, width), yRange=(0, height), padding=0)
 
+    def _set_up_components(self) -> None:
+        """
+        sets up the GUI components
+        :return: None
+        """
+        self.setWindowTitle("StarbugII - Custom e-PSF Selector")
+        self.setGeometry(*GEOMETRY)
+
+        # Main Central Widget & Horizontal Layout
+        self._setup_central_widget()
+        self._setup_right_panel()
+
+        # Left Control Panel
+        self._control_panel: QWidget = self._create_control_panel()
+
+        # add widgets
+        self._main_layout.addWidget(self._control_panel, stretch=1)
         self._main_layout.addWidget(self._graphics_layout, stretch=1)
 
     def _add_detection_form_elements(self, param_form: QFormLayout) -> None:
@@ -418,7 +352,8 @@ class CustomPSFGui(QMainWindow):
         """
         self._full_width_half_max_spin = QDoubleSpinBox(self)
         self._full_width_half_max_spin.setRange(0.5, 20.0)
-        self._full_width_half_max_spin.setValue(self._config.full_width_half_max)
+        self._full_width_half_max_spin.setValue(
+            self._config.full_width_half_max)
         param_form.addRow("FWHM (pixels):", self._full_width_half_max_spin)
 
         self._sig_sky = QDoubleSpinBox(self)
@@ -552,7 +487,8 @@ class CustomPSFGui(QMainWindow):
             ]
             for w in widgets:
                 w.setVisible(checked)
-                w.setEnabled(True)  # Overrides Qt's default gray-out behaviour
+                # Overrides Qt's default grey-out behaviour
+                w.setEnabled(True)
 
         # Toggling the title checkbox hides/shows the form parameters inside
         # noinspection PyUnresolvedReferences
@@ -609,66 +545,6 @@ class CustomPSFGui(QMainWindow):
 
         return psf_stars_group
 
-    def _create_scaling_group(self) -> QGroupBox:
-        scale_param_group = QGroupBox("Scales Parameters", self)
-
-        # support collapsing this detection param group.
-        scale_param_group.setCheckable(True)
-        scale_param_group.setChecked(True)
-
-        # Toggling the title checkbox hides/shows the form parameters inside
-        # noinspection PyUnresolvedReferences
-        scale_param_group.toggled.connect(
-            lambda checked: [
-                param_form.itemAt(i).widget().setVisible(checked)
-                for i in range(param_form.count())
-                if param_form.itemAt(i).widget()
-            ]
-        )
-
-        self._scaling_list = QListWidget(self)
-        self._scaling_list.addItems([
-            "Linear", "Log", "Power", "Sqrt", "Squared", "AsinH", "SinH",
-            "Histogram"])
-        self._scaling_list.setCurrentRow(0)
-        # noinspection PyUnresolvedReferences
-        self._scaling_list.itemClicked.connect(self._on_scaling_item_clicked)
-        self.adjust_list_widget_height(self._scaling_list)
-
-        self._scaling_list_mut = QListWidget(self)
-        self._scaling_list_mut.addItems(["Min max", "Z scale"])
-        self._scaling_list_mut.setCurrentRow(0)
-        # noinspection PyUnresolvedReferences
-        self._scaling_list_mut.itemClicked.connect(self._on_scaling_item_clicked)
-        self.adjust_list_widget_height(self._scaling_list_mut)
-
-        # add to the form
-        param_form = QFormLayout(scale_param_group)
-        param_form.addRow(self._scaling_list)
-        param_form.addRow(self._scaling_list_mut)
-        return scale_param_group
-
-    @staticmethod
-    def adjust_list_widget_height(list_widget: QListWidget) -> None:
-        """
-        Resizes the QListWidget to fit its content items exactly.
-        :param list_widget: the wigit to resize.
-        :return: None
-        """
-        # Force layout recalculation to ensure valid row heights
-        list_widget.doItemsLayout()
-
-        # Sum total height of all items
-        total_height = 0
-        for i in range(list_widget.count()):
-            total_height += list_widget.sizeHintForRow(i)
-
-        # Add frame margin padding (top/bottom borders)
-        total_height += list_widget.frameWidth() * 2
-
-        # Set maximum height so it shrinks to content
-        list_widget.setMaximumHeight(total_height)
-
     def _create_control_panel(self) -> QWidget:
         """
         creates the control panel
@@ -689,13 +565,18 @@ class CustomPSFGui(QMainWindow):
         control_layout: QVBoxLayout = QVBoxLayout(control_panel)
         control_panel.setObjectName("control_panel")
 
-        # Group Box: Detection Parameters
+        # create detection field.
         detection_param_group = self._create_detection_param_group()
-        scaling_group = self._create_scaling_group()
-        psf_stars_group = self._create_psf_stars_group()
 
-        # add to the control layout.
-        control_layout.addWidget(detection_param_group)
+        # create scaling field.
+        self._scale_builder: ScaleElements = ScaleElements(
+            [self._image_data], [self._img_item])
+        assert self._scale_builder is not None
+        scaling_group, self._scaling_list, self._scaling_list_mut = (
+            self._scale_builder.create_scaling_group(self))
+
+        # create psf stars field.
+        psf_stars_group = self._create_psf_stars_group()
 
         # Action Buttons
         redo_detection_btn, do_custom_psf_btn = self._create_buttons()
@@ -732,6 +613,7 @@ class CustomPSFGui(QMainWindow):
         bg_median = float(np.nanmedian(display_data))
         display_data[nan_mask] = bg_median
 
+        assert self._img_item is not None
         self._img_item.setImage(display_data.T, autoLevels=True)
 
         # Red NaN Overlay LUT
@@ -930,30 +812,6 @@ class CustomPSFGui(QMainWindow):
         """
         pass
 
-    def _on_scaling_item_clicked(self) -> None:
-        """
-        execute a scaling adjustment.
-        :return: None
-        """
-        selected_stretch_items = self._scaling_list.selectedItems()
-        selected_interval_items = self._scaling_list_mut.selectedItems()
-
-        if not selected_stretch_items or not selected_interval_items:
-            return
-
-        stretch_choice = selected_stretch_items[0].text()
-        interval_choice = selected_interval_items[0].text()
-
-        # Process image data using Astropy
-        display_data = CustomPSFGui.scale_astronomy_image(
-            self._image_data, stretch_choice, interval_choice
-        )
-
-        # Pass display_data (scaled 0-1) to your Matplotlib canvas or
-        # QImage renderer
-        self._img_item.setImage(
-            display_data.T, autoLevels=False, levels=(0.0, 1.0))
-
     def do_review_stars(self) -> None:
         """
         opens up the review panel which allows fine tune selection of stars
@@ -985,5 +843,6 @@ class CustomPSFGui(QMainWindow):
             star_data: np.ndarray = self._image_data[y_min:y_max, x_min:x_max]
             selected_stars_arrays.append((star_id, star_data))
 
-        dialog = StarGridPanel(parent=self, images=selected_stars_arrays)
+        dialog = StarGridPanel(
+            parent=self, images=selected_stars_arrays, sole_ui=False)
         dialog.exec()
