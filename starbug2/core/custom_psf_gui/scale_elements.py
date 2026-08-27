@@ -1,7 +1,8 @@
 from typing import Tuple
 
 import numpy as np
-from PyQt6.QtWidgets import QGroupBox, QListWidget, QFormLayout, QMainWindow, QDialog
+from PyQt6.QtWidgets import (
+    QGroupBox, QListWidget, QFormLayout, QMainWindow, QDialog)
 from pyqtgraph import ImageItem
 from astropy.visualization import (
     AsinhStretch,
@@ -41,7 +42,7 @@ class ScaleElements:
 
     def __init__(
             self, images: list[np.ndarray],
-            image_items=list[ImageItem]) -> None:
+            image_items: list[ImageItem]) -> None:
         """
         constructor
         :param images: the list of images
@@ -120,12 +121,18 @@ class ScaleElements:
         # Set maximum height so it shrinks to content
         list_widget.setMaximumHeight(total_height)
 
-    def create_scaling_group(self, parent: QMainWindow | QDialog) -> Tuple[
+    def create_scaling_group(
+            self, parent: QMainWindow | QDialog, default_selection_list:int,
+            default_selection_mul: int) -> Tuple[
             QGroupBox, QListWidget, QListWidget]:
         """
         Creates the scaling group
         :param parent: the parent
         :type parent: QMainWindow
+        :param default_selection_list: which item to select by default.
+        :type default_selection_list: int
+        :param default_selection_mul: which item to select by default.
+        :type default_selection_mul: int
         :return: the scaling group
         """
         scale_param_group = QGroupBox("Scales Parameters", parent)
@@ -149,19 +156,34 @@ class ScaleElements:
         self._scaling_list.addItems([
             "Linear", "Log", "Power", "Sqrt", "Squared", "AsinH", "SinH",
             "Histogram"])
-        self._scaling_list.setCurrentRow(0)
+        self._scaling_list.setCurrentRow(default_selection_list)
         # noinspection PyUnresolvedReferences
-        self._scaling_list.itemClicked.connect(self._on_scaling_item_clicked)
+        self._scaling_list.itemClicked.connect(self.on_scaling_item_clicked)
         self.adjust_list_widget_height(self._scaling_list)
 
         self._scaling_list_mut = QListWidget(parent)
         assert self._scaling_list_mut is not None
         self._scaling_list_mut.addItems(["Min max", "Z scale"])
-        self._scaling_list_mut.setCurrentRow(0)
+        self._scaling_list_mut.setCurrentRow(default_selection_mul)
         # noinspection PyUnresolvedReferences
         self._scaling_list_mut.itemClicked.connect(
-            self._on_scaling_item_clicked)
+            self.on_scaling_item_clicked)
         self.adjust_list_widget_height(self._scaling_list_mut)
+
+        # fix max heights
+        self._scaling_list.setMaximumHeight(
+            self._scaling_list.sizeHintForRow(0) *
+            self._scaling_list.count() + 10)
+        self._scaling_list_mut.setMaximumHeight(
+            self._scaling_list_mut.sizeHintForRow(0) *
+            self._scaling_list_mut.count() + 10)
+        self._scaling_list.setMinimumHeight(
+            self._scaling_list.sizeHintForRow(0) *
+            self._scaling_list.count() + 10)
+        self._scaling_list_mut.setMinimumHeight(
+            self._scaling_list_mut.sizeHintForRow(0) *
+            self._scaling_list_mut.count() + 10)
+
 
         # add to the form
         param_form = QFormLayout(scale_param_group)
@@ -169,7 +191,7 @@ class ScaleElements:
         param_form.addRow(self._scaling_list_mut)
         return scale_param_group, self._scaling_list, self._scaling_list_mut
 
-    def _on_scaling_item_clicked(self) -> None:
+    def on_scaling_item_clicked(self) -> None:
         """
         execute a scaling adjustment.
         :return: None

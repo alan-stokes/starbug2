@@ -21,7 +21,7 @@ from typing import Tuple
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
-    QScrollArea, QComboBox, QListWidget, QAbstractItemView)
+    QScrollArea, QComboBox, QListWidget, QAbstractItemView, QDialog)
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel,
     QPushButton, QGroupBox, QFormLayout, QDoubleSpinBox, QCheckBox)
@@ -569,11 +569,13 @@ class CustomPSFGui(QMainWindow):
         detection_param_group = self._create_detection_param_group()
 
         # create scaling field.
+        assert self._img_item is not None
         self._scale_builder: ScaleElements = ScaleElements(
             [self._image_data], [self._img_item])
         assert self._scale_builder is not None
         scaling_group, self._scaling_list, self._scaling_list_mut = (
-            self._scale_builder.create_scaling_group(self))
+            self._scale_builder.create_scaling_group(self, 0, 0))
+        self._scale_builder.on_scaling_item_clicked()
 
         # create psf stars field.
         psf_stars_group = self._create_psf_stars_group()
@@ -843,6 +845,27 @@ class CustomPSFGui(QMainWindow):
             star_data: np.ndarray = self._image_data[y_min:y_max, x_min:x_max]
             selected_stars_arrays.append((star_id, star_data))
 
+        assert self._scaling_list is not None
+        assert self._scaling_list_mut is not None
         dialog = StarGridPanel(
-            parent=self, images=selected_stars_arrays, sole_ui=False)
-        dialog.exec()
+            parent=self, images=selected_stars_arrays, sole_ui=False,
+            scale_selected_row=self._scaling_list.currentRow(),
+            scale_selected_mut_row=self._scaling_list_mut.currentRow())
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+
+            # update selected stars
+            updated_stars: list[str] = dialog.selected_stars
+            self._selected_stars.clear()
+            for star_id in updated_stars:
+                self._selected_stars.append(f"Star_{star_id}")
+
+            # update tables and plot.
+            self._populate_star_circles()
+            self._populate_star_lists()
+
+            # remove and reapply circles as needed
+            for star in self._circles_for_psf_generation.values():
+                star.turn_off()
+            for star_id in self._selected_stars:
+                self._circles_for_psf_generation[star_id].turn_on()
+
