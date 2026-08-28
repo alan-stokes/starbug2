@@ -15,14 +15,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 import os
 
+import pytest
+
 from starbug2.command_line_interfaces.main import starbug_internal_main
 from starbug2.constants import ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from tests.generic import (
-    TEST_PATH_STR, TEST_IMAGE_FITS, clean, verify_test_data_exists)
+    TEST_PATH_STR, clean, verify_test_data_exists, TEST_JWST_FITS)
+
 
 def create_config_file(
-    config: StarBugMainConfig = StarBugMainConfig()) -> StarBugMainConfig:
+        config: StarBugMainConfig = StarBugMainConfig()) -> StarBugMainConfig:
     """
     generate the param file used for command line behaviour.
     :param config: the config, or uses a default
@@ -32,19 +35,18 @@ def create_config_file(
     config.do_custom_psf_gui = True
     config.custom_psf_size_pixels = 51
     config.output_file = TEST_PATH_STR
-    config.fits_images = [TEST_IMAGE_FITS]
+    config.fits_images = [TEST_JWST_FITS]
     config.custom_filter = "F444W"
     config.full_width_half_max = 2
     config.freeze()
     return config
 
-"""@pytest.mark.skipif(
+
+@pytest.mark.skipif(
     os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") is None or
     os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") == "false",
-    reason="Harsh stress test locked out of normal development runs due to "
-           "length of time to run, CPU resources required which nearly slags"
-           " the machine."
-)"""
+    reason="UI test not been fully implemented"
+)
 def test_custom_psf_gui(qtbot) -> None:
     clean()
     verify_test_data_exists()

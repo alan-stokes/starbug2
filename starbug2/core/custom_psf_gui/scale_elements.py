@@ -39,7 +39,6 @@ class ScaleElements:
         "Z scale": ZScaleInterval(),
     }
 
-
     def __init__(
             self, images: list[np.ndarray],
             image_items: list[ImageItem]) -> None:
@@ -55,8 +54,8 @@ class ScaleElements:
 
     @staticmethod
     def scale_astronomy_image(
-        image_data: np.ndarray, stretch_name: str,
-        interval_name: str) -> np.ndarray:
+            image_data: np.ndarray, stretch_name: str,
+            interval_name: str) -> np.ndarray:
         """Scales a 2D numpy image array using Astropy visualisation based on
            UI selections.
 
@@ -122,7 +121,7 @@ class ScaleElements:
         list_widget.setMaximumHeight(total_height)
 
     def create_scaling_group(
-            self, parent: QMainWindow | QDialog, default_selection_list:int,
+            self, parent: QMainWindow | QDialog, default_selection_list: int,
             default_selection_mul: int) -> Tuple[
             QGroupBox, QListWidget, QListWidget]:
         """
@@ -184,7 +183,6 @@ class ScaleElements:
             self._scaling_list_mut.sizeHintForRow(0) *
             self._scaling_list_mut.count() + 10)
 
-
         # add to the form
         param_form = QFormLayout(scale_param_group)
         param_form.addRow(self._scaling_list)
@@ -210,7 +208,7 @@ class ScaleElements:
         # Process image data using Astropy
         for image_data, img_item in zip(self._image_data, self._img_items):
             display_data = ScaleElements.scale_astronomy_image(
-                image_data, stretch_choice, interval_choice
+                image_data.copy(), stretch_choice, interval_choice
             )
 
             # Pass display_data (scaled 0-1) to your Matplotlib canvas or

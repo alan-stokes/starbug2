@@ -33,6 +33,36 @@ class CustomPSF:
     """
 
     @staticmethod
+    def generate_epsf(
+            sources: Table, data: numpy.ndarray,
+            config: StarBugMainConfig) -> EPSFBuildResult:
+        """
+        takes sources and image data as well as hsize and config and generates
+        an epsf result.
+
+        :param sources: the sources Table.
+        :type sources: Table
+        :param data: the image data.
+        :type data: numpy.ndarray
+        :param config: the system config.
+        :type config: StarBugMainConfig
+        :return: the epsf result object.
+        :rtype: EPSFBuildResult
+        """
+        h_size: float = float((config.custom_psf_size_pixels - 1) / 2)
+
+        # locate stars not on the edge of the image (within capture area).
+        assert sources is not None
+        stars: EPSFStars = CustomPSF.extract_stars(
+            sources, h_size, data, config)
+
+        # build e-PSF.
+        epsf_builder: EPSFBuilder = EPSFBuilder(
+            oversampling=4, maxiters=3, progress_bar=config.verbose_logs)
+        result: EPSFBuildResult = epsf_builder(stars)
+        return result
+
+    @staticmethod
     def execute_custom_e_psf(config: StarBugMainConfig) -> ExitStates:
         """
         generates an epsf from photutils.
@@ -60,17 +90,10 @@ class CustomPSF:
         finder: DAOStarFinder = DAOStarFinder(
             threshold=threshold, fwhm=base.full_width_half_max)
         sources: Table | None = finder(data)
-        h_size: float = float((config.custom_psf_size_pixels - 1) / 2)
 
-        # locate stars not on the edge of the image (within capture area).
         assert sources is not None
-        stars: EPSFStars = CustomPSF.extract_stars(
-            sources, h_size, data, config)
-
-        # build e-PSF.
-        epsf_builder: EPSFBuilder = EPSFBuilder(
-            oversampling=4, maxiters=3, progress_bar=config.verbose_logs)
-        result: EPSFBuildResult = epsf_builder(stars)
+        result: EPSFBuildResult = CustomPSF.generate_epsf(
+            sources, data, config)
 
         # extract e-PSF from the builder/
         epsf: ImagePSF = result.epsf

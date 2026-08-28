@@ -25,12 +25,15 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel,
     QPushButton, QGroupBox, QFormLayout, QDoubleSpinBox, QCheckBox)
+from astropy.stats import sigma_clipped_stats
 from astropy.table import Table
+from photutils.psf import EPSFBuildResult, ImagePSF
 from pyqtgraph import ImageItem, GraphicsLayoutWidget, ViewBox
 
 import numpy as np
 
 from custom_psf_gui.scale_elements import ScaleElements
+from main_components.custom_psf import CustomPSF
 from starbug2.core.custom_psf_gui.star_grid_panel import StarGridPanel
 from starbug2.constants import ExitStates, TableColumn, STAR_BUG_TEST_DAT_ENV
 from starbug2.core.star_bug_config import StarBugMainConfig
@@ -82,7 +85,7 @@ class CustomPSFGui(QMainWindow):
         return config_copy
 
     @staticmethod
-    def _run_starbug_for_detection(config: StarBugMainConfig) ->  (
+    def _run_starbug_for_detection(config: StarBugMainConfig) -> (
             Tuple[np.ndarray | None, Table | None, ExitStates]):
         """
         runs basic starbug to generate the image and detections.
@@ -124,7 +127,7 @@ class CustomPSFGui(QMainWindow):
 
     @staticmethod
     def _register_desktop_entry(
-        icon_path: str, app_id: str = "starbug2") -> None:
+            icon_path: str, app_id: str = "starbug2") -> None:
         """Creates a temporary .desktop entry so Linux window managers map
         the taskbar icon correctly."""
         desktop_dir = Path.home() / ".local" / "share" / "applications"
@@ -316,10 +319,11 @@ class CustomPSFGui(QMainWindow):
         self._view_box.addItem(self._nan_overlay_item)
 
         # Set zoom limits
+        # NOTE: THIS CODE DOESN'T WORK!
         height, width = self._image_data.shape
-        #self._view_box.setLimits(
+        # self._view_box.setLimits(
         #    xMin=0, xMax=width, yMin=0, yMax=height, minXRange=5, minYRange=5
-        #)
+        # )
         self._view_box.setRange(
             xRange=(0, width), yRange=(0, height), padding=0)
 
@@ -542,7 +546,6 @@ class CustomPSFGui(QMainWindow):
         group_layout.addWidget(transfer_stars_to_detections)
         group_layout.addWidget(review_selected)
 
-
         return psf_stars_group
 
     def _create_control_panel(self) -> QWidget:
@@ -753,18 +756,38 @@ class CustomPSFGui(QMainWindow):
         self._info_label.setText(
             "Detection redo complete. Click a star marker to select.")
 
-
     def on_generate_custom_psf(self) -> None:
         """
         executes when generating the custom psf.
         :return: None
         """
         # build the list of stars.
+        clean_selected_ids = {
+            s.replace("Star_", "") for s in self._selected_stars}
+        table_ids = np.char.strip(
+            self._detected_stars[TableColumn.CAT_NUM].astype(str))
+        mask = np.isin(table_ids, list(clean_selected_ids))
+        filtered_table = self._detected_stars[mask].copy()
+
+        # clean the input data so there are no nans / infinity
+        cleaned_image_data = self._image_data.copy()
+        median_val: float
+        _, median_val, _ = sigma_clipped_stats(
+            cleaned_image_data, sigma=self._config.sigma_sky)
+        cleaned_image_data -= median_val
 
         # run the custom psf process.
+        result: EPSFBuildResult = CustomPSF.generate_epsf(
+            filtered_table, cleaned_image_data, self._config)
 
-        # open new viewer for the e-psf's.
-        pass
+        epsf: ImagePSF = result.epsf
+
+        # open the grid panel with the epsf so the user can inspect.
+        dialog = StarGridPanel(
+            parent=self, images=[("Star_PSF", epsf.data)], sole_ui=False,
+            scale_selected_row=self._scaling_list.currentRow(),
+            scale_selected_mut_row=self._scaling_list_mut.currentRow())
+        dialog.exec()
 
     def on_psf_add_star_selected(self) -> None:
         """
@@ -868,4 +891,3 @@ class CustomPSFGui(QMainWindow):
                 star.turn_off()
             for star_id in self._selected_stars:
                 self._circles_for_psf_generation[star_id].turn_on()
-
