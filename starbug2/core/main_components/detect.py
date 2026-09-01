@@ -110,12 +110,6 @@ class Detect:
                     f"{TableColumn.ROUNDNESS1}, {TableColumn.ROUNDNESS2}.")
                 return ExitStates.EXIT_FAIL, detections
 
-            # filter to just the fields we need
-            detections = detections[
-                TableColumn.X_CENTROID, TableColumn.Y_CENTROID,
-                TableColumn.SHARPNESS, TableColumn.ROUNDNESS1,
-                TableColumn.ROUNDNESS2]
-
             # Check for insane states
             if detections is None or wcs is None:
                 return ExitStates.EXIT_FAIL, detections

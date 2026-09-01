@@ -16,15 +16,17 @@ import numpy
 import os
 from astropy.io.fits import Header, ImageHDU
 from astropy.nddata import NDData
-from photutils.detection import DAOStarFinder
 from photutils.psf import (
     EPSFBuilder, extract_stars, EPSFStars, EPSFBuildResult, ImagePSF)
 from astropy.stats import sigma_clipped_stats
 from astropy.table import Table, Column
+
+from routines.detection_routines import DetectionRoutine
 from starbug2.constants import TableColumn, FileExtensions, ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
 from starbug2.utilities.utils import export_table, split_file_name
+from utilities.filters import STAR_BUG_FILTERS
 
 
 class CustomPSF:
@@ -80,17 +82,11 @@ class CustomPSF:
             config.fits_images[0], config, ap_file=None, bkg_file=None)
         data: numpy.ndarray = base.main_image().data
 
-        # determine threshold.
-        median_stat: float
-        std: float
-        _, median_stat, std = sigma_clipped_stats(data, sigma=config.sigma_sky)
-        threshold = std * config.sigma_source
+        # locate stars.
+        sources: Table | None = CustomPSF.get_psf_sources(
+            data, config, base.full_width_half_max)
 
-        # locate stars in fits image
-        finder: DAOStarFinder = DAOStarFinder(
-            threshold=threshold, fwhm=base.full_width_half_max)
-        sources: Table | None = finder(data)
-
+        # generate psf.
         assert sources is not None
         result: EPSFBuildResult = CustomPSF.generate_epsf(
             sources, data, config)
@@ -104,6 +100,48 @@ class CustomPSF:
         assert output_dir is not None
         return CustomPSF.write_files_to_disk(
             output_dir, epsf, fitted_stars, b_name)
+
+    @staticmethod
+    def get_psf_sources(
+            data: numpy.ndarray, config: StarBugMainConfig,
+            full_width_half_max: float) -> Table | None:
+        """
+        extracts sources based off DAOStarFinder.
+        :param data: the image data
+        :type data: numpy.ndarray
+        :param config: the main config
+        :type config: StarBugMainConfig
+        :param full_width_half_max: the full width 1/2 max value.
+        :type full_width_half_max: float
+        :return: the sources as a table format. contains columns of:
+            ['id', 'x_centroid', 'y_centroid', 'sharpness', 'roundness1',
+            'roundness2', 'n_pixels', 'peak', 'flux', 'mag', 'daofind_mag']
+        :rtype: Table
+        """
+        # determine threshold.
+        median_stat: float
+        std: float
+        _, median_stat, std = sigma_clipped_stats(data, sigma=config.sigma_sky)
+
+        # locate stars in fits image
+        detector: DetectionRoutine = DetectionRoutine(
+            sig_src=config.sigma_source,
+            sig_sky=config.sigma_sky,
+            full_width_half_max=full_width_half_max,
+            sharp_lo=config.sharp_cutoff_low,
+            sharp_hi=config.sharp_cutoff_high,
+            round_1_hi=config.round1_cutoff_high,
+            round_2_hi=config.round2_cutoff_high,
+            smooth_lo=config.smooth_low,
+            smooth_hi=config.smooth_high,
+            ricker_r=config.ricker_wavelet_radius,
+            do_bgd_2d=config.do_bgd_2d,
+            do_con_vl=config.do_convolution,
+            box_size=config.background_box_size,
+            clean_src=config.clean_sources,
+            verbose=config.verbose_logs)
+
+        return detector(data.copy())
 
     @staticmethod
     def extract_stars(
@@ -122,16 +160,6 @@ class CustomPSF:
         :return: the extracted stars
         :rtype: EPSFStars
         """
-        assert sources is not None
-        x: Column = sources[TableColumn.X_CENTROID]
-        y: Column = sources[TableColumn.Y_CENTROID]
-        mask: numpy.ndarray = (
-            (x > h_size) & (x < (data.shape[1] - 1 - h_size)) &
-            (y > h_size) & (y < (data.shape[0] - 1 - h_size)))
-
-        stars_tbl = Table()
-        stars_tbl[TableColumn.X] = x[mask]
-        stars_tbl[TableColumn.Y] = y[mask]
 
         # determine states
         mean_val: float
@@ -143,6 +171,18 @@ class CustomPSF:
 
         # extract stars from the modified data.
         nd_data: NDData = NDData(data=data)
+
+        assert sources is not None
+        x: Column = sources[TableColumn.X_CENTROID]
+        y: Column = sources[TableColumn.Y_CENTROID]
+        mask: numpy.ndarray = (
+            (x > h_size) & (x < (data.shape[1] - 1 - h_size)) &
+            (y > h_size) & (y < (data.shape[0] - 1 - h_size)))
+
+        stars_tbl = Table()
+        stars_tbl[TableColumn.X] = x[mask]
+        stars_tbl[TableColumn.Y] = y[mask]
+
         return extract_stars(
             nd_data, stars_tbl, size=config.custom_psf_size_pixels)
 

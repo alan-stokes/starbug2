@@ -198,6 +198,7 @@ class TableColumn(str, Enum):
     TOTAL_FLUX_ADDED = "TOTAL_FLUX_ADDED"
     TOTAL_MAG = "TOTAL_MAG"
     TOTAL_DIFF_MAG = "TOTAL_DIFF_MAG"
+    PEAK = "peak"
 
     # needed as the table system doenst seem to handle enums properly
     def __str__(self) -> str:

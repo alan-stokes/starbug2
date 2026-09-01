@@ -17,6 +17,7 @@ import os
 
 import pytest
 
+from generic import TEST_IMAGE_FITS
 from starbug2.command_line_interfaces.main import starbug_internal_main
 from starbug2.constants import ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
@@ -38,15 +39,17 @@ def create_config_file(
     config.fits_images = [TEST_JWST_FITS]
     config.custom_filter = "F444W"
     config.full_width_half_max = 2
+    config.sharp_cutoff_high = 1
+    config.sharp_cutoff_low = 0
     config.freeze()
     return config
 
 
-@pytest.mark.skipif(
-    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") is None or
-    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") == "false",
-    reason="UI test not been fully implemented"
-)
+#@pytest.mark.skipif(
+#    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") is None or
+#    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") == "false",
+#    reason="UI test not been fully implemented"
+#)
 def test_custom_psf_gui(qtbot) -> None:
     clean()
     verify_test_data_exists()

@@ -27,9 +27,12 @@ from PyQt6.QtWidgets import (
     QWidget, QListWidget, QCheckBox,
 )
 import pyqtgraph as pg
+from astropy.table import Table
 from pyqtgraph import ImageItem
 
+from custom_psf_gui import common_code
 from custom_psf_gui.scale_elements import ScaleElements
+from star_bug_config import StarBugMainConfig
 
 
 class StarGridPanel(QDialog):
@@ -38,7 +41,9 @@ class StarGridPanel(QDialog):
 
     def __init__(
             self, images: List[Tuple[str, np.ndarray]], sole_ui: bool,
-            scale_selected_row: int, scale_selected_mut_row: int, parent=None):
+            scale_selected_row: int, scale_selected_mut_row: int,
+            image_data: np.ndarray, config: StarBugMainConfig,
+            detected_stars: Table, parent=None):
         """
 
         :param images: the images needed to present for finer selection
@@ -51,6 +56,12 @@ class StarGridPanel(QDialog):
         :type scale_selected_row: int
         :param scale_selected_mut_row: the selected mut row number
         :type scale_selected_mut_row: int
+        :param image_data: the image data
+        :type image_data: np.ndarray
+        :param config: the config object
+        :type config: StarBugMainConfig
+        :param detected_stars: the detected stars
+        :type detected_stars: Table
         """
         super().__init__(parent)
         self.setWindowTitle("Image Inspection & PSF generation")
@@ -67,6 +78,11 @@ class StarGridPanel(QDialog):
         self._scaling_list: QListWidget | None = None
         self._scaling_list_mut: QListWidget | None = None
         self._scale_builder: ScaleElements | None = None
+
+        # bits for psf.
+        self._image_data: np.ndarray = image_data
+        self._config: StarBugMainConfig = config
+        self._detected_stars: Table = detected_stars
 
         # create the UI.
         self._create_components(scale_selected_row, scale_selected_mut_row)
@@ -235,7 +251,15 @@ class StarGridPanel(QDialog):
         execute the PSF generation.
         :return: None
         """
-        pass
+        assert self._selected_stars is not None
+        assert self._scaling_list is not None
+        assert self._scaling_list_mut is not None
+        common_code.generate_epsf_and_view(
+            self._selected_stars, self._detected_stars,
+            self._image_data.copy(), self._config, self,
+            self._scaling_list.currentRow(),
+            self._scaling_list_mut.currentRow()
+        )
 
     def _solo_update_psf_selection(self) -> None:
         """

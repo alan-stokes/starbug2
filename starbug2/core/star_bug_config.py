@@ -247,6 +247,14 @@ class StarBugMainConfig:
         # generation of region tables
         "REGION_TAB": ("region_file", str),
         "PARAM_TAG": ("param_tag", str),
+        # custom PSF generator params.
+        "STARS_TO_DETECT": ("psf_genertor_stars_to_select", int),
+        "PSF_MIN_SEP": ("psf_genertor_min_seperation", float),
+        "PSF_SIZE_PIXELS": ("custom_psf_size_pixels", int),
+        "PSF_SATURATION_LIMIT": ("psf_generator_saturation_limit", int),
+        "PSF_GRID_BIN_X": ("psf_generator_grid_bin_x", int),
+        "PSF_GRID_BIN_Y": ("psf_generator_grid_bin_y", int),
+        "PSF_EDGE_BUFFER": ("psf_generator_edge_buffer", int),
 
         # --- NEW PARAM FILE SHORT-CIRCUITS FOR STEPS & FLOW CONTROLS ---
         "RUN_APPHOT": ("do_aperture_photometry", bool),
@@ -342,7 +350,13 @@ class StarBugMainConfig:
         self._ast_add_stars: bool = False
 
         # parameters for custom psf generation.
-        self._custom_psf_size_pixels = 25
+        self._custom_psf_size_pixels: int = 25
+        self._psf_genertor_stars_to_select: int = 100
+        self._psf_genertor_min_seperation: float = 20.0
+        self._psf_generator_saturation_limit: int = 10000000
+        self._psf_generator_grid_bin_x: int = 3
+        self._psf_generator_grid_bin_y: int = 3
+        self._psf_generator_edge_buffer: int = 20
 
         # matching params
         self._do_band_processing: bool = False
@@ -1792,6 +1806,66 @@ class StarBugMainConfig:
     @plot_style.setter
     def plot_style(self, value: str | None) -> None:
         self._plot_style = value
+
+    # =============
+    # custom psf generator params.
+    # =============
+
+    @property
+    def custom_psf_size_pixels(self) -> int:
+        return self._custom_psf_size_pixels
+
+    @custom_psf_size_pixels.setter
+    def custom_psf_size_pixels(self, value: int) -> None:
+        self._custom_psf_size_pixels = value
+
+    @property
+    def psf_genertor_stars_to_select(self) -> int:
+        return self._psf_genertor_stars_to_select
+
+    @psf_genertor_stars_to_select.setter
+    def psf_genertor_stars_to_select(self, value: int) -> None:
+        self._psf_genertor_stars_to_select = value
+
+    @property
+    def psf_genertor_min_seperation(self) -> int:
+        return self._psf_genertor_min_seperation
+
+    @psf_genertor_min_seperation.setter
+    def psf_genertor_min_seperation(self, value: int) -> None:
+        self._psf_genertor_min_seperation = value
+
+    @property
+    def psf_generator_saturation_limit(self) -> int:
+        return self._psf_generator_saturation_limit
+
+    @psf_generator_saturation_limit.setter
+    def psf_generator_saturation_limit(self, value: int) -> None:
+        self._psf_generator_saturation_limit = value
+
+    @property
+    def psf_generator_grid_bin_x(self) -> int:
+        return self._psf_generator_grid_bin_x
+
+    @psf_generator_grid_bin_x.setter
+    def psf_generator_grid_bin_x(self, value: int) -> None:
+        self._psf_generator_grid_bin_x = value
+
+    @property
+    def psf_generator_grid_bin_y(self) -> int:
+        return self._psf_generator_grid_bin_y
+
+    @psf_generator_grid_bin_y.setter
+    def psf_generator_grid_bin_y(self, value: int) -> None:
+        self._psf_generator_grid_bin_y = value
+
+    @property
+    def psf_generator_edge_buffer(self) -> int:
+        return self._psf_generator_edge_buffer
+
+    @psf_generator_edge_buffer.setter
+    def psf_generator_edge_buffer(self, value: int) -> None:
+        self._psf_generator_edge_buffer = value
 
     def generate_ast_help_string(self) -> str:
         """Dynamically constructs the CLI usage text from AST_FLAG_MAP."""

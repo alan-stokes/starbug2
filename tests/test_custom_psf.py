@@ -79,8 +79,6 @@ def test_custom_psf() -> None:
 
 
 def run_photutils(data: np.ndarray) -> None:
-    data += make_noise_image(
-        data.shape, distribution='gaussian', mean=10.0, stddev=5.0, seed=0)
     finder: DAOStarFinder = DAOStarFinder(threshold=100.0, fwhm=1.5)
     sources: Table | None = finder(data)
     assert sources is not None
@@ -124,6 +122,9 @@ def test_custom_psf_using_epsf_building_example() -> None:
     hdu: ImageHDU = load_simulated_hst_star_image()
 
     data: np.ndarray = hdu.data
+    data += make_noise_image(
+        data.shape, distribution='gaussian', mean=10.0, stddev=5.0, seed=0)
+
     run_photutils(data)
     clean()
 

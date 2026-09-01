@@ -24,14 +24,17 @@ from PyQt6.QtWidgets import (
     QScrollArea, QComboBox, QListWidget, QAbstractItemView, QDialog)
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel,
-    QPushButton, QGroupBox, QFormLayout, QDoubleSpinBox, QCheckBox)
+    QPushButton, QGroupBox, QFormLayout, QDoubleSpinBox, QCheckBox, QSpinBox)
+from astropy.nddata import NDData
 from astropy.stats import sigma_clipped_stats
 from astropy.table import Table
 from photutils.psf import EPSFBuildResult, ImagePSF
 from pyqtgraph import ImageItem, GraphicsLayoutWidget, ViewBox
 
 import numpy as np
+from scipy.spatial import KDTree
 
+from custom_psf_gui import common_code
 from custom_psf_gui.scale_elements import ScaleElements
 from main_components.custom_psf import CustomPSF
 from starbug2.core.custom_psf_gui.star_grid_panel import StarGridPanel
@@ -40,6 +43,7 @@ from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
 from starbug2.core.custom_psf_gui.clickable_circle_overlay import (
     ClickableCircleOverlay)
+from starbug2.core.custom_psf_gui.psf_star_selector import find_stars_to_select
 
 # Search box radius in pixels
 RADIUS = 2.0
@@ -265,6 +269,16 @@ class CustomPSFGui(QMainWindow):
         # psf form elements
         self._detected_list: QComboBox
         self._selected_list: QComboBox
+
+        # psf automatic params
+        self._stars_to_select: QSpinBox
+        self._min_seperation: QDoubleSpinBox
+        self._saturation_limit: QDoubleSpinBox
+        self._grid_bin_x: QSpinBox
+        self._grid_bin_y: QSpinBox
+        self._star_finder_sharp_min: QDoubleSpinBox
+        self._star_finder_sharp_max: QDoubleSpinBox
+        self._edge_buffer: QDoubleSpinBox
 
         # image
         self._img_item: ImageItem | None = None
@@ -520,12 +534,6 @@ class CustomPSFGui(QMainWindow):
         # noinspection PyUnresolvedReferences
         automatic_psf_star_selection_btn.clicked.connect(self.on_automatic)
 
-        # add to the layout.
-        group_layout.addWidget(automatic_psf_star_selection_btn)
-        dropdown_layout.addWidget(self._detected_list)
-        dropdown_layout.addWidget(self._selected_list)
-        group_layout.addLayout(dropdown_layout)
-
         # add button
         transfer_stars_to_selected = QPushButton("Move to selected ->", self)
         # noinspection PyUnresolvedReferences
@@ -542,6 +550,64 @@ class CustomPSFGui(QMainWindow):
         # noinspection PyUnresolvedReferences
         review_selected.clicked.connect(self.do_review_stars)
 
+        # add automatic params
+
+        self._stars_to_select = QSpinBox(self)
+        self._stars_to_select.setRange(1, 1000)
+        self._stars_to_select.setValue(
+            self._config.psf_genertor_stars_to_select)
+
+        self._min_seperation = QDoubleSpinBox(self)
+        self._min_seperation.setRange(1, 100)
+        self._min_seperation.setValue(
+            self._config.psf_genertor_min_seperation)
+
+        self._saturation_limit = QDoubleSpinBox(self)
+        self._saturation_limit.setRange(1, 1000000000)
+        self._saturation_limit.setValue(
+            self._config.psf_generator_saturation_limit)
+
+        self._grid_bin_x = QSpinBox(self)
+        self._grid_bin_x.setRange(1, 100)
+        self._grid_bin_x.setValue(
+            self._config.psf_generator_grid_bin_x)
+
+        self._grid_bin_y = QSpinBox(self)
+        self._grid_bin_y.setRange(1, 100)
+        self._grid_bin_y.setValue(
+            self._config.psf_generator_grid_bin_y)
+
+        self._star_finder_sharp_min = QDoubleSpinBox(self)
+        self._star_finder_sharp_min.setRange(0, 100)
+        self._star_finder_sharp_min.setValue(
+            self._config.sharp_cutoff_low)
+
+        self._star_finder_sharp_max = QDoubleSpinBox(self)
+        self._star_finder_sharp_max.setRange(0, 100)
+        self._star_finder_sharp_max.setValue(
+            self._config.sharp_cutoff_high)
+
+        self._edge_buffer = QDoubleSpinBox(self)
+        self._edge_buffer.setRange(1, 100)
+        self._edge_buffer.setValue(
+            self._config.psf_generator_edge_buffer)
+
+        # add widgits in order.
+        params_group = QGroupBox("PSF Parameters", self)
+        param_form = QFormLayout(params_group)
+        param_form.addRow("N stars", self._stars_to_select)
+        param_form.addRow("Min seperation", self._min_seperation)
+        param_form.addRow("Saturation Limit", self._saturation_limit)
+        param_form.addRow("Spacial grid x", self._grid_bin_x)
+        param_form.addRow("Spacial grid y", self._grid_bin_y)
+        param_form.addRow("Sharp min", self._star_finder_sharp_min)
+        param_form.addRow("Sharp max", self._star_finder_sharp_max)
+        param_form.addRow("Edge buffer", self._edge_buffer)
+        group_layout.addWidget(params_group)
+        group_layout.addWidget(automatic_psf_star_selection_btn)
+        dropdown_layout.addWidget(self._detected_list)
+        dropdown_layout.addWidget(self._selected_list)
+        group_layout.addLayout(dropdown_layout)
         group_layout.addWidget(transfer_stars_to_selected)
         group_layout.addWidget(transfer_stars_to_detections)
         group_layout.addWidget(review_selected)
@@ -761,33 +827,15 @@ class CustomPSFGui(QMainWindow):
         executes when generating the custom psf.
         :return: None
         """
-        # build the list of stars.
-        clean_selected_ids = {
-            s.replace("Star_", "") for s in self._selected_stars}
-        table_ids = np.char.strip(
-            self._detected_stars[TableColumn.CAT_NUM].astype(str))
-        mask = np.isin(table_ids, list(clean_selected_ids))
-        filtered_table = self._detected_stars[mask].copy()
-
-        # clean the input data so there are no nans / infinity
-        cleaned_image_data = self._image_data.copy()
-        median_val: float
-        _, median_val, _ = sigma_clipped_stats(
-            cleaned_image_data, sigma=self._config.sigma_sky)
-        cleaned_image_data -= median_val
-
-        # run the custom psf process.
-        result: EPSFBuildResult = CustomPSF.generate_epsf(
-            filtered_table, cleaned_image_data, self._config)
-
-        epsf: ImagePSF = result.epsf
-
-        # open the grid panel with the epsf so the user can inspect.
-        dialog = StarGridPanel(
-            parent=self, images=[("Star_PSF", epsf.data)], sole_ui=False,
-            scale_selected_row=self._scaling_list.currentRow(),
-            scale_selected_mut_row=self._scaling_list_mut.currentRow())
-        dialog.exec()
+        assert self._selected_stars is not None
+        assert self._scaling_list is not None
+        assert self._scaling_list_mut is not None
+        common_code.generate_epsf_and_view(
+            self._selected_stars, self._detected_stars,
+            self._image_data.copy(), self._config, self,
+            self._scaling_list.currentRow(),
+            self._scaling_list_mut.currentRow()
+        )
 
     def on_psf_add_star_selected(self) -> None:
         """
@@ -835,7 +883,30 @@ class CustomPSFGui(QMainWindow):
         execute an automatic detection of stars for the psf.
         :return: None
         """
-        pass
+        selected_stars_from_alogorthim = find_stars_to_select(
+            self._image_data, self._detected_stars,
+            self._stars_to_select.value(), self._min_seperation.value(),
+            self._saturation_limit.value(),
+            self._star_finder_sharp_min.value(),
+            self._star_finder_sharp_max.value(), self._grid_bin_x.value(),
+            self._grid_bin_y.value(), self._edge_buffer.value())
+
+        # update selected stars and the ui.
+        self._selected_stars.clear()
+        for star_id in selected_stars_from_alogorthim[TableColumn.CAT_NUM]:
+            self._selected_stars.append(f"Star_{star_id}")
+        self._update_ui_elements()
+
+    def _update_ui_elements(self):
+        # update tables and plot.
+        self._populate_star_circles()
+        self._populate_star_lists()
+
+        # remove and reapply circles as needed
+        for star in self._circles_for_psf_generation.values():
+            star.turn_off()
+        for star_id in self._selected_stars:
+            self._circles_for_psf_generation[star_id].turn_on()
 
     def do_review_stars(self) -> None:
         """
@@ -873,7 +944,9 @@ class CustomPSFGui(QMainWindow):
         dialog = StarGridPanel(
             parent=self, images=selected_stars_arrays, sole_ui=False,
             scale_selected_row=self._scaling_list.currentRow(),
-            scale_selected_mut_row=self._scaling_list_mut.currentRow())
+            scale_selected_mut_row=self._scaling_list_mut.currentRow(),
+            image_data=self._image_data, config=self._config,
+            detected_stars=self._detected_stars)
         if dialog.exec() == QDialog.DialogCode.Accepted:
 
             # update selected stars
@@ -883,11 +956,4 @@ class CustomPSFGui(QMainWindow):
                 self._selected_stars.append(f"Star_{star_id}")
 
             # update tables and plot.
-            self._populate_star_circles()
-            self._populate_star_lists()
-
-            # remove and reapply circles as needed
-            for star in self._circles_for_psf_generation.values():
-                star.turn_off()
-            for star_id in self._selected_stars:
-                self._circles_for_psf_generation[star_id].turn_on()
+            self._update_ui_elements()
