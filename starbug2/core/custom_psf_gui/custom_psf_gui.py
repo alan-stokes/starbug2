@@ -899,7 +899,7 @@ class CustomPSFGui(QMainWindow):
         if selected_stars_from_alogorthim is not None and error is not None:
             self._info_label.setText(error)
             reply = QMessageBox.warning(
-                self, error,
+                self, "Spatial Grid Selection Warning",
                 f"{error}\n\nDo you want to continue with the available "
                 f"stars?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
