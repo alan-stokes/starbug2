@@ -33,26 +33,26 @@ def find_stars_to_select(
     :type detections: Table
     :param stars_to_select: the number of stars to select.
     :type stars_to_select: int
-    :param min_separation_px: the min separation of pixals between stars.
+    :param min_separation_px: the min separation of pixels between stars.
     :type min_separation_px: float
     :param saturation_limit: the max limit of saturation.
     :type saturation_limit: float
     :param sharp_range_min: the min sharp range.
     :type sharp_range_min: float
-    :param sharp_ranghe_max: the max sharp range.
+    :param sharp_range_max: the max sharp range.
     :type sharp_range_max: float
-    :param grid_bishape_x_x: the size of the spacial grid in pixels for x axis.
+    :param grid_bin_x: the size of the spacial grid in pixels for x-axis.
     :type grid_bin_x: int
-    :param grid_bin_y: the size of the spacial grid in pixels for y axis.
+    :param grid_bin_y: the size of the spacial grid in pixels for y-axis.
     :type grid_bin_y: int
-    :param edge_buffer: the number of pixals away from the edge of the picture
+    :param edge_buffer: the number of pixels away from the edge of the picture
                         for valid stars.
     :type edge_buffer: int
     :return: the filtered list of detections for use in custom psf generation,
-             or a error string if not enough stars. So a Table if correct
+             or an error string if not enough stars. So a Table if correct
              with None for str. or None for table and a str for error.
-             or table and error when spaical returns less, opening the option
-             to review them anyhows
+             or table and error when spacial returns less, opening the option
+             to review them anyhow
     :rtype: tuple[Table | None, str | None]
     """
     filtered_table: Table = detections.copy()
@@ -71,17 +71,17 @@ def find_stars_to_select(
     shape_y: int
     shape_x: int
     shape_y, shape_x = image.shape
-    x: Table = filtered_table[TableColumn.X_CENTROID]
-    y: Table = filtered_table[TableColumn.Y_CENTROID]
+    x: np.ndarray = filtered_table[TableColumn.X_CENTROID]
+    y: np.ndarray = filtered_table[TableColumn.Y_CENTROID]
     valid_bounds: np.ndarray = (
         (x >= edge_buffer) & (x < shape_x - edge_buffer) &
         (y >= edge_buffer) & (y < shape_y - edge_buffer)
     )
     filtered_table = filtered_table[valid_bounds]
 
-    # if not enough stars, return whats left.
+    # if not enough stars, return what's left.
     if len(filtered_table) == 0 or len(filtered_table) < stars_to_select:
-        return None, ("Not enough stars meet the selection criteria.")
+        return None, "Not enough stars meet the selection criteria."
 
     # Sort by Brightness / Flux / MAG
     filtered_table.sort(TableColumn.FLUX, reverse=True)
@@ -116,7 +116,7 @@ def find_stars_to_select(
     if len(isolated_stars) == 0:
         return None, "No isolated stars remain after separation filtering."
 
-    # ensure stars within a certain grid size are considered seperately.
+    # ensure stars within a certain grid size are considered separately.
     # ensuring spatial grid coverage.
     stars_per_bin: int = max(1, stars_to_select // (grid_bin_y * grid_bin_x))
 

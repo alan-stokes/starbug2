@@ -5,18 +5,9 @@ from PyQt6.QtWidgets import (
     QGroupBox, QListWidget, QFormLayout, QMainWindow, QDialog)
 from pyqtgraph import ImageItem
 from astropy.visualization import (
-    AsinhStretch,
-    HistEqStretch,
-    ImageNormalize,
-    LinearStretch,
-    LogStretch,
-    MinMaxInterval,
-    PowerStretch,
-    SinhStretch,
-    SqrtStretch,
-    SquaredStretch,
-    ZScaleInterval,
-)
+    AsinhStretch, HistEqStretch, ImageNormalize, LinearStretch, LogStretch,
+    MinMaxInterval, PowerStretch,  SinhStretch, SqrtStretch, SquaredStretch,
+    ZScaleInterval)
 
 
 class ScaleElements:
