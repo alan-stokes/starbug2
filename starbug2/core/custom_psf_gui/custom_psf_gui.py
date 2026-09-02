@@ -21,10 +21,10 @@ from typing import Tuple
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
-    QScrollArea, QComboBox, QListWidget, QAbstractItemView, QDialog)
-from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel,
-    QPushButton, QGroupBox, QFormLayout, QDoubleSpinBox, QCheckBox, QSpinBox)
+    QPushButton, QGroupBox, QFormLayout, QDoubleSpinBox, QCheckBox, QSpinBox,
+    QMessageBox, QScrollArea, QComboBox, QListWidget, QAbstractItemView,
+    QDialog)
 from astropy.nddata import NDData
 from astropy.stats import sigma_clipped_stats
 from astropy.table import Table
@@ -882,13 +882,32 @@ class CustomPSFGui(QMainWindow):
         execute an automatic detection of stars for the psf.
         :return: None
         """
-        selected_stars_from_alogorthim = find_stars_to_select(
+        selected_stars_from_alogorthim: Table | None
+        error: str | None
+        selected_stars_from_alogorthim, error = find_stars_to_select(
             self._image_data, self._detected_stars,
             self._stars_to_select.value(), self._min_seperation.value(),
             self._saturation_limit.value(),
             self._star_finder_sharp_min.value(),
             self._star_finder_sharp_max.value(), self._grid_bin_x.value(),
             self._grid_bin_y.value(), self._edge_buffer.value())
+
+        # handle states
+        if error is not None and selected_stars_from_alogorthim is None:
+            self._info_label.setText(error)
+            return
+        if selected_stars_from_alogorthim is not None and error is not None:
+            self._info_label.setText(error)
+            reply = QMessageBox.warning(
+                self, error,
+                f"{error}\n\nDo you want to continue with the available "
+                f"stars?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                # Default focused button
+                QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
 
         # update selected stars and the ui.
         self._selected_stars.clear()

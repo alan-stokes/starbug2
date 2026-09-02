@@ -3,15 +3,16 @@
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
-(at your option) ashape_y later version.
+(at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
-but WITHOUT Ashape_y WARRANTY; without even the implied warranty of
+but WITHOUT any WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+from typing import Tuple
 import numpy as np
 from constants import TableColumn
 from astropy.table import Table
@@ -22,7 +23,7 @@ def find_stars_to_select(
         image: np.ndarray, detections: Table, stars_to_select: int,
         min_separation_px: float, saturation_limit: float,
         sharp_range_min: float, sharp_range_max: float, grid_bin_x: int,
-        grid_bin_y: int, edge_buffer: int) -> Table:
+        grid_bin_y: int, edge_buffer: int) -> Tuple[Table | None, str | None]:
     """
     automatically detects the best stars to place into a psf.
 
@@ -42,12 +43,17 @@ def find_stars_to_select(
     :type sharp_range_max: float
     :param grid_bishape_x_x: the size of the spacial grid in pixels for x axis.
     :type grid_bin_x: int
-    :param grid_bins_y: the size of the spacial grid in pixels for y axis.
-    :type grid_bins_y: int
+    :param grid_bin_y: the size of the spacial grid in pixels for y axis.
+    :type grid_bin_y: int
     :param edge_buffer: the number of pixals away from the edge of the picture
                         for valid stars.
     :type edge_buffer: int
-    :return: the filtered list of detections for use in custom psf generation.
+    :return: the filtered list of detections for use in custom psf generation,
+             or a error string if not enough stars. So a Table if correct
+             with None for str. or None for table and a str for error.
+             or table and error when spaical returns less, opening the option
+             to review them anyhows
+    :rtype: tuple[Table | None, str | None]
     """
     filtered_table: Table = detections.copy()
 
@@ -62,10 +68,12 @@ def find_stars_to_select(
         (filtered_table[TableColumn.SHARPNESS] <= sharp_range_max)]
 
     # Remove stars too close to array borders.
+    shape_y: int
+    shape_x: int
     shape_y, shape_x = image.shape
-    x = filtered_table[TableColumn.X_CENTROID]
-    y = filtered_table[TableColumn.Y_CENTROID]
-    valid_bounds = (
+    x: Table = filtered_table[TableColumn.X_CENTROID]
+    y: Table = filtered_table[TableColumn.Y_CENTROID]
+    valid_bounds: np.ndarray = (
         (x >= edge_buffer) & (x < shape_x - edge_buffer) &
         (y >= edge_buffer) & (y < shape_y - edge_buffer)
     )
@@ -73,69 +81,78 @@ def find_stars_to_select(
 
     # if not enough stars, return whats left.
     if len(filtered_table) == 0 or len(filtered_table) < stars_to_select:
-        return filtered_table
+        return None, ("Not enough stars to select after filtering for "
+                      "saturation, sharpness, too close to boundary.")
 
     # Sort by Brightness / Flux / MAG
     filtered_table.sort(TableColumn.FLUX, reverse=True)
 
     # Isolation Check using KDTree (Drop stars with close neighbours)
-    coords = np.column_stack((
+    coords: np.ndarray = np.column_stack((
         filtered_table[TableColumn.X_CENTROID],
         filtered_table[TableColumn.Y_CENTROID]))
-    tree = KDTree(coords)
+    tree: KDTree = KDTree(coords)
 
     # Query all pairs within min_separation_px
-    isolated_mask = np.ones(len(filtered_table), dtype=bool)
+    isolated_mask: np.ndarray = np.ones(len(filtered_table), dtype=bool)
+    coord_index: int
+    point: np.ndarray
     for coord_index, point in enumerate(coords):
         if not isolated_mask[coord_index]:
             # Already marked as a neighbour to a brighter star
             continue
 
         # Find all neighbours within distance radius
-        neighbours = tree.query_ball_point(point, r=min_separation_px)
+        neighbours: list[int] = tree.query_ball_point(
+            point, r=min_separation_px)
+        neighbour_index: int
         for neighbour_index in neighbours:
             # Mark fainter neighbour for removal
             if neighbour_index != coord_index:
                 isolated_mask[neighbour_index] = False
 
     # mask out isolated stars
-    isolated_stars = filtered_table[isolated_mask]
+    isolated_stars: Table = filtered_table[isolated_mask]
+
+    if len(isolated_stars) == 0:
+        return None, "No isolated stars remain after separation filtering."
 
     # ensure stars within a certain grid size are considered seperately.
     # ensuring spatial grid coverage.
-    stars_per_bin = max(1, stars_to_select // (grid_bin_y * grid_bin_x))
+    stars_per_bin: int = max(1, stars_to_select // (grid_bin_y * grid_bin_x))
 
     # create stores
-    x_bins = np.linspace(0, shape_x, grid_bin_x + 1)
-    y_bins = np.linspace(0, shape_y, grid_bin_y + 1)
-    selected_indices = []
+    x_bins: np.ndarray = np.linspace(0, shape_x, grid_bin_x + 1)
+    y_bins: np.ndarray = np.linspace(0, shape_y, grid_bin_y + 1)
+    selected_indices: list[int] = []
+    iso_x: Table = isolated_stars[TableColumn.X_CENTROID]
+    iso_y: Table = isolated_stars[TableColumn.Y_CENTROID]
 
     # select over the bins
+    x_bin_index: int
     for x_bin_index in range(grid_bin_x):
         for y_bin_index in range(grid_bin_y):
-            in_cell = (
-                (filtered_table[TableColumn.Y_CENTROID] >=
-                 x_bins[x_bin_index])
-                & (filtered_table[TableColumn.X_CENTROID] <
-                   x_bins[x_bin_index + 1])
-                & (filtered_table[TableColumn.X_CENTROID] >=
-                   y_bins[y_bin_index])
-                & (filtered_table[TableColumn.Y_CENTROID] <
-                   y_bins[y_bin_index + 1]))
-
-            cell_indices = np.where(in_cell)[0]
+            in_cell: np.ndarray = (
+                (iso_x >= x_bins[x_bin_index])
+                & (iso_x < x_bins[x_bin_index + 1])
+                & (iso_y >= y_bins[y_bin_index])
+                & (iso_y < y_bins[y_bin_index + 1]))
+            cell_indices: np.ndarray = np.where(in_cell)[0]
 
             # Take top stars from this bin
-            selected_indices.extend(cell_indices[:stars_per_bin])
+            star_index: int
+            for star_index in cell_indices[:stars_per_bin]:
+                if star_index not in selected_indices:
+                    selected_indices.append(int(star_index))
 
-    # If grid binning yielded fewer than stars_to_select,
-    # fill remaining slots with next brightest
-    if len(selected_indices) < stars_to_select:
-        remaining_indices = [
-            idx for idx in range(len(filtered_table))
-                if idx not in selected_indices]
-        needed = stars_to_select - len(selected_indices)
-        selected_indices.extend(remaining_indices[:needed])
+    # If grid binning yielded fewer than stars_to_select return error.
+    found_count: int = len(selected_indices)
+    if found_count < stars_to_select:
+        return (
+            isolated_stars[selected_indices[:stars_to_select]],
+            (f"Only {found_count} optimal spatial PSF stars were available "
+             f"(requested {stars_to_select})."))
 
     # extract requested number of stars (top N isolated candidates)
-    return isolated_stars[:stars_to_select]
+    final_selected: Table = isolated_stars[selected_indices[:stars_to_select]]
+    return final_selected, None
