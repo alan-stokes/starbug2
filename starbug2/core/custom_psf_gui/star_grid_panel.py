@@ -16,24 +16,21 @@ from typing import List, Tuple
 
 import numpy as np
 from PyQt6 import QtCore
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtWidgets import (
-    QDialog,
-    QGridLayout,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QScrollArea,
-    QVBoxLayout,
-    QWidget, QListWidget, QCheckBox,
+    QDialog, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea,
+    QVBoxLayout, QWidget, QListWidget, QCheckBox, QGroupBox, QMessageBox,
 )
-import pyqtgraph as pg
 from astropy.table import Table
-from pyqtgraph import ImageItem
+from photutils.psf import ImagePSF
+from pyqtgraph import ImageItem, GraphicsLayoutWidget, ViewBox
 
-from custom_psf_gui import common_code
+from custom_psf_gui.background_generator import BackgroundGenerator
 from custom_psf_gui.scale_elements import ScaleElements
 from star_bug_config import StarBugMainConfig
+
+# size of an image in pixels when taking multiple into account.
+DEFAULT_SQUARE_SIZE = 200
 
 
 class StarGridPanel(QDialog):
@@ -71,7 +68,13 @@ class StarGridPanel(QDialog):
         self._solo: bool = sole_ui
         self._selected_stars: list[str] = list()
 
+        # Track grid structures for dynamic reflowing
+        self._cell_widgets: List[QWidget] = []
+        self._grid_layout: QGridLayout | None = None
+        self._current_cols: int = 3
+
         # update selected stars to all given
+        star_id: str
         for star_id, _ in self._images:
             self._selected_stars.append(star_id)
 
@@ -85,8 +88,98 @@ class StarGridPanel(QDialog):
         self._config: StarBugMainConfig = config
         self._detected_stars: Table = detected_stars
 
+        # selection elements.
+        self._de_select_all: QPushButton | None = None
+        self._select_all: QPushButton | None = None
+        self._check_boxes: list[QCheckBox] = []
+
         # create the UI.
         self._create_components(scale_selected_row, scale_selected_mut_row)
+
+    def _create_cell(
+            self, grid_widget: QWidget, star_id: str,
+            img_data: np.ndarray) -> QWidget:
+        """
+        creates a cell for the grid.
+
+        :param grid_widget: the grid holder.
+        :return: the cell
+        :rtype: QWidget
+        """
+        cell_widget: QWidget = QWidget(grid_widget)
+        cell_layout: QVBoxLayout = QVBoxLayout(cell_widget)
+        cell_layout.setContentsMargins(0, 0, 0, 0)
+        cell_layout.setSpacing(0)
+
+        # Create a PyQtGraph GraphicsLayoutWidget for each cell
+        window: GraphicsLayoutWidget = GraphicsLayoutWidget()
+        window.setFixedSize(DEFAULT_SQUARE_SIZE, DEFAULT_SQUARE_SIZE)
+
+        # add image
+        view: ViewBox = window.addViewBox()
+        view.setAspectLocked(True)
+
+        # disable zoom and pan
+        view.setMouseEnabled(x=False, y=False)
+        # Disables the right-click context menu
+        view.setMenuEnabled(False)
+        view.enableAutoRange(axis=ViewBox.XYAxes, enable=True)
+
+        # add image data to image / window
+        img_item: ImageItem = ImageItem(img_data.T)
+        view.addItem(img_item)
+        self._image_items.append(img_item)
+
+        # add check box
+        select_cb: QCheckBox = QCheckBox(window)
+        select_cb.setChecked(True)
+
+        # position in top right corner of image.
+        cb_size: QSize = select_cb.sizeHint()
+        select_cb.move(DEFAULT_SQUARE_SIZE - cb_size.width() - 6, 6)
+
+        # ensure clean background.
+        select_cb.setStyleSheet("""
+                QCheckBox {
+                    background-color: #ffffff;
+                    border: 1px solid #cccccc;
+                    border-radius: 3px;
+                    padding: 2px;
+                }
+                QCheckBox::indicator {
+                    width: 14px;
+                    height: 14px;
+                }
+            """)
+
+        # noinspection PyUnresolvedReferences
+        select_cb.clicked.connect(
+            lambda checked, s_id=star_id:
+            self._on_select_cb(s_id, checked))
+        self._check_boxes.append(select_cb)
+
+        # Add click handler to the image canvas
+        def make_mouse_press_handler(cb=select_cb):
+            def mouse_press_event(event):
+                # Ignore right clicks if needed, or toggle on any left
+                # click
+                if event.button() == Qt.MouseButton.LeftButton:
+                    # Toggles checked state
+                    cb.toggle()
+                    # Triggers the callback
+                    # noinspection PyUnresolvedReferences
+                    cb.clicked.emit(cb.isChecked())
+                # Call original base event processing
+                GraphicsLayoutWidget.mousePressEvent(window, event)
+            return mouse_press_event
+
+        # Add event handler to ensure tick matches when clicking on image.
+        window.mousePressEvent = make_mouse_press_handler()
+
+        # Assemble cell layout
+        cell_layout.addWidget(window)
+        return cell_widget
+
 
     def _create_image_viewer(self) -> QScrollArea:
         """
@@ -105,88 +198,43 @@ class StarGridPanel(QDialog):
 
         # Populate grid (e.g., 3 columns)
         cols: int = 3
-        square_size: int = 200
         for idx, (star_id, img_data) in enumerate(self._images):
             row = idx // cols
             col = idx % cols
-
-            cell_widget = QWidget(grid_widget)
-            cell_layout = QVBoxLayout(cell_widget)
-            cell_layout.setContentsMargins(0, 0, 0, 0)
-            cell_layout.setSpacing(0)
-
-            # Create a PyQtGraph GraphicsLayoutWidget for each cell
-            win = pg.GraphicsLayoutWidget()
-            win.setFixedSize(square_size, square_size)
-
-            # add image
-            view = win.addViewBox()
-            view.setAspectLocked(True)
-
-            # disable zoom and pan
-            view.setMouseEnabled(x=False, y=False)
-            # Disables the right-click context menu
-            view.setMenuEnabled(False)
-            view.enableAutoRange(axis=pg.ViewBox.XYAxes, enable=True)
-
-            img_item: ImageItem = pg.ImageItem(img_data.T)
-            view.addItem(img_item)
-            self._image_items.append(img_item)
-
-            # add check box
-            select_cb = QCheckBox(win)
-            select_cb.setChecked(True)
-
-            # position in top right corner of image.
-            cb_size = select_cb.sizeHint()
-            select_cb.move(square_size - cb_size.width() - 6, 6)
-
-            # ensure clean background.
-            select_cb.setStyleSheet("""
-                QCheckBox {
-                    background-color: #ffffff;
-                    border: 1px solid #cccccc;
-                    border-radius: 3px;
-                    padding: 2px;
-                }
-                QCheckBox::indicator {
-                    width: 14px;
-                    height: 14px;
-                }
-            """)
-
-            # noinspection PyUnresolvedReferences
-            select_cb.clicked.connect(
-                lambda checked, s_id=star_id:
-                    self._on_select_cb(s_id, checked))
-
-            # 2. Add click handler to the image canvas
-            def make_mouse_press_handler(cb=select_cb):
-                def mouse_press_event(event):
-                    # Ignore right clicks if needed, or toggle on any left
-                    # click
-                    if event.button() == Qt.MouseButton.LeftButton:
-                        # Toggles checked state
-                        cb.toggle()
-                        # Triggers the callback
-                        cb.clicked.emit(cb.isChecked())
-                    # Call original base event processing
-                    pg.GraphicsLayoutWidget.mousePressEvent(win, event)
-                return mouse_press_event
-
-            # add event handler to ensure tiick matches when clciking on image.
-            win.mousePressEvent = make_mouse_press_handler()
-
-            # Assemble cell layout
-            cell_layout.addWidget(win)
-
+            cell_widget: QWidget = self._create_cell(
+                grid_widget, star_id, img_data)
             grid_layout.addWidget(cell_widget, row, col)
 
         # ensures the squares are not stretched to rectangles
         grid_layout.setRowStretch(grid_layout.rowCount(), 1)
-
         scroll_area.setWidget(grid_widget)
         return scroll_area
+
+    def _update_selects(self, new_state: bool) -> None:
+        check_box: QCheckBox
+        for check_box in self._check_boxes:
+            check_box.setChecked(new_state)
+
+        # ensure the internal state works.
+        self._selected_stars.clear()
+        if new_state:
+            star_id: str
+            for star_id, _ in self._images:
+                self._selected_stars.append(star_id)
+
+
+    def _build_select_buttons(self, controls_layout: QVBoxLayout):
+        self._de_select_all: QPushButton = QPushButton("Remove all", self)
+        # noinspection PyUnresolvedReferences
+        self._de_select_all.clicked.connect(lambda: self._update_selects(False))
+
+        self._select_all: QPushButton = QPushButton("Select All", self)
+        # noinspection PyUnresolvedReferences
+        self._select_all.clicked.connect(lambda: self._update_selects(True))
+
+        # add to widget
+        controls_layout.addWidget(self._select_all)
+        controls_layout.addWidget(self._de_select_all)
 
     def _create_controls_layout(
             self, scale_selected_row: int,
@@ -202,11 +250,12 @@ class StarGridPanel(QDialog):
         """
 
         # --- Top Section: Scaling Controls Panel ---
-        controls_layout = QVBoxLayout()
+        controls_layout: QVBoxLayout = QVBoxLayout()
         controls_layout.addWidget(QLabel("Control Panel"))
 
         # extract just the image data.
-        image_data = []
+        image_data: list[np.ndarray] = []
+        img_data: np.ndarray
         for _, img_data in self._images:
             image_data.append(img_data)
 
@@ -214,14 +263,18 @@ class StarGridPanel(QDialog):
         self._scale_builder: ScaleElements = ScaleElements(
             image_data, self._image_items)
         assert self._scale_builder is not None
+        scaling_group: QGroupBox
         scaling_group, self._scaling_list, self._scaling_list_mut = (
             self._scale_builder.create_scaling_group(
                 self, scale_selected_row, scale_selected_mut_row))
         controls_layout.addWidget(scaling_group)
 
+        # add select buttons
+        self._build_select_buttons(controls_layout)
+
         # Example action button inside the GUI if in solo mode.
         if self._solo:
-            apply_btn = QPushButton("Execute PSF generation")
+            apply_btn: QPushButton = QPushButton("Execute PSF generation")
             controls_layout.addWidget(apply_btn, stretch=1)
             # noinspection PyUnresolvedReferences
             apply_btn.clicked.connect(self._solo_execute_psf_generation)
@@ -251,7 +304,7 @@ class StarGridPanel(QDialog):
         """
 
         # Main Layout
-        main_layout = QHBoxLayout(self)
+        main_layout: QHBoxLayout = QHBoxLayout(self)
         self.setStyleSheet("""
             QWidget#main_window_frame {
                 border: 2px solid #555555;
@@ -263,7 +316,7 @@ class StarGridPanel(QDialog):
         """)
 
         # handle the main views.
-        controls_widget = QWidget(self)
+        controls_widget: QWidget = QWidget(self)
         controls_widget.setFixedWidth(280)
 
         # create image grid
@@ -290,6 +343,38 @@ class StarGridPanel(QDialog):
         else:
             self._selected_stars.remove(star_id)
 
+    def _handle_failure(self, error: str) -> None:
+        """
+        handles failure of epsf.
+        :param error: the error message.
+        :return: None
+        """
+        self._info_label.setText("PSF Generation Failed.")
+        self._apply_btn.setEnabled(True)
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Icon.Critical)
+        msg_box.setWindowTitle("Error")
+        msg_box.setText(f"Failed to generate PSF:\n{error}")
+        msg_box.exec()
+
+    def _handle_success(self, epsf: ImagePSF) -> None:
+        """
+        handles a successful psf generation.
+        :return: None
+        """
+        self._info_label.setText("PSF Generation Succeeded.")
+        self._apply_btn.setEnabled(True)
+
+        assert self._scaling_list is not None
+        assert self._scaling_list_mut is not None
+        dialog = StarGridPanel(
+            parent=self, images=[("Star_PSF", epsf.data)], sole_ui=False,
+            scale_selected_row=self._scaling_list.currentRow(),
+            config=self._config,
+            scale_selected_mut_row=self._scaling_list_mut.currentRow(),
+            detected_stars=self._detected_stars, image_data=self._image_data)
+        dialog.exec()
+
     def _solo_execute_psf_generation(self) -> None:
         """
         execute the PSF generation.
@@ -298,11 +383,12 @@ class StarGridPanel(QDialog):
         assert self._selected_stars is not None
         assert self._scaling_list is not None
         assert self._scaling_list_mut is not None
-        common_code.generate_epsf_and_view(
+        self._background_generator = BackgroundGenerator()
+        assert self._background_generator is not None
+        self._background_generator.generate_epsf_and_view(
             self._selected_stars, self._detected_stars,
             self._image_data.copy(), self._config, self,
-            self._scaling_list.currentRow(),
-            self._scaling_list_mut.currentRow()
+            self._handle_failure, self._handle_success
         )
 
     def _solo_update_psf_selection(self) -> None:

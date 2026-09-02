@@ -25,18 +25,14 @@ from PyQt6.QtWidgets import (
     QPushButton, QGroupBox, QFormLayout, QDoubleSpinBox, QCheckBox, QSpinBox,
     QMessageBox, QScrollArea, QComboBox, QListWidget, QAbstractItemView,
     QDialog)
-from astropy.nddata import NDData
-from astropy.stats import sigma_clipped_stats
 from astropy.table import Table
-from photutils.psf import EPSFBuildResult, ImagePSF
+from photutils.psf import ImagePSF
 from pyqtgraph import ImageItem, GraphicsLayoutWidget, ViewBox
 
 import numpy as np
-from scipy.spatial import KDTree
 
-from custom_psf_gui import common_code
+from custom_psf_gui.background_generator import BackgroundGenerator
 from custom_psf_gui.scale_elements import ScaleElements
-from main_components.custom_psf import CustomPSF
 from starbug2.core.custom_psf_gui.star_grid_panel import StarGridPanel
 from starbug2.constants import ExitStates, TableColumn, STAR_BUG_TEST_DAT_ENV
 from starbug2.core.star_bug_config import StarBugMainConfig
@@ -251,6 +247,9 @@ class CustomPSFGui(QMainWindow):
         self._detected_stars: Table = detections
         self._config = config
 
+        # info
+        self._info_label: QLabel = QLabel()
+
         # detection form elements
         self._full_width_half_max_spin: QDoubleSpinBox
         self._sig_sky: QDoubleSpinBox
@@ -272,7 +271,7 @@ class CustomPSFGui(QMainWindow):
 
         # psf automatic params
         self._stars_to_select: QSpinBox
-        self._min_seperation: QDoubleSpinBox
+        self._min_separation: QDoubleSpinBox
         self._saturation_limit: QDoubleSpinBox
         self._grid_bin_x: QSpinBox
         self._grid_bin_y: QSpinBox
@@ -288,6 +287,14 @@ class CustomPSFGui(QMainWindow):
         self._scaling_list_mut: QListWidget | None = None
         self._scale_builder: ScaleElements | None = None
 
+        # buttons
+        self._automatic_psf_star_selection_btn: QPushButton | None = None
+        self._do_custom_psf_btn: QPushButton | None = None
+        self._redo_detection_btn: QPushButton | None = None
+
+        # background generator to stop garbage collector.
+        self._background_generator: BackgroundGenerator | None = None
+
         # Set up UI components (Side-by-side layout)
         self._set_up_components()
 
@@ -299,6 +306,7 @@ class CustomPSFGui(QMainWindow):
         self._populate_star_combos()
 
         # update to correct visualisation scale.
+        assert self._scale_builder is not None
         self._scale_builder.on_scaling_item_clicked()
 
     def _setup_central_widget(self) -> None:
@@ -463,22 +471,22 @@ class CustomPSFGui(QMainWindow):
         self._add_detection_form_elements(param_form)
         return detection_param_group
 
-    def _create_buttons(self) -> Tuple[QPushButton, QPushButton]:
+    def _create_buttons(self) -> None:
         """
         generates the buttons
         :return: tuple of the redo detection button, and the do custom psf
         button
-        :rtype: Tuple[QPushButton, QPushButton]
+        :rtype: None
         """
-        redo_detection_btn = QPushButton("Redo Detection", self)
+        self._redo_detection_btn = QPushButton("Redo Detection", self)
         # noinspection PyUnresolvedReferences
-        redo_detection_btn.clicked.connect(self.on_redo_detection)
+        self._redo_detection_btn.clicked.connect(self.on_redo_detection)
 
-        do_custom_psf_btn = QPushButton("Generate Custom PSF", self)
-        do_custom_psf_btn.setStyleSheet("font-weight: bold;")
+        self._do_custom_psf_btn = QPushButton("Generate Custom PSF", self)
+        assert self._do_custom_psf_btn is not None
+        self._do_custom_psf_btn.setStyleSheet("font-weight: bold;")
         # noinspection PyUnresolvedReferences
-        do_custom_psf_btn.clicked.connect(self.on_generate_custom_psf)
-        return redo_detection_btn, do_custom_psf_btn
+        self._do_custom_psf_btn.clicked.connect(self.on_generate_custom_psf)
 
     def _create_psf_stars_group(self):
         psf_stars_group = QGroupBox("custom PSF selections", self)
@@ -501,8 +509,12 @@ class CustomPSFGui(QMainWindow):
                 self._selected_list,
                 transfer_stars_to_selected,
                 transfer_stars_to_detections,
+                params_group,
+                review_selected,
+                self._automatic_psf_star_selection_btn
             ]
             for w in widgets:
+                assert w is not None
                 w.setVisible(checked)
                 # Overrides Qt's default grey-out behaviour
                 w.setEnabled(True)
@@ -528,9 +540,11 @@ class CustomPSFGui(QMainWindow):
         )
 
         # create automatic selection process.
-        automatic_psf_star_selection_btn = QPushButton("Pick PSF Stars", self)
+        self._automatic_psf_star_selection_btn = QPushButton(
+            "Pick PSF Stars", self)
         # noinspection PyUnresolvedReferences
-        automatic_psf_star_selection_btn.clicked.connect(self.on_automatic)
+        self._automatic_psf_star_selection_btn.clicked.connect(
+            self.on_automatic)
 
         # add button
         transfer_stars_to_selected = QPushButton("Move to selected ->", self)
@@ -554,9 +568,9 @@ class CustomPSFGui(QMainWindow):
         self._stars_to_select.setValue(
             self._config.psf_genertor_stars_to_select)
 
-        self._min_seperation = QDoubleSpinBox(self)
-        self._min_seperation.setRange(1, 100)
-        self._min_seperation.setValue(
+        self._min_separation = QDoubleSpinBox(self)
+        self._min_separation.setRange(1, 100)
+        self._min_separation.setValue(
             self._config.psf_genertor_min_seperation)
 
         self._saturation_limit = QDoubleSpinBox(self)
@@ -589,11 +603,11 @@ class CustomPSFGui(QMainWindow):
         self._edge_buffer.setValue(
             self._config.psf_generator_edge_buffer)
 
-        # add widgits in order.
+        # add widgets in order.
         params_group = QGroupBox("PSF Parameters", self)
         param_form = QFormLayout(params_group)
         param_form.addRow("N stars", self._stars_to_select)
-        param_form.addRow("Min seperation", self._min_seperation)
+        param_form.addRow("Min separation", self._min_separation)
         param_form.addRow("Saturation Limit", self._saturation_limit)
         param_form.addRow("Spacial grid x", self._grid_bin_x)
         param_form.addRow("Spacial grid y", self._grid_bin_y)
@@ -601,7 +615,7 @@ class CustomPSFGui(QMainWindow):
         param_form.addRow("Sharp max", self._star_finder_sharp_max)
         param_form.addRow("Edge buffer", self._edge_buffer)
         group_layout.addWidget(params_group)
-        group_layout.addWidget(automatic_psf_star_selection_btn)
+        group_layout.addWidget(self._automatic_psf_star_selection_btn)
         dropdown_layout.addWidget(self._detected_list)
         dropdown_layout.addWidget(self._selected_list)
         group_layout.addLayout(dropdown_layout)
@@ -641,22 +655,28 @@ class CustomPSFGui(QMainWindow):
         assert self._scale_builder is not None
         scaling_group, self._scaling_list, self._scaling_list_mut = (
             self._scale_builder.create_scaling_group(
-                self, common_code.DEFAULT_SCALE_LIST_SELECTED,
-                common_code.DEFAULT_SCALE_LIST_MUT_SELECTED))
+                self, ScaleElements.DEFAULT_SCALE_LIST_SELECTED,
+                ScaleElements.DEFAULT_SCALE_LIST_MUT_SELECTED))
         self._scale_builder.on_scaling_item_clicked()
 
         # create psf stars field.
         psf_stars_group = self._create_psf_stars_group()
 
         # Action Buttons
-        redo_detection_btn, do_custom_psf_btn = self._create_buttons()
+        self._create_buttons()
 
         # add to the control panel layout.
         control_layout.addWidget(detection_param_group)
         control_layout.addWidget(scaling_group)
         control_layout.addWidget(psf_stars_group)
-        control_layout.addWidget(redo_detection_btn)
-        control_layout.addWidget(do_custom_psf_btn)
+        control_layout.addWidget(self._redo_detection_btn)
+        control_layout.addWidget(self._do_custom_psf_btn)
+
+        # put everything at top
+        control_layout.addStretch()
+
+        # add the control panel to the scroll area.
+        scroll_area.setWidget(control_panel)
 
         # Status Label
         self._info_label: QLabel = QLabel(
@@ -664,11 +684,6 @@ class CustomPSFGui(QMainWindow):
         self._info_label.setWordWrap(True)
         control_layout.addWidget(self._info_label)
 
-        # put everything at top
-        control_layout.addStretch()
-
-        # add the control panel to the scroll area.
-        scroll_area.setWidget(control_panel)
         return scroll_area
 
     def _create_nan_layer(self) -> None:
@@ -784,6 +799,9 @@ class CustomPSFGui(QMainWindow):
         executes when redoing detection
         :return: None
         """
+        assert self._redo_detection_btn is not None
+        self._redo_detection_btn.setEnabled(False)
+
         config_copy = CustomPSFGui._update_config(self._config)
         # add the values from the form.
         config_copy.unfreeze()
@@ -820,20 +838,61 @@ class CustomPSFGui(QMainWindow):
 
         self._info_label.setText(
             "Detection redo complete. Click a star marker to select.")
+        self._redo_detection_btn.setEnabled(True)
+
+    def _handle_failure(self, error: str) -> None:
+        """
+        handles failure of epsf.
+        :param error: the error message.
+        :return: None
+        """
+        self._info_label.setText("PSF Generation Failed.")
+        assert self._do_custom_psf_btn is not None
+        self._do_custom_psf_btn.setEnabled(True)
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Icon.Critical)
+        msg_box.setWindowTitle("Error")
+        msg_box.setText(f"Failed to generate PSF:\n{error}")
+        msg_box.exec()
+
+    def _handle_success(self, epsf: ImagePSF) -> None:
+        """
+        handles a successful psf generation.
+        :param epsf: the epsf.
+        :type epsf: ImagePSF
+        :return: None
+        """
+        self._info_label.setText("PSF Generation Succeeded.")
+        assert self._do_custom_psf_btn is not None
+        self._do_custom_psf_btn.setEnabled(True)
+
+        assert self._scaling_list is not None
+        assert self._scaling_list_mut is not None
+        dialog = StarGridPanel(
+            parent=self, images=[("Star_PSF", epsf.data)], sole_ui=False,
+            scale_selected_row=self._scaling_list.currentRow(),
+            config=self._config,
+            scale_selected_mut_row=self._scaling_list_mut.currentRow(),
+            detected_stars=self._detected_stars, image_data=self._image_data)
+        dialog.exec()
 
     def on_generate_custom_psf(self) -> None:
         """
         executes when generating the custom psf.
         :return: None
         """
+        assert self._do_custom_psf_btn is not None
+        self._do_custom_psf_btn.setEnabled(False)
         assert self._selected_stars is not None
         assert self._scaling_list is not None
         assert self._scaling_list_mut is not None
-        common_code.generate_epsf_and_view(
+        self._info_label.setText("Generating custom PSF. Please wait...")
+        self._background_generator = BackgroundGenerator()
+        assert self._background_generator is not None
+        self._background_generator.generate_epsf_and_view(
             self._selected_stars, self._detected_stars,
             self._image_data.copy(), self._config, self,
-            self._scaling_list.currentRow(),
-            self._scaling_list_mut.currentRow()
+            self._handle_failure, self._handle_success
         )
 
     def on_psf_add_star_selected(self) -> None:
@@ -882,28 +941,32 @@ class CustomPSFGui(QMainWindow):
         execute an automatic detection of stars for the psf.
         :return: None
         """
-        selected_stars_from_alogorthim: Table | None
+        assert self._automatic_psf_star_selection_btn is not None
+        self._automatic_psf_star_selection_btn.setEnabled(False)
+
+        selected_stars_from_algorithm: Table | None
         error: str | None
-        selected_stars_from_alogorthim, error = find_stars_to_select(
+        selected_stars_from_algorithm, error = find_stars_to_select(
             self._image_data, self._detected_stars,
-            self._stars_to_select.value(), self._min_seperation.value(),
+            self._stars_to_select.value(), self._min_separation.value(),
             self._saturation_limit.value(),
             self._star_finder_sharp_min.value(),
             self._star_finder_sharp_max.value(), self._grid_bin_x.value(),
             self._grid_bin_y.value(), self._edge_buffer.value())
 
         # handle states
-        if error is not None and selected_stars_from_alogorthim is None:
+        if error is not None and selected_stars_from_algorithm is None:
             self._info_label.setText(error)
-            QMessageBox.critical(
-                self,
-                "Selection Failed",
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Icon.Critical)
+            msg_box.setWindowTitle("Selection Failed")
+            msg_box.setText(
                 f"{error}\n\nPlease adjust your filter parameters and try "
-                f"again.",
-                QMessageBox.StandardButton.Ok
-            )
+                f"again.")
+            msg_box.exec()
+            self._automatic_psf_star_selection_btn.setEnabled(True)
             return
-        if selected_stars_from_alogorthim is not None and error is not None:
+        if selected_stars_from_algorithm is not None and error is not None:
             self._info_label.setText(error)
             reply = QMessageBox.warning(
                 self, "Spatial Grid Selection Warning",
@@ -914,13 +977,19 @@ class CustomPSFGui(QMainWindow):
                 QMessageBox.StandardButton.No
             )
             if reply == QMessageBox.StandardButton.No:
+                self._automatic_psf_star_selection_btn.setEnabled(True)
                 return
 
         # update selected stars and the ui.
+        self._info_label.setText(
+            "Populating image with selected Stars. Please wait....")
         self._selected_stars.clear()
-        for star_id in selected_stars_from_alogorthim[TableColumn.CAT_NUM]:
+        assert selected_stars_from_algorithm is not None
+        for star_id in selected_stars_from_algorithm[TableColumn.CAT_NUM]:
             self._selected_stars.append(f"Star_{star_id}")
         self._update_ui_elements()
+        self._automatic_psf_star_selection_btn.setEnabled(True)
+        self._info_label.setText("Completed Pick PSF Stars.")
 
     def _update_ui_elements(self):
         # update tables and plot.
