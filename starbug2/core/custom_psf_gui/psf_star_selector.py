@@ -81,8 +81,7 @@ def find_stars_to_select(
 
     # if not enough stars, return whats left.
     if len(filtered_table) == 0 or len(filtered_table) < stars_to_select:
-        return None, ("Not enough stars to select after filtering for "
-                      "saturation, sharpness, too close to boundary.")
+        return None, ("Not enough stars meet the selection criteria.")
 
     # Sort by Brightness / Flux / MAG
     filtered_table.sort(TableColumn.FLUX, reverse=True)

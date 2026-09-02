@@ -895,6 +895,13 @@ class CustomPSFGui(QMainWindow):
         # handle states
         if error is not None and selected_stars_from_alogorthim is None:
             self._info_label.setText(error)
+            QMessageBox.critical(
+                self,
+                "Selection Failed",
+                f"{error}\n\nPlease adjust your filter parameters and try "
+                f"again.",
+                QMessageBox.StandardButton.Ok
+            )
             return
         if selected_stars_from_alogorthim is not None and error is not None:
             self._info_label.setText(error)
