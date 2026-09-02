@@ -16,6 +16,7 @@ from typing import List, Tuple
 
 import numpy as np
 from PyQt6 import QtCore
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QDialog,
     QGridLayout,
@@ -111,30 +112,73 @@ class StarGridPanel(QDialog):
 
             cell_widget = QWidget(grid_widget)
             cell_layout = QVBoxLayout(cell_widget)
-            cell_layout.setContentsMargins(4, 4, 4, 4)
+            cell_layout.setContentsMargins(0, 0, 0, 0)
+            cell_layout.setSpacing(0)
 
             # Create a PyQtGraph GraphicsLayoutWidget for each cell
             win = pg.GraphicsLayoutWidget()
             win.setFixedSize(square_size, square_size)
 
+            # add image
             view = win.addViewBox()
             view.setAspectLocked(True)
+
+            # disable zoom and pan
+            view.setMouseEnabled(x=False, y=False)
+            # Disables the right-click context menu
+            view.setMenuEnabled(False)
+            view.enableAutoRange(axis=pg.ViewBox.XYAxes, enable=True)
 
             img_item: ImageItem = pg.ImageItem(img_data.T)
             view.addItem(img_item)
             self._image_items.append(img_item)
 
             # add check box
-            select_cb = QCheckBox("Include in PSF")
+            select_cb = QCheckBox(win)
             select_cb.setChecked(True)
+
+            # position in top right corner of image.
+            cb_size = select_cb.sizeHint()
+            select_cb.move(square_size - cb_size.width() - 6, 6)
+
+            # ensure clean background.
+            select_cb.setStyleSheet("""
+                QCheckBox {
+                    background-color: #ffffff;
+                    border: 1px solid #cccccc;
+                    border-radius: 3px;
+                    padding: 2px;
+                }
+                QCheckBox::indicator {
+                    width: 14px;
+                    height: 14px;
+                }
+            """)
+
             # noinspection PyUnresolvedReferences
             select_cb.clicked.connect(
                 lambda checked, s_id=star_id:
                     self._on_select_cb(s_id, checked))
 
+            # 2. Add click handler to the image canvas
+            def make_mouse_press_handler(cb=select_cb):
+                def mouse_press_event(event):
+                    # Ignore right clicks if needed, or toggle on any left
+                    # click
+                    if event.button() == Qt.MouseButton.LeftButton:
+                        # Toggles checked state
+                        cb.toggle()
+                        # Triggers the callback
+                        cb.clicked.emit(cb.isChecked())
+                    # Call original base event processing
+                    pg.GraphicsLayoutWidget.mousePressEvent(win, event)
+                return mouse_press_event
+
+            # add event handler to ensure tiick matches when clciking on image.
+            win.mousePressEvent = make_mouse_press_handler()
+
             # Assemble cell layout
             cell_layout.addWidget(win)
-            cell_layout.addWidget(select_cb)
 
             grid_layout.addWidget(cell_widget, row, col)
 

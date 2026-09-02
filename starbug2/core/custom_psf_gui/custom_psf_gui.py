@@ -46,13 +46,13 @@ from starbug2.core.custom_psf_gui.clickable_circle_overlay import (
 from starbug2.core.custom_psf_gui.psf_star_selector import find_stars_to_select
 
 # Search box radius in pixels
-RADIUS = 2.0
+RADIUS: float = 2.0
 
 # size of grid for ech star from centre
-STAR_IMAGE_SIZE = 25
+STAR_IMAGE_SIZE: int = 25
 
 # the geometry of the UI.
-GEOMETRY = (100, 100, 1200, 700)
+GEOMETRY: Tuple[int, int, int, int] = (100, 100, 1200, 700)
 
 
 class CustomPSFGui(QMainWindow):
@@ -298,6 +298,9 @@ class CustomPSFGui(QMainWindow):
         self._populate_star_circles()
         self._populate_star_combos()
 
+        # update to correct visualisation scale.
+        self._scale_builder.on_scaling_item_clicked()
+
     def _setup_central_widget(self) -> None:
         """
         builds the central widget.
@@ -333,11 +336,7 @@ class CustomPSFGui(QMainWindow):
         self._view_box.addItem(self._nan_overlay_item)
 
         # Set zoom limits
-        # NOTE: THIS CODE DOESN'T WORK!
         height, width = self._image_data.shape
-        # self._view_box.setLimits(
-        #    xMin=0, xMax=width, yMin=0, yMax=height, minXRange=5, minYRange=5
-        # )
         self._view_box.setRange(
             xRange=(0, width), yRange=(0, height), padding=0)
 
@@ -529,8 +528,7 @@ class CustomPSFGui(QMainWindow):
         )
 
         # create automatic selection process.
-        automatic_psf_star_selection_btn = QPushButton(
-            "Automatic Selection", self)
+        automatic_psf_star_selection_btn = QPushButton("Pick PSF Stars", self)
         # noinspection PyUnresolvedReferences
         automatic_psf_star_selection_btn.clicked.connect(self.on_automatic)
 
@@ -551,7 +549,6 @@ class CustomPSFGui(QMainWindow):
         review_selected.clicked.connect(self.do_review_stars)
 
         # add automatic params
-
         self._stars_to_select = QSpinBox(self)
         self._stars_to_select.setRange(1, 1000)
         self._stars_to_select.setValue(
@@ -643,7 +640,9 @@ class CustomPSFGui(QMainWindow):
             [self._image_data], [self._img_item])
         assert self._scale_builder is not None
         scaling_group, self._scaling_list, self._scaling_list_mut = (
-            self._scale_builder.create_scaling_group(self, 0, 0))
+            self._scale_builder.create_scaling_group(
+                self, common_code.DEFAULT_SCALE_LIST_SELECTED,
+                common_code.DEFAULT_SCALE_LIST_MUT_SELECTED))
         self._scale_builder.on_scaling_item_clicked()
 
         # create psf stars field.

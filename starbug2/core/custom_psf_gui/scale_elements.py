@@ -3,6 +3,7 @@ from typing import Tuple
 import numpy as np
 from PyQt6.QtWidgets import (
     QGroupBox, QListWidget, QFormLayout, QMainWindow, QDialog)
+from custom_psf_gui import common_code
 from pyqtgraph import ImageItem
 from astropy.visualization import (
     AsinhStretch,
@@ -152,9 +153,7 @@ class ScaleElements:
 
         self._scaling_list = QListWidget(parent)
         assert self._scaling_list is not None
-        self._scaling_list.addItems([
-            "Linear", "Log", "Power", "Sqrt", "Squared", "AsinH", "SinH",
-            "Histogram"])
+        self._scaling_list.addItems(common_code.SCALE_LIST)
         self._scaling_list.setCurrentRow(default_selection_list)
         # noinspection PyUnresolvedReferences
         self._scaling_list.itemClicked.connect(self.on_scaling_item_clicked)
@@ -162,7 +161,7 @@ class ScaleElements:
 
         self._scaling_list_mut = QListWidget(parent)
         assert self._scaling_list_mut is not None
-        self._scaling_list_mut.addItems(["Min max", "Z scale"])
+        self._scaling_list_mut.addItems(common_code.SCALE_MUT_LIST)
         self._scaling_list_mut.setCurrentRow(default_selection_mul)
         # noinspection PyUnresolvedReferences
         self._scaling_list_mut.itemClicked.connect(

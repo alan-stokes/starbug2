@@ -23,6 +23,16 @@ from custom_psf_gui.star_grid_panel import StarGridPanel
 from main_components.custom_psf import CustomPSF
 from star_bug_config import StarBugMainConfig
 
+# the list of scale options
+SCALE_LIST: list[str] = [
+    "Linear", "Log", "Power", "Sqrt", "Squared", "AsinH", "SinH",
+    "Histogram"]
+DEFAULT_SCALE_LIST_SELECTED = SCALE_LIST.index("AsinH")
+
+# list of scale options mut.
+SCALE_MUT_LIST: list[str] = ["Min max", "Z scale"]
+DEFAULT_SCALE_LIST_MUT_SELECTED = SCALE_MUT_LIST.index("Z scale")
+
 
 def _find_star_matches(
     psf_stars: Table, filtered_stars: Table) -> Table:
