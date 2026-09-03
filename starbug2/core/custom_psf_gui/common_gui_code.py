@@ -17,8 +17,7 @@ from starbug_main import StarbugBase
 STAR_IMAGE_SIZE: int = 25
 
 def detect_stars(
-    config: StarBugMainConfig) -> (
-        Tuple[np.ndarray | None, Table | None, ExitStates]):
+    config: StarBugMainConfig) -> Tuple[StarbugBase, ExitStates]:
     """
     runs basic starbug to generate the image and detections.
     :param config: the main config which will contain detection params.
@@ -33,7 +32,7 @@ def detect_stars(
 
 
 def run_starbug_for_detection(config: StarBugMainConfig) -> (
-    Tuple[np.ndarray | None, Table | None, ExitStates]):
+        Tuple[StarbugBase, ExitStates]):
     """
     runs basic starbug to generate the image and detections.
     :param config: the config
@@ -41,24 +40,18 @@ def run_starbug_for_detection(config: StarBugMainConfig) -> (
     :return: a tuple containing the main image, and the detections, and
              exit state. If not successful, main image and detections will
              be None.
-    :rtype: Tuple[np.ndarray | None, Table | None, ExitStates]
+    :rtype: Tuple[StarbugBase, ExitStates]
     """
     # create new base and execute
     starbug_base: StarbugBase = StarbugBase(
         config.fits_images[0], config, ap_file=None,
         bkg_file=None)
     result: ExitStates = starbug_base.run_starbug(config)
-
-    # if not successful, pass upwards.
-    if result != ExitStates.EXIT_SUCCESS:
-        return None, None, result
-    else:
-        return (starbug_base.main_image().data, starbug_base.detections,
-                result)
+    return starbug_base, result
 
 
 def run_starbug_for_image_and_ap_file(config: StarBugMainConfig) -> (
-        Tuple[np.ndarray | None, Table | None, ExitStates]):
+        Tuple[StarbugBase, ExitStates]):
     """
     reads in the ap file and image.
     :param config: the main config file
@@ -66,13 +59,12 @@ def run_starbug_for_image_and_ap_file(config: StarBugMainConfig) -> (
     :return: a tuple containing the main image, and the detections, and
              exit state. If not successful, main image and detections will
              be None.
-    :rtype: Tuple[np.ndarray | None, Table | None, ExitStates]
+    :rtype: Tuple[StarbugBase, ExitStates]
     """
     starbug_base: StarbugBase = StarbugBase(
         config.fits_images[0], config, ap_file=config.ap_file,
         bkg_file=config.background_file)
-    return (starbug_base.main_image().data, starbug_base.detections,
-            ExitStates.EXIT_SUCCESS)
+    return starbug_base, ExitStates.EXIT_SUCCESS
 
 
 def update_config(config: StarBugMainConfig) -> StarBugMainConfig:

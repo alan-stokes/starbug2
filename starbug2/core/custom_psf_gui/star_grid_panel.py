@@ -35,6 +35,7 @@ from custom_psf_gui.common_gui_code import (
 from custom_psf_gui.psf_star_selector import find_stars_to_select
 from custom_psf_gui.scale_elements import ScaleElements
 from star_bug_config import StarBugMainConfig
+from starbug_main import StarbugBase
 from utilities.utils import printf, export_table
 
 # size of an image in pixels when taking multiple into account.
@@ -48,25 +49,24 @@ class StarGridPanel(QDialog):
 
     @staticmethod
     def boot_up(config: StarBugMainConfig) -> ExitStates:
-        image_data: np.ndarray | None
-        detections: Table | None
+        starbug_base: StarbugBase
         exit_state: ExitStates
         if config.ap_file is None:
-            image_data, detections, exit_state = detect_stars(config)
+            starbug_base, exit_state = detect_stars(config)
             if exit_state != ExitStates.EXIT_SUCCESS:
                 return exit_state
         else:
-            image_data, detections, exit_state = (
+            starbug_base, exit_state = (
                 run_starbug_for_image_and_ap_file(config))
             if exit_state != ExitStates.EXIT_SUCCESS:
                 return exit_state
 
-        assert image_data is not None
-        assert detections is not None
-
         # select stars for psf.
+        detections: Table | None = starbug_base.detections
+        assert detections is not None
         selected_stars, error = find_stars_to_select(
-            image_data, detections, config.psf_generator_stars_to_select,
+            starbug_base.main_image().data, detections,
+            config.psf_generator_stars_to_select,
             config.psf_generator_min_separation,
             config.psf_generator_saturation_limit,
             config.sharp_cutoff_low, config.sharp_cutoff_high,
@@ -105,6 +105,7 @@ class StarGridPanel(QDialog):
         cat_id: Column = selected_stars[TableColumn.CAT_NUM]
         x: float
         y: float
+        image_data: np.ndarray = starbug_base.main_image().data
         for x, y, cat_id in zip(x_coords, y_coords, cat_id):
             x_center: int = int(round(x))
             y_center: int = int(round(y))
@@ -125,7 +126,7 @@ class StarGridPanel(QDialog):
         custom_psf_gui = StarGridPanel(
             images, True, ScaleElements.DEFAULT_SCALE_LIST_SELECTED,
             ScaleElements.DEFAULT_SCALE_LIST_MUT_SELECTED, image_data,
-            config, detections)
+            config, detections, starbug_base)
         custom_psf_gui.setWindowTitle("starbug2 PSF generator")
 
         if not app_icon.isNull():
@@ -167,7 +168,7 @@ class StarGridPanel(QDialog):
             self, images: List[Tuple[str, np.ndarray]], sole_ui: bool,
             scale_selected_row: int, scale_selected_mut_row: int,
             image_data: np.ndarray, config: StarBugMainConfig,
-            detected_stars: Table, parent=None,
+            detected_stars: Table, starbug_base: StarbugBase, parent=None,
             original_selected_stars: list[str] | None=None):
         """
 
@@ -187,6 +188,8 @@ class StarGridPanel(QDialog):
         :type config: StarBugMainConfig
         :param detected_stars: the detected stars
         :type detected_stars: Table
+        :param starbug_base: the starbug base object
+        :type starbug_base: StarBugBase
         :param original_selected_stars: the original selected stars, used
                when showing the generated psf.
         :type original_selected_stars: list[str] | None
@@ -199,6 +202,7 @@ class StarGridPanel(QDialog):
         self._image_items: List[ImageItem] = list()
         self._solo: bool = sole_ui
         self._selected_stars: list[str] = list()
+        self._starbug_base = starbug_base
 
         # Track grid structures for dynamic reflowing
         self._cell_widgets: List[QWidget] = []
@@ -514,11 +518,11 @@ class StarGridPanel(QDialog):
 
         file_name: str = os.path.join(
             str(self._config.output_file),
-            f"psf_selected_stars{FileExtensions.CUSTOM_PSF}")
+            f"{self._starbug_base.b_name}{FileExtensions.CUSTOM_LIST_PSF}")
         export_table(filtered_table, file_name, header=None)
         file_name_psf: str = os.path.join(
             str(self._config.output_file),
-            f"custom{FileExtensions.CUSTOM_PSF}")
+            f"custom{self._starbug_base.filter}{FileExtensions.PSF}")
         ImageHDU(data=cast(Any, self._images[0][1]), header=Header()).writeto(
             file_name_psf, overwrite=True)
 
@@ -605,7 +609,8 @@ class StarGridPanel(QDialog):
             config=self._config,
             scale_selected_mut_row=self._scaling_list_mut.currentRow(),
             detected_stars=self._detected_stars, image_data=self._image_data,
-            original_selected_stars=self._selected_stars)
+            original_selected_stars=self._selected_stars,
+            starbug_base=self._starbug_base)
         dialog.exec()
 
     def _solo_execute_psf_generation(self) -> None:

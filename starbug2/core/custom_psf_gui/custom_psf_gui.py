@@ -38,6 +38,7 @@ from starbug2.core.custom_psf_gui.clickable_circle_overlay import (
     ClickableCircleOverlay)
 from starbug2.core.custom_psf_gui.psf_star_selector import (
     find_stars_to_select)
+from starbug_main import StarbugBase
 
 # Search box radius in pixels
 RADIUS: float = 2.0
@@ -62,22 +63,18 @@ class CustomPSFGui(QMainWindow):
                  fail otherwise.
         :rtype: ExitStates
         """
-        image_data: np.ndarray | None
-        detections: Table | None
+        starbug_base: StarbugBase
         exit_state: ExitStates
-        image_data, detections, exit_state = detect_stars(config)
+        starbug_base, exit_state = detect_stars(config)
         if exit_state != ExitStates.EXIT_SUCCESS:
             return exit_state
-
-        assert image_data is not None
-        assert detections is not None
 
         # this allows us to debug whilst in test mode as well as working
         # via command line.
         # noinspection PyArgumentList
         gui_app, app_icon = create_gui_instance_with_icon()
 
-        custom_psf_gui = CustomPSFGui(image_data, detections, config)
+        custom_psf_gui = CustomPSFGui(starbug_base, config)
         custom_psf_gui.setWindowTitle("starbug2 PSF generator")
 
         if not app_icon.isNull():
@@ -96,27 +93,27 @@ class CustomPSFGui(QMainWindow):
             print(f" failed to run custom PFS GUI due to: {e}")
             return ExitStates.EXIT_FAIL
 
-    def __init__(self, image_data: np.ndarray, detections: Table,
-                 config: StarBugMainConfig):
+    def __init__(self, starbug_base: StarbugBase, config: StarBugMainConfig):
         """
         builds the GUI.
 
-        :param image_data: the image data.
-        :type image_data: np.ndarray
-        :param detections: the detected detections.
-        :type detections: Table
+        :param starbug_base: the main starbug frame
+        :type starbug_base: StarBugBase
         :param config: the main config.
         :type config: StarBugMainConfig
         """
         super().__init__(parent=None)
 
         # Data storage
-        self._image_data: np.ndarray = image_data
+        self._image_data: np.ndarray = starbug_base.main_image().data
         self._circles_for_psf_generation: (
             dict[str, ClickableCircleOverlay]) = dict()
         self._selected_stars: list[str] = []
-        self._detected_stars: Table = detections
+        detected_stars: Table | None =  starbug_base.detections
+        assert detected_stars is not None
+        self._detected_stars: Table = detected_stars
         self._config = config
+        self._starbug_base = starbug_base
 
         # info
         self._info_label: QLabel = QLabel()

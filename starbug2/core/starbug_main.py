@@ -1128,3 +1128,7 @@ class StarbugBase(StarBugInterface):
     @property
     def full_width_half_max(self) -> float:
         return self._full_width_half_max
+
+    @property
+    def b_name(self) -> str | None:
+        return self._b_name
