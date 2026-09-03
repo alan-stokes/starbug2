@@ -509,6 +509,9 @@ class StarGridPanel(QDialog):
         # write to files
         output_dir: str | None = self._config.output_file
         assert output_dir is not None
+
+        #
+
         file_name: str = os.path.join(
             str(self._config.output_file),
             f"psf_selected_stars{FileExtensions.CUSTOM_PSF}")
