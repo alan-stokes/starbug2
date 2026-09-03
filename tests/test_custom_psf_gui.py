@@ -14,12 +14,12 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 import os
+import subprocess
 
 import pytest
 
-from generic import TEST_IMAGE_FITS
 from starbug2.command_line_interfaces.main import starbug_internal_main
-from starbug2.constants import ExitStates
+from starbug2.constants import ExitStates, DEFAULT_PARAM_FILE_NAME
 from starbug2.core.star_bug_config import StarBugMainConfig
 from tests.generic import (
     TEST_PATH_STR, clean, verify_test_data_exists, TEST_JWST_FITS)
@@ -43,6 +43,45 @@ def create_config_file(
     config.sharp_cutoff_low = 0
     config.freeze()
     return config
+
+
+def create_config_file_command_line(
+        config: StarBugMainConfig = StarBugMainConfig()) -> None:
+    """
+    generate the param file used for command line behaviour.
+    :param config: the config, or uses a default
+    :return: None
+    """
+    config.unfreeze()
+    config.run_custom_psf_generator = True
+    config.custom_psf_size_pixels = 51
+    config.output_file = TEST_PATH_STR
+    config.fits_images = [TEST_JWST_FITS]
+    config.custom_filter = "F444W"
+    config.full_width_half_max = 2
+    config.sharp_cutoff_high = 1
+    config.sharp_cutoff_low = 0
+    config.freeze()
+    starbug_internal_main(config)
+
+def create_config_file_command_line_pick(
+    config: StarBugMainConfig = StarBugMainConfig()) -> None:
+    """
+    generate the param file used for command line behaviour.
+    :param config: the config, or uses a default
+    :return: None
+    """
+    config.unfreeze()
+    config.custom_psf_size_pixels = 51
+    config.output_file = TEST_PATH_STR
+    config.fits_images = [TEST_JWST_FITS]
+    config.custom_filter = "F444W"
+    config.full_width_half_max = 2
+    config.sharp_cutoff_high = 1
+    config.sharp_cutoff_low = 0
+    config.freeze()
+    starbug_internal_main(config)
+
 
 
 #@pytest.mark.skipif(
@@ -70,3 +109,67 @@ def test_custom_psf_gui(qtbot) -> None:
     assert os.path.exists(custom_c_psf_file)
 
     clean()
+
+#@pytest.mark.skipif(
+#    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") is None or
+#    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") == "false",
+#    reason="UI test not been fully implemented"
+#)
+def test_custom_psf_gui_command_line(qtbot) -> None:
+    verify_test_data_exists()
+    clean()
+    create_config_file_command_line()
+
+    result = subprocess.run(
+        ["starbug2",
+         f"-p{os.path.join(TEST_PATH_STR, DEFAULT_PARAM_FILE_NAME)}",
+         f"{TEST_JWST_FITS}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == ExitStates.EXIT_SUCCESS
+
+
+#@pytest.mark.skipif(
+#    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") is None or
+#    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") == "false",
+#    reason="UI test not been fully implemented"
+#)
+def test_custom_psf_gui_command_line_pick(qtbot) -> None:
+    verify_test_data_exists()
+    clean()
+    create_config_file_command_line_pick()
+
+    result = subprocess.run(
+        ["starbug2 pick",
+         f"-p{os.path.join(TEST_PATH_STR, DEFAULT_PARAM_FILE_NAME)}",
+         f"{TEST_JWST_FITS}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == ExitStates.EXIT_SUCCESS
+
+#@pytest.mark.skipif(
+#    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") is None or
+#    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") == "false",
+#    reason="UI test not been fully implemented"
+#)
+def test_custom_psf_gui_command_line_ap_file_provided(qtbot) -> None:
+    verify_test_data_exists()
+    clean()
+
+    # generate
+
+    create_config_file_command_line()
+
+    result = subprocess.run(
+        ["starbug2",
+         f"-p{os.path.join(TEST_PATH_STR, DEFAULT_PARAM_FILE_NAME)}",
+         f"{TEST_JWST_FITS}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == ExitStates.EXIT_SUCCESS

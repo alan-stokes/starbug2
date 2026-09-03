@@ -95,6 +95,8 @@ class StarBugMainConfig:
          "Update an out-of-date local parameter file"): 'update_param',
         (None, 'debug', bool, "turn on debug mode"): 'debug_mode',
         (None, 'dev', bool, "turn on dev mode"): 'dev_mode',
+        (None, 'pick', bool,
+         "generate custom psf generator"): 'run_custom_psf_generator'
     }
 
     # A single master map linking (Short Flag, Long Flag) to the internal
@@ -248,13 +250,14 @@ class StarBugMainConfig:
         "REGION_TAB": ("region_file", str),
         "PARAM_TAG": ("param_tag", str),
         # custom PSF generator params.
-        "STARS_TO_DETECT": ("psf_genertor_stars_to_select", int),
-        "PSF_MIN_SEP": ("psf_genertor_min_seperation", float),
+        "STARS_TO_DETECT": ("psf_generator_stars_to_select", int),
+        "PSF_MIN_SEP": ("psf_generator_min_separation", float),
         "PSF_SIZE_PIXELS": ("custom_psf_size_pixels", int),
         "PSF_SATURATION_LIMIT": ("psf_generator_saturation_limit", int),
         "PSF_GRID_BIN_X": ("psf_generator_grid_bin_x", int),
         "PSF_GRID_BIN_Y": ("psf_generator_grid_bin_y", int),
         "PSF_EDGE_BUFFER": ("psf_generator_edge_buffer", int),
+        "PSF_MIN_ALLOWED_STARS": ("psf_min_allowed_stars", int),
 
         # --- NEW PARAM FILE SHORT-CIRCUITS FOR STEPS & FLOW CONTROLS ---
         "RUN_APPHOT": ("do_aperture_photometry", bool),
@@ -308,6 +311,7 @@ class StarBugMainConfig:
         self._do_bgd_subtraction: bool = False
         self._do_custom_psf: bool = False
         self._do_custom_psf_gui: bool = False
+        self._run_custom_psf_generator: bool = False
 
         # other actions
         self._generate_psf: bool = False
@@ -351,12 +355,13 @@ class StarBugMainConfig:
 
         # parameters for custom psf generation.
         self._custom_psf_size_pixels: int = 25
-        self._psf_genertor_stars_to_select: int = 100
-        self._psf_genertor_min_seperation: float = 20.0
+        self._psf_generator_stars_to_select: int = 100
+        self._psf_generator_min_separation: float = 20.0
         self._psf_generator_saturation_limit: int = 10000000
         self._psf_generator_grid_bin_x: int = 3
         self._psf_generator_grid_bin_y: int = 3
         self._psf_generator_edge_buffer: int = 20
+        self._psf_min_allowed_stars: int = 5
 
         # matching params
         self._do_band_processing: bool = False
@@ -686,7 +691,8 @@ class StarBugMainConfig:
             self._execute_jwst_initialisation or self._generate_psf or
             self._generate_run or self._generate_region or
             self._generate_local_param_file or self._show_version or
-            self._do_custom_psf or self._do_custom_psf_gui)
+            self._do_custom_psf or self._do_custom_psf_gui or
+            self._run_custom_psf_generator)
 
     def use_ast_one_time_runs(self) -> bool:
         """
@@ -1812,28 +1818,20 @@ class StarBugMainConfig:
     # =============
 
     @property
-    def custom_psf_size_pixels(self) -> int:
-        return self._custom_psf_size_pixels
+    def psf_generator_stars_to_select(self) -> int:
+        return self._psf_generator_stars_to_select
 
-    @custom_psf_size_pixels.setter
-    def custom_psf_size_pixels(self, value: int) -> None:
-        self._custom_psf_size_pixels = value
-
-    @property
-    def psf_genertor_stars_to_select(self) -> int:
-        return self._psf_genertor_stars_to_select
-
-    @psf_genertor_stars_to_select.setter
-    def psf_genertor_stars_to_select(self, value: int) -> None:
-        self._psf_genertor_stars_to_select = value
+    @psf_generator_stars_to_select.setter
+    def psf_generator_stars_to_select(self, value: int) -> None:
+        self._psf_generator_stars_to_select = value
 
     @property
-    def psf_genertor_min_seperation(self) -> int:
-        return self._psf_genertor_min_seperation
+    def psf_generator_min_separation(self) -> float:
+        return self._psf_generator_min_separation
 
-    @psf_genertor_min_seperation.setter
-    def psf_genertor_min_seperation(self, value: int) -> None:
-        self._psf_genertor_min_seperation = value
+    @psf_generator_min_separation.setter
+    def psf_generator_min_separation(self, value: float) -> None:
+        self._psf_generator_min_separation = value
 
     @property
     def psf_generator_saturation_limit(self) -> int:
@@ -1866,6 +1864,26 @@ class StarBugMainConfig:
     @psf_generator_edge_buffer.setter
     def psf_generator_edge_buffer(self, value: int) -> None:
         self._psf_generator_edge_buffer = value
+
+    @property
+    def psf_min_allowed_stars(self) -> int:
+        return self._psf_min_allowed_stars
+
+    @psf_min_allowed_stars.setter
+    def psf_min_allowed_stars(self, value: int) -> None:
+        self._psf_min_allowed_stars = value
+
+    @property
+    def run_custom_psf_generator(self) -> bool:
+        return self._run_custom_psf_generator
+
+    @run_custom_psf_generator.setter
+    def run_custom_psf_generator(self, value: bool) -> None:
+        self._run_custom_psf_generator = value
+
+    # =============
+    # help strings.
+    # =============
 
     def generate_ast_help_string(self) -> str:
         """Dynamically constructs the CLI usage text from AST_FLAG_MAP."""

@@ -12,16 +12,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-import copy
-import os
-import sys
-from pathlib import Path
 from typing import Tuple
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel,
+    QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel,
     QPushButton, QGroupBox, QFormLayout, QDoubleSpinBox, QCheckBox, QSpinBox,
     QMessageBox, QScrollArea, QComboBox, QListWidget, QAbstractItemView,
     QDialog)
@@ -31,21 +26,21 @@ from pyqtgraph import ImageItem, GraphicsLayoutWidget, ViewBox
 
 import numpy as np
 
-from custom_psf_gui.background_generator import BackgroundGenerator
+from starbug2.core.custom_psf_gui.background_generator import (
+    BackgroundGenerator)
+from starbug2.core.custom_psf_gui.common_gui_code import (
+    detect_stars, update_config, create_gui_instance_with_icon, STAR_IMAGE_SIZE)
 from custom_psf_gui.scale_elements import ScaleElements
 from starbug2.core.custom_psf_gui.star_grid_panel import StarGridPanel
-from starbug2.constants import ExitStates, TableColumn, STAR_BUG_TEST_DAT_ENV
+from starbug2.constants import ExitStates, TableColumn
 from starbug2.core.star_bug_config import StarBugMainConfig
-from starbug2.core.starbug_main import StarbugBase
 from starbug2.core.custom_psf_gui.clickable_circle_overlay import (
     ClickableCircleOverlay)
-from starbug2.core.custom_psf_gui.psf_star_selector import find_stars_to_select
+from starbug2.core.custom_psf_gui.psf_star_selector import (
+    find_stars_to_select)
 
 # Search box radius in pixels
 RADIUS: float = 2.0
-
-# size of grid for ech star from centre
-STAR_IMAGE_SIZE: int = 25
 
 # the geometry of the UI.
 GEOMETRY: Tuple[int, int, int, int] = (100, 100, 1200, 700)
@@ -55,99 +50,6 @@ class CustomPSFGui(QMainWindow):
     """
     main entrance class to the custom PSF generation GUI.
     """
-
-    @staticmethod
-    def _update_config(config: StarBugMainConfig) -> StarBugMainConfig:
-        """
-        updates a config to just do star detection and aperture photometry.
-        :param config: the main config.
-        :type config: StarBugMainConfig
-        :return: a modified config.
-        :rtype: StarBugMainConfig
-        """
-        config_copy: StarBugMainConfig = copy.deepcopy(config)
-        config_copy.unfreeze()
-        config_copy.do_star_detection = True
-        config_copy.do_aperture_photometry = True
-        config_copy.do_photometry_routine = False
-        config_copy.do_bgd_estimate = False
-        config_copy.clean_sources = False
-
-        # turn off any other functionality.
-        config_copy.execute_jwst_initialisation = False
-        config_copy.update_param = False
-        config_copy.generate_local_param_file = False
-        config_copy.generate_region = False
-        config_copy.do_artificial_star_test = False
-        config_copy.generate_psf = False
-        config_copy.do_custom_psf_gui = False
-        config_copy.freeze()
-        return config_copy
-
-    @staticmethod
-    def _run_starbug_for_detection(config: StarBugMainConfig) -> (
-            Tuple[np.ndarray | None, Table | None, ExitStates]):
-        """
-        runs basic starbug to generate the image and detections.
-        :param config: the config
-        :type config: StarBugMainConfig
-        :return: a tuple containing the main image, and the detections, and
-                 exit state. If not successful, main image and detections will
-                 be None.
-        :rtype: Tuple[np.ndarray | None, Table | None, ExitStates]
-        """
-        # create new base and execute
-        starbug_base: StarbugBase = StarbugBase(
-            config.fits_images[0], config, ap_file=None,
-            bkg_file=None)
-        result: ExitStates = starbug_base.run_starbug(config)
-
-        # if not successful, pass upwards.
-        if result != ExitStates.EXIT_SUCCESS:
-            return None, None, result
-        else:
-            return (starbug_base.main_image().data, starbug_base.detections,
-                    result)
-
-    @staticmethod
-    def _detect_stars(
-            config: StarBugMainConfig) -> (
-                Tuple[np.ndarray | None, Table | None, ExitStates]):
-        """
-        runs basic starbug to generate the image and detections.
-        :param config: the main config which will contain detection params.
-        :type config: StarBugMainConfig
-        :return: a tuple containing the main image, and the detections, and
-                 exit state. If not successful, main image and detections will
-                 be None.
-        :rtype: Tuple[np.ndarray | None, Table | None, ExitStates]
-        """
-        config_copy = CustomPSFGui._update_config(config)
-        return CustomPSFGui._run_starbug_for_detection(config_copy)
-
-    @staticmethod
-    def _register_desktop_entry(
-            icon_path: str, app_id: str = "starbug2") -> None:
-        """Creates a temporary .desktop entry so Linux window managers map
-        the taskbar icon correctly."""
-        desktop_dir = Path.home() / ".local" / "share" / "applications"
-        desktop_dir.mkdir(parents=True, exist_ok=True)
-
-        desktop_file = desktop_dir / f"{app_id}.desktop"
-
-        # Simple launcher definition linking the App ID to the image path
-        content = f"""[Desktop Entry]
-    Type=Application
-    Name=starbug2 PSF generator
-    Exec=python3
-    Icon={os.path.abspath(icon_path)}
-    Terminal=false
-    StartupWMClass={app_id}
-    """
-        try:
-            desktop_file.write_text(content)
-        except Exception as e:
-            print(f"Warning: Could not write desktop entry: {e}")
 
     @staticmethod
     def execute_gui(config: StarBugMainConfig) -> ExitStates:
@@ -163,48 +65,17 @@ class CustomPSFGui(QMainWindow):
         image_data: np.ndarray | None
         detections: Table | None
         exit_state: ExitStates
-        image_data, detections, exit_state = CustomPSFGui._detect_stars(config)
+        image_data, detections, exit_state = detect_stars(config)
         if exit_state != ExitStates.EXIT_SUCCESS:
             return exit_state
 
         assert image_data is not None
         assert detections is not None
 
-        test_path: str | None = os.environ.get(STAR_BUG_TEST_DAT_ENV)
-        assert test_path is not None
-        test_path: str = os.path.dirname(os.path.dirname(
-            os.path.dirname(test_path)))
-        image_path: str = os.path.join(
-            test_path, "docs", "source", "_static", "images")
-        icon_path: str = os.path.join(image_path, "starbug.png")
-
         # this allows us to debug whilst in test mode as well as working
         # via command line.
         # noinspection PyArgumentList
-
-        gui_app = QApplication.instance() or QApplication(sys.argv)
-        app_id = "starbug2-psf-generator"
-
-        if os.path.exists(icon_path):
-            CustomPSFGui._register_desktop_entry(icon_path, app_id)
-
-        gui_app.setApplicationName("starbug2 PSF generator")
-        gui_app.setApplicationDisplayName("starbug2 PSF generator")
-        gui_app.setDesktopFileName(app_id)
-
-        # try getting the icon to appear.
-        app_icon: QIcon = QIcon()
-        if os.path.exists(icon_path):
-            app_icon = QIcon(icon_path)
-            if not app_icon.isNull():
-                gui_app.setWindowIcon(app_icon)
-            else:
-                print(
-                    f"Warning: Icon file found at {icon_path} but image "
-                    f"payload is invalid."
-                )
-        else:
-            print(f"Warning: Icon file not found at {icon_path}")
+        gui_app, app_icon = create_gui_instance_with_icon()
 
         custom_psf_gui = CustomPSFGui(image_data, detections, config)
         custom_psf_gui.setWindowTitle("starbug2 PSF generator")
@@ -566,12 +437,12 @@ class CustomPSFGui(QMainWindow):
         self._stars_to_select = QSpinBox(self)
         self._stars_to_select.setRange(1, 1000)
         self._stars_to_select.setValue(
-            self._config.psf_genertor_stars_to_select)
+            self._config.psf_generator_stars_to_select)
 
         self._min_separation = QDoubleSpinBox(self)
         self._min_separation.setRange(1, 100)
         self._min_separation.setValue(
-            self._config.psf_genertor_min_seperation)
+            self._config.psf_generator_min_separation)
 
         self._saturation_limit = QDoubleSpinBox(self)
         self._saturation_limit.setRange(1, 1000000000)
@@ -802,7 +673,7 @@ class CustomPSFGui(QMainWindow):
         assert self._redo_detection_btn is not None
         self._redo_detection_btn.setEnabled(False)
 
-        config_copy = CustomPSFGui._update_config(self._config)
+        config_copy = update_config(self._config)
         # add the values from the form.
         config_copy.unfreeze()
         config_copy.full_width_half_max = (
