@@ -10,7 +10,6 @@ pytest==9.1.0
 pytest-qt==4.5.0
 stpsf==2.2.0
 requests==2.34.2
-pyqt6-sip
 PyQt6==6.11.0
 PyQt6-Qt6==6.11.2
 PyQt6-sip==13.12.0

@@ -29,7 +29,8 @@ import numpy as np
 from starbug2.core.custom_psf_gui.background_generator import (
     BackgroundGenerator)
 from starbug2.core.custom_psf_gui.common_gui_code import (
-    detect_stars, update_config, create_gui_instance_with_icon, STAR_IMAGE_SIZE)
+    detect_stars, update_config, create_gui_instance_with_icon,
+    STAR_IMAGE_SIZE)
 from custom_psf_gui.scale_elements import ScaleElements
 from starbug2.core.custom_psf_gui.star_grid_panel import StarGridPanel
 from starbug2.constants import ExitStates, TableColumn
@@ -691,7 +692,7 @@ class CustomPSFGui(QMainWindow):
 
         # run and get new detections.
         self._info_label.setText("updating detected stars.")
-        _, detections, exit_state = CustomPSFGui._detect_stars(config_copy)
+        _, detections, exit_state = CustomPSFGui.detect_stars(config_copy)
 
         if exit_state != ExitStates.EXIT_SUCCESS:
             self._info_label.setText("failed to detect stars.")
@@ -741,7 +742,8 @@ class CustomPSFGui(QMainWindow):
             scale_selected_row=self._scaling_list.currentRow(),
             config=self._config,
             scale_selected_mut_row=self._scaling_list_mut.currentRow(),
-            detected_stars=self._detected_stars, image_data=self._image_data)
+            detected_stars=self._detected_stars, image_data=self._image_data,
+            starbug_base=self._starbug_base)
         dialog.exec()
 
     def on_generate_custom_psf(self) -> None:
@@ -908,7 +910,8 @@ class CustomPSFGui(QMainWindow):
             scale_selected_row=self._scaling_list.currentRow(),
             scale_selected_mut_row=self._scaling_list_mut.currentRow(),
             image_data=self._image_data, config=self._config,
-            detected_stars=self._detected_stars)
+            detected_stars=self._detected_stars,
+            starbug_base=self._starbug_base)
         if dialog.exec() == QDialog.DialogCode.Accepted:
 
             # update selected stars
