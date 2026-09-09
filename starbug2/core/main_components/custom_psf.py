@@ -26,7 +26,6 @@ from starbug2.constants import TableColumn, FileExtensions, ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
 from starbug2.utilities.utils import export_table, split_file_name
-from utilities.filters import STAR_BUG_FILTERS
 
 
 class CustomPSF:

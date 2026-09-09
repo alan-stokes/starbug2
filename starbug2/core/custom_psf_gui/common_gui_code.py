@@ -4,10 +4,8 @@ import sys
 from pathlib import Path
 from typing import Tuple
 
-import numpy as np
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QApplication
-from astropy.table import Table
 
 from starbug2.constants import ExitStates, STAR_BUG_TEST_DAT_ENV
 from starbug2.core.star_bug_config import StarBugMainConfig
@@ -16,8 +14,9 @@ from starbug_main import StarbugBase
 # size of grid for ech star from centre
 STAR_IMAGE_SIZE: int = 25
 
+
 def detect_stars(
-    config: StarBugMainConfig) -> Tuple[StarbugBase, ExitStates]:
+        config: StarBugMainConfig) -> Tuple[StarbugBase, ExitStates]:
     """
     runs basic starbug to generate the image and detections.
     :param config: the main config which will contain detection params.
@@ -96,7 +95,7 @@ def update_config(config: StarBugMainConfig) -> StarBugMainConfig:
 
 
 def register_desktop_entry(
-    icon_path: str, app_id: str = "starbug2") -> None:
+        icon_path: str, app_id: str = "starbug2") -> None:
     """Creates a temporary .desktop entry so Linux window managers map
     the taskbar icon correctly."""
     desktop_dir = Path.home() / ".local" / "share" / "applications"
@@ -117,6 +116,7 @@ def register_desktop_entry(
         desktop_file.write_text(content)
     except Exception as e:
         print(f"Warning: Could not write desktop entry: {e}")
+
 
 def create_gui_instance_with_icon() -> Tuple[QApplication, QIcon]:
     """

@@ -113,7 +113,7 @@ class CustomPSFGui(QMainWindow):
         self._circles_for_psf_generation: (
             dict[str, ClickableCircleOverlay]) = dict()
         self._selected_stars: list[str] = []
-        detected_stars: Table | None =  starbug_base.detections
+        detected_stars: Table | None = starbug_base.detections
         assert detected_stars is not None
         self._detected_stars: Table = detected_stars
         self._config = config

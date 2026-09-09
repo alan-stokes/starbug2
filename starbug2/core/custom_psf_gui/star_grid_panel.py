@@ -64,10 +64,10 @@ DEFAULT_ENABLED_STATE = True
 # distance to move the checkbox up.
 CHECKBOX_DISTANCE = -7
 
+
 class StarGridPanel(QDialog):
     """Pop-up panel / solo gui containing scale parameters and a grid of
        astronomical images with the ability to do PSF generation is solo."""
-
 
     @staticmethod
     def boot_up(config: StarBugMainConfig) -> ExitStates:
@@ -94,7 +94,6 @@ class StarGridPanel(QDialog):
             config.sharp_cutoff_low, config.sharp_cutoff_high,
             config.psf_generator_grid_bin_x, config.psf_generator_grid_bin_y,
             config.psf_generator_edge_buffer)
-
 
         if error is not None and selected_stars is None:
             printf(f"Automatic selection failed with error: {error}. "
@@ -168,9 +167,7 @@ class StarGridPanel(QDialog):
             return ExitStates.EXIT_FAIL
 
     @staticmethod
-    def window_clicked(
-        event, window: QWidget,
-        select_cb: QCheckBox) -> None:
+    def window_clicked(event, window: QWidget, select_cb: QCheckBox) -> None:
         # Ignore right clicks if needed, or toggle on any left
         # click
         if event.button() == Qt.MouseButton.LeftButton:
@@ -189,7 +186,7 @@ class StarGridPanel(QDialog):
             scale_selected_row: int, scale_selected_mut_row: int,
             image_data: np.ndarray, config: StarBugMainConfig,
             detected_stars: Table, starbug_base: StarbugBase, parent=None,
-            original_selected_stars: list[str] | None=None):
+            original_selected_stars: list[str] | None = None):
         """
 
         :param images: the images needed to present for finer selection
@@ -222,7 +219,6 @@ class StarGridPanel(QDialog):
         self._min_star_size: int = MIN_STAR_WINDOW_SIZE
         self._max_cols: int = MAX_COL_ROW_OF_VIEWER
 
-
         # the images store.
         self._images: List[Tuple[str, np.ndarray]] = images
         self._original_selected_stars: list[str] | None = (
@@ -238,7 +234,7 @@ class StarGridPanel(QDialog):
             max(1, math.ceil(math.sqrt(len(self._images)))))
         min_viewport_w = (
             initial_cols * MIN_STAR_WINDOW_SIZE + (
-            20 * initial_cols))
+                20 * initial_cols))
         initial_dialog_w = DEFAULT_CONTROLS_LAYOUT_SIZE + min_viewport_w
 
         self.resize(initial_dialog_w, self.height())
@@ -408,12 +404,11 @@ class StarGridPanel(QDialog):
             event, window, the_select_box)
 
     def _create_cell(
-        self, grid_widget: QWidget, star_id: str,
-        img_data: np.ndarray) -> QWidget:
+            self, grid_widget: QWidget, star_id: str,
+            img_data: np.ndarray) -> QWidget:
         cell_widget: QWidget = QWidget(grid_widget)
         cell_widget.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
-        )
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         cell_layout: QVBoxLayout = QVBoxLayout(cell_widget)
         cell_layout.setContentsMargins(0, 0, 0, 0)
@@ -448,7 +443,6 @@ class StarGridPanel(QDialog):
 
         cell_layout.addWidget(window)
         return cell_widget
-
 
     def _create_image_viewer(self) -> QScrollArea:
         """
@@ -501,7 +495,6 @@ class StarGridPanel(QDialog):
             for star_id, _ in self._images:
                 self._selected_stars.append(star_id)
 
-
     def _build_select_buttons(self, controls_layout: QVBoxLayout) -> None:
         """
         builds the select all and unselect all buttons.
@@ -511,7 +504,8 @@ class StarGridPanel(QDialog):
         """
         self._de_select_all: QPushButton = QPushButton("Remove all", self)
         # noinspection PyUnresolvedReferences
-        self._de_select_all.clicked.connect(lambda: self._update_selects(False))
+        self._de_select_all.clicked.connect(
+            lambda: self._update_selects(False))
 
         self._select_all: QPushButton = QPushButton("Select All", self)
         # noinspection PyUnresolvedReferences
@@ -560,7 +554,8 @@ class StarGridPanel(QDialog):
                 "Execute PSF generation")
             controls_layout.addWidget(self._apply_button, stretch=1)
             # noinspection PyUnresolvedReferences
-            self._apply_button.clicked.connect(self._solo_execute_psf_generation)
+            self._apply_button.clicked.connect(
+                self._solo_execute_psf_generation)
             self._update_apply_enable_state()
         else:
             self._apply_button = QPushButton("update PSF star selection")
