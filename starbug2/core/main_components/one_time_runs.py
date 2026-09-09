@@ -18,6 +18,9 @@ import os
 from astropy.io.fits import PrimaryHDU, HDUList
 from astropy.table import Table
 
+from custom_psf_gui.star_grid_panel import StarGridPanel
+from starbug2.core.custom_psf_gui.custom_psf_gui import CustomPSFGui
+from starbug2.core.main_components.custom_psf import CustomPSF
 from starbug2.core.main_components.artificial_stars import compile_results
 from starbug2.constants import ExitStates, HELP_STRINGS, Modes
 from starbug2.core.star_bug_config import StarBugMainConfig
@@ -163,7 +166,8 @@ def load_param(config: StarBugMainConfig) -> ExitStates:
     return ExitStates.EXIT_SUCCESS
 
 
-def starbug_one_time_runs(config: StarBugMainConfig) -> ExitStates:
+def starbug_one_time_runs(
+        config: StarBugMainConfig) -> ExitStates:
     """
     executes any one time runs as required by the config
     :param config: the main config
@@ -204,6 +208,15 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> ExitStates:
     # generate local param file as requested
     if config.generate_local_param_file:
         return config.do_generate_local_param_file()
+
+    if config.do_custom_psf:
+        return CustomPSF.execute_custom_e_psf(config)
+
+    if config.do_custom_psf_gui:
+        return CustomPSFGui.execute_gui(config)
+
+    if config.run_custom_psf_generator:
+        return StarGridPanel.boot_up(config)
 
     return ExitStates.EXIT_FAIL
 
