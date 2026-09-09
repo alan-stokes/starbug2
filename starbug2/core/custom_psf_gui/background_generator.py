@@ -80,6 +80,7 @@ class BackgroundGenerator:
         # cleanup
         self._worker.finished.connect(self._psf_thread.quit)
         self._worker.finished.connect(self._worker.deleteLater)
+
         # noinspection PyUnresolvedReferences
         self._psf_thread.finished.connect(self._psf_thread.deleteLater)
 
