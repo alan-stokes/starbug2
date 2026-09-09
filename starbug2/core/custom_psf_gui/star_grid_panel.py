@@ -12,6 +12,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+import math
 import os
 from typing import List, Tuple, cast, Any
 
@@ -21,6 +22,7 @@ from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtWidgets import (
     QDialog, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea,
     QVBoxLayout, QWidget, QListWidget, QCheckBox, QGroupBox, QMessageBox,
+    QSizePolicy,
 )
 from astropy.io.fits import ImageHDU, Header
 from astropy.table import Table, Column
@@ -41,6 +43,26 @@ from utilities.utils import printf, export_table
 # size of an image in pixels when taking multiple into account.
 DEFAULT_SQUARE_SIZE = 200
 
+# default size of the controls layout
+DEFAULT_CONTROLS_LAYOUT_SIZE = 280
+
+# the min size a star image can take
+MIN_STAR_WINDOW_SIZE = 150
+
+# the max columns supported on screen
+MAX_COL_ROW_OF_VIEWER = 5
+
+# positioning for the check-boxes.
+CHECK_BOX_POSITION = 3
+
+# padding on viewer
+VIEWER_PADDING = 2
+
+# the default enabled state for the scaling field.
+DEFAULT_ENABLED_STATE = True
+
+# distance to move the checkbox up.
+CHECKBOX_DISTANCE = -7
 
 class StarGridPanel(QDialog):
     """Pop-up panel / solo gui containing scale parameters and a grid of
@@ -145,11 +167,9 @@ class StarGridPanel(QDialog):
             print(f" failed to run custom PFS GUI due to: {e}")
             return ExitStates.EXIT_FAIL
 
-
-
     @staticmethod
     def window_clicked(
-        event, window: GraphicsLayoutWidget,
+        event, window: QWidget,
         select_cb: QCheckBox) -> None:
         # Ignore right clicks if needed, or toggle on any left
         # click
@@ -162,7 +182,7 @@ class StarGridPanel(QDialog):
             select_cb.clicked.emit(select_cb.isChecked())
 
         # Call original base event processing
-        GraphicsLayoutWidget.mousePressEvent(window, event)
+        QWidget.mousePressEvent(window, event)
 
     def __init__(
             self, images: List[Tuple[str, np.ndarray]], sole_ui: bool,
@@ -195,7 +215,15 @@ class StarGridPanel(QDialog):
         :type original_selected_stars: list[str] | None
         """
         super().__init__(parent)
+        # set basic bits.
         self.setWindowTitle("Image Inspection & PSF generation")
+
+        # variables for the size scoping
+        self._min_star_size: int = MIN_STAR_WINDOW_SIZE
+        self._max_cols: int = MAX_COL_ROW_OF_VIEWER
+
+
+        # the images store.
         self._images: List[Tuple[str, np.ndarray]] = images
         self._original_selected_stars: list[str] | None = (
             original_selected_stars)
@@ -204,10 +232,25 @@ class StarGridPanel(QDialog):
         self._selected_stars: list[str] = list()
         self._starbug_base = starbug_base
 
+        # fix the window size to accommodate n stars.
+        initial_cols = min(
+            MAX_COL_ROW_OF_VIEWER,
+            max(1, math.ceil(math.sqrt(len(self._images)))))
+        min_viewport_w = (
+            initial_cols * MIN_STAR_WINDOW_SIZE + (
+            20 * initial_cols))
+        initial_dialog_w = DEFAULT_CONTROLS_LAYOUT_SIZE + min_viewport_w
+
+        self.resize(initial_dialog_w, self.height())
+        self.setMinimumWidth(
+            DEFAULT_CONTROLS_LAYOUT_SIZE +
+            MIN_STAR_WINDOW_SIZE + VIEWER_PADDING)
+
         # Track grid structures for dynamic reflowing
         self._cell_widgets: List[QWidget] = []
         self._grid_layout: QGridLayout | None = None
         self._current_cols: int = 3
+        self._image_grid_area: QScrollArea | None = None
 
         # update selected stars to all given
         star_id: str
@@ -238,12 +281,97 @@ class StarGridPanel(QDialog):
         # create the UI.
         self._create_components(scale_selected_row, scale_selected_mut_row)
 
+        assert self._image_grid_area is not None
+        self._image_grid_area.setWidgetResizable(True)
+        self._image_grid_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        self.recalculate_grid_layout()
+
+    def resizeEvent(self, event, *args, **kwargs) -> None:
+        """Triggered automatically when user pulls window resizer."""
+        super().resizeEvent(event)
+        self.recalculate_grid_layout()
+
+    def showEvent(self, event, *args, **kwargs) -> None:
+        super().showEvent(event)
+        # Recalculate once the window is rendered and viewport
+        # dimensions are non-zero
+        self.recalculate_grid_layout()
+
+    def recalculate_grid_layout(self) -> None:
+        total_items: int = len(self._cell_widgets)
+
+        # acquire available sizes.
+        assert self._image_grid_area is not None
+        viewport_rect = self._image_grid_area.viewport().contentsRect()
+        available_width: int = max(
+            self._min_star_size, viewport_rect.width() - VIEWER_PADDING)
+        available_height: int = max(
+            self._min_star_size, viewport_rect.height() - VIEWER_PADDING)
+
+        # if one item. it's going to take all the space. else up to
+        # MAX_COL_ROW_OF_VIEWER before scroll engages
+        if total_items == 1:
+            cols = 1
+        elif total_items <= MAX_COL_ROW_OF_VIEWER * MAX_COL_ROW_OF_VIEWER:
+            # fewer than 5 columns. find best square.
+            ideal_cols: int = math.ceil(math.sqrt(total_items))
+            max_possible_cols: int = max(
+                1, available_width // self._min_star_size)
+            cols = min(ideal_cols, max_possible_cols)
+        else:
+            # 5 by 5
+            cols = MAX_COL_ROW_OF_VIEWER
+
+        # figure cell width and height
+        rows = math.ceil(total_items / cols)
+
+        # get spacing
+        assert self._grid_layout is not None
+        spacing = self._grid_layout.spacing()
+
+        # Calculate uniform cell side length based on grid capacity
+        cell_w = (available_width - (spacing * (cols + 1))) // cols
+        cell_h = (available_height - (spacing * (rows + 1))) // rows
+
+        # Pick ideal side dimension to avoid ViewBox letterboxing
+        if total_items <= MAX_COL_ROW_OF_VIEWER * MAX_COL_ROW_OF_VIEWER:
+            side_length = max(self._min_star_size, min(cell_w, cell_h))
+        else:
+            side_length = max(self._min_star_size, cell_w)
+
+        # update the widgets
+        for index, widget in enumerate(self._cell_widgets):
+            row = index // cols
+            col = index % cols
+
+            # Force square cell dimensions to match ViewBox 1:1 aspect
+            widget.setFixedSize(side_length, side_length)
+            self._grid_layout.addWidget(widget, row, col)
+
+            # Re-anchor checkbox to the top-right corner of the cell widget
+            cb = widget.findChild(QCheckBox)
+            if cb:
+                cb_size = cb.sizeHint()
+                cb.move(side_length - cb_size.width(), CHECKBOX_DISTANCE)
+                cb.raise_()
+
+        # Clear grid stretch factors so cells pack tight
+        for r in range(self._grid_layout.rowCount()):
+            self._grid_layout.setRowStretch(r, 0)
+        for c in range(self._grid_layout.columnCount()):
+            self._grid_layout.setColumnStretch(c, 0)
+
+        self._grid_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+
     def _create_checkbox(
-            self, window: GraphicsLayoutWidget, star_id: str) -> None:
+            self, window: QWidget, star_id: str) -> None:
         """
         creates a checkbox.
-        :param window: thee window to apply the checkbox to.
-        :type window: GraphicsLayoutWidget
+        :param window: the window to apply the checkbox to.
+        :type window: QWidget
         :param star_id: the id of the star
         :type star_id: str
         :return: None
@@ -255,15 +383,15 @@ class StarGridPanel(QDialog):
 
         # position in top right corner of image.
         cb_size: QSize = the_select_box.sizeHint()
-        the_select_box.move(DEFAULT_SQUARE_SIZE - cb_size.width() - 6, 6)
+        the_select_box.move(
+            window.width() - cb_size.width(), CHECKBOX_DISTANCE)
 
         # ensure clean background.
         the_select_box.setStyleSheet("""
                 QCheckBox {
-                    background-color: #ffffff;
-                    border: 1px solid #cccccc;
+                    border: 0px solid #cccccc;
                     border-radius: 3px;
-                    padding: 2px;
+                    padding: 0px;
                 }
                 QCheckBox::indicator {
                     width: 14px;
@@ -280,44 +408,44 @@ class StarGridPanel(QDialog):
             event, window, the_select_box)
 
     def _create_cell(
-            self, grid_widget: QWidget, star_id: str,
-            img_data: np.ndarray) -> QWidget:
-        """
-        creates a cell for the grid.
-
-        :param grid_widget: the grid holder.
-        :return: the cell
-        :rtype: QWidget
-        """
+        self, grid_widget: QWidget, star_id: str,
+        img_data: np.ndarray) -> QWidget:
         cell_widget: QWidget = QWidget(grid_widget)
+        cell_widget.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
+
         cell_layout: QVBoxLayout = QVBoxLayout(cell_widget)
         cell_layout.setContentsMargins(0, 0, 0, 0)
         cell_layout.setSpacing(0)
 
-        # Create a PyQtGraph GraphicsLayoutWidget for each cell
         window: GraphicsLayoutWidget = GraphicsLayoutWidget()
-        window.setFixedSize(DEFAULT_SQUARE_SIZE, DEFAULT_SQUARE_SIZE)
+        window.ci.setContentsMargins(0, 0, 0, 0)
+        window.ci.setSpacing(0)
+        window.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
 
-        # add image
+        # Access and configure ViewBox directly
         view: ViewBox = window.addViewBox()
         view.setAspectLocked(True)
-
-        # disable zoom and pan
         view.setMouseEnabled(x=False, y=False)
-
-        # Disables the right-click context menu
         view.setMenuEnabled(False)
-        view.enableAutoRange(axis=ViewBox.XYAxes, enable=True)
 
-        # add image data to image / window
+        # Ensure padding is zeroed on the ViewBox range so it edges to cell
+        # borders
         img_item: ImageItem = ImageItem(img_data.T)
         view.addItem(img_item)
+
+        # Lock camera bounds directly to image pixel dimensions
+        view.setRange(rect=img_item.boundingRect(), padding=0)
+        view.enableAutoRange(axis=ViewBox.XYAxes, enable=True)
+
         self._image_items.append(img_item)
 
-        if len(self._selected_stars) != 1:
-            self._create_checkbox(window, star_id)
+        if len(self._images) != 1:
+            self._create_checkbox(cell_widget, star_id)
 
-        # Assemble cell layout
         cell_layout.addWidget(window)
         return cell_widget
 
@@ -333,10 +461,12 @@ class StarGridPanel(QDialog):
 
         # create grid wigit
         grid_widget: QWidget = QWidget(self)
-        grid_layout: QGridLayout = QGridLayout(grid_widget)
-        grid_layout.setAlignment(
+        self._grid_layout: QGridLayout = QGridLayout(grid_widget)
+        assert self._grid_layout is not None
+        self._grid_layout.setAlignment(
             QtCore.Qt.AlignmentFlag.AlignTop |
             QtCore.Qt.AlignmentFlag.AlignLeft)
+        self._grid_layout.setContentsMargins(0, 0, 0, 0)
 
         # Populate grid (e.g., 3 columns)
         cols: int = 3
@@ -345,10 +475,11 @@ class StarGridPanel(QDialog):
             col = idx % cols
             cell_widget: QWidget = self._create_cell(
                 grid_widget, star_id, img_data)
-            grid_layout.addWidget(cell_widget, row, col)
+            self._grid_layout.addWidget(cell_widget, row, col)
+            self._cell_widgets.append(cell_widget)
 
         # ensures the squares are not stretched to rectangles
-        grid_layout.setRowStretch(grid_layout.rowCount(), 1)
+        self._grid_layout.setRowStretch(self._grid_layout.rowCount(), 1)
         scroll_area.setWidget(grid_widget)
         return scroll_area
 
@@ -416,7 +547,8 @@ class StarGridPanel(QDialog):
         scaling_group: QGroupBox
         scaling_group, self._scaling_list, self._scaling_list_mut = (
             self._scale_builder.create_scaling_group(
-                self, scale_selected_row, scale_selected_mut_row))
+                self, scale_selected_row, scale_selected_mut_row,
+                DEFAULT_ENABLED_STATE))
         controls_layout.addWidget(scaling_group)
         # trigger scaling
         self._scale_builder.on_scaling_item_clicked()
@@ -552,10 +684,10 @@ class StarGridPanel(QDialog):
 
         # handle the main views.
         controls_widget: QWidget = QWidget(self)
-        controls_widget.setFixedWidth(280)
+        controls_widget.setFixedWidth(DEFAULT_CONTROLS_LAYOUT_SIZE)
 
         # create image grid
-        image_grid_area: QScrollArea = self._create_image_viewer()
+        self._image_grid_area: QScrollArea = self._create_image_viewer()
 
         # create control panel
         controls_layout: QVBoxLayout = self._create_controls_layout(
@@ -563,7 +695,7 @@ class StarGridPanel(QDialog):
 
         controls_widget.setLayout(controls_layout)
         main_layout.addWidget(controls_widget, stretch=0)
-        main_layout.addWidget(image_grid_area, stretch=1)
+        main_layout.addWidget(self._image_grid_area, stretch=1)
 
     def _on_select_cb(self, star_id: str, checked: bool) -> None:
         """

@@ -47,6 +47,9 @@ RADIUS: float = 2.0
 # the geometry of the UI.
 GEOMETRY: Tuple[int, int, int, int] = (100, 100, 1200, 700)
 
+# default state of the detect and scale parameters widget's.
+DEFAULT_ENABLED_STATE = False
+
 
 class CustomPSFGui(QMainWindow):
     """
@@ -323,7 +326,6 @@ class CustomPSFGui(QMainWindow):
 
         # support collapsing this detection param group.
         detection_param_group.setCheckable(True)
-        detection_param_group.setChecked(True)
 
         # Toggling the title checkbox hides/shows the form parameters inside
         # noinspection PyUnresolvedReferences
@@ -338,6 +340,7 @@ class CustomPSFGui(QMainWindow):
         # populate the detection form elements.
         param_form = QFormLayout(detection_param_group)
         self._add_detection_form_elements(param_form)
+        detection_param_group.setChecked(DEFAULT_ENABLED_STATE)
         return detection_param_group
 
     def _create_buttons(self) -> None:
@@ -525,7 +528,8 @@ class CustomPSFGui(QMainWindow):
         scaling_group, self._scaling_list, self._scaling_list_mut = (
             self._scale_builder.create_scaling_group(
                 self, ScaleElements.DEFAULT_SCALE_LIST_SELECTED,
-                ScaleElements.DEFAULT_SCALE_LIST_MUT_SELECTED))
+                ScaleElements.DEFAULT_SCALE_LIST_MUT_SELECTED,
+                DEFAULT_ENABLED_STATE))
         self._scale_builder.on_scaling_item_clicked()
 
         # create psf stars field.

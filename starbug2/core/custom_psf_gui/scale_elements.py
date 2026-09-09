@@ -122,7 +122,7 @@ class ScaleElements:
 
     def create_scaling_group(
             self, parent: QMainWindow | QDialog, default_selection_list: int,
-            default_selection_mul: int) -> Tuple[
+            default_selection_mul: int, default_state: bool) -> Tuple[
             QGroupBox, QListWidget, QListWidget]:
         """
         Creates the scaling group
@@ -132,13 +132,14 @@ class ScaleElements:
         :type default_selection_list: int
         :param default_selection_mul: which item to select by default.
         :type default_selection_mul: int
+        :param default_state: is the widget enabled by default.
+        :type default_state: bool
         :return: the scaling group
         """
         scale_param_group = QGroupBox("Scales Parameters", parent)
 
         # support collapsing this detection param group.
         scale_param_group.setCheckable(True)
-        scale_param_group.setChecked(True)
 
         # Toggling the title checkbox hides/shows the form parameters inside
         # noinspection PyUnresolvedReferences
@@ -185,6 +186,9 @@ class ScaleElements:
         param_form = QFormLayout(scale_param_group)
         param_form.addRow(self._scaling_list)
         param_form.addRow(self._scaling_list_mut)
+
+        scale_param_group.setChecked(default_state)
+
         return scale_param_group, self._scaling_list, self._scaling_list_mut
 
     def on_scaling_item_clicked(self) -> None:
