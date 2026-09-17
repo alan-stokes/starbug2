@@ -86,6 +86,7 @@ class StarGridPanel(QDialog):
         # select stars for psf.
         detections: Table | None = starbug_base.detections
         assert detections is not None
+
         selected_stars, error = find_stars_to_select(
             starbug_base.main_image().data, detections,
             config.psf_generator_stars_to_select,

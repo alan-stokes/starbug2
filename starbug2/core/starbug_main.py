@@ -1132,3 +1132,7 @@ class StarbugBase(StarBugInterface):
     @property
     def b_name(self) -> str | None:
         return self._b_name
+
+    @property
+    def residues(self) -> np.ndarray | None:
+        return self._residuals

@@ -30,6 +30,8 @@ from photutils.psf import (
     extract_stars, EPSFBuilder, EPSFStars, EPSFBuildResult, ImagePSF)
 
 from constants import TableColumn
+from custom_psf_gui import common_gui_code
+from custom_psf_gui.psf_star_selector import find_stars_to_select
 from generic import TEST_JWST_FITS
 from main_components.custom_psf import CustomPSF
 from starbug2.command_line_interfaces.main import starbug_internal_main
@@ -77,6 +79,55 @@ def test_custom_psf() -> None:
 
     clean()
 
+
+def run_photutils_selector(
+        data: np.ndarray, config: StarBugMainConfig) -> None:
+    """
+    tests the
+    :param data:
+    :param config:
+    :return:
+    """
+    starbug_base, exit_state = common_gui_code.detect_stars(config)
+    sources_before = starbug_base.detections
+    assert sources_before is not None
+    (sources, error) = find_stars_to_select(
+        data, sources_before, config.psf_generator_stars_to_select,
+        config.psf_generator_min_separation,
+        config.psf_generator_saturation_limit, config.sharp_cutoff_low,
+        config.sharp_cutoff_high, config.psf_generator_grid_bin_x,
+        config.psf_generator_grid_bin_y, config.psf_generator_edge_buffer)
+    assert sources is not None
+    mean_val: float
+    median_val: float
+    std_val: float
+    mean_val, median_val, std_val = sigma_clipped_stats(data, sigma=2.0)
+    data -= median_val
+    nd_data: NDData = NDData(data=data)
+
+    size: int = 25
+    hsize: float = (size - 1) / 2
+    x = sources[TableColumn.X_CENTROID]
+    y = sources[TableColumn.Y_CENTROID]
+    mask: np.ndarray = (
+        (x > hsize) & (x < (data.shape[1] - 1 - hsize)) &
+        (y > hsize) & (y < (data.shape[0] - 1 - hsize)))
+    stars_tbl = Table()
+    stars_tbl[TableColumn.X] = x[mask]
+    stars_tbl[TableColumn.Y] = y[mask]
+
+    stars: EPSFStars = extract_stars(nd_data, stars_tbl, size=25)
+    epsf_builder: EPSFBuilder = EPSFBuilder(
+        oversampling=4, maxiters=3, progress_bar=False)
+    result: EPSFBuildResult = epsf_builder(stars)
+    epsf: ImagePSF = result.epsf
+    fitted_stars: EPSFStars = result.fitted_stars
+
+    config: StarBugMainConfig = create_config_file()
+    output_dir: str | None = config.output_file
+    assert output_dir is not None
+    CustomPSF.write_files_to_disk(
+        output_dir, epsf, fitted_stars, "plutUtilsTest")
 
 def run_photutils(data: np.ndarray) -> None:
     finder: DAOStarFinder = DAOStarFinder(threshold=100.0, fwhm=1.5)
@@ -168,6 +219,22 @@ def test_custom_psf_using_jwst_fits_and_building_example() -> None:
     run_photutils(data)
     clean()
 
+
+def test_jwst_custom_psf_with_selector_from_gui() -> None:
+    clean()
+    verify_test_data_exists()
+    config: StarBugMainConfig = create_config_file()
+    config.unfreeze()
+    config.fits_images = [TEST_JWST_FITS]
+    config.freeze()
+    star_bug_base: StarbugBase | None = StarbugBase(
+        TEST_JWST_FITS, config=config, ap_file=None,
+        bkg_file=None)
+    assert star_bug_base is not None
+    main_image: ImageHDU | PrimaryHDU = star_bug_base.main_image()
+    data: np.ndarray = main_image.data
+    run_photutils_selector(data, config)
+    clean()
 
 def test_custom_psf_even_fail() -> None:
     """

@@ -84,11 +84,7 @@ def create_config_file_command_line_pick(
     starbug_internal_main(config)
 
 
-@pytest.mark.skipif(
-    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") is None or
-    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") == "false",
-    reason="UI test not been fully implemented"
-)
+
 def test_custom_psf_gui(qtbot) -> None:
     clean()
     verify_test_data_exists()

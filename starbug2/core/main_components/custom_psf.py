@@ -12,20 +12,23 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+from typing import Tuple
+
 import numpy
 import os
 from astropy.io.fits import Header, ImageHDU
 from astropy.nddata import NDData
+from photutils.aperture import CircularAperture, aperture_photometry
 from photutils.psf import (
     EPSFBuilder, extract_stars, EPSFStars, EPSFBuildResult, ImagePSF)
-from astropy.stats import sigma_clipped_stats
+from astropy.stats import sigma_clipped_stats, SigmaClip
 from astropy.table import Table, Column
 
 from routines.detection_routines import DetectionRoutine
 from starbug2.constants import TableColumn, FileExtensions, ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
-from starbug2.utilities.utils import export_table, split_file_name
+from starbug2.utilities.utils import export_table, split_file_name, p_error
 
 
 class CustomPSF:
@@ -57,11 +60,38 @@ class CustomPSF:
         stars: EPSFStars = CustomPSF.extract_stars(
             sources, h_size, data, config)
 
+        for star in stars:
+            # Measure flux in a tight central core radius (e.g., r = 5 pixels)
+            aperture = CircularAperture(star.cutout_center, r=5.0)
+            phot_table = aperture_photometry(star.data, aperture)
+
+            # Override default box-sum flux with tight core flux
+            star.flux = phot_table['aperture_sum'][0]
+
+        sig_clip = SigmaClip(sigma=3.0, maxiters=5)
+
         # build e-PSF.
         epsf_builder: EPSFBuilder = EPSFBuilder(
-            oversampling=4, maxiters=3, progress_bar=config.verbose_logs)
+            oversampling=4, maxiters=10, progress_bar=config.verbose_logs,
+            sigma_clip=sig_clip, recentering_maxiters=5)
         result: EPSFBuildResult = epsf_builder(stars)
         return result
+
+    @staticmethod
+    def execute_background_extraction(base: StarbugBase) -> Tuple[
+                ExitStates, numpy.ndarray | None]:
+        result_state: ExitStates = base.bgd_estimate()
+        if result_state != ExitStates.EXIT_SUCCESS:
+            p_error("Failed to execute bgd_estimate")
+            return result_state, None
+
+        result_state = base.bgd_subtraction()
+        if result_state != ExitStates.EXIT_SUCCESS:
+            p_error("Failed to execute bgd_subtraction")
+            return result_state, None
+
+        return ExitStates.EXIT_SUCCESS, base.residues
+
 
     @staticmethod
     def execute_custom_e_psf(config: StarBugMainConfig) -> ExitStates:
@@ -85,10 +115,17 @@ class CustomPSF:
         sources: Table | None = CustomPSF.get_psf_sources(
             data, config, base.full_width_half_max)
 
+        # remove background from the data
+        (exit_states, data_bkg_removed) = (
+            CustomPSF.execute_background_extraction(base))
+        if exit_states != ExitStates.EXIT_SUCCESS:
+            return exit_states
+
         # generate psf.
         assert sources is not None
+        assert data_bkg_removed is not None
         result: EPSFBuildResult = CustomPSF.generate_epsf(
-            sources, data, config)
+            sources, data_bkg_removed, config)
 
         # extract e-PSF from the builder/
         epsf: ImagePSF = result.epsf
