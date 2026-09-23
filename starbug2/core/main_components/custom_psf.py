@@ -209,7 +209,7 @@ class CustomPSF:
         assert sources is not None
         assert data_bkg_removed is not None
         result: EPSFBuildResult = CustomPSF.generate_epsf(
-            sources, data, config)
+            sources, data_bkg_removed, config)
 
         # extract e-PSF from the builder/
         epsf: ImagePSF = result.epsf
