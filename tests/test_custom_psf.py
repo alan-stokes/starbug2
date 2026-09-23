@@ -279,10 +279,9 @@ def test_custom_epsf_against_default_epsf() -> None:
     assert (exit_state == ExitStates.EXIT_SUCCESS)
 
     # verify the custom psf has been generated.
-    #psf_file_name = "jw01234-c1003_t005_miri_f770w_i2d-psf.fits"
     psf_file_name = "image_custom-c-psf.fits"
     psf_file_path = os.path.join(TEST_PATH_STR, psf_file_name)
-    assert(os.path.exists(psf_file_path))
+    assert (os.path.exists(psf_file_path))
 
     # set up to use custom psf and generate psf aperture.
     config = create_config_file()
@@ -318,6 +317,7 @@ def test_custom_epsf_against_default_epsf() -> None:
 
     # wrap up
     clean()
+
 
 def test_custom_psf_even_fail() -> None:
     """
