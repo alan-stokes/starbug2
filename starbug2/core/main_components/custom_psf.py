@@ -192,7 +192,8 @@ class CustomPSF:
 
         # read in image from fits file
         base: StarbugBase = StarbugBase(
-            config.fits_images[0], config, ap_file=None, bkg_file=None)
+            config.fits_images[0], config, ap_file=config.ap_file,
+            bkg_file=None)
         data: numpy.ndarray = base.main_image().data
 
         # locate stars.

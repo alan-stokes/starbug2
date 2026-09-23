@@ -1138,3 +1138,19 @@ class StarbugBase(StarBugInterface):
     @property
     def residues(self) -> np.ndarray | None:
         return self._residuals
+
+    @property
+    def wcs(self) -> WCS | None:
+        return self._wcs
+
+    @property
+    def background(self) -> ImageHDU | PrimaryHDU | None:
+        return self._background
+
+    @property
+    def ap_file(self) -> str | None:
+        return self._ap_file
+
+    @property
+    def background_file(self) -> str | None:
+        return self._background_file

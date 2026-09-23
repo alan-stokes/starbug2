@@ -48,6 +48,7 @@ TEST_SEED = 42
 
 # the filter string for tests to ensure they all use the same stuff
 TEST_CUSTOM_FILTER = "F770W"
+TEST_JWST_CUSTOM_FILTER = "F444W"
 TEST_FILTER_STRING_NO_G = "-s FILTER=F444W"
 TEST_FILTER_STRING = "-s FILTER=F444W -G"
 GITHUB_RELEASE_URL = (

@@ -16,7 +16,7 @@ import os
 
 import numpy as np
 import pytest
-from astropy.io.fits import ImageHDU, PrimaryHDU
+from astropy.io.fits import ImageHDU, PrimaryHDU, Header
 from astropy.nddata import NDData
 from astropy.stats import sigma_clipped_stats
 from astropy.table import Table
@@ -32,14 +32,17 @@ from photutils.psf import (
 from constants import TableColumn
 from custom_psf_gui import common_gui_code
 from custom_psf_gui.psf_star_selector import find_stars_to_select
-from generic import TEST_JWST_FITS
+from generic import TEST_JWST_FITS, TEST_JWST_CUSTOM_FILTER
 from main_components.custom_psf import CustomPSF
+from main_components.one_time_runs import starbug_one_time_runs
+from main_components.photometry import Photometry
 from starbug2.command_line_interfaces.main import starbug_internal_main
 from starbug2.constants import ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug_main import StarbugBase
 from tests.generic import (
     TEST_PATH_STR, TEST_IMAGE_FITS, clean, verify_test_data_exists)
+from utilities.utils import export_table
 
 
 def create_config_file(
@@ -54,7 +57,7 @@ def create_config_file(
     config.custom_psf_size_pixels = 51
     config.output_file = TEST_PATH_STR
     config.fits_images = [TEST_IMAGE_FITS]
-    config.custom_filter = "F444W"
+    config.custom_filter = TEST_JWST_CUSTOM_FILTER
     config.full_width_half_max = 2
     config.freeze()
     return config
@@ -237,6 +240,84 @@ def test_jwst_custom_psf_with_selector_from_gui() -> None:
     run_photutils_selector(data, config)
     clean()
 
+
+def test_custom_epsf_against_default_epsf() -> None:
+    clean()
+    verify_test_data_exists()
+    config: StarBugMainConfig = create_config_file()
+
+    # set up to run detections and aperture
+    config.unfreeze()
+    config.do_star_detection = True
+    config.do_aperture_photometry = True
+    config.fits_images = [TEST_IMAGE_FITS]
+    config.freeze()
+
+    # execute starbug to get detections and aperture results
+    star_bug_base: StarbugBase = StarbugBase(
+        config=config, ap_file=None, bkg_file=None, f_name=TEST_IMAGE_FITS)
+    exit_state: ExitStates = star_bug_base.run_starbug(config)
+    assert (exit_state == ExitStates.EXIT_SUCCESS)
+
+    detections: Table | None = star_bug_base.detections
+    assert detections is not None
+
+    # generate psf aperture with default psf.
+    exit_state: ExitStates = star_bug_base.psf_photometry_routine()
+    assert (exit_state == ExitStates.EXIT_SUCCESS)
+    normal_psf_catalogue: Table | None = star_bug_base.psf_catalogue
+    assert normal_psf_catalogue is not None
+
+    # generate custom psf.
+    config = create_config_file()
+    config.unfreeze()
+    config.do_custom_psf = True
+    config.ap_file = os.path.join(TEST_PATH_STR, "image-ap.fits")
+    config.fits_images = [TEST_IMAGE_FITS]
+    config.freeze()
+    exit_state: ExitStates = starbug_one_time_runs(config)
+    assert (exit_state == ExitStates.EXIT_SUCCESS)
+
+    # verify the custom psf has been generated.
+    #psf_file_name = "jw01234-c1003_t005_miri_f770w_i2d-psf.fits"
+    psf_file_name = "image_custom-c-psf.fits"
+    psf_file_path = os.path.join(TEST_PATH_STR, psf_file_name)
+    assert(os.path.exists(psf_file_path))
+
+    # set up to use custom psf and generate psf aperture.
+    config = create_config_file()
+    config.unfreeze()
+    config.fits_images = [TEST_IMAGE_FITS]
+    config.psf_file_override = psf_file_path
+    config.ap_file = os.path.join(TEST_PATH_STR, "image-ap.fits")
+    config.freeze()
+    star_bug_base = StarbugBase(
+        config=config, ap_file=config.ap_file, bkg_file=None,
+        f_name=TEST_IMAGE_FITS)
+    star_bug_photometry: Photometry = Photometry()
+    (exit_state, custom_psf_catalogue, _) = (
+        star_bug_photometry.photometry_routine(
+            star_bug_base.filter, star_bug_base.wcs, config,
+            star_bug_base.main_image(),
+            star_bug_base.log, star_bug_base.image, star_bug_base.info,
+            star_bug_base.background,
+            star_bug_base.header(), star_bug_base.detections,
+            star_bug_base.psf, star_bug_base.full_width_half_max,
+            star_bug_base.ap_file, star_bug_base.background_file,
+            star_bug_base._out_dir, star_bug_base.b_name))
+    assert (exit_state == ExitStates.EXIT_SUCCESS)
+    assert custom_psf_catalogue is not None
+
+    # compare results.
+    print(f"normal psf catalogue had {len(normal_psf_catalogue)} entries and "
+          f"the custom psf catalogue had {len(custom_psf_catalogue)} entries")
+    normal_path = os.path.join(TEST_PATH_STR, "normal_catalgogue.fits")
+    custom_path = os.path.join(TEST_PATH_STR, "custom_catalgogue.fits")
+    export_table(normal_psf_catalogue, normal_path, header=Header())
+    export_table(custom_psf_catalogue, custom_path, header=Header())
+
+    # wrap up
+    clean()
 
 def test_custom_psf_even_fail() -> None:
     """
