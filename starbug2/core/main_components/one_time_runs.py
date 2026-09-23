@@ -18,7 +18,7 @@ import os
 from astropy.io.fits import PrimaryHDU, HDUList
 from astropy.table import Table
 
-from custom_psf_gui.star_grid_panel import StarGridPanel
+from starbug2.core.custom_psf_gui.star_grid_panel import StarGridPanel
 from starbug2.core.custom_psf_gui.custom_psf_gui import CustomPSFGui
 from starbug2.core.main_components.custom_psf import CustomPSF
 from starbug2.core.main_components.artificial_stars import compile_results
