@@ -150,6 +150,11 @@ class CustomPSFGui(QMainWindow):
         self._star_finder_sharp_min: QDoubleSpinBox
         self._star_finder_sharp_max: QDoubleSpinBox
         self._edge_buffer: QDoubleSpinBox
+        self._over_sampling_level: QSpinBox
+        self._iterations: QSpinBox
+        self._centering_iterations: QSpinBox
+        self._clipping_iterations: QSpinBox
+        self._clipping_sigma: QSpinBox
 
         # image
         self._img_item: ImageItem | None = None
@@ -475,6 +480,32 @@ class CustomPSFGui(QMainWindow):
         self._edge_buffer.setValue(
             self._config.psf_generator_edge_buffer)
 
+        self._over_sampling_level = QSpinBox(self)
+        self._over_sampling_level.setRange(1, 5)
+        self._over_sampling_level.setValue(self._config.epsf_oversampling)
+
+        self._iterations = QSpinBox(self)
+        self._iterations.setRange(1, 20)
+        self._iterations.setValue(self._config.epsf_iterations)
+
+        self._centering_iterations = QSpinBox(self)
+        self._centering_iterations.setRange(1, 20)
+        self._centering_iterations.setValue(
+            self._config.epsf_centering_iterations)
+
+        self._clipping_iterations = QSpinBox(self)
+        self._clipping_iterations.setRange(1, 20)
+        self._clipping_iterations.setValue(
+            self._config.epsf_clipping_iterations)
+
+        self._clipping_sigma = QSpinBox(self)
+        self._clipping_sigma.setRange(1, 5)
+        self._clipping_sigma.setValue(self._config.epsf_clipping_sigma)
+
+        self._execute_post_smoothing = QCheckBox(self)
+        self._execute_post_smoothing.setChecked(
+            self._config.epsf_execute_post_smoothing)
+
         # add widgets in order.
         params_group = QGroupBox("PSF Parameters", self)
         param_form = QFormLayout(params_group)
@@ -486,6 +517,13 @@ class CustomPSFGui(QMainWindow):
         param_form.addRow("Sharp min", self._star_finder_sharp_min)
         param_form.addRow("Sharp max", self._star_finder_sharp_max)
         param_form.addRow("Edge buffer", self._edge_buffer)
+        param_form.addRow("Oversampling level", self._over_sampling_level)
+        param_form.addRow("Iterations", self._iterations)
+        param_form.addRow("Centering iterations", self._centering_iterations)
+        param_form.addRow("Clipping iterations", self._clipping_iterations)
+        param_form.addRow("Clipping sigma", self._clipping_sigma)
+        param_form.addRow(
+            "Execute post smoothing", self._execute_post_smoothing)
         group_layout.addWidget(params_group)
         group_layout.addWidget(self._automatic_psf_star_selection_btn)
         dropdown_layout.addWidget(self._detected_list)
@@ -667,15 +705,12 @@ class CustomPSFGui(QMainWindow):
                 f"Y={pos[1]:.2f})")
         self._populate_star_lists()
 
-    def on_redo_detection(self) -> None:
+    def update_config_for_psf(self, config_copy: StarBugMainConfig) -> None:
         """
-        executes when redoing detection
+        updates all the config params for the epsf calculations.
+        :param config_copy: the config.
         :return: None
         """
-        assert self._redo_detection_btn is not None
-        self._redo_detection_btn.setEnabled(False)
-
-        config_copy = update_config(self._config)
         # add the values from the form.
         config_copy.unfreeze()
         config_copy.full_width_half_max = (
@@ -692,7 +727,27 @@ class CustomPSFGui(QMainWindow):
         config_copy.do_bgd_2d = self._do_bkg.isChecked()
         config_copy.do_convolution = self._do_convolution.isChecked()
         config_copy.clean_sources = self._clean_sources.isChecked()
+        config_copy.epsf_oversampling = self._over_sampling_level.value()
+        config_copy.epsf_iterations = self._iterations.value()
+        config_copy.epsf_centering_iterations = (
+            self._centering_iterations.value())
+        config_copy.epsf_clipping_iterations = (
+            self._clipping_iterations.value()
+        )
+        config_copy.epsf_clipping_sigma = self._clipping_sigma.value()
+        config_copy.epsf_execute_post_smoothing = (
+            self._post_smoothing.isChecked())
         config_copy.freeze()
+
+    def on_redo_detection(self) -> None:
+        """
+        executes when redoing detection
+        :return: None
+        """
+        assert self._redo_detection_btn is not None
+        self._redo_detection_btn.setEnabled(False)
+        config_copy: StarBugMainConfig = update_config(self._config)
+        self.update_config_for_psf(config_copy)
 
         # run and get new detections.
         self._info_label.setText("updating detected stars.")

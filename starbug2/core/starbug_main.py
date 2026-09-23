@@ -500,7 +500,8 @@ class StarbugBase(StarBugInterface):
             p_error("No background array loaded (-b file-bgd.fits)\n")
             return ExitStates.EXIT_FAIL
 
-        array: np.ndarray = self.main_image().data - self._background.data
+        array: np.ndarray = (
+            self.main_image().data.copy() - self._background.data)
         self._residuals = array
 
         assert self._image is not None
@@ -767,9 +768,10 @@ class StarbugBase(StarBugInterface):
             (test - 1) * self._config.stars_per_artificial_test:
             test * self._config.stars_per_artificial_test] = result_table
 
-        if self._config.ast_loader is not None:
-            self._config.ast_loader[0] += 1
-            self._config.ast_loader[2] = int(
+        ast_loader: np.ndarray | None = self._config.ast_loader
+        if ast_loader is not None:
+            ast_loader[0] += 1
+            ast_loader[2] = int(
                 100 * passed / (
                     test * self._config.stars_per_artificial_test))
 

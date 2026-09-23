@@ -428,9 +428,13 @@ class StarGridPanel(QDialog):
         view.setMouseEnabled(x=False, y=False)
         view.setMenuEnabled(False)
 
+        # Ensure the transposed array is re-packed as C-contiguous memory
+        # before passing to PyQtGraph
+        transposed_data = np.ascontiguousarray(img_data.T)
+
         # Ensure padding is zeroed on the ViewBox range so it edges to cell
         # borders
-        img_item: ImageItem = ImageItem(img_data.T)
+        img_item: ImageItem = ImageItem(transposed_data)
         view.addItem(img_item)
 
         # Lock camera bounds directly to image pixel dimensions
@@ -642,8 +646,6 @@ class StarGridPanel(QDialog):
         output_dir: str | None = self._config.output_file
         assert output_dir is not None
 
-        #
-
         file_name: str = os.path.join(
             str(self._config.output_file),
             f"{self._starbug_base.b_name}{FileExtensions.CUSTOM_LIST_PSF}")
@@ -653,6 +655,16 @@ class StarGridPanel(QDialog):
             f"custom{self._starbug_base.filter}{FileExtensions.PSF}")
         ImageHDU(data=cast(Any, self._images[0][1]), header=Header()).writeto(
             file_name_psf, overwrite=True)
+
+        # give feedback to the user.
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Icon.Information)
+        msg_box.setWindowTitle("Save Successul")
+        msg_box.setText(
+            f"The saving of the detected stars was placed "
+            f"in: \n {file_name}. \n\n"
+            f"The saving of the psf file was placed in: \n {file_name_psf}.")
+        msg_box.exec()
 
     def _create_components(
             self, scale_selected_row: int,

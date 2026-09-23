@@ -258,6 +258,13 @@ class StarBugMainConfig:
         "PSF_GRID_BIN_Y": ("psf_generator_grid_bin_y", int),
         "PSF_EDGE_BUFFER": ("psf_generator_edge_buffer", int),
         "PSF_MIN_ALLOWED_STARS": ("psf_min_allowed_stars", int),
+        "PSF_OVERSAMPLE_LEVEL": ("epsf_oversampling", int),
+        "PSF_ITERATIONS": ("epsf_iterations", int),
+        "PSF_CENTERING_ITERATIONS": ("epsf_centering_iterations", int),
+        "PSF_CLIPPING_ITERATIONS": ("epsf_clipping_iterations", int),
+        "PSF_CLIPPING_SIGMA": ("epsf_clipping_sigma", int),
+        "PSF_EXECUTE_POST_SMOOTHING": (
+            "epsf_execute_post_smoothing", bool),
 
         # --- NEW PARAM FILE SHORT-CIRCUITS FOR STEPS & FLOW CONTROLS ---
         "RUN_APPHOT": ("do_aperture_photometry", bool),
@@ -362,6 +369,12 @@ class StarBugMainConfig:
         self._psf_generator_grid_bin_y: int = 3
         self._psf_generator_edge_buffer: int = 20
         self._psf_min_allowed_stars: int = 5
+        self._epsf_oversampling: int = 2
+        self._epsf_iterations: int = 10
+        self._epsf_centering_iterations = 5
+        self._epsf_clipping_iterations = 5
+        self._epsf_clipping_sigma = 3
+        self._epsf_execute_post_smoothing = True
 
         # matching params
         self._do_band_processing: bool = False
@@ -1880,6 +1893,54 @@ class StarBugMainConfig:
     @run_custom_psf_generator.setter
     def run_custom_psf_generator(self, value: bool) -> None:
         self._run_custom_psf_generator = value
+
+    @property
+    def epsf_oversampling(self) -> int:
+        return self._epsf_oversampling
+
+    @epsf_oversampling.setter
+    def epsf_oversampling(self, value: int) -> None:
+        self._epsf_oversampling = value
+
+    @property
+    def epsf_iterations(self) -> int:
+        return self._epsf_iterations
+
+    @epsf_iterations.setter
+    def epsf_iterations(self, value: int) -> None:
+        self._epsf_iterations = value
+
+    @property
+    def epsf_centering_iterations(self) -> int:
+        return self._epsf_centering_iterations
+
+    @epsf_centering_iterations.setter
+    def epsf_centering_iterations(self, value: int) -> None:
+        self._epsf_centering_iterations = value
+
+    @property
+    def epsf_clipping_iterations(self) -> int:
+        return self._epsf_clipping_iterations
+
+    @epsf_clipping_iterations.setter
+    def epsf_clipping_iterations(self, value: int) -> None:
+        self._epsf_clipping_iterations = value
+
+    @property
+    def epsf_clipping_sigma(self) -> int:
+        return self._epsf_clipping_sigma
+
+    @epsf_clipping_sigma.setter
+    def epsf_clipping_sigma(self, value: int) -> None:
+        self._epsf_clipping_sigma = value
+
+    @property
+    def epsf_execute_post_smoothing(self) -> bool:
+        return self._epsf_execute_post_smoothing
+
+    @epsf_execute_post_smoothing.setter
+    def epsf_execute_post_smoothing(self, value: bool) -> None:
+        self._epsf_execute_post_smoothing = value
 
     # =============
     # help strings.

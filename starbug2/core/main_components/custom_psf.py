@@ -16,19 +16,37 @@ from typing import Tuple
 
 import numpy
 import os
+
+import numpy as np
 from astropy.io.fits import Header, ImageHDU
 from astropy.nddata import NDData
-from photutils.aperture import CircularAperture, aperture_photometry
+from photutils.centroids import centroid_com
 from photutils.psf import (
     EPSFBuilder, extract_stars, EPSFStars, EPSFBuildResult, ImagePSF)
 from astropy.stats import sigma_clipped_stats, SigmaClip
-from astropy.table import Table, Column
+from astropy.table import Table
+from scipy.ndimage import gaussian_filter
 
 from routines.detection_routines import DetectionRoutine
 from starbug2.constants import TableColumn, FileExtensions, ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
-from starbug2.utilities.utils import export_table, split_file_name, p_error
+from starbug2.utilities.utils import (
+    export_table, split_file_name, p_error, printf)
+
+
+def _epsf_centering_wrapper(data, mask=None):
+    """
+    Wrapper matching photutils EPSFBuilder signature:
+    callable(data, mask=None) -> (x, y)
+    """
+    clean_data: np.ndarray = numpy.nan_to_num(data, nan=0.0)
+    if mask is not None:
+        clean_data = clean_data.copy()
+        clean_data[mask] = 0.0
+
+    # centroid_com returns (x_center, y_center) cleanly
+    return centroid_com(clean_data)
 
 
 class CustomPSF:
@@ -41,41 +59,108 @@ class CustomPSF:
             sources: Table, data: numpy.ndarray,
             config: StarBugMainConfig) -> EPSFBuildResult:
         """
-        takes sources and image data as well as hsize and config and generates
-        an epsf result.
-
-        :param sources: the sources Table.
+        generates the epsf.
+        :param sources: the stars to use
         :type sources: Table
-        :param data: the image data.
+        :param data: the image data
         :type data: numpy.ndarray
-        :param config: the system config.
+        :param config: the main config
         :type config: StarBugMainConfig
-        :return: the epsf result object.
-        :rtype: EPSFBuildResult
+        :return: the generated epsf.
         """
         h_size: float = float((config.custom_psf_size_pixels - 1) / 2)
 
-        # locate stars not on the edge of the image (within capture area).
+        # collect stars from the sources
         assert sources is not None
         stars: EPSFStars = CustomPSF.extract_stars(
             sources, h_size, data, config)
 
-        for star in stars:
-            # Measure flux in a tight central core radius (e.g., r = 5 pixels)
-            aperture = CircularAperture(star.cutout_center, r=5.0)
-            phot_table = aperture_photometry(star.data, aperture)
+        # Filter out invalid cutouts where stars have no flux or
+        # has corrupted data.
+        valid_stars = [
+            star for star in stars
+            if numpy.all(numpy.isfinite(star.data)) and star.flux > 0
+        ]
+        if len(valid_stars) != stars.n_stars:
+            printf(f"Have lost {stars.n_stars - len(valid_stars)} stars due"
+                   f" to loss of flux or the data is not finite.")
 
-            # Override default box-sum flux with tight core flux
-            star.flux = phot_table['aperture_sum'][0]
+        # turn into the photutils star object.
+        clean_stars = EPSFStars(valid_stars)
 
-        sig_clip = SigmaClip(sigma=3.0, maxiters=5)
+        # determines which pixels will be ignored. any pixels outside the
+        # sigma will be ignored.
+        sig_clip = SigmaClip(sigma=config.epsf_clipping_sigma,
+                             maxiters=config.epsf_clipping_iterations)
 
-        # build e-PSF.
-        epsf_builder: EPSFBuilder = EPSFBuilder(
-            oversampling=4, maxiters=10, progress_bar=config.verbose_logs,
-            sigma_clip=sig_clip, recentering_maxiters=5)
-        result: EPSFBuildResult = epsf_builder(stars)
+        # Build e-PSF using photutils native sub-pixel alignment
+        epsf_builder = EPSFBuilder(
+            oversampling=config.epsf_oversampling,
+            maxiters=config.epsf_iterations,
+            progress_bar=config.verbose_logs,
+            sigma_clip=sig_clip,
+            smoothing_kernel='quartic',
+            recentering_maxiters=config.epsf_centering_iterations
+        )
+        result: EPSFBuildResult = epsf_builder(clean_stars)
+        psf_data = result.epsf.data
+
+        # Post-process: smooth over empty sub-pixel grid cells if oversampled
+        if config.epsf_oversampling > 1 and config.epsf_execute_post_smoothing:
+            # Sigma scales with oversampling factor to bridge grid gaps
+            smooth_sigma = 0.5 * config.epsf_oversampling
+            psf_data = gaussian_filter(psf_data, sigma=smooth_sigma)
+
+            # Re-normalise flux to 1.0 after smoothing.
+            total_flux = numpy.sum(psf_data)
+            if total_flux > 0:
+                psf_data /= total_flux
+            result.epsf.data = numpy.ascontiguousarray(
+                psf_data, dtype=numpy.float64)
         return result
+
+    @staticmethod
+    def extract_stars(
+            sources: Table, h_size: float, data: numpy.ndarray,
+            config: StarBugMainConfig) -> EPSFStars:
+        """
+        extracts the stars from the image
+        :param sources: the locations of the stars
+        :type sources: Table
+        :param h_size: the size of the extraction in pixels.
+        :type h_size: int
+        :param data: the image data.
+        :type data: numpy.ndarray
+        :param config: the main config.
+        :type config: StarBugMainConfig
+        :return: the stars in the format photutils requires.
+        :rtype: EPSFStars
+        """
+        clean_data = numpy.ascontiguousarray(
+            numpy.nan_to_num(data.copy(), nan=0.0, posinf=0.0, neginf=0.0),
+            dtype=numpy.float64
+        )
+        nd_data = NDData(data=clean_data)
+
+        # Convert FITS 1-based coordinates to Python 0-based array indices
+        x_raw = numpy.array(
+            sources[TableColumn.X_CENTROID], dtype=numpy.float64) - 1.0
+        y_raw = numpy.array(
+            sources[TableColumn.Y_CENTROID], dtype=numpy.float64) - 1.0
+
+        # Mask boundary stars based on 0-indexed bounds
+        mask = (
+            numpy.isfinite(x_raw) & numpy.isfinite(y_raw) &
+            (x_raw > h_size) & (x_raw < (clean_data.shape[1] - 1 - h_size)) &
+            (y_raw > h_size) & (y_raw < (clean_data.shape[0] - 1 - h_size))
+        )
+
+        stars_tbl = Table()
+        stars_tbl['x'] = x_raw[mask]
+        stars_tbl['y'] = y_raw[mask]
+
+        return extract_stars(
+            nd_data, stars_tbl, size=config.custom_psf_size_pixels)
 
     @staticmethod
     def execute_background_extraction(base: StarbugBase) -> Tuple[
@@ -91,7 +176,6 @@ class CustomPSF:
             return result_state, None
 
         return ExitStates.EXIT_SUCCESS, base.residues
-
 
     @staticmethod
     def execute_custom_e_psf(config: StarBugMainConfig) -> ExitStates:
@@ -125,7 +209,7 @@ class CustomPSF:
         assert sources is not None
         assert data_bkg_removed is not None
         result: EPSFBuildResult = CustomPSF.generate_epsf(
-            sources, data_bkg_removed, config)
+            sources, data, config)
 
         # extract e-PSF from the builder/
         epsf: ImagePSF = result.epsf
@@ -151,7 +235,7 @@ class CustomPSF:
         :type full_width_half_max: float
         :return: the sources as a table format. contains columns of:
             ['id', 'x_centroid', 'y_centroid', 'sharpness', 'roundness1',
-            'roundness2', 'n_pixels', 'peak', 'flux', 'mag', 'daofind_mag']
+            'roundness2', 'n_pixels', 'peak', 'flux', 'mag']
         :rtype: Table
         """
         # determine threshold.
@@ -178,49 +262,6 @@ class CustomPSF:
             verbose=config.verbose_logs)
 
         return detector(data.copy())
-
-    @staticmethod
-    def extract_stars(
-            sources: Table, h_size: float, data: numpy.ndarray,
-            config: StarBugMainConfig) -> EPSFStars:
-        """ extracts stars from the image.
-
-        :param sources: the star locations.
-        :type sources: Table
-        :param h_size: the size of the window for detecting stars.
-        :type h_size: float
-        :param data: the image data.
-        :type data: numpy.ndarray
-        :param config: the config
-        :type config: StarBugMainConfig
-        :return: the extracted stars
-        :rtype: EPSFStars
-        """
-
-        # determine states
-        mean_val: float
-        median_val: float
-        std_val: float
-        mean_val, median_val, std_val = sigma_clipped_stats(
-            data, sigma=config.sigma_sky)
-        data -= median_val
-
-        # extract stars from the modified data.
-        nd_data: NDData = NDData(data=data)
-
-        assert sources is not None
-        x: Column = sources[TableColumn.X_CENTROID]
-        y: Column = sources[TableColumn.Y_CENTROID]
-        mask: numpy.ndarray = (
-            (x > h_size) & (x < (data.shape[1] - 1 - h_size)) &
-            (y > h_size) & (y < (data.shape[0] - 1 - h_size)))
-
-        stars_tbl = Table()
-        stars_tbl[TableColumn.X] = x[mask]
-        stars_tbl[TableColumn.Y] = y[mask]
-
-        return extract_stars(
-            nd_data, stars_tbl, size=config.custom_psf_size_pixels)
 
     @staticmethod
     def write_files_to_disk(

@@ -129,6 +129,7 @@ def run_photutils_selector(
     CustomPSF.write_files_to_disk(
         output_dir, epsf, fitted_stars, "plutUtilsTest")
 
+
 def run_photutils(data: np.ndarray) -> None:
     finder: DAOStarFinder = DAOStarFinder(threshold=100.0, fwhm=1.5)
     sources: Table | None = finder(data)
@@ -235,6 +236,7 @@ def test_jwst_custom_psf_with_selector_from_gui() -> None:
     data: np.ndarray = main_image.data
     run_photutils_selector(data, config)
     clean()
+
 
 def test_custom_psf_even_fail() -> None:
     """
