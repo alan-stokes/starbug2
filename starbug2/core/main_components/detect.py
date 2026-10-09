@@ -114,7 +114,7 @@ class Detect:
             detections = detections[
                 TableColumn.X_CENTROID, TableColumn.Y_CENTROID,
                 TableColumn.SHARPNESS, TableColumn.ROUNDNESS1,
-                TableColumn.ROUNDNESS2]
+                TableColumn.ROUNDNESS2, TableColumn.PEAK]
 
             # Check for insane states
             if detections is None or wcs is None:

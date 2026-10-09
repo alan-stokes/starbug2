@@ -198,6 +198,7 @@ class TableColumn(str, Enum):
     TOTAL_FLUX_ADDED = "TOTAL_FLUX_ADDED"
     TOTAL_MAG = "TOTAL_MAG"
     TOTAL_DIFF_MAG = "TOTAL_DIFF_MAG"
+    PEAK = "peak"
 
     # needed as the table system doenst seem to handle enums properly
     def __str__(self) -> str:
@@ -327,6 +328,7 @@ class FileExtensions(str, Enum):
     RESIDUE = "-res.fits"
     PSF = "-psf.fits"
     CUSTOM_PSF = "-c-psf.fits"
+    CUSTOM_LIST_PSF = "-psf-lst.fits"
 
     # needed as the table system doenst seem to handle enums properly
     def __str__(self) -> str:
