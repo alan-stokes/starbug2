@@ -211,7 +211,7 @@ class CustomPSF:
             config.psf_generator_grid_bin_y, config.psf_generator_edge_buffer)
         if error is not None and sources is None:
             printf(error)
-            assert True == False
+            return ExitStates.EXIT_FAIL
 
         # remove background from the data
         (exit_states, data_bkg_removed) = (

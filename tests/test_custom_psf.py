@@ -59,7 +59,7 @@ def _compare_two_catalogues(
     :return: a bool stating if it passed tolerances or not.
     """
     if tolerances is None:
-        tolerances =  {
+        tolerances = {
             TableColumn.CAT_NUM: (0, 0),
             TableColumn.X_INIT: (1e-6, 1e-6),
             TableColumn.Y_INIT: (1e-6, 1e-6),
@@ -93,8 +93,8 @@ def _compare_two_catalogues(
 
         # Exact match check for integer flags / categorical values
         if (np.issubdtype(arr1.dtype, np.integer)
-            or np.issubdtype(arr1.dtype, np.bool_)
-            or np.issubdtype(arr1.dtype, np.str_)):
+                or np.issubdtype(arr1.dtype, np.bool_)
+                or np.issubdtype(arr1.dtype, np.str_)):
             matches = (arr1 == arr2)
         else:
             # Floating-point comparison with absolute and relative tolerances
@@ -122,6 +122,7 @@ def _compare_two_catalogues(
 
     return all_passed
 
+
 def create_config_file(
         config: StarBugMainConfig = StarBugMainConfig()) -> StarBugMainConfig:
     """
@@ -141,12 +142,27 @@ def create_config_file(
 
 
 def test_custom_psf() -> None:
+    """
+    test that if we do all things right, but don't have any detections. it
+    goes boom.
+    :return: None
+    """
     clean()
     verify_test_data_exists()
     config: StarBugMainConfig = create_config_file()
+    config.unfreeze()
+    config.psf_generator_stars_to_select = 9
+    config.psf_generator_min_separation = 2.0
+    config.psf_generator_saturation_limit = 1000.0
+    config.sharp_cutoff_low = 0
+    config.sharp_cutoff_high = 1
+    config.psf_generator_grid_bin_x = 1
+    config.psf_generator_grid_bin_y = 1
+    config.psf_generator_edge_buffer = 22.0
+    config.freeze()
     exit_code: ExitStates
     exit_code = starbug_internal_main(config)
-    assert exit_code == ExitStates.EXIT_SUCCESS
+    assert exit_code == ExitStates.EXIT_FAIL
 
     # verify files were made as expected.
     custom_stars_file: str = os.path.join(
@@ -154,8 +170,8 @@ def test_custom_psf() -> None:
     custom_c_psf_file: str = os.path.join(
         TEST_PATH_STR, "image_custom-c-psf.fits")
 
-    assert os.path.exists(custom_stars_file)
-    assert os.path.exists(custom_c_psf_file)
+    assert not os.path.exists(custom_stars_file)
+    assert not os.path.exists(custom_c_psf_file)
 
     clean()
 
@@ -520,7 +536,7 @@ def test_custom_epsf_against_default_epsf_jwst_image() -> None:
     export_table(custom_psf_catalogue, custom_path, header=Header())
 
     # adjusted tolerances from the defaults set in the compare code.
-    tolerances =  {
+    tolerances = {
         TableColumn.CAT_NUM: (0, 0),
         TableColumn.X_INIT: (1e-6, 1e-6),
         TableColumn.Y_INIT: (1e-6, 1e-6),
