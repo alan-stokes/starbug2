@@ -416,13 +416,13 @@ def test_custom_epsf_against_default_epsf() -> None:
     clean()
 
 
-#@pytest.mark.skipif(
-#    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") is None or
-#    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") == "false",
-#    reason="Harsh stress test locked out of normal development runs due to "
-#           "length of time to run, CPU resources required which nearly slags"
-#           " the machine."
-#)
+@pytest.mark.skipif(
+    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") is None or
+    os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") == "false",
+    reason="Harsh stress test locked out of normal development runs due to "
+           "length of time to run, CPU resources required which nearly slags"
+           " the machine."
+)
 def test_custom_epsf_against_default_epsf_jwst_image() -> None:
     """
     tests the jwst.fits test file with the custom psf generator against the
