@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 from typing import Tuple
 import numpy as np
-from constants import TableColumn
+from starbug2.constants import TableColumn
 from astropy.table import Table
 from scipy.spatial import KDTree
 

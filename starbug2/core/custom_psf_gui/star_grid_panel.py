@@ -29,15 +29,16 @@ from astropy.table import Table, Column
 from photutils.psf import ImagePSF
 from pyqtgraph import ImageItem, GraphicsLayoutWidget, ViewBox
 
-from constants import ExitStates, TableColumn, FileExtensions
-from custom_psf_gui.background_generator import BackgroundGenerator
-from custom_psf_gui.common_gui_code import (
+from starbug2.constants import ExitStates, TableColumn, FileExtensions
+from starbug2.core.custom_psf_gui.background_generator import (
+    BackgroundGenerator)
+from starbug2.core.custom_psf_gui.common_gui_code import (
     detect_stars, create_gui_instance_with_icon,
     run_starbug_for_image_and_ap_file, STAR_IMAGE_SIZE)
-from custom_psf_gui.psf_star_selector import find_stars_to_select
-from custom_psf_gui.scale_elements import ScaleElements
-from star_bug_config import StarBugMainConfig
-from starbug_main import StarbugBase
+from starbug2.core.custom_psf_gui.psf_star_selector import find_stars_to_select
+from starbug2.core.custom_psf_gui.scale_elements import ScaleElements
+from starbug2.core.star_bug_config import StarBugMainConfig
+from starbug2.core.starbug_main import StarbugBase
 from utilities.utils import printf, export_table
 
 # size of an image in pixels when taking multiple into account.

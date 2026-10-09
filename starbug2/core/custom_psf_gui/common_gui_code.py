@@ -23,7 +23,7 @@ from PyQt6.QtWidgets import QApplication
 
 from starbug2.constants import ExitStates, STAR_BUG_TEST_DAT_ENV
 from starbug2.core.star_bug_config import StarBugMainConfig
-from starbug_main import StarbugBase
+from starbug2.core.starbug_main import StarbugBase
 
 # size of grid for ech star from centre
 STAR_IMAGE_SIZE: int = 25

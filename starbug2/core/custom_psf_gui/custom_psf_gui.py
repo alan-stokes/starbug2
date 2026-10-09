@@ -32,7 +32,7 @@ from starbug2.core.custom_psf_gui.background_generator import (
 from starbug2.core.custom_psf_gui.common_gui_code import (
     detect_stars, update_config, create_gui_instance_with_icon,
     STAR_IMAGE_SIZE)
-from custom_psf_gui.scale_elements import ScaleElements
+from starbug2.core.custom_psf_gui.scale_elements import ScaleElements
 from starbug2.core.custom_psf_gui.star_grid_panel import StarGridPanel
 from starbug2.constants import ExitStates, TableColumn
 from starbug2.core.star_bug_config import StarBugMainConfig

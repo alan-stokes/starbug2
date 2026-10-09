@@ -97,11 +97,16 @@ def clean() -> None:
     :return: None
     """
     files = glob.glob(os.path.join(str(TEST_PATH), "*"))
-    files.remove(TEST_IMAGE_FITS)
-    files.remove(TEST_PSF_FITS)
-    files.remove(TEST_NGC_FITS)
-    files.remove(TEST_README)
-    files.remove(TEST_JWST_FITS)
+    if TEST_IMAGE_FITS in files:
+        files.remove(TEST_IMAGE_FITS)
+    if TEST_PSF_FITS in files:
+        files.remove(TEST_PSF_FITS)
+    if TEST_NGC_FITS in files:
+        files.remove(TEST_NGC_FITS)
+    if TEST_README in files:
+        files.remove(TEST_README)
+    if TEST_JWST_FITS in files:
+        files.remove(TEST_JWST_FITS)
     for file_name in files:
         os.remove(file_name)
     if os.path.exists("dat/starbug.param"):

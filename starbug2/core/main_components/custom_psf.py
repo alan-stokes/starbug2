@@ -27,6 +27,7 @@ from astropy.stats import sigma_clipped_stats, SigmaClip
 from astropy.table import Table
 from scipy.ndimage import gaussian_filter
 
+from custom_psf_gui.psf_star_selector import find_stars_to_select
 from routines.detection_routines import DetectionRoutine
 from starbug2.constants import TableColumn, FileExtensions, ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
@@ -197,8 +198,20 @@ class CustomPSF:
         data: numpy.ndarray = base.main_image().data
 
         # locate stars.
-        sources: Table | None = CustomPSF.get_psf_sources(
+        sources_before: Table | None = CustomPSF.get_psf_sources(
             data, config, base.full_width_half_max)
+        assert sources_before is not None
+
+        # automatic selection from sources to acceptable sources.
+        (sources, error) = find_stars_to_select(
+            data, sources_before, config.psf_generator_stars_to_select,
+            config.psf_generator_min_separation,
+            config.psf_generator_saturation_limit, config.sharp_cutoff_low,
+            config.sharp_cutoff_high, config.psf_generator_grid_bin_x,
+            config.psf_generator_grid_bin_y, config.psf_generator_edge_buffer)
+        if error is not None and sources is None:
+            printf(error)
+            assert True == False
 
         # remove background from the data
         (exit_states, data_bkg_removed) = (

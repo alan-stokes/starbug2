@@ -18,6 +18,7 @@ import subprocess
 
 import pytest
 
+from generic import TEST_IMAGE_FITS
 from starbug2.command_line_interfaces.main import starbug_internal_main
 from starbug2.constants import ExitStates, DEFAULT_PARAM_FILE_NAME
 from starbug2.core.star_bug_config import StarBugMainConfig
@@ -37,6 +38,26 @@ def create_config_file(
     config.custom_psf_size_pixels = 51
     config.output_file = TEST_PATH_STR
     config.fits_images = [TEST_JWST_FITS]
+    config.custom_filter = "F444W"
+    config.full_width_half_max = 2
+    config.sharp_cutoff_high = 1
+    config.sharp_cutoff_low = 0
+    config.freeze()
+    return config
+
+
+def create_image_config_file(
+    config: StarBugMainConfig = StarBugMainConfig()) -> StarBugMainConfig:
+    """
+    generate the param file used for command line behaviour.
+    :param config: the config, or uses a default
+    :return: None
+    """
+    config.unfreeze()
+    config.do_custom_psf_gui = True
+    config.custom_psf_size_pixels = 51
+    config.output_file = TEST_PATH_STR
+    config.fits_images = [TEST_IMAGE_FITS]
     config.custom_filter = "F444W"
     config.full_width_half_max = 2
     config.sharp_cutoff_high = 1
@@ -88,6 +109,28 @@ def test_custom_psf_gui(qtbot) -> None:
     clean()
     verify_test_data_exists()
     config: StarBugMainConfig = create_config_file()
+    exit_code: ExitStates
+
+    exit_code = starbug_internal_main(config)
+    qtbot.stopForInteraction()
+    assert exit_code == ExitStates.EXIT_SUCCESS
+
+    # verify files were made as expected.
+    custom_stars_file: str = os.path.join(
+        TEST_PATH_STR, "image_custom_fit_stars-ap.fits")
+    custom_c_psf_file: str = os.path.join(
+        TEST_PATH_STR, "image_custom-c-psf.fits")
+
+    assert os.path.exists(custom_stars_file)
+    assert os.path.exists(custom_c_psf_file)
+
+    clean()
+
+
+def test_custom_psf_gui_image(qtbot) -> None:
+    clean()
+    verify_test_data_exists()
+    config: StarBugMainConfig = create_image_config_file()
     exit_code: ExitStates
 
     exit_code = starbug_internal_main(config)

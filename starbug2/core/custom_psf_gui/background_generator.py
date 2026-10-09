@@ -20,9 +20,9 @@ from collections.abc import Callable
 
 from photutils.psf import ImagePSF
 
-from constants import TableColumn
-from custom_psf_gui.psf_worker import PSFWorker
-from star_bug_config import StarBugMainConfig
+from starbug2.constants import TableColumn
+from starbug2.core.custom_psf_gui.psf_worker import PSFWorker
+from starbug2.core.star_bug_config import StarBugMainConfig
 
 
 class BackgroundGenerator:

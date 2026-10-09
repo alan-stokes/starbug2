@@ -17,8 +17,8 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from astropy.table import Table
 from photutils.psf import EPSFBuildResult, ImagePSF
 
-from main_components.custom_psf import CustomPSF
-from star_bug_config import StarBugMainConfig
+from starbug2.core.main_components.custom_psf import CustomPSF
+from starbug2.core.star_bug_config import StarBugMainConfig
 
 
 class PSFWorker(QObject):
