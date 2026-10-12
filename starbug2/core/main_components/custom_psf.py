@@ -20,15 +20,15 @@ import os
 import numpy as np
 from astropy.io.fits import Header, ImageHDU
 from astropy.nddata import NDData
-from photutils.centroids import centroid_com
-from photutils.psf import (
-    EPSFBuilder, extract_stars, EPSFStars, EPSFBuildResult, ImagePSF)
 from astropy.stats import sigma_clipped_stats, SigmaClip
 from astropy.table import Table
 from scipy.ndimage import gaussian_filter
+from photutils.centroids import centroid_com
+from photutils.psf import (
+    EPSFBuilder, extract_stars, EPSFStars, EPSFBuildResult, ImagePSF)
 
-from custom_psf_gui.psf_star_selector import find_stars_to_select
-from routines.detection_routines import DetectionRoutine
+from starbug2.core.custom_psf_gui.psf_star_selector import find_stars_to_select
+from starbug2.routines.detection_routines import DetectionRoutine
 from starbug2.constants import TableColumn, FileExtensions, ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
