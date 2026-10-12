@@ -40,7 +40,7 @@ from starbug2.core.custom_psf_gui.clickable_circle_overlay import (
     ClickableCircleOverlay)
 from starbug2.core.custom_psf_gui.psf_star_selector import (
     find_stars_to_select)
-from starbug_main import StarbugBase
+from starbug2.core.starbug_main import StarbugBase
 
 # Search box radius in pixels
 RADIUS: float = 2.0
