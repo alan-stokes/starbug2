@@ -38,7 +38,7 @@ from starbug2.core.main_components.photometry import Photometry
 from starbug2.command_line_interfaces.main import starbug_internal_main
 from starbug2.constants import ExitStates, TableColumn
 from starbug2.core.star_bug_config import StarBugMainConfig
-from starbug_main import StarbugBase
+from starbug2.core.starbug_main import StarbugBase
 from tests.generic import (
     TEST_PATH_STR, TEST_IMAGE_FITS, clean, verify_test_data_exists,
     TEST_JWST_FITS, TEST_JWST_CUSTOM_FILTER)
