@@ -104,6 +104,7 @@ def create_config_file_command_line_pick(
     config.freeze()
     starbug_internal_main(config)
 
+
 @pytest.mark.skipif(
     os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") is None or
     os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") == "false",
@@ -129,6 +130,7 @@ def test_custom_psf_gui(qtbot) -> None:
     assert os.path.exists(custom_c_psf_file)
 
     clean()
+
 
 @pytest.mark.skipif(
     os.getenv("RUN_STAR_BUG_PRODUCTION_TESTS") is None or
