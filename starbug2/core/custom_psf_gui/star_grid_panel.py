@@ -22,8 +22,7 @@ from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtWidgets import (
     QDialog, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea,
     QVBoxLayout, QWidget, QListWidget, QCheckBox, QGroupBox, QMessageBox,
-    QSizePolicy,
-)
+    QSizePolicy)
 from astropy.io.fits import ImageHDU, Header
 from astropy.table import Table, Column
 from photutils.psf import ImagePSF
@@ -39,7 +38,7 @@ from starbug2.core.custom_psf_gui.psf_star_selector import find_stars_to_select
 from starbug2.core.custom_psf_gui.scale_elements import ScaleElements
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
-from utilities.utils import printf, export_table
+from starbug2.utilities.utils import printf, export_table
 
 # size of an image in pixels when taking multiple into account.
 DEFAULT_SQUARE_SIZE = 200
