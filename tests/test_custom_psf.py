@@ -47,8 +47,8 @@ from utilities.utils import export_table, printf
 
 
 def _compare_two_catalogues(
-    cat1: Table, cat2: Table,
-    tolerances: dict[TableColumn, Tuple[float, float]]) -> bool:
+        cat1: Table, cat2: Table,
+        tolerances: dict[TableColumn, Tuple[float, float]]) -> bool:
     """
     compares two catalogues with tolerances.
     :param cat1: the first catalogue.
