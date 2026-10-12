@@ -30,20 +30,19 @@ from photutils.detection import DAOStarFinder
 from photutils.psf import (
     extract_stars, EPSFBuilder, EPSFStars, EPSFBuildResult, ImagePSF)
 
-from constants import TableColumn
-from custom_psf_gui import common_gui_code
-from custom_psf_gui.psf_star_selector import find_stars_to_select
-from generic import TEST_JWST_FITS, TEST_JWST_CUSTOM_FILTER
-from main_components.custom_psf import CustomPSF
-from main_components.one_time_runs import starbug_one_time_runs
-from main_components.photometry import Photometry
+from starbug2.core.custom_psf_gui import common_gui_code
+from starbug2.core.custom_psf_gui.psf_star_selector import find_stars_to_select
+from starbug2.core.main_components.custom_psf import CustomPSF
+from starbug2.core.main_components.one_time_runs import starbug_one_time_runs
+from starbug2.core.main_components.photometry import Photometry
 from starbug2.command_line_interfaces.main import starbug_internal_main
-from starbug2.constants import ExitStates
+from starbug2.constants import ExitStates, TableColumn
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug_main import StarbugBase
 from tests.generic import (
-    TEST_PATH_STR, TEST_IMAGE_FITS, clean, verify_test_data_exists)
-from utilities.utils import export_table, printf
+    TEST_PATH_STR, TEST_IMAGE_FITS, clean, verify_test_data_exists,
+    TEST_JWST_FITS, TEST_JWST_CUSTOM_FILTER)
+from starbug2.utilities.utils import export_table, printf
 
 
 def _compare_two_catalogues(

@@ -18,12 +18,12 @@ import subprocess
 
 import pytest
 
-from generic import TEST_IMAGE_FITS
 from starbug2.command_line_interfaces.main import starbug_internal_main
 from starbug2.constants import ExitStates, DEFAULT_PARAM_FILE_NAME
 from starbug2.core.star_bug_config import StarBugMainConfig
 from tests.generic import (
-    TEST_PATH_STR, clean, verify_test_data_exists, TEST_JWST_FITS)
+    TEST_PATH_STR, clean, verify_test_data_exists, TEST_JWST_FITS,
+    TEST_IMAGE_FITS)
 
 
 def create_config_file(
