@@ -432,7 +432,7 @@ def test_custom_epsf_against_default_epsf() -> None:
         TableColumn.XY_DEV: (5e-3, 1e-3),
         TableColumn.Q_FIT: (2e-2, 1e-3),
         "ap_F444W": (1e-6, 1e-6),
-        "F444W": (5e-3,1e-3),
+        "F444W": (5e-3, 1e-3),
         "eF444W": (5e-4, 1e-3),
     }
 
