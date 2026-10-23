@@ -43,7 +43,7 @@ class Detect:
         Full source detection routine. Saves the result as a table.
 
         This method executes the core star detection algorithms using
-        configuration parameters provided by config, utilizing passed
+        configuration parameters provided by config, utilising passed
         callables to dynamically fetch the target image data, logging
         mechanisms, and FITS header metadata.
 

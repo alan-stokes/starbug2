@@ -13,6 +13,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
+import subprocess
 from typing import Dict
 
 from starbug2.constants import ExitStates
@@ -89,7 +90,7 @@ def update_param_file(f_name: str | None) -> ExitStates:
             get_version())
         fpo.write("%s\n" % output)
         fpo.close()
-        os.system("mv /tmp/starbug.param %s" % f_name)
+        subprocess.call(["mv", f"/tmp/starbug.param {f_name}"])
         return ExitStates.EXIT_SUCCESS
     else:
         p_error("local parameter file '%s' does not exist\n" % f_name)

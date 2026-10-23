@@ -52,7 +52,7 @@ def _epsf_centering_wrapper(data, mask=None):
 
 class CustomPSF:
     """
-    utilises photutils to build a e-PSF using the image
+    utilises photutils to build an e-PSF using the image
     """
 
     @staticmethod

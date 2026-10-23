@@ -83,10 +83,6 @@ def generate_a_jwst_psf(config: StarBugMainConfig) -> ExitStates:
             printf(
                 "Generating PSF: %s %s (%d)\n" %
                 (filter_string, detector, psf_size))
-        else:
-            printf(
-                "Generating PSF: %s %s\n" %
-                (filter_string, detector))
         psf: PrimaryHDU | None = generate_jwst_psf(
             filter_string, detector=detector, fov_pixels=psf_size)
         if psf:

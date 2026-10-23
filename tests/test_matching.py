@@ -14,6 +14,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 import os
+import subprocess
+
 import numpy as np
 from typing import Final
 
@@ -56,7 +58,7 @@ def init():
         f"starbug2 -d {IMAGE_AP_FITS} --background {TEST_IMAGE_FITS}"
         f" --output={TEST_PATH} -sPSF_FILE={TEST_PSF_FITS} "
         f"{TEST_FILTER_STRING}".split())
-    os.system(f"cp {TEST_IMAGE_FITS} {IMAGE_2_FITS}")
+    subprocess.run(["cp", f"{TEST_IMAGE_FITS}", f"{IMAGE_2_FITS}"])
     starbug_main(
         f"starbug2 -d {IMAGE_2_AP_FITS} --background {IMAGE_2_FITS}"
         f" --output={TEST_PATH} -sPSF_FILE={TEST_PSF_FITS} "

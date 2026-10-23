@@ -14,18 +14,9 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
 import sys
-import warnings
 
-import logging
-from astropy import log
-
-from astropy.io.fits.verify import VerifyWarning
 from astropy.io.fits.header import Header
 from astropy.table import Table
-from astropy.utils.exceptions import (
-    AstropyDeprecationWarning, AstropyWarning, AstropyUserWarning)
-import photutils
-from astropy.utils.metadata import MergeConflictWarning
 
 from starbug2.core.main_components.multi_treading_execution import (
     execute_multi_core_main, execute_one_core_run_main)
@@ -38,50 +29,10 @@ from starbug2.core.starbug_main import StarbugBase
 from starbug2.utilities.utils import (
     combine_file_names, export_table, parse_cmd, p_error, printf, puts,
     split_file_name)
+from starbug2.utilities.enviroment_config import configure_environment
 
-# Target-silence only the specific Photutils/Astropy deprecation noise
-# without masking generic Runtime math errors globally.
-# Target-silence only the specific Photutils/Astropy deprecation noise
-# without masking generic Runtime math errors globally.
-warnings.filterwarnings(
-    "ignore", category=AstropyDeprecationWarning)
-warnings.filterwarnings(
-    "ignore", message=".*contains deprecated section.*",
-    category=AstropyWarning)
-warnings.filterwarnings(
-    "ignore", category=AstropyWarning,
-    message=".*Input data contains invalid values*"
-)
-warnings.filterwarnings("ignore", message=".*invalid values.*")
-warnings.filterwarnings("ignore", message=".*sigma_clipping.*")
-warnings.filterwarnings("ignore", message=".*Cannot merge meta key*")
+configure_environment()
 
-# Handle RuntimeWarnings elegantly: Ignore expected ones (like NaN comparisons
-# during clipping), but let actual mathematical issues surface.
-warnings.filterwarnings(
-    "ignore", message=".*invalid value encountered.*", category=RuntimeWarning)
-warnings.filterwarnings(
-    "ignore", message=".*divide by zero.*", category=RuntimeWarning)
-# Ignore all metadata merge conflict warnings
-warnings.filterwarnings("ignore", category=MergeConflictWarning)
-
-# --- FITS IO FORMATTING NOISE ---
-# These suppress warnings about FITS header compliance
-# (e.g., truncated comments) that do not affect scientific output.
-warnings.filterwarnings(
-    "ignore",
-    category=VerifyWarning,
-    message=".*Card is too long.*"
-)
-warnings.filterwarnings(
-    "ignore",
-    category=AstropyUserWarning,
-    message=".*cannot be added to FITS Header.*",
-)
-log.setLevel(logging.ERROR)
-
-# Force photutils to strictly return standard QTables globally
-photutils.future_column_names = True
 
 # noinspection SpellCheckingInspection
 """StarbugII - JWST PSF photometry

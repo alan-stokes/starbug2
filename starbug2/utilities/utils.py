@@ -265,13 +265,14 @@ def translate_param_float(
     if opt in ("-s", "--set"):
         if "=" in opt_arg:
             key: str
-            val: float
+            val: str
             key, val = opt_arg.split("=")
+            val_float: float = -1
             try:
-                val = float(val)
+                val_float = float(val)
             except ValueError:
                 pass
-            set_opt[key] = val
+            set_opt[key] = val_float
         else:
             p_error("unable to set parameter, use syntax -s KEY=VALUE\n")
             options |= kill_option
@@ -497,9 +498,6 @@ def combine_file_names(
     f_name: str = ""
     d_name: str
     ext: str
-
-    if f_names is None:
-        return None
 
     d_name, _, ext = split_file_name(f_names[0])
     f_names_split: List[str] = [split_file_name(name)[1] for name in f_names]

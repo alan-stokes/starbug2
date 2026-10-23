@@ -443,7 +443,7 @@ class StarbugBase(StarBugInterface):
             if f"e{self._filter}" in source_list.colnames:
                 source_list.remove_column(f"e{self._filter}")
 
-            bgd: BackGroundEstimateRoutine = BackGroundEstimateRoutine(
+            back_ground: BackGroundEstimateRoutine = BackGroundEstimateRoutine(
                 source_list[mask],
                 box_size=self._config.background_box_size,
                 full_width_half_max=(
@@ -463,7 +463,7 @@ class StarbugBase(StarBugInterface):
             header.update(self._wcs.to_header())
 
             # Get image data
-            image_data = bgd(
+            image_data = back_ground.run(
                 self.main_image().data.copy(),
                 output=self._config.bgd_check_file)
             assert image_data is not None

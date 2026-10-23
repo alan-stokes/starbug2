@@ -229,7 +229,7 @@ class Photometry:
             clipped_median: float
             _, clipped_median, _ = (
                 sigma_clipped_stats(image_data, sigma=config.sigma_sky))
-            bgd = cast(np.ndarray, np.ones(main_image.shape) * clipped_median)
+            bgd = np.ones(main_image.shape) * clipped_median
             log(
                 "-> no background file loaded, measuring sigma "
                 "clipped median\n")
@@ -538,15 +538,17 @@ class Photometry:
         :rtype: Table
         """
         # Setting position max variation
-        max_y_dev: float
-        unit: int
+        max_y_dev: float | int | None
+        unit: int | None
         max_y_dev, unit = parse_unit(config.max_xy_deviation)
 
         if unit is None or max_y_dev <= 0:
             return psf_cat
 
+        assert max_y_dev is not None
         max_y_dev = Photometry.convert_unit_to_max_y_dev(
             max_y_dev, unit, header)
+        assert max_y_dev is not None
         psf_cat = Photometry.execute_revalidation_of_positions(
             psf_cat, image_data, error, mask, psf_model, size, min_separation,
             app_hot_r, bgd, filter_string, config, log, max_y_dev)
@@ -596,8 +598,8 @@ class Photometry:
         psf_cat.add_column(Column(ra, name=TableColumn.RA), index=2)
         psf_cat.add_column(Column(dec, name=TableColumn.DEC), index=3)
 
-        mag: float
-        mag_err: float
+        mag: np.ndarray
+        mag_err: np.ndarray
         mag, mag_err = flux_to_pogson_mag(
             psf_cat[TableColumn.FLUX], psf_cat[TableColumn.E_FLUX])
 
@@ -711,7 +713,8 @@ class Photometry:
             ap_file: str | None,
             background_file: str | None,
             out_dir: str | None,
-            b_name: str | None) -> Tuple[int, Table | None, np.ndarray | None]:
+            b_name: str | None) -> Tuple[
+                ExitStates, Table | None, np.ndarray | None]:
         """
         Executes the master PSF-fitting photometry processing pipeline.
 
@@ -757,7 +760,7 @@ class Photometry:
         :type b_name: str | None
         :return: Success state flag, the completed stellar source catalogue,
                  and the background-subtracted residual image array.
-        :rtype: Tuple[int, Table | None, np.ndarray | None]
+        :rtype: Tuple[ExitStates, Table | None, np.ndarray | None]
         """
         results: ExitStates
         (results, psf) = Photometry.input_checks(
