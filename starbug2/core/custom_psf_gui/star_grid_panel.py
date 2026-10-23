@@ -144,7 +144,7 @@ class StarGridPanel(QDialog):
         # this allows us to debug whilst in test mode as well as working
         # via command line.
         # noinspection PyArgumentList
-        qui_app: QApplication | QtCore.QCoreApplication
+        gui_app: QApplication | QtCore.QCoreApplication
         gui_app, app_icon = create_gui_instance_with_icon()
         custom_psf_gui = StarGridPanel(
             images, True, ScaleElements.DEFAULT_SCALE_LIST_SELECTED,
