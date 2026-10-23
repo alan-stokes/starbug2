@@ -15,12 +15,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 from typing import Tuple
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QCoreApplication
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel,
     QPushButton, QGroupBox, QFormLayout, QDoubleSpinBox, QCheckBox, QSpinBox,
-    QMessageBox, QScrollArea, QComboBox, QListWidget, QAbstractItemView,
-    QDialog)
+    QMessageBox, QScrollArea, QListWidget, QAbstractItemView,
+    QDialog, QApplication)
 from astropy.table import Table
 from photutils.psf import ImagePSF
 from pyqtgraph import ImageItem, GraphicsLayoutWidget, ViewBox
@@ -31,7 +31,7 @@ from starbug2.core.custom_psf_gui.background_generator import (
     BackgroundGenerator)
 from starbug2.core.custom_psf_gui.common_gui_code import (
     detect_stars, update_config, create_gui_instance_with_icon,
-    STAR_IMAGE_SIZE)
+    STAR_IMAGE_SIZE, setup_gui)
 from starbug2.core.custom_psf_gui.scale_elements import ScaleElements
 from starbug2.core.custom_psf_gui.star_grid_panel import StarGridPanel
 from starbug2.constants import ExitStates, TableColumn
@@ -77,26 +77,11 @@ class CustomPSFGui(QMainWindow):
         # this allows us to debug whilst in test mode as well as working
         # via command line.
         # noinspection PyArgumentList
+        gui_app: QApplication | QCoreApplication
         gui_app, app_icon = create_gui_instance_with_icon()
 
         custom_psf_gui = CustomPSFGui(starbug_base, config)
-        custom_psf_gui.setWindowTitle("starbug2 PSF generator")
-
-        if not app_icon.isNull():
-            custom_psf_gui.setWindowIcon(app_icon)
-
-        custom_psf_gui.show()
-
-        try:
-            return_code = gui_app.exec()
-            if return_code == 0:
-                return ExitStates.EXIT_SUCCESS
-            else:
-                print(f"GUI closed with non-zero exit code: {return_code}")
-                return ExitStates.EXIT_FAIL
-        except Exception as e:
-            print(f" failed to run custom PFS GUI due to: {e}")
-            return ExitStates.EXIT_FAIL
+        return setup_gui(custom_psf_gui, app_icon, gui_app)
 
     def __init__(self, starbug_base: StarbugBase, config: StarBugMainConfig):
         """
@@ -139,8 +124,8 @@ class CustomPSFGui(QMainWindow):
         self._clean_sources: QCheckBox
 
         # psf form elements
-        self._detected_list: QComboBox
-        self._selected_list: QComboBox
+        self._detected_list: QListWidget
+        self._selected_list: QListWidget
 
         # psf automatic params
         self._stars_to_select: QSpinBox
@@ -212,7 +197,7 @@ class CustomPSFGui(QMainWindow):
     def _setup_right_panel(self) -> None:
         # Right Image View Panel
         self._graphics_layout: GraphicsLayoutWidget = GraphicsLayoutWidget()
-        self._view_box: ViewBox = self._graphics_layout.addViewBox()
+        self._view_box: ViewBox = self._graphics_layout.ci.addViewBox()
         self._view_box.setAspectLocked(True)
 
         # Image items attached to ViewBox
@@ -737,7 +722,7 @@ class CustomPSFGui(QMainWindow):
         )
         config_copy.epsf_clipping_sigma = self._clipping_sigma.value()
         config_copy.epsf_execute_post_smoothing = (
-            self._post_smoothing.isChecked())
+            self._execute_post_smoothing.isChecked())
         config_copy.freeze()
 
     def on_redo_detection(self) -> None:
@@ -752,13 +737,15 @@ class CustomPSFGui(QMainWindow):
 
         # run and get new detections.
         self._info_label.setText("updating detected stars.")
-        _, detections, exit_state = CustomPSFGui.detect_stars(config_copy)
+        starbug_base, exit_state = detect_stars(config_copy)
 
         if exit_state != ExitStates.EXIT_SUCCESS:
             self._info_label.setText("failed to detect stars.")
         else:
             self._info_label.setText("located stars.")
 
+        assert starbug_base is not None
+        detections: Table | None = starbug_base.detections
         assert detections is not None
         self._detected_stars: Table = detections
         self._populate_star_circles()
@@ -882,7 +869,7 @@ class CustomPSFGui(QMainWindow):
             self._saturation_limit.value(),
             self._star_finder_sharp_min.value(),
             self._star_finder_sharp_max.value(), self._grid_bin_x.value(),
-            self._grid_bin_y.value(), self._edge_buffer.value())
+            self._grid_bin_y.value(), int(self._edge_buffer.value()))
 
         # handle states
         if error is not None and selected_stars_from_algorithm is None:

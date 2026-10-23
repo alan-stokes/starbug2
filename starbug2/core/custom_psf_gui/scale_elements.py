@@ -119,19 +119,14 @@ class ScaleElements:
         :param list_widget: the wigit to resize.
         :return: None
         """
-        # Force layout recalculation to ensure valid row heights
-        list_widget.doItemsLayout()
-
-        # Sum total height of all items
         total_height = 0
         for i in range(list_widget.count()):
-            total_height += list_widget.sizeHintForRow(i)
+            item = list_widget.item(i)
+            total_height += list_widget.visualItemRect(item).height()
 
-        # Add frame margin padding (top/bottom borders)
-        total_height += list_widget.frameWidth() * 2
-
-        # Set maximum height so it shrinks to content
-        list_widget.setMaximumHeight(total_height)
+        # Add frame/border padding
+        frame_width = list_widget.frameWidth() * 2
+        list_widget.setFixedHeight(total_height + frame_width)
 
     def create_scaling_group(
             self, parent: QMainWindow | QDialog, default_selection_list: int,

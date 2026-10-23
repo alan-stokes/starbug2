@@ -22,7 +22,7 @@ from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtWidgets import (
     QDialog, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea,
     QVBoxLayout, QWidget, QListWidget, QCheckBox, QGroupBox, QMessageBox,
-    QSizePolicy)
+    QSizePolicy, QApplication)
 from astropy.io.fits import ImageHDU, Header
 from astropy.table import Table, Column
 from photutils.psf import ImagePSF
@@ -33,7 +33,7 @@ from starbug2.core.custom_psf_gui.background_generator import (
     BackgroundGenerator)
 from starbug2.core.custom_psf_gui.common_gui_code import (
     detect_stars, create_gui_instance_with_icon,
-    run_starbug_for_image_and_ap_file, STAR_IMAGE_SIZE)
+    run_starbug_for_image_and_ap_file, STAR_IMAGE_SIZE, setup_gui)
 from starbug2.core.custom_psf_gui.psf_star_selector import find_stars_to_select
 from starbug2.core.custom_psf_gui.scale_elements import ScaleElements
 from starbug2.core.star_bug_config import StarBugMainConfig
@@ -128,7 +128,7 @@ class StarGridPanel(QDialog):
         x: float
         y: float
         image_data: np.ndarray = starbug_base.main_image().data
-        for x, y, cat_id in zip(x_coords, y_coords, cat_id):
+        for x, y, inner_cat_id in zip(x_coords, y_coords, cat_id):
             x_center: int = int(round(x))
             y_center: int = int(round(y))
             img_height, img_width = image_data.shape
@@ -139,33 +139,18 @@ class StarGridPanel(QDialog):
             y_max: int = min(img_height, y_center + STAR_IMAGE_SIZE)
 
             star_data: np.ndarray = image_data[y_min:y_max, x_min:x_max]
-            images.append((cat_id, star_data))
+            images.append((inner_cat_id, star_data))
 
         # this allows us to debug whilst in test mode as well as working
         # via command line.
         # noinspection PyArgumentList
+        qui_app: QApplication | QtCore.QCoreApplication
         gui_app, app_icon = create_gui_instance_with_icon()
         custom_psf_gui = StarGridPanel(
             images, True, ScaleElements.DEFAULT_SCALE_LIST_SELECTED,
             ScaleElements.DEFAULT_SCALE_LIST_MUT_SELECTED, image_data,
             config, detections, starbug_base)
-        custom_psf_gui.setWindowTitle("starbug2 PSF generator")
-
-        if not app_icon.isNull():
-            custom_psf_gui.setWindowIcon(app_icon)
-
-        custom_psf_gui.show()
-
-        try:
-            return_code = gui_app.exec()
-            if return_code == 0:
-                return ExitStates.EXIT_SUCCESS
-            else:
-                print(f"GUI closed with non-zero exit code: {return_code}")
-                return ExitStates.EXIT_FAIL
-        except Exception as e:
-            print(f" failed to run custom PFS GUI due to: {e}")
-            return ExitStates.EXIT_FAIL
+        return setup_gui(custom_psf_gui, app_icon, gui_app)
 
     @staticmethod
     def window_clicked(event, window: QWidget, select_cb: QCheckBox) -> None:
@@ -285,13 +270,13 @@ class StarGridPanel(QDialog):
 
         self.recalculate_grid_layout()
 
-    def resizeEvent(self, event, *args, **kwargs) -> None:
+    def resizeEvent(self, a0) -> None:
         """Triggered automatically when user pulls window resizer."""
-        super().resizeEvent(event)
+        super().resizeEvent(a0)
         self.recalculate_grid_layout()
 
-    def showEvent(self, event, *args, **kwargs) -> None:
-        super().showEvent(event)
+    def showEvent(self, a0) -> None:
+        super().showEvent(a0)
         # Recalculate once the window is rendered and viewport
         # dimensions are non-zero
         self.recalculate_grid_layout()
@@ -301,7 +286,9 @@ class StarGridPanel(QDialog):
 
         # acquire available sizes.
         assert self._image_grid_area is not None
-        viewport_rect = self._image_grid_area.viewport().contentsRect()
+        view_port: QWidget | None = self._image_grid_area.viewport()
+        assert view_port is not None
+        viewport_rect = view_port.contentsRect()
         available_width: int = max(
             self._min_star_size, viewport_rect.width() - VIEWER_PADDING)
         available_height: int = max(
@@ -348,7 +335,7 @@ class StarGridPanel(QDialog):
             self._grid_layout.addWidget(widget, row, col)
 
             # Re-anchor checkbox to the top-right corner of the cell widget
-            cb = widget.findChild(QCheckBox)
+            cb: QWidget = widget.findChild(QCheckBox)
             if cb:
                 cb_size = cb.sizeHint()
                 cb.move(side_length - cb_size.width(), CHECKBOX_DISTANCE)
@@ -423,7 +410,7 @@ class StarGridPanel(QDialog):
         )
 
         # Access and configure ViewBox directly
-        view: ViewBox = window.addViewBox()
+        view: ViewBox = window.ci.addViewBox()
         view.setAspectLocked(True)
         view.setMouseEnabled(x=False, y=False)
         view.setMenuEnabled(False)
@@ -659,7 +646,7 @@ class StarGridPanel(QDialog):
         # give feedback to the user.
         msg_box = QMessageBox(self)
         msg_box.setIcon(QMessageBox.Icon.Information)
-        msg_box.setWindowTitle("Save Successul")
+        msg_box.setWindowTitle("Save Successful")
         msg_box.setText(
             f"The saving of the detected stars was placed "
             f"in: \n {file_name}. \n\n"

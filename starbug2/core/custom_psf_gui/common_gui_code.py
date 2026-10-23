@@ -18,8 +18,9 @@ import sys
 from pathlib import Path
 from typing import Tuple
 
+from PyQt6.QtCore import QCoreApplication
 from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QWidget
 
 from starbug2.constants import ExitStates, STAR_BUG_TEST_DAT_ENV
 from starbug2.core.star_bug_config import StarBugMainConfig
@@ -132,11 +133,34 @@ def register_desktop_entry(
         print(f"Warning: Could not write desktop entry: {e}")
 
 
-def create_gui_instance_with_icon() -> Tuple[QApplication, QIcon]:
+def setup_gui(
+        custom_psf_gui: QWidget, app_icon: QIcon,
+        gui_app: QApplication | QCoreApplication) -> ExitStates:
+    custom_psf_gui.setWindowTitle("starbug2 PSF generator")
+
+    if not app_icon.isNull():
+        custom_psf_gui.setWindowIcon(app_icon)
+
+    custom_psf_gui.show()
+
+    try:
+        return_code = gui_app.exec()
+        if return_code == 0:
+            return ExitStates.EXIT_SUCCESS
+        else:
+            print(f"GUI closed with non-zero exit code: {return_code}")
+            return ExitStates.EXIT_FAIL
+    except Exception as e:
+        print(f" failed to run custom PFS GUI due to: {e}")
+        return ExitStates.EXIT_FAIL
+
+
+def create_gui_instance_with_icon() -> Tuple[
+        QApplication | QCoreApplication, QIcon]:
     """
     creates the application and icon and hands back for ui choice.
     :return: the application and the icon.
-    :rtype: Tuple[QApplication, QIcon]
+    :rtype: Tuple[QApplication | QCoreApplication, QIcon]
     """
     test_path: str | None = os.environ.get(STAR_BUG_TEST_DAT_ENV)
     assert test_path is not None
@@ -147,27 +171,31 @@ def create_gui_instance_with_icon() -> Tuple[QApplication, QIcon]:
     icon_path: str = os.path.join(image_path, "starbug.png")
 
     # this allows debugging to work as well.
-    gui_app = QApplication.instance() or QApplication(sys.argv)
+    gui_app: QApplication | QCoreApplication = (
+        QApplication.instance() or QApplication(sys.argv))
     app_id = "starbug2-psf-generator"
 
     if os.path.exists(icon_path):
         register_desktop_entry(icon_path, app_id)
 
     gui_app.setApplicationName("starbug2 PSF generator")
-    gui_app.setApplicationDisplayName("starbug2 PSF generator")
-    gui_app.setDesktopFileName(app_id)
 
-    # try getting the icon to appear.
-    app_icon: QIcon = QIcon()
-    if os.path.exists(icon_path):
-        app_icon = QIcon(icon_path)
-        if not app_icon.isNull():
-            gui_app.setWindowIcon(app_icon)
+    if isinstance(gui_app, QApplication):
+        gui_app.setApplicationDisplayName("starbug2 PSF generator")
+        gui_app.setDesktopFileName(app_id)
+
+        # try getting the icon to appear.
+        app_icon: QIcon = QIcon()
+        if os.path.exists(icon_path):
+            app_icon = QIcon(icon_path)
+            if not app_icon.isNull():
+                gui_app.setWindowIcon(app_icon)
+            else:
+                print(
+                    f"Warning: Icon file found at {icon_path} but image "
+                    f"payload is invalid."
+                )
         else:
-            print(
-                f"Warning: Icon file found at {icon_path} but image "
-                f"payload is invalid."
-            )
-    else:
-        print(f"Warning: Icon file not found at {icon_path}")
-    return gui_app, app_icon
+            print(f"Warning: Icon file not found at {icon_path}")
+        return gui_app, app_icon
+    return gui_app, QIcon()
