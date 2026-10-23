@@ -20,6 +20,7 @@ from astropy.utils.exceptions import (
 from astropy.io.fits.verify import VerifyWarning
 from astropy.utils.metadata import MergeConflictWarning
 
+
 def configure_environment():
     """Configure global package flags, warning filters, and logging levels."""
     # Forces photutils to not give QTable wrappers.
