@@ -208,7 +208,7 @@ def get_completeness(test_result: Table) -> Table:
         # process data
         binned: Table = test_result[indices]
         if len(binned) > 0:
-            percents[i] = float(
+            percents[i - 1] = float(
                 sum(binned[TableColumn.FOUND])) / len(binned)
 
         mag_inj: np.ndarray
@@ -220,8 +220,8 @@ def get_completeness(test_result: Table) -> Table:
         mag_det, _ = flux_to_pogson_mag(binned[TableColumn.FLUX_DET])
 
         mag_difference: np.ndarray = mag_inj - mag_det
-        errors[i] = np.nanstd(mag_difference)
-        offsets[i] = np.nanmedian(
+        errors[i - 1] = np.nanstd(mag_difference)
+        offsets[i - 1] = np.nanmedian(
             binned[TableColumn.FLUX] / binned[TableColumn.FLUX_DET])
 
     out: Table = Table(
