@@ -27,7 +27,7 @@
         matrix:
           # Run across multiple modern versions to ensure starbug2 handles
           # updates smoothly
-          python-version: ["3.12", "3.13", "3.14"]
+          python-version: ["3.12", "3.13", "3.14.4"]
 
       steps:
         # Upgraded to v4 for speed and security
