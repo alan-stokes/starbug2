@@ -221,7 +221,16 @@ def execute_ast(
 
     # force finish
     loading_buffer[0] = loading_buffer[1]
-    loading.join()
+
+    # give the close process a grace period to shut down nicely before we
+    # murder it.
+    loading.join(timeout=2.0)
+
+    # If it still hasn't exited due to the 3.14 block, force-terminate it
+    # safely
+    if loading.is_alive():
+        loading.terminate()
+        loading.join()
 
     return outs, exit_state
 

@@ -62,13 +62,15 @@ def test_load_params():
         assert getattr(config, value) == getattr(second_config, value)
     assert second_config.param_tag == STAR_BUG_PARAMS
     assert config.param_tag == STAR_BUG_PARAMS
-    os.remove(os.path.join(TEST_PATH, "starbug.param"))
+
+    os.remove(os.path.join(TEST_PATH_STR, "starbug.param"))
 
 
 def test_update_params():
     os.system(f"starbug2 --local-param --output={TEST_PATH}")
     os.system(
-        f"sed -i s/PARAM/PARAM1/g {os.path.join(TEST_PATH, 'starbug.param')}")
+        f"sed -i s/PARAM/PARAM1/g {
+            os.path.join(TEST_PATH_STR, 'starbug.param')}")
 
     with pytest.raises(
         TypeError,
