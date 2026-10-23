@@ -265,13 +265,14 @@ def translate_param_float(
     if opt in ("-s", "--set"):
         if "=" in opt_arg:
             key: str
-            val: float
+            val: str
             key, val = opt_arg.split("=")
+            val_float: float = -1
             try:
-                val = float(val)
+                val_float = float(val)
             except ValueError:
                 pass
-            set_opt[key] = val
+            set_opt[key] = val_float
         else:
             p_error("unable to set parameter, use syntax -s KEY=VALUE\n")
             options |= kill_option
@@ -411,14 +412,6 @@ def import_table(f_name: str, verbose: bool | int = 0) -> Table | None:
     :return: Loading table
     :rtype: atrophy.Table | None
     """
-    printf(f"trying to load file {f_name}\n")
-    printf(f" file exists in correct location {os.path.exists(f_name)}\n")
-    new_f_name = os.path.join(
-        str(os.environ.get("STARBUG_DATDIR")), os.path.basename(f_name))
-    printf(f"new location path is {new_f_name}\n")
-    printf(f"the file exists in datadir instead {
-        os.path.exists(new_f_name)}\n")
-
     tab: Table | None = None
     if os.path.exists(f_name):
         if os.path.splitext(f_name)[1] == FileExtensions.FITS:
@@ -505,9 +498,6 @@ def combine_file_names(
     f_name: str = ""
     d_name: str
     ext: str
-
-    if f_names is None:
-        return None
 
     d_name, _, ext = split_file_name(f_names[0])
     f_names_split: List[str] = [split_file_name(name)[1] for name in f_names]

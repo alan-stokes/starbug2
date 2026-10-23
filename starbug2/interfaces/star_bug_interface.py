@@ -134,7 +134,7 @@ class StarBugInterface(ABC):
         pass
 
     @abstractmethod
-    def source_geometry(self) -> None:
+    def source_geometry(self) -> ExitStates:
         """
         Calculate source geometry stats for a given image and source list
 
