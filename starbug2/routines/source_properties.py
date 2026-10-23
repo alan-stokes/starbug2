@@ -17,6 +17,7 @@ from typing import Optional
 import numpy as np
 from astropy.table import Table, QTable, hstack
 from photutils.detection import DAOStarFinder
+from photutils.detection.daofinder import _DAOStarFinderCatalog
 
 from starbug2.constants import TableColumn
 from starbug2.utilities.utils import Loading, printf, p_error
@@ -98,20 +99,18 @@ class SourceProperties:
             p_error("no source list\n")
             return None
 
-        crowd: np.ndarray = np.zeros(len(self._source_list))
+        n_sources = len(self._source_list)
+        crowd: np.ndarray = np.zeros(n_sources)
         load: Loading = Loading(
-            len(self._source_list), msg="calculating crowding", res=10)
+            n_sources, msg="calculating crowding", res=10)
 
-        for i, src in enumerate([self._source_list]):
-            i: int
-            src: Table
-            dist: np.ndarray = np.sqrt(
-                (src[TableColumn.X_CENTROID] -
-                 self._source_list[TableColumn.X_CENTROID]) ** 2
-                + (src[TableColumn.Y_CENTROID] -
-                   self._source_list[TableColumn.Y_CENTROID]) ** 2)
+        x = self._source_list[TableColumn.X_CENTROID]
+        y = self._source_list[TableColumn.Y_CENTROID]
+
+        for i in range(n_sources):
+            dist: np.ndarray = np.sqrt((x - x[i]) ** 2 + (y - y[i]) ** 2)
             dist.sort()
-            crowd[i] = sum(dist[1: n_closest_sources])
+            crowd[i] = sum(dist[1:min(n_closest_sources + 1, n_sources)])
             load()
             if self._verbose:
                 load.show()
@@ -142,4 +141,7 @@ class SourceProperties:
             peak_max=np.inf)
 
         # ABS protected access. yuck
-        return dao_find._get_raw_catalog(self._image).to_table()
+        catalogue: _DAOStarFinderCatalog | None = (
+            dao_find._get_raw_catalog(self._image))
+        assert catalogue is not None
+        return catalogue.to_table()

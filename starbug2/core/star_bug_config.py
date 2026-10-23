@@ -651,9 +651,15 @@ class StarBugMainConfig:
         self.fits_images = args
 
         # check for param file being set
+
         if self._param_file is None:
-            if os.path.exists(f"./{DEFAULT_PARAM_FILE_NAME}"):
-                self._param_file = DEFAULT_PARAM_FILE_NAME
+            path = f"./{DEFAULT_PARAM_FILE_NAME}"
+            param_file = DEFAULT_PARAM_FILE_NAME
+            if self._output_file is not None:
+                path = os.path.join(self._output_file, DEFAULT_PARAM_FILE_NAME)
+                param_file = path
+            if os.path.exists(path):
+                self._param_file = param_file
 
         if self._param_file is not None:
             config = self.load_params(self._param_file)
@@ -794,8 +800,6 @@ class StarBugMainConfig:
         - Lists/Arrays of floats -> converted to an object array of arcsec
                                     Quantities
         """
-        if threshold is None:
-            return None
 
         # Handle standard Lists or NumPy arrays
         if isinstance(threshold, (list, np.ndarray)):
