@@ -15,6 +15,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 import os
 from typing import Final
+import subprocess
 
 import pytest
 from starbug2.constants import STAR_BUG_PARAMS, PROBLEMATIC_FILTER_WARNING
@@ -27,7 +28,7 @@ TEST_PARAM_PATH: Final[str] = os.path.join(
 
 def test_parse_param():
     verify_test_data_exists()
-    assert type(StarBugMainConfig.parse_param("A=1//.")) == dict
+    assert isinstance(StarBugMainConfig.parse_param("A=1//."), dict)
 
     assert StarBugMainConfig.parse_param("A = 1 //.") == {'A': 1}
     assert StarBugMainConfig.parse_param("A = B //.") == {'A': 'B'}
@@ -54,7 +55,8 @@ def test_load_default_params():
 def test_load_params():
     config: StarBugMainConfig = StarBugMainConfig.load_params("does_not_exist")
 
-    os.system(f"starbug2 --local-param --output={TEST_PATH}")
+    subprocess.run(
+        ["starbug2", "--local-param", f"--output={TEST_PATH}"], check=True)
     second_config: StarBugMainConfig = (
         StarBugMainConfig.load_params("starbug.param"))
 
@@ -67,27 +69,31 @@ def test_load_params():
 
 
 def test_update_params():
-    os.system(f"starbug2 --local-param --output={TEST_PATH}")
-    os.system(
-        f"sed -i s/PARAM/PARAM1/g {
-            os.path.join(TEST_PATH_STR, 'starbug.param')}")
+    subprocess.run(
+        ["starbug2", " --local-param", f"--output={TEST_PATH}"], check=True)
+    subprocess.run([f"sed -i s/PARAM/PARAM1/g {
+        os.path.join(TEST_PATH_STR, 'starbug.param')}"])
 
     with pytest.raises(
         TypeError,
         match="Param PARAM1 no longer works within Starbug2. Please "
               "execute starbug2 --update-param"):
-        StarBugMainConfig.load_params(os.path.join(TEST_PATH, 'starbug.param'))
-    os.remove(os.path.join(TEST_PATH, 'starbug.param'))
+        StarBugMainConfig.load_params(
+            os.path.join(TEST_PATH_STR, 'starbug.param'))
+    os.remove(os.path.join(TEST_PATH_STR, 'starbug.param'))
 
 
 def test_update_params_no_changes():
-    os.system(f"starbug2 --local-param --output={TEST_PATH}")
-    os.system(f"starbug2 --update-param --output={TEST_PATH}")
-    os.remove(os.path.join(TEST_PATH, 'starbug.param'))
+    subprocess.run(
+        ["starbug2", "--local-param", f"--output={TEST_PATH}"], check=True)
+    subprocess.run(
+        ["starbug2", "--update-param", f"--output={TEST_PATH}"], check=True)
+    os.remove(os.path.join(TEST_PATH_STR, 'starbug.param'))
 
 
 def test_update_params_old_to_new():
-    os.system(f"starbug2 -p {TEST_PARAM_PATH} --update-param")
+    subprocess.run(
+        ["starbug2", f"-p {TEST_PARAM_PATH}", "--update-param"])
 
 
 def test_f150w2_filter(capsys):
