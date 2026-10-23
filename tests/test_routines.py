@@ -60,7 +60,7 @@ class TestDetection:
 class TestBackground:
     def test_background_estimate_routine_none(self):
         bg = BackGroundEstimateRoutine(None)
-        assert bg(None) is None
+        assert bg.run(None) is None
 
 
 def test_source_properties_none():
