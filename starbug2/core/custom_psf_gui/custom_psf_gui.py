@@ -34,7 +34,9 @@ from starbug2.core.custom_psf_gui.common_gui_code import (
     STAR_IMAGE_SIZE, setup_gui)
 from starbug2.core.custom_psf_gui.scale_elements import ScaleElements
 from starbug2.core.custom_psf_gui.star_grid_panel import StarGridPanel
-from starbug2.constants import ExitStates, TableColumn
+from starbug2.constants import (
+    ExitStates, TableColumn, DEFAULT_GUI_NAN_COLOUR,
+    DEFAULT_TRANSPARENT_FOR_NON_NANS)
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.custom_psf_gui.clickable_circle_overlay import (
     ClickableCircleOverlay)
@@ -601,9 +603,9 @@ class CustomPSFGui(QMainWindow):
         # Red NaN Overlay LUT
         nan_lut = np.array([
             # Valid pixels -> transparent
-            [0, 0, 0, 0],
+            DEFAULT_TRANSPARENT_FOR_NON_NANS,
             # Nans -> solid red
-            [255, 0, 0, 255]
+            DEFAULT_GUI_NAN_COLOUR
         ], dtype=np.uint8)
 
         self._nan_overlay_item.setImage(

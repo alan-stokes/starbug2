@@ -41,6 +41,10 @@ DEFAULT_MIN_MAG: Final[int] = 28
 DEFAULT_MAX_MAG: Final[int] = 18
 DEFAULT_BUNIT = "MJy/sr"
 
+# soft pink for nans in custom psf generaot
+DEFAULT_GUI_NAN_COLOUR = [255, 192, 203, 255]
+DEFAULT_TRANSPARENT_FOR_NON_NANS = [0, 0, 0, 0]
+
 # how many characters we will allow by default.
 N_MIS_MATCHES: Final[int] = 10
 
