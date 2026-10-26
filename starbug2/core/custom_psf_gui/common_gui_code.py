@@ -15,14 +15,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import copy
 import os
 import sys
-from pathlib import Path
+from importlib import resources
+from pathlib import Path, PurePath
 from typing import Tuple
 
 from PyQt6.QtCore import QCoreApplication
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QApplication, QWidget
 
-from starbug2.constants import ExitStates, STAR_BUG_TEST_DAT_ENV
+from starbug2.constants import ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
 
@@ -154,6 +155,32 @@ def setup_gui(
         print(f" failed to run custom PFS GUI due to: {e}")
         return ExitStates.EXIT_FAIL
 
+def _get_icon_path() -> str | None:
+    """Find starbug.png via package assets first, falling back to
+       repository docs."""
+
+    # Try bundled package asset (for installed/pip builds)
+    try:
+        icon_resource = resources.files(
+            "starbug2.assets").joinpath("starbug.png")
+        if icon_resource.is_file():
+            # as_file handles zipimport/wheels cleanly
+            with resources.as_file(icon_resource) as p:
+                return str(p)
+    except (ModuleNotFoundError, TypeError, FileNotFoundError):
+        pass
+
+    # Fallback to repo root docs directory (for local dev before pip reinstall)
+    current: Path = Path(__file__).resolve()
+    parent: PurePath
+    for parent in [current] + list(current.parents):
+        image_path: Path = Path(parent.joinpath(
+            "docs", "source", "_static", "images", "starbug.png"))
+        if image_path.exists():
+            return str(image_path)
+
+    return None
+
 
 def create_gui_instance_with_icon() -> Tuple[
         QApplication | QCoreApplication, QIcon]:
@@ -162,19 +189,18 @@ def create_gui_instance_with_icon() -> Tuple[
     :return: the application and the icon.
     :rtype: Tuple[QApplication | QCoreApplication, QIcon]
     """
-    test_path: str | None = os.environ.get(STAR_BUG_TEST_DAT_ENV)
-    assert test_path is not None
-    test_path: str = os.path.dirname(os.path.dirname(
-        os.path.dirname(test_path)))
-    image_path: str = os.path.join(
-        test_path, "docs", "source", "_static", "images")
-    icon_path: str = os.path.join(image_path, "starbug.png")
 
     # this allows debugging to work as well.
     gui_app: QApplication | QCoreApplication = (
         QApplication.instance() or QApplication(sys.argv))
     app_id = "starbug2-psf-generator"
 
+    # get the icon path
+    icon_path = _get_icon_path()
+    # ensure we get an icon
+    assert icon_path is not None
+
+    # set everything else up.
     if os.path.exists(icon_path):
         register_desktop_entry(icon_path, app_id)
 

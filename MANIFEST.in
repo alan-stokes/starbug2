@@ -1,3 +1,4 @@
 include README.md
 include LICENSE.txt
 graft starbug2/extras
+recursive-include starbug2/assets *.png

@@ -30,3 +30,6 @@ dependencies = {file = ["requirements.txt"]}
 where = ["."]
 include = ["starbug2*"]
 exclude = ["star_bug_env*", "tests*", "docs*"]
+
+[tool.setuptools.package-data]
+starbug2 = ["assets/*.png", "*.png"]
