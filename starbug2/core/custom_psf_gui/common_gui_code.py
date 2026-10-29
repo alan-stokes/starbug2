@@ -1,0 +1,227 @@
+"""Copyright (C) 2026 UKATC
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+import copy
+import os
+import sys
+from importlib import resources
+from pathlib import Path, PurePath
+from typing import Tuple
+
+from PyQt6.QtCore import QCoreApplication
+from PyQt6.QtGui import QIcon
+from PyQt6.QtWidgets import QApplication, QWidget
+
+from starbug2.constants import ExitStates
+from starbug2.core.star_bug_config import StarBugMainConfig
+from starbug2.core.starbug_main import StarbugBase
+
+# size of grid for ech star from centre
+STAR_IMAGE_SIZE: int = 25
+
+
+def detect_stars(
+        config: StarBugMainConfig) -> Tuple[StarbugBase, ExitStates]:
+    """
+    runs basic starbug to generate the image and detections.
+    :param config: the main config which will contain detection params.
+    :type config: StarBugMainConfig
+    :return: a tuple containing the main image, and the detections, and
+             exit state. If not successful, main image and detections will
+             be None.
+    :rtype: Tuple[np.ndarray | None, Table | None, ExitStates]
+    """
+    config_copy = update_config(config)
+    return run_starbug_for_detection(config_copy)
+
+
+def run_starbug_for_detection(config: StarBugMainConfig) -> (
+        Tuple[StarbugBase, ExitStates]):
+    """
+    runs basic starbug to generate the image and detections.
+    :param config: the config
+    :type config: StarBugMainConfig
+    :return: a tuple containing the main image, and the detections, and
+             exit state. If not successful, main image and detections will
+             be None.
+    :rtype: Tuple[StarbugBase, ExitStates]
+    """
+    # create new base and execute
+    starbug_base: StarbugBase = StarbugBase(
+        config.fits_images[0], config, ap_file=None,
+        bkg_file=None)
+    result: ExitStates = starbug_base.run_starbug(config)
+    return starbug_base, result
+
+
+def run_starbug_for_image_and_ap_file(config: StarBugMainConfig) -> (
+        Tuple[StarbugBase, ExitStates]):
+    """
+    reads in the ap file and image.
+    :param config: the main config file
+    :type config: StarBugMainConfig
+    :return: a tuple containing the main image, and the detections, and
+             exit state. If not successful, main image and detections will
+             be None.
+    :rtype: Tuple[StarbugBase, ExitStates]
+    """
+    starbug_base: StarbugBase = StarbugBase(
+        config.fits_images[0], config, ap_file=config.ap_file,
+        bkg_file=config.background_file)
+    return starbug_base, ExitStates.EXIT_SUCCESS
+
+
+def update_config(config: StarBugMainConfig) -> StarBugMainConfig:
+    """
+    updates a config to just do star detection and aperture photometry.
+    :param config: the main config.
+    :type config: StarBugMainConfig
+    :return: a modified config.
+    :rtype: StarBugMainConfig
+    """
+    config_copy: StarBugMainConfig = copy.deepcopy(config)
+    config_copy.unfreeze()
+    config_copy.do_star_detection = True
+    config_copy.do_aperture_photometry = True
+    config_copy.do_photometry_routine = False
+    config_copy.do_bgd_estimate = False
+    config_copy.clean_sources = False
+
+    # turn off any other functionality.
+    config_copy.execute_jwst_initialisation = False
+    config_copy.update_param = False
+    config_copy.generate_local_param_file = False
+    config_copy.generate_region = False
+    config_copy.do_artificial_star_test = False
+    config_copy.generate_psf = False
+    config_copy.do_custom_psf_gui = False
+    config_copy.freeze()
+    return config_copy
+
+
+def register_desktop_entry(
+        icon_path: str, app_id: str = "starbug2") -> None:
+    """Creates a temporary .desktop entry so Linux window managers map
+    the taskbar icon correctly."""
+    desktop_dir = Path.home() / ".local" / "share" / "applications"
+    desktop_dir.mkdir(parents=True, exist_ok=True)
+
+    desktop_file = desktop_dir / f"{app_id}.desktop"
+
+    # Simple launcher definition linking the App ID to the image path
+    content = f"""[Desktop Entry]
+    Type=Application
+    Name=starbug2 PSF generator
+    Exec=python3
+    Icon={os.path.abspath(icon_path)}
+    Terminal=false
+    StartupWMClass={app_id}
+    """
+    try:
+        desktop_file.write_text(content)
+    except Exception as e:
+        print(f"Warning: Could not write desktop entry: {e}")
+
+
+def setup_gui(
+        custom_psf_gui: QWidget, app_icon: QIcon,
+        gui_app: QApplication | QCoreApplication) -> ExitStates:
+    custom_psf_gui.setWindowTitle("starbug2 PSF generator")
+
+    if not app_icon.isNull():
+        custom_psf_gui.setWindowIcon(app_icon)
+
+    custom_psf_gui.show()
+
+    try:
+        return_code = gui_app.exec()
+        if return_code == 0:
+            return ExitStates.EXIT_SUCCESS
+        else:
+            print(f"GUI closed with non-zero exit code: {return_code}")
+            return ExitStates.EXIT_FAIL
+    except Exception as e:
+        print(f" failed to run custom PFS GUI due to: {e}")
+        return ExitStates.EXIT_FAIL
+
+def _get_icon_path() -> str | None:
+    """Find starbug.png via package assets first, falling back to
+       repository docs."""
+
+    # Try bundled package asset (for installed/pip builds)
+    try:
+        icon_resource = resources.files(
+            "starbug2.assets").joinpath("starbug.png")
+        if icon_resource.is_file():
+            # as_file handles zipimport/wheels cleanly
+            with resources.as_file(icon_resource) as p:
+                return str(p)
+    except (ModuleNotFoundError, TypeError, FileNotFoundError):
+        pass
+
+    # Fallback to repo root docs directory (for local dev before pip reinstall)
+    current: Path = Path(__file__).resolve()
+    parent: PurePath
+    for parent in [current] + list(current.parents):
+        image_path: Path = Path(parent.joinpath(
+            "docs", "source", "_static", "images", "starbug.png"))
+        if image_path.exists():
+            return str(image_path)
+
+    return None
+
+
+def create_gui_instance_with_icon() -> Tuple[
+        QApplication | QCoreApplication, QIcon]:
+    """
+    creates the application and icon and hands back for ui choice.
+    :return: the application and the icon.
+    :rtype: Tuple[QApplication | QCoreApplication, QIcon]
+    """
+
+    # this allows debugging to work as well.
+    gui_app: QApplication | QCoreApplication = (
+        QApplication.instance() or QApplication(sys.argv))
+    app_id = "starbug2-psf-generator"
+
+    # get the icon path
+    icon_path = _get_icon_path()
+    # ensure we get an icon
+    assert icon_path is not None
+
+    # set everything else up.
+    if os.path.exists(icon_path):
+        register_desktop_entry(icon_path, app_id)
+
+    gui_app.setApplicationName("starbug2 PSF generator")
+
+    if isinstance(gui_app, QApplication):
+        gui_app.setApplicationDisplayName("starbug2 PSF generator")
+        gui_app.setDesktopFileName(app_id)
+
+        # try getting the icon to appear.
+        app_icon: QIcon = QIcon()
+        if os.path.exists(icon_path):
+            app_icon = QIcon(icon_path)
+            if not app_icon.isNull():
+                gui_app.setWindowIcon(app_icon)
+            else:
+                print(
+                    f"Warning: Icon file found at {icon_path} but image "
+                    f"payload is invalid."
+                )
+        else:
+            print(f"Warning: Icon file not found at {icon_path}")
+        return gui_app, app_icon
+    return gui_app, QIcon()

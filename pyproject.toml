@@ -1,12 +1,12 @@
 [project]
 name = "starbug2"
-version = "0.7.7"
+version = "0.8.0"
 authors = [ {name = "Conor Nally", email = "conor.nally@ed.ac.uk" },
             {name = "Alan Barry Stokes", email = "alan.stokes@stfc.ac.uk"}]
 readme = "README.md"
 description = "JWST PSF photometry in complex crowded fields."
 license = {file = "LICENSE.txt"}
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.10,<=3.14.4"
 dynamic = ["dependencies"]
 
 [project.urls]
@@ -30,3 +30,6 @@ dependencies = {file = ["requirements.txt"]}
 where = ["."]
 include = ["starbug2*"]
 exclude = ["star_bug_env*", "tests*", "docs*"]
+
+[tool.setuptools.package-data]
+starbug2 = ["assets/*.png", "*.png"]

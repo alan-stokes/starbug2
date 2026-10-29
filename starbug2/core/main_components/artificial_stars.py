@@ -196,7 +196,6 @@ def get_completeness(test_result: Table) -> Table:
     percents: np.ndarray = np.zeros(len(bins))
     errors: np.ndarray = np.zeros(len(bins))
     offsets: np.ndarray = np.zeros(len(bins))
-    means: np.ndarray = np.zeros(len(bins))
 
     i_bins: np.ndarray = np.atleast_1d(np.digitize(
         test_result[TableColumn.MAG], bins=bins))
@@ -209,7 +208,7 @@ def get_completeness(test_result: Table) -> Table:
         # process data
         binned: Table = test_result[indices]
         if len(binned) > 0:
-            percents[i] = float(
+            percents[i - 1] = float(
                 sum(binned[TableColumn.FOUND])) / len(binned)
 
         mag_inj: np.ndarray
@@ -221,9 +220,8 @@ def get_completeness(test_result: Table) -> Table:
         mag_det, _ = flux_to_pogson_mag(binned[TableColumn.FLUX_DET])
 
         mag_difference: np.ndarray = mag_inj - mag_det
-        errors[i] = np.nanstd(mag_difference)
-        means[i] = np.nanmean(mag_difference)
-        offsets[i] = np.nanmedian(
+        errors[i - 1] = np.nanstd(mag_difference)
+        offsets[i - 1] = np.nanmedian(
             binned[TableColumn.FLUX] / binned[TableColumn.FLUX_DET])
 
     out: Table = Table(
@@ -531,14 +529,16 @@ def compile_results(
     """
 
     completeness_raw: Table = get_completeness(raw)
-    cfit: Tuple[float, float, float]
-    completeness: Tuple[float, float, float]
+    cfit: Tuple[float, float, float] | None
+    completeness: Tuple[float, float, float] | None
     cfit, completeness = estimate_completeness_mag(completeness_raw)
     spatial_completeness: np.ndarray | None = (
         get_spatial_completeness(raw, image, res=10))
     delta_mag, bin_centers, med_offsets, std_offsets = photometric_bias(raw)
 
     head: Dict[str, str | float]
+    assert completeness is not None
+    assert cfit is not None
     head = _generate_head(completeness, cfit, filter_string)
 
     # add mag out and mag difference columns to the raw table.

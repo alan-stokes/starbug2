@@ -15,7 +15,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 from typing import List, Optional, Union
 
 import numpy as np
-from matplotlib.axis import Axis
 from photutils.background import Background2D, BackgroundBase
 from photutils.aperture import CircularAperture, ApertureMask
 from astropy.table import Table
@@ -96,19 +95,14 @@ class BackGroundEstimateRoutine(BackgroundBase):
         if self._verbose:
             printf(msg)
 
-    def __call__(
+    def run(
             self, data: np.ndarray | None,
-            axis: Optional[Axis] = None, masked: bool = False,
             output: Optional[str] = None) -> Background2D | None:
         """
         does background estimation routine.
 
         :param data: the data to process
         :type data: np.ndarray
-        :param axis: the axis
-        :type axis: matplotlib.axis.Axis or None
-        :param masked: if the data is masked
-        :type masked: bool
         :param output: if the data should be outputted
         :type output: str
         :return: the new background 2D object.

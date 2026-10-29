@@ -41,6 +41,10 @@ DEFAULT_MIN_MAG: Final[int] = 28
 DEFAULT_MAX_MAG: Final[int] = 18
 DEFAULT_BUNIT = "MJy/sr"
 
+# soft pink for nans in custom psf generaot
+DEFAULT_GUI_NAN_COLOUR = [255, 192, 203, 255]
+DEFAULT_TRANSPARENT_FOR_NON_NANS = [0, 0, 0, 0]
+
 # how many characters we will allow by default.
 N_MIS_MATCHES: Final[int] = 10
 
@@ -198,6 +202,7 @@ class TableColumn(str, Enum):
     TOTAL_FLUX_ADDED = "TOTAL_FLUX_ADDED"
     TOTAL_MAG = "TOTAL_MAG"
     TOTAL_DIFF_MAG = "TOTAL_DIFF_MAG"
+    PEAK = "peak"
 
     # needed as the table system doenst seem to handle enums properly
     def __str__(self) -> str:
@@ -327,6 +332,7 @@ class FileExtensions(str, Enum):
     RESIDUE = "-res.fits"
     PSF = "-psf.fits"
     CUSTOM_PSF = "-c-psf.fits"
+    CUSTOM_LIST_PSF = "-psf-lst.fits"
 
     # needed as the table system doenst seem to handle enums properly
     def __str__(self) -> str:

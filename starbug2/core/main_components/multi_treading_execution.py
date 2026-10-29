@@ -41,6 +41,9 @@ def execute_star_bug_main(
              if validation fails
     :rtype: starbug2.StarbugBase or None
     """
+    import photutils
+    photutils.future_column_names = True
+
     # I've put this here because it takes some time
     from starbug2.core.starbug_main import StarbugBase
 
@@ -105,6 +108,9 @@ def execute_artificial_stars(
              None if the file doesn't exist.
     :rtype: Tuple[list[astropy.table.Table] or None., ExitState]
     """
+    import photutils
+    photutils.future_column_names = True
+
     out: list[Table] | None = None
     exit_state: ExitStates = ExitStates.EXIT_FAIL
     if os.path.exists(f_name):

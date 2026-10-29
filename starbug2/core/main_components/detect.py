@@ -43,7 +43,7 @@ class Detect:
         Full source detection routine. Saves the result as a table.
 
         This method executes the core star detection algorithms using
-        configuration parameters provided by config, utilizing passed
+        configuration parameters provided by config, utilising passed
         callables to dynamically fetch the target image data, logging
         mechanisms, and FITS header metadata.
 
@@ -114,7 +114,7 @@ class Detect:
             detections = detections[
                 TableColumn.X_CENTROID, TableColumn.Y_CENTROID,
                 TableColumn.SHARPNESS, TableColumn.ROUNDNESS1,
-                TableColumn.ROUNDNESS2]
+                TableColumn.ROUNDNESS2, TableColumn.PEAK]
 
             # Check for insane states
             if detections is None or wcs is None:
