@@ -15,7 +15,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import glob
 import os
 import sys
-from typing import Tuple, Dict, List, cast, Any
+from typing import cast, Any
 
 from astropy.units import Quantity
 from astropy import units
@@ -59,7 +59,7 @@ class StarbugBase(StarBugInterface):
     @staticmethod
     def sort_output_names(
         f_name: str | None, param_output: str | None = None
-    ) -> Tuple[str, str, str]:
+    ) -> tuple[str, str, str]:
         """
         This is a useful function that looks at both an input file and a set
         output and figures out how to name output files. If param_output looks
@@ -236,7 +236,7 @@ class StarbugBase(StarBugInterface):
                     self._wcs = WCS(self.main_image().header)
 
                     # Determine calculation stage level
-                    extension_names: List[str] = ext_names(self._image)
+                    extension_names: list[str] = ext_names(self._image)
                     if DQ in extension_names:
                         if AREA in extension_names:
                             self._stage = 2.0
@@ -328,7 +328,7 @@ class StarbugBase(StarBugInterface):
                 )
 
                 # cant figure how to resolve this typing
-                self._detections.remove_rows(~mask)  # noqa
+                self._detections.remove_rows((~mask).tolist())
                 self.log(
                     "-> loaded %d sources from AP_FILE\n" %
                     len(self._detections))
@@ -652,8 +652,7 @@ class StarbugBase(StarBugInterface):
             # Sorry but we cant have that
             del state["_image"]
             # This currently doesnt get reloaded
-        if "_background" in state:
-            del state["_background"]
+        state.pop("_background", None)
 
         return state
 
@@ -675,7 +674,7 @@ class StarbugBase(StarBugInterface):
         :return:  Header file containing a series of relevant information
         :rtype: Header
         """
-        head: Dict[str, str | float | None] = {
+        head: dict[str, str | float | None] = {
             HeaderTags.STAR_BUG: get_version(),
             HeaderTags.CALIBRATION_LV: self._stage
         }
@@ -815,7 +814,7 @@ class StarbugBase(StarBugInterface):
             passed = self._ast_result_processing(result_table, passed, test)
         return ExitStates.EXIT_SUCCESS
 
-    def _execute_artificial_starts_test(self) -> Tuple[Table, ExitStates]:
+    def _execute_artificial_starts_test(self) -> tuple[Table, ExitStates]:
         """
         runs the actual test.
         :return: the results data, and the exit state.
@@ -924,7 +923,7 @@ class StarbugBase(StarBugInterface):
                     + (src[TableColumn.Y_0] -
                        self._detections[y_column_label]) ** 2)
                 * threshold.unit)
-            best_match: int = np.argmin(separations)  # noqa
+            best_match: int = int(np.argmin(separations))
             if separations[best_match] < threshold:
                 test_result[TableColumn.X_DET][i] = (
                     self._detections[x_column_label][best_match])

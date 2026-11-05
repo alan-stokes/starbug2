@@ -12,7 +12,6 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-from typing import Tuple
 import numpy as np
 from starbug2.constants import TableColumn
 from astropy.table import Table
@@ -23,7 +22,7 @@ def find_stars_to_select(
         image: np.ndarray, detections: Table, stars_to_select: int,
         min_separation_px: float, saturation_limit: float,
         sharp_range_min: float, sharp_range_max: float, grid_bin_x: int,
-        grid_bin_y: int, edge_buffer: int) -> Tuple[Table | None, str | None]:
+        grid_bin_y: int, edge_buffer: int) -> tuple[Table | None, str | None]:
     """
     automatically detects the best stars to place into a psf.
 

@@ -46,7 +46,9 @@ class _Grouper(SourceGrouper):
                  return_groups_object: bool = False) -> np.ndarray:
         res: np.ndarray = super().__call__(x, y)
         n: int
-        if n := sum(np.bincount(res) > self.CRITICAL_VAL):  # noqa
+        exceeded_mask: np.ndarray = np.atleast_1d(
+            np.bincount(res) > self.CRITICAL_VAL)
+        if n := int(np.sum(exceeded_mask)):
             warn("Source grouper has %d groups larger than %d. Consider"
                  " reducing \"CRIT_SEP=%g\" or fitting might take a long"
                  " time.\n" % (n, self.CRITICAL_VAL, self.min_separation))
@@ -103,14 +105,14 @@ class PSFPhotRoutine(PSFPhotometry):
             printf("-> source group separation: %g\n" % min_separation)
 
     def __call__(
-            self, image: np.ndarray,
+            self, data: np.ndarray,
             init_params: Table | None = None,
             error: np.ndarray | None = None,
             mask: np.ndarray | None = None):
         """
         runs the psf phot routine.
-        :param image: the image to process.
-        :type image: np.ndarray
+        :param data: the image to process.
+        :type data: np.ndarray
         :param init_params: the init params.
         :type init_params: Table
         :param error: the error.
@@ -120,7 +122,7 @@ class PSFPhotRoutine(PSFPhotometry):
         :return: the processed table.
         :rtype:  astropy.table.Table
         """
-        return self.do_photometry(image, init_params, error, mask)
+        return self.do_photometry(data, init_params, error, mask)
 
     def do_photometry(
             self,
@@ -165,9 +167,9 @@ class PSFPhotRoutine(PSFPhotometry):
         cat: QTable = super().__call__(
             image, mask=mask, init_params=init_params, error=error)
 
-        d: np.ndarray = np.sqrt((
+        d: np.ndarray = np.sqrt(
             (cat[TableColumn.X_INIT] - cat[TableColumn.X_FIT]) ** 2.0 +
-            (cat[TableColumn.Y_INIT] - cat[TableColumn.Y_FIT]) ** 2.0))
+            (cat[TableColumn.Y_INIT] - cat[TableColumn.Y_FIT]) ** 2.0)
 
         # noinspection SpellCheckingInspection
         cat.add_column(Column(d, name=TableColumn.XY_DEV))

@@ -12,7 +12,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-from typing import Tuple, Callable
+from collections.abc import Callable
 
 import numpy as np
 from astropy.io.fits import ImageHDU, PrimaryHDU, Header
@@ -38,7 +38,7 @@ class Detect:
             main_image: Callable[[], ImageHDU | PrimaryHDU],
             custom_filter: str | None, config: StarBugMainConfig,
             wcs: WCS | None,
-            header: Callable[[], Header]) -> Tuple[ExitStates, Table | None]:
+            header: Callable[[], Header]) -> tuple[ExitStates, Table | None]:
         """
         Full source detection routine. Saves the result as a table.
 

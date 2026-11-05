@@ -12,7 +12,6 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-from typing import Tuple
 import numpy as np
 from PyQt6.QtWidgets import (
     QGroupBox, QListWidget, QFormLayout, QMainWindow, QDialog)
@@ -130,7 +129,7 @@ class ScaleElements:
 
     def create_scaling_group(
             self, parent: QMainWindow | QDialog, default_selection_list: int,
-            default_selection_mul: int, default_state: bool) -> Tuple[
+            default_selection_mul: int, default_state: bool) -> tuple[
             QGroupBox, QListWidget, QListWidget]:
         """
         Creates the scaling group

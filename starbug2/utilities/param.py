@@ -14,14 +14,13 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
 import subprocess
-from typing import Dict
 
 from starbug2.constants import ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.utilities.utils import printf, p_error, get_version
 
 
-def _load_params_old(f_name: str | None) -> Dict[str, int | float | str]:
+def _load_params_old(f_name: str | None) -> dict[str, int | float | str]:
     """
     Convert a parameter file into a dictionary of options
 
@@ -33,10 +32,10 @@ def _load_params_old(f_name: str | None) -> Dict[str, int | float | str]:
     if f_name is None:
         return {}
 
-    config: Dict[str, int | float | str] = {}
+    config: dict[str, int | float | str] = {}
     if os.path.exists(f_name):
         with open(f_name, "r") as fp:
-            for line in fp.readlines():
+            for line in fp:
                 config.update(StarBugMainConfig.parse_param(line))
     else:
         p_error("config file \"%s\" does not exist\n" % f_name)

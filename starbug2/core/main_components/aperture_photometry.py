@@ -13,7 +13,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
-from typing import Callable, Tuple
+from collections.abc import Callable
 
 import numpy as np
 from astropy.io.fits import ImageHDU, PrimaryHDU, Header, HDUList
@@ -87,7 +87,7 @@ class AperturePhotometry:
     def aperture_correction(
             config: StarBugMainConfig, info: dict[str, str],
             log: Callable[[str], None], filter_string: str,
-            full_width_half_max: float) -> Tuple[float, float, float, float]:
+            full_width_half_max: float) -> tuple[float, float, float, float]:
         """
         Determines the aperture radii and calculates the aperture correction.
 
@@ -160,7 +160,7 @@ class AperturePhotometry:
             full_width_half_max: float, out_dir: str | None,
             b_name: str | None, header: Header,
             background: ImageHDU | PrimaryHDU | None,
-            main_image: ImageHDU | PrimaryHDU) -> Tuple[Table, ExitStates]:
+            main_image: ImageHDU | PrimaryHDU) -> tuple[Table, ExitStates]:
         """
          Executes aperture photometry processing steps.
 
@@ -235,8 +235,8 @@ class AperturePhotometry:
         filter_string: str = filter_string if filter_string else "mag"
 
         # Extract magnitudes
-        mag: float
-        mag_err: float
+        mag: np.ndarray
+        mag_err: np.ndarray
         mag, mag_err = flux_to_pogson_mag(
             ap_cat[TableColumn.FLUX], ap_cat[TableColumn.E_FLUX])
 

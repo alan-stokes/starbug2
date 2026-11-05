@@ -18,7 +18,7 @@ import sys
 import time
 from importlib import metadata
 from importlib.metadata import PackageNotFoundError
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from astropy.io import fits
 from astropy.table import Column, MaskedColumn, Table, hstack, vstack
@@ -90,7 +90,7 @@ def repeat_print(n: int, c: str) -> None:
     printf(append_chars("", n, c))
 
 
-def split_file_name(file_path: str | None) -> Tuple[str, str, str]:
+def split_file_name(file_path: str | None) -> tuple[str, str, str]:
     """Breaks apart a path into folder, filename and extension.
 
     :param file_path: the path to split
@@ -107,7 +107,7 @@ def split_file_name(file_path: str | None) -> Tuple[str, str, str]:
     return folder, file_name, ext
 
 
-class Loading(object):
+class Loading:
     # how long the bar is
     bar = 40
 
@@ -231,11 +231,9 @@ def export_region(
     with open(f_name, "w") as fp:
         fp.write("global color=%s width=2\n" % colour)
         if tab:
-            for src, ri in zip([tab], r[r > 0]):
-                fp.write(
-                    "%scircle %f %f %fi\n" % (
-                        prefix, src[x_col], src[y_col], ri)
-                )
+            fp.writelines(
+                "%scircle %f %f %fi\n" % (prefix, src[x_col], src[y_col], ri)
+                for src, ri in zip([tab], r[r > 0]))
         else:
             p_error("unable to open %f\n" % f_name)
 
@@ -243,10 +241,10 @@ def export_region(
 def translate_param_float(
     opt: str,
     opt_arg: str,
-    set_opt: Dict[str, float],
+    set_opt: dict[str, float],
     options: int,
     kill_option: int,
-) -> Tuple[int, Dict[str, float]]:
+) -> tuple[int, dict[str, float]]:
     """Converts an opt param into a float.
 
     :param opt: the opt string
@@ -279,7 +277,7 @@ def translate_param_float(
     return options, set_opt
 
 
-def parse_unit(raw: str) -> Tuple[float | None, int | None]:
+def parse_unit(raw: str) -> tuple[float | None, int | None]:
     """Take a value with the ability to be cast into several units and
     parse it.
 
@@ -296,7 +294,7 @@ def parse_unit(raw: str) -> Tuple[float | None, int | None]:
     :return: Numerical value of unit
     :rtype float
     """
-    recognised: Dict[str, int] = {
+    recognised: dict[str, int] = {
         "p": Units.PIX,
         "s": Units.ARCSEC,
         "m": Units.ARCMIN,
@@ -317,7 +315,7 @@ def parse_unit(raw: str) -> Tuple[float | None, int | None]:
     return value, unit
 
 
-def tab2array(tab: Table, col_names: List[str] | None = None) -> np.ndarray:
+def tab2array(tab: Table, col_names: list[str] | None = None) -> np.ndarray:
     """Returns the contents of the table as a normal 2D numpy array.
 
     NB: this is different from Table.asarray(), which returns an array of
@@ -378,7 +376,7 @@ def export_table(
     :type header: dict, fits.Header
     :return: None
     """
-    dtypes: List[Any] = []
+    dtypes: list[Any] = []
     if TableColumn.CAT_NUM not in table.colnames:
         table = reindex(table)
     for name in table.colnames:
@@ -460,7 +458,7 @@ def fill_nan(table: Table) -> Table:
     return table
 
 
-def find_col_names(tab: Table, basename: str) -> List[str]:
+def find_col_names(tab: Table, basename: str) -> list[str]:
     """Find substring (basename) within the table colnames.
 
     Searches for substring at the beginning of the word I.E search for "flux"
@@ -481,7 +479,7 @@ def find_col_names(tab: Table, basename: str) -> List[str]:
 
 
 def combine_file_names(
-    f_names: List[str | None], n_mismatch: int = N_MIS_MATCHES
+    f_names: list[str | None], n_mismatch: int = N_MIS_MATCHES
 ) -> str | None:
     """When matching catalogues, combines the file names.
 
@@ -500,10 +498,10 @@ def combine_file_names(
     ext: str
 
     d_name, _, ext = split_file_name(f_names[0])
-    f_names_split: List[str] = [split_file_name(name)[1] for name in f_names]
+    f_names_split: list[str] = [split_file_name(name)[1] for name in f_names]
 
     for i in range(len(f_names_split[0])):
-        chars: List[str] = [
+        chars: list[str] = [
             name[i] for name in f_names_split if len(name) > i
         ]
         if len(set(chars)) == 1:
@@ -519,7 +517,7 @@ def combine_file_names(
 
 
 def h_cascade(
-    tables: List[Table], col_names: List[str] | None = None
+    tables: list[Table], col_names: list[str] | None = None
 ) -> Table:
     """Similar use as hstack.
 
@@ -539,7 +537,7 @@ def h_cascade(
     if not col_names:
         col_names = tables[0].colnames
     for name in col_names:
-        cols: List[str] = find_col_names(tab, name)
+        cols: list[str] = find_col_names(tab, name)
         if not cols:
             continue
         move: int = 1
@@ -569,7 +567,7 @@ def h_cascade(
     return tab
 
 
-def ext_names(hdu_list: fits.HDUList | None) -> List[str]:
+def ext_names(hdu_list: fits.HDUList | None) -> list[str]:
     """Return list of HDU extension names.
 
     :param hdu_list: fits hdu_list to operate on
@@ -586,8 +584,8 @@ def ext_names(hdu_list: fits.HDUList | None) -> List[str]:
 # noinspection SpellCheckingInspection
 def flux_to_pogson_mag(
     raw_flux: np.ndarray | float,
-    flux_err: Column | None | np.ndarray | int | float = None
-) -> Tuple[np.ndarray, np.ndarray]:
+    flux_err: Column | None | np.ndarray | float = None
+) -> tuple[np.ndarray, np.ndarray]:
     """Convert flux to magnitude in an arbitrary system.
 
     Uses the Pogsons relation.
@@ -634,8 +632,7 @@ def wget(address: str, f_name: str | None = None) -> ExitStates:
     if r.status_code == REST_SUCCESS_CODE:
         f_name = f_name if f_name else os.path.basename(address)
         with open(f_name, "wb") as fp:
-            for chunk in r.iter_content(chunk_size=128):
-                fp.write(chunk)
+            fp.writelines(r.iter_content(chunk_size=128))
         return ExitStates.EXIT_SUCCESS
     else:
         p_error("Unable to download \"%s\"\n" % address)
@@ -659,7 +656,7 @@ def reindex(table: Table) -> Table:
     return table
 
 
-def colour_index(table: Table, keys: List[str]) -> Table:
+def colour_index(table: Table, keys: list[str]) -> Table:
     """Allow table indexing with A-B.
 
     :param table: table to colour index.
@@ -735,7 +732,7 @@ def get_version() -> str:
     return version
 
 
-def remove_duplicates[T](seq: List[T]) -> List[T]:
+def remove_duplicates[T](seq: list[T]) -> list[T]:
     """Take a sequence and rm its duplicates while preserving order.
 
     :param seq: Input list to work on
@@ -756,8 +753,8 @@ def remove_duplicates[T](seq: List[T]) -> List[T]:
 
 def crop_hdu(
     hdu: fits.HDUList,
-    x_limit: Tuple[int, int] | None = None,
-    y_limit: Tuple[int, int] | None = None,
+    x_limit: tuple[int, int] | None = None,
+    y_limit: tuple[int, int] | None = None,
 ) -> fits.HDUList | None:
     """Crop an image with multiple extensions. Retaining the extensions.
 
@@ -809,7 +806,7 @@ def usage(docstring: str | None, verbose: bool | int = 0) -> int:
     return 1
 
 
-def parse_cmd(args: List[str]) -> Tuple[str, List[str]]:
+def parse_cmd(args: list[str]) -> tuple[str, list[str]]:
     """Parses an args command.
 
     :param args: the args array.

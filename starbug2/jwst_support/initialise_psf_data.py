@@ -13,7 +13,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
-from typing import List, Optional, Any, Final
+from typing import Any, Final
 
 from starbug2.constants import (
     JWST_MIRI_APCORR_0010_FITS_URL, JWST_NIRCAM_APCORR_0004_FITS_URL,
@@ -149,7 +149,7 @@ def _generate_psf_single(
         d_name: str) -> None:
     if filter_data.instr == NIRCAM:
         if filter_data.length == DetectorLengths.SHORT:
-            detectors: List[Optional[str]] = NIRCAM_SHORT_DETECTORS
+            detectors: list[str | None] = NIRCAM_SHORT_DETECTORS
         else:
             detectors = NIRCAM_LONG_DETECTORS
     else:
@@ -173,8 +173,8 @@ def _generate_psf_single(
 # noinspection SpellCheckingInspection
 def generate_jwst_psf(
         filter_string: str,
-        detector: Optional[str] = None,
-        fov_pixels: Optional[int] = None) -> fits.PrimaryHDU | None:
+        detector: str | None = None,
+        fov_pixels: int | None = None) -> fits.PrimaryHDU | None:
     # noinspection SpellCheckingInspection
     """
     Generate a single PSF for JWST
@@ -191,8 +191,8 @@ def generate_jwst_psf(
     """
 
     # define types
-    psf: Optional[fits.PrimaryHDU] = None
-    model: Optional[stpsf.JWInstrument] = None
+    psf: fits.PrimaryHDU | None = None
+    model: stpsf.JWInstrument | None = None
 
     # ensure fov pixels is greater than 0
     if fov_pixels is not None and fov_pixels <= 0:
@@ -215,9 +215,9 @@ def generate_jwst_psf(
 
         # need to use getattr as these are not found by the IDE automatically.
         if the_filter.instr == NIRCAM:
-            model = getattr(stpsf, "NIRCam")()
+            model = stpsf.NIRCam()
         elif the_filter.instr == STAR_BUG_MIRI:
-            model = getattr(stpsf, "MIRI")()
+            model = stpsf.MIRI()
 
         if model:
             model.filter = filter_string
@@ -242,7 +242,7 @@ def generate_jwst_psf(
                 import traceback
                 traceback.format_exc()
                 p_error(f"during detector on {the_filter.instr} with wave"
-                        f" length {filter_string}. something failed. {str(e)}")
+                        f" length {filter_string}. something failed. {e!s}")
         else:
             p_error(
                 "Unable to determine instrument from filter_string '%s'\n" %

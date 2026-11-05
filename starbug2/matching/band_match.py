@@ -57,6 +57,7 @@ class BandMatch(GenericMatch):
         "catalogue list. The final element is being ignored.\n")
 
     def __init__(self, **kwargs: Any) -> None:
+        self._filter_list: list[str] = []
         if BandMatch.FILTER in kwargs:
             if not isinstance(kwargs[BandMatch.FILTER], list):
                 warn(f"{self.FILTER} input should be a list, "
@@ -65,8 +66,6 @@ class BandMatch(GenericMatch):
             else:
                 self._filter_list: list[str] = kwargs[BandMatch.FILTER]
             del kwargs[BandMatch.FILTER]
-        else:
-            self._filter_list: list[str] = []
 
         if BandMatch.THRESHOLD in kwargs:
             if isinstance(kwargs[BandMatch.THRESHOLD], list):
@@ -74,10 +73,6 @@ class BandMatch(GenericMatch):
                     np.array(kwargs[BandMatch.THRESHOLD], dtype=object))
 
         super().__init__(**kwargs, method="Band Matching")
-
-    @property
-    def filter_list(self) -> list[str]:
-        return self._filter_list
 
     def order_catalogues(self, catalogues: list[Table]) -> list[Table]:
         """
@@ -94,7 +89,7 @@ class BandMatch(GenericMatch):
 
         status: int = -1
         _ii = None
-        filter_list: list[str] = self.filter_list
+        filter_list: list[str] = self._filter_list
         if filter_list is None:
             raise Exception("no filer was set")
 
@@ -122,8 +117,7 @@ class BandMatch(GenericMatch):
                 status = n
                 break
             except (KeyError, AttributeError, TypeError, ValueError) as e:
-                warn(f"failed to use sorter {n} due to {str(e)}\n")
-                pass
+                warn(f"failed to use sorter {n} due to {e!s}\n")
 
         if status < 0:
             p_error(
@@ -142,7 +136,11 @@ class BandMatch(GenericMatch):
 
     @override
     def match(
-            self, catalogues: list[Table], method: str = "first",
+            self, catalogues: list[Table], join_type: str = "first",
+            mask: (
+                list[np.ndarray | list[Any] | None]
+                | np.ndarray | None) = None,
+            cartesian: bool = False,
             **kwargs: Any) -> Table:
         # noinspection SpellCheckingInspection
         """
@@ -156,24 +154,27 @@ class BandMatch(GenericMatch):
         :param catalogues: List of `astropy.table.Table` objects containing
         the meta item "FILTER=XXX"
         :type catalogues: List of `astropy.table.Table`
-        :param method: Centroid method
+        :param join_type: Centroid method
             "first" -   Use the position corresponding to the earliest
                         appearance of the source
             "last"  -   Use the position corresponding to the latest
                         appearance of the source
             "bootsrap"- ???
             "average" - ???
-        :type method: str
+        :type join_type: str
+        :param mask: In preparation
+        :type mask: list
+        :param cartesian: if we should use cartesian coordinates
+        :type cartesian: bool
         :param kwargs:
         :return: Matched catalogue
         :rtype: astropy.Table
         """
         catalogues = self.order_catalogues(catalogues)
-
-        printf("Bands: %s\n" % ', '.join(self.filter_list))
+        printf("Bands: %s\n" % ', '.join(self._filter_list))
 
         assert self.threshold is not None
-        assert len(self.filter_list) != 0
+        assert len(self._filter_list) != 0
         if type(self.threshold) in (list, np.ndarray):
             if len(self.threshold) != (len(catalogues) - 1):
                 warn(self._WRONG_THRESHOLD)
@@ -200,8 +201,8 @@ class BandMatch(GenericMatch):
         assert self._col_names is not None
         printf("Columns: %s\n" % ", ".join(self._col_names))
 
-        if method not in (self._FIRST, self._LAST, self._BOOT_STRAP):
-            method = self._FIRST
+        if join_type not in (self._FIRST, self._LAST, self._BOOT_STRAP):
+            join_type = self._FIRST
 
         # Begin
         base: Table = self.build_meta(catalogues)
@@ -211,7 +212,7 @@ class BandMatch(GenericMatch):
             self._threshold = _threshold[n - 1]
             assert self._threshold is not None
             self._load.msg = (
-                f"{self.filter_list[n]} ("
+                f"{self._filter_list[n]} ("
                 f"{np.array2string(self._threshold)}\")")
             col_names = [
                 name for name in self._col_names if name in tab.colnames]
@@ -227,16 +228,16 @@ class BandMatch(GenericMatch):
             if TableColumn.RA not in base.colnames:
                 base = fill_nan(hstack(
                     (tmp[TableColumn.RA, TableColumn.DEC], base)))
-            elif method == self._FIRST:
+            elif join_type == self._FIRST:
                 _mask = np.logical_and(np.isnan(
                     base[TableColumn.RA]), tmp[TableColumn.RA] != np.nan)
                 base[TableColumn.RA][_mask] = tmp[TableColumn.RA][_mask]
                 base[TableColumn.DEC][_mask] = tmp[TableColumn.DEC][_mask]
-            elif method == self._LAST:
+            elif join_type == self._LAST:
                 _mask = ~np.isnan(tmp[TableColumn.RA])
                 base[TableColumn.RA][_mask] = tmp[TableColumn.RA][_mask]
                 base[TableColumn.DEC][_mask] = tmp[TableColumn.DEC][_mask]
-            elif method == self._BOOT_STRAP:
+            elif join_type == self._BOOT_STRAP:
                 _mask = ~np.isnan(tmp[TableColumn.RA])
                 base.rename_columns(
                     (TableColumn.RA, TableColumn.DEC),
@@ -370,3 +371,7 @@ class BandMatch(GenericMatch):
         base.add_column(flag, name=TableColumn.FLAG)
 
         return base.filled(np.nan)  # type: ignore
+
+    @property
+    def filter_list(self) -> list[str]:
+        return self._filter_list

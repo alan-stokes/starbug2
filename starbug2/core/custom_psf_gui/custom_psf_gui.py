@@ -13,7 +13,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
-from typing import Tuple
 
 from PyQt6.QtCore import Qt, QCoreApplication
 from PyQt6.QtWidgets import (
@@ -48,7 +47,7 @@ from starbug2.core.starbug_main import StarbugBase
 RADIUS: float = 2.0
 
 # the geometry of the UI.
-GEOMETRY: Tuple[int, int, int, int] = (100, 100, 1200, 700)
+GEOMETRY: tuple[int, int, int, int] = (100, 100, 1200, 700)
 
 # default state of the detect and scale parameters widget's.
 DEFAULT_ENABLED_STATE = False
@@ -926,7 +925,7 @@ class CustomPSFGui(QMainWindow):
         opens up the review panel which allows fine tune selection of stars
         :return: None
         """
-        selected_stars_arrays: list[Tuple[str, np.ndarray]] = []
+        selected_stars_arrays: list[tuple[str, np.ndarray]] = []
 
         # verify data exists
         if len(self._selected_stars) == 0:

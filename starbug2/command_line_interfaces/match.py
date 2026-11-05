@@ -117,7 +117,7 @@ def match_main(argv: list[str]) -> ExitStates:
     config: StarBugMainConfig = starbug_parse_argv(argv)
 
     if config.show_match_help:
-        usage(__doc__, verbose=config.verbose_logs) # noqa
+        usage(__doc__, verbose=config.verbose_logs)
         return ExitStates.EXIT_SUCCESS
 
     p_file: str | None = config.param_file
@@ -135,10 +135,11 @@ def match_main(argv: list[str]) -> ExitStates:
     if raw := config.mask_eval:
         masks = [parse_mask(raw, t) for t in tables]
         for m in masks:
+            assert m is not None
             try:
-                print(str(m), sum(m), len(m)) # noqa
+                print(str(m), sum(m), len(m))
             except (TypeError, NameError, ImportError):
-                print(m) # noqa
+                print(m)
 
     if len(tables) > 1:
         col_names: list[str] = list(MATCH_COLS)

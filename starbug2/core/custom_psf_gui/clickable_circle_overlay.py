@@ -44,12 +44,10 @@ class ClickableCircleOverlay(pg.CircleROI):
     def addScaleHandle(self, *args, **kwargs):
         """Override to prevent PyQtGraph from dynamically adding scale
         handles."""
-        pass
 
     def addRotateHandle(self, *args, **kwargs):
         """Override to prevent PyQtGraph from dynamically adding rotate
          handles."""
-        pass
 
     def mouseClickEvent(self, ev) -> None:
         """

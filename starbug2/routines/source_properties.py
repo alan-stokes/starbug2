@@ -12,7 +12,6 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-from typing import Optional
 
 import numpy as np
 from astropy.table import Table, QTable, hstack
@@ -27,8 +26,8 @@ class SourceProperties:
     status: int = 0
 
     def __init__(
-            self, image: Optional[np.ndarray],
-            source_list: Optional[Table], verbose: int | bool = 1) -> None:
+            self, image: np.ndarray | None,
+            source_list: Table | None, verbose: int | bool = 1) -> None:
         """
         source properties.
 
@@ -39,8 +38,8 @@ class SourceProperties:
         :param verbose: int for verbose
         :type verbose: int
         """
-        self._image: Optional[np.ndarray] = image
-        self._source_list: Optional[Table] = None
+        self._image: np.ndarray | None = image
+        self._source_list: Table | None = None
         self._verbose: int | bool = verbose
 
         if source_list and type(source_list) in (Table, QTable):

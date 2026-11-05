@@ -18,7 +18,7 @@ import numpy as np
 from astropy import units
 from astropy.table import Table
 from astropy.units import Quantity
-from typing import Dict, Tuple, Final, Any
+from typing import Final, Any
 from parse import parse
 from pathlib import Path
 
@@ -40,7 +40,7 @@ class StarBugMainConfig:
     # Format: (short_flag, long_flag, type) -> property_name
     # None for short_flag means it only has a long version
     # noinspection SpellCheckingInspection
-    MAIN_FLAG_MAP: Dict[Tuple[str | None, str, Any, str], str] = {
+    MAIN_FLAG_MAP: dict[tuple[str | None, str, Any, str], str] = {
         ('A', 'apphot', bool,
          "run aperture photometry on a source list"): 'do_aperture_photometry',
         ('B', 'background', bool,
@@ -104,7 +104,7 @@ class StarBugMainConfig:
     # Format: (short_flag, long_flag, type) -> property_name
     # None for short_flag means it only has a long version
     # noinspection SpellCheckingInspection
-    AST_FLAG_MAP: Dict[Tuple[str | None, str, Any, str], str] = {
+    AST_FLAG_MAP: dict[tuple[str | None, str, Any, str], str] = {
         ("h", "help", bool, "show help screen"): 'show_ast_help',
         ('v', 'verbose', bool, "show verbose stdout output"): 'verbose_logs',
         ('n', 'ncores', int,
@@ -142,7 +142,7 @@ class StarBugMainConfig:
     }
 
     # noinspection SpellCheckingInspection
-    MATCH_FLAG_MAP: Dict[Tuple[str | None, str, Any, str], str] = {
+    MATCH_FLAG_MAP: dict[tuple[str | None, str, Any, str], str] = {
         # Boolean Switches (No arguments)
         ('B', 'band', bool, ""): 'do_band_processing',
         ('C', 'cascade', bool, ""): 'do_cascade',
@@ -161,7 +161,7 @@ class StarBugMainConfig:
     }
 
     # noinspection SpellCheckingInspection
-    PLOT_FLAG_MAP: Dict[Tuple[str | None, str, Any, str], str] = {
+    PLOT_FLAG_MAP: dict[tuple[str | None, str, Any, str], str] = {
         # Boolean Switches (No arguments)
         ('h', 'help', bool, ""): 'show_plot_help',
         ('v', 'verbose', bool, ""): 'verbose_logs',
@@ -178,7 +178,7 @@ class StarBugMainConfig:
     # Comprehensive mapping configuration linking keys to internal
     # properties and types
     # noinspection SpellCheckingInspection
-    MAIN_PARAM_FILE_MAP: Dict[str, Tuple[str, type]] = {
+    MAIN_PARAM_FILE_MAP: dict[str, tuple[str, type]] = {
         # GENERIC
         "VERBOSE": ("verbose_logs", bool),
         "OUTPUT": ("output_file", str),
@@ -458,7 +458,7 @@ class StarBugMainConfig:
         self._fits_images: list[str] = []
 
     @classmethod
-    def _generate_get_opt_definitions(cls, param_map) -> Tuple[str, list[str]]:
+    def _generate_get_opt_definitions(cls, param_map) -> tuple[str, list[str]]:
         # noinspection SpellCheckingInspection
         """
         Natively inspects the configuration structure to construct perfectly
@@ -481,7 +481,7 @@ class StarBugMainConfig:
         return short_opts_compiled, long_opts_compiled
 
     @classmethod
-    def generate_main_get_opt_definitions(cls) -> Tuple[str, list[str]]:
+    def generate_main_get_opt_definitions(cls) -> tuple[str, list[str]]:
         # noinspection SpellCheckingInspection
         """
         Natively inspects the configuration structure to construct perfectly
@@ -493,7 +493,7 @@ class StarBugMainConfig:
         return cls._generate_get_opt_definitions(cls.MAIN_FLAG_MAP)
 
     @classmethod
-    def generate_ast_get_opt_definitions(cls) -> Tuple[str, list[str]]:
+    def generate_ast_get_opt_definitions(cls) -> tuple[str, list[str]]:
         # noinspection SpellCheckingInspection
         """
         Natively inspects the configuration structure to construct perfectly
@@ -505,7 +505,7 @@ class StarBugMainConfig:
         return cls._generate_get_opt_definitions(cls.AST_FLAG_MAP)
 
     @classmethod
-    def generate_match_get_opt_definitions(cls) -> Tuple[str, list[str]]:
+    def generate_match_get_opt_definitions(cls) -> tuple[str, list[str]]:
         # noinspection SpellCheckingInspection
         """
         Natively inspects the configuration structure to construct perfectly
@@ -517,7 +517,7 @@ class StarBugMainConfig:
         return cls._generate_get_opt_definitions(cls.MATCH_FLAG_MAP)
 
     @classmethod
-    def generate_plot_get_opt_definitions(cls) -> Tuple[str, list[str]]:
+    def generate_plot_get_opt_definitions(cls) -> tuple[str, list[str]]:
         # noinspection SpellCheckingInspection
         """
         Natively inspects the configuration structure to construct perfectly
@@ -549,7 +549,7 @@ class StarBugMainConfig:
         return value
 
     @staticmethod
-    def parse_param(line: str) -> Dict[str, int | float | str]:
+    def parse_param(line: str) -> dict[str, int | float | str]:
         """
         Parse a parameter line
         :param line: the line to parse
@@ -557,7 +557,7 @@ class StarBugMainConfig:
         :return: the parsed params from the line
         :rtype: Dict[str, int | float | str]
         """
-        param: Dict[str, int | float | str] = {}
+        param: dict[str, int | float | str] = {}
 
         # Guard against empty lines or comment lines
         if line and line[0] not in StarBugMainConfig.EXCLUDES:
@@ -608,7 +608,7 @@ class StarBugMainConfig:
 
         if os.path.exists(f_name):
             with open(f_name, "r") as fp:
-                for line in fp.readlines():
+                for line in fp:
                     config.update(StarBugMainConfig.parse_param(line))
         else:
             p_error("config file \"%s\" does not exist\n. Using "
@@ -790,7 +790,7 @@ class StarBugMainConfig:
                 setattr(self, property_name, target_type(raw_value))
 
     def _normalize_threshold(
-            self, threshold: float | int | np.ndarray | list | Quantity) -> (
+            self, threshold: float | np.ndarray | list | Quantity) -> (
             None | np.ndarray | Quantity):
         # noinspection SpellCheckingInspection
         """
@@ -2030,12 +2030,12 @@ class StarBugMainConfig:
            configuration."""
 
         # Helper to format array shapes or lengths instead of full objects
-        def _fmt(val: object) -> str:
+        def _fmt(val: Any) -> str:
             if isinstance(val, list):
                 return f"list(len={len(val)})"
             if hasattr(val, "shape"):  # NumPy arrays / Astropy tables
-                return f"array(shape={getattr(val, 'shape')})"
-            return repr(val)
+                return f"array(shape={val.shape})"
+            return str(val)
 
         return (
             f"<{self.__class__.__name__} (\n"

@@ -15,7 +15,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import sys
 from multiprocessing.shared_memory import SharedMemory
 from multiprocessing import Process, shared_memory
-from typing import Tuple
 
 import numpy as np
 from time import sleep
@@ -114,7 +113,7 @@ def start_buffer(loading_buffer: np.ndarray, n_tests: int) -> Process:
 
 def execute_ast(
         config: StarBugMainConfig, f_name: str,
-        loading_buffer: np.ndarray) -> Tuple[list[Table | None], ExitStates]:
+        loading_buffer: np.ndarray) -> tuple[list[Table | None], ExitStates]:
     """
     determine execution state in terms of processors available and execute.
     :param config: the main config
@@ -146,7 +145,7 @@ def execute_ast(
     # Initialise output container tracking tables
     outs: list[Table | None]
     exit_state: ExitStates
-    results: list[Tuple[list[Table] | None, ExitStates]]
+    results: list[tuple[list[Table] | None, ExitStates]]
     if (n_cores := config.n_cores) is None or n_cores == 1:
         results = execute_one_core_run_ast(config, loading_buffer)
     else:

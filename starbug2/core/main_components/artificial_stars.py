@@ -14,7 +14,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
 import numpy as np
-from typing import cast, Any, Tuple, Callable, Dict
+from typing import cast, Any
+from collections.abc import Callable
 
 from astropy.io.fits import ImageHDU, PrimaryHDU
 from photutils.datasets import make_model_image, make_random_models_table
@@ -45,7 +46,7 @@ class ArtificialStars:
     @staticmethod
     def verify(
             config: StarBugMainConfig,
-            main_image_shape: Tuple[int, int]) -> ExitStates:
+            main_image_shape: tuple[int, int]) -> ExitStates:
         if (config.test_magnitude_bright_limit -
                 config.test_magnitude_faint_limit >= 0):
             warn("Detected magnitude range in wrong order,"
@@ -61,7 +62,7 @@ class ArtificialStars:
     @staticmethod
     def add_stars(
             base_image: fits.HDUList | None, config: StarBugMainConfig,
-            buffer: int, psf: np.ndarray | None, n_hdu: int) -> Tuple[
+            buffer: int, psf: np.ndarray | None, n_hdu: int) -> tuple[
                 ExitStates, QTable, fits.HDUList]:
         """
         adds new stars to the image.
@@ -86,7 +87,7 @@ class ArtificialStars:
         assert base_image is not None
         image: fits.HDUList = base_image.__deepcopy__()
 
-        shape: tuple[int, int] = image[n_hdu].shape # noqa
+        shape: tuple[int, int] = image[n_hdu].shape
         main_image: ImageHDU | PrimaryHDU = image[n_hdu]
 
         # create list of fake star locations and add new magnitudes
@@ -278,8 +279,8 @@ def get_spatial_completeness(
 
 
 def estimate_completeness_mag(ast: Table) -> (
-        Tuple[Tuple[float, float, float] | None,
-              Tuple[float, float, float] | None]):
+        tuple[tuple[float, float, float] | None,
+              tuple[float, float, float] | None]):
     """
     Estimate the completeness level of the artificial star test.
 
@@ -293,8 +294,8 @@ def estimate_completeness_mag(ast: Table) -> (
         - **complete** (*list*): Magnitude of 90%, 70% and 50% completeness.
     :rtype: tuple[list, list]
     """
-    fit: Tuple[float, float, float] | None = None
-    completeness: Tuple[float, float, float] | None = None
+    fit: tuple[float, float, float] | None = None
+    completeness: tuple[float, float, float] | None = None
 
     # Syntax: Callable[[Param1Type, Param2Type, ...], ReturnType]
     fn_i: Callable[[float, float, float, float], float] = (
@@ -389,8 +390,8 @@ def plot_mid_plot(
 
 def plot_top_plot(
         ax: Axes, completeness_raw: Table,
-        completeness: Tuple[float, float, float],
-        cfit: Tuple[float, float, float], filter_string: str | None,
+        completeness: tuple[float, float, float],
+        cfit: tuple[float, float, float], filter_string: str | None,
         plot_ast: str) -> None:
     ax.scatter(
         completeness_raw[TableColumn.AST_MAG],
@@ -423,7 +424,7 @@ def plot_top_plot(
 
 
 def photometric_bias(
-        raw: Table) -> Tuple[Table, np.ndarray, np.ndarray, np.ndarray]:
+        raw: Table) -> tuple[Table, np.ndarray, np.ndarray, np.ndarray]:
     """
     generate the photometric bias data
     :param raw: the result table.
@@ -458,9 +459,9 @@ def photometric_bias(
 
 
 def _generate_head(
-        completeness: Tuple[float, float, float],
-        cfit: Tuple[float, float, float],
-        filter_string: str | None) -> Dict[str, str | float]:
+        completeness: tuple[float, float, float],
+        cfit: tuple[float, float, float],
+        filter_string: str | None) -> dict[str, str | float]:
     """
     generates the head of the results table.
     :param completeness: the completeness
@@ -471,7 +472,7 @@ def _generate_head(
     :type filter_string: str | None
     :return:
     """
-    head: Dict[str, str | float] = {
+    head: dict[str, str | float] = {
         "COMPLETE_FN": "F(x)=l/(1+exp(-k(x-xo)))", "l": cfit[0],
         "k": cfit[1], "xo": cfit[2]}
     for i, frac in enumerate((90, 70, 50)):
@@ -529,14 +530,14 @@ def compile_results(
     """
 
     completeness_raw: Table = get_completeness(raw)
-    cfit: Tuple[float, float, float] | None
-    completeness: Tuple[float, float, float] | None
+    cfit: tuple[float, float, float] | None
+    completeness: tuple[float, float, float] | None
     cfit, completeness = estimate_completeness_mag(completeness_raw)
     spatial_completeness: np.ndarray | None = (
         get_spatial_completeness(raw, image, res=10))
     delta_mag, bin_centers, med_offsets, std_offsets = photometric_bias(raw)
 
-    head: Dict[str, str | float]
+    head: dict[str, str | float]
     assert completeness is not None
     assert cfit is not None
     head = _generate_head(completeness, cfit, filter_string)

@@ -15,7 +15,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
 import stat
 import numpy as np
-from typing import List, Optional, TextIO, Dict
+from typing import TextIO
 
 from starbug2.constants import (
     FileExtensions, FILE_NAME, HeaderTags, ImageHeaderTags)
@@ -25,15 +25,15 @@ from starbug2.utilities.utils import printf, p_error, split_file_name
 # A clear, Type Alias for the deep data nested structure Format:
 # Dict[KeyType, ValueType], str mapping being FILTER, OBS, VISIT, DETECTOR
 ExposureMapping = (
-    Dict[
-        Optional[int], Dict[
-            Optional[int], Dict[
-                Optional[int], Dict[
-                    Optional[int], List[fits.HDUList]]]]])
+    dict[
+        int | None, dict[
+            int | None, dict[
+                int | None, dict[
+                    int | None, list[fits.HDUList]]]]])
 
 
 def generate_runscript(
-        f_names: List[str], args: str = "starbug2 ") -> None:
+        f_names: list[str], args: str = "starbug2 ") -> None:
     """
     generate the run script
 
@@ -44,7 +44,7 @@ def generate_runscript(
     :return: None
     """
     runfile: str = "./run.sh"
-    fits_files: List[fits.HDUList] = []
+    fits_files: list[fits.HDUList] = []
 
     fp: TextIO = open(runfile, "w")
     fp.write("#!/bin/bash\n")
@@ -83,7 +83,7 @@ def generate_runscript(
     printf("->%s\n" % runfile)
 
 
-def sort_exposures(catalogues: List[fits.HDUList]) -> ExposureMapping:
+def sort_exposures(catalogues: list[fits.HDUList]) -> ExposureMapping:
     """
      Given a list of catalogue files, this will return the fitsHDULists as a
      series of nested dictionaries sorted by:
@@ -137,7 +137,7 @@ def parse_mask(string, table) -> np.ndarray | None:
     :return: Boolean mask array to index into a table or array
     :rtype: np.ndarray
     """
-    mask: Optional[np.ndarray] = None
+    mask: np.ndarray | None = None
 
     col_name: str
     for col_name in table.colnames:
@@ -155,7 +155,7 @@ def parse_mask(string, table) -> np.ndarray | None:
     return mask
 
 
-def exp_info(hdu_list) -> Dict[str, int | None]:
+def exp_info(hdu_list) -> dict[str, int | None]:
     """
     Get the exposure information about a hdu list
     :param hdu_list: HDUList or ImageHDU or BinTableHDU
@@ -163,7 +163,7 @@ def exp_info(hdu_list) -> Dict[str, int | None]:
     (HeaderTags.FILTER, obs, visit exposure, detector)
     :rtype dict(str, Optional[int])
     """
-    info: Dict[str, int | None] = {
+    info: dict[str, int | None] = {
         HeaderTags.FILTER: None,
         HeaderTags.OBS: 0,
         HeaderTags.VISIT: 0,

@@ -13,7 +13,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
-from typing import List, Any
+from typing import Any
 
 import numpy as np
 from astropy.io.fits import PrimaryHDU, ImageHDU, BinTableHDU
@@ -173,7 +173,7 @@ def plot_cmd(
 
 
 def plot_inspect_source(
-        src: Row, images: List[PrimaryHDU | ImageHDU | BinTableHDU | None]):
+        src: Row, images: list[PrimaryHDU | ImageHDU | BinTableHDU | None]):
     """
     Show a source in an array of images
 
@@ -187,12 +187,14 @@ def plot_inspect_source(
 
     n: int = len(images)
     figure: Figure
-    axs: Axes | List[Axes]
-    figure, axs = plt.subplots(1, n, figsize=(1.7 * n, 2))
-    if n == 1:
-        axs = [axs]  # noqa
-    images: List[ImageHDU | PrimaryHDU | BinTableHDU | None] = sorted(
-        images, key=lambda a:
+    axs: np.ndarray
+    raw_axes: Axes | np.ndarray
+    figure, raw_axes = plt.subplots(1, n, figsize=(1.7 * n, 2))
+    axs: np.ndarray = np.atleast_1d(raw_axes).flatten()
+    valid_images: list[ImageHDU | PrimaryHDU | BinTableHDU] = [
+        a for a in images if a is not None]
+    images: list[ImageHDU | PrimaryHDU | BinTableHDU] = sorted(
+        valid_images, key=lambda a:
             list(STAR_BUG_FILTERS.keys()).index(a.header[HeaderTags.FILTER]))
 
     # arcsec?

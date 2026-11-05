@@ -14,7 +14,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
 import sys
-from typing import Tuple
 
 import numpy as np
 
@@ -77,7 +76,7 @@ class APPhotRoutine:
     def ap_corr_from_enc_energy(
             filter_string: str, encircled_energy: np.ndarray,
             table_f_name: str | None = None, verbose: int | bool = 0) -> (
-                Tuple[np.ndarray, np.ndarray]):
+                tuple[np.ndarray, np.ndarray]):
         """
         Rather than fitting radius to the AP_CORR CRDS, use the closes
         Encircled energy value

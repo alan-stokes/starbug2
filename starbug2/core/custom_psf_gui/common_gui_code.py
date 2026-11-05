@@ -17,7 +17,6 @@ import os
 import sys
 from importlib import resources
 from pathlib import Path, PurePath
-from typing import Tuple
 
 from PyQt6.QtCore import QCoreApplication
 from PyQt6.QtGui import QIcon
@@ -32,7 +31,7 @@ STAR_IMAGE_SIZE: int = 25
 
 
 def detect_stars(
-        config: StarBugMainConfig) -> Tuple[StarbugBase, ExitStates]:
+        config: StarBugMainConfig) -> tuple[StarbugBase, ExitStates]:
     """
     runs basic starbug to generate the image and detections.
     :param config: the main config which will contain detection params.
@@ -47,7 +46,7 @@ def detect_stars(
 
 
 def run_starbug_for_detection(config: StarBugMainConfig) -> (
-        Tuple[StarbugBase, ExitStates]):
+        tuple[StarbugBase, ExitStates]):
     """
     runs basic starbug to generate the image and detections.
     :param config: the config
@@ -66,7 +65,7 @@ def run_starbug_for_detection(config: StarBugMainConfig) -> (
 
 
 def run_starbug_for_image_and_ap_file(config: StarBugMainConfig) -> (
-        Tuple[StarbugBase, ExitStates]):
+        tuple[StarbugBase, ExitStates]):
     """
     reads in the ap file and image.
     :param config: the main config file
@@ -182,7 +181,7 @@ def _get_icon_path() -> str | None:
     return None
 
 
-def create_gui_instance_with_icon() -> Tuple[
+def create_gui_instance_with_icon() -> tuple[
         QApplication | QCoreApplication, QIcon]:
     """
     creates the application and icon and hands back for ui choice.

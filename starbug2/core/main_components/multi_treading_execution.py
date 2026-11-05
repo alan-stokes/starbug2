@@ -16,7 +16,6 @@ import copy
 import os
 from multiprocessing import Pool
 from multiprocessing.pool import Pool as PoolType
-from typing import Tuple
 
 import numpy as np
 from astropy.table import Table
@@ -96,7 +95,7 @@ def execute_star_bug_main(
 
 def execute_artificial_stars(
         f_name: str,
-        config: StarBugMainConfig) -> Tuple[list[Table] | None, ExitStates]:
+        config: StarBugMainConfig) -> tuple[list[Table] | None, ExitStates]:
     """
     Multiprocessing worker function to run artificial star tests on a given
     file.
@@ -125,7 +124,7 @@ def execute_artificial_stars(
 
 def execute_multicore_ast(
         config: StarBugMainConfig, loading_buffer: np.ndarray,
-        n_cores: int) -> list[Tuple[list[Table] | None, ExitStates]]:
+        n_cores: int) -> list[tuple[list[Table] | None, ExitStates]]:
     """
     executes tests utilising multicore functionality.
     :param config: the main starbug config
@@ -205,7 +204,7 @@ def execute_multi_core_main(
 def execute_one_core_run_ast(
         config: StarBugMainConfig,
         loading_buffer: np.ndarray) -> (
-            list[Tuple[list[Table] | None, ExitStates]]):
+            list[tuple[list[Table] | None, ExitStates]]):
     """
     executes tests utilising 1 core.
     :param config: the main starbug config

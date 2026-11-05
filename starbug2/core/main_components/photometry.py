@@ -13,7 +13,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
-from typing import List, Callable, Tuple, Any, cast
+from typing import Any, cast
+from collections.abc import Callable
 
 import numpy as np
 from astropy.io.fits import (
@@ -91,7 +92,7 @@ class Photometry:
     def load_psf(
             filter_string: str | None, info: dict[str, str],
             log: Callable[[str], None],
-            f_name: str | None = None) -> Tuple[ExitStates, np.ndarray | None]:
+            f_name: str | None = None) -> tuple[ExitStates, np.ndarray | None]:
         """
         Load a PSF_FILE to be used during photometry.
         :param filter_string: Name of the photometric filter band used.
@@ -137,7 +138,7 @@ class Photometry:
             detections: Table | None,
             psf: np.ndarray | None,
             wcs: WCS | None, info, log, config) -> (
-                Tuple[ExitStates, np.ndarray | None]):
+                tuple[ExitStates, np.ndarray | None]):
         """
         Validates pipeline input structures prior to running photometry.
 
@@ -191,7 +192,7 @@ class Photometry:
             background: ImageHDU | PrimaryHDU | None, header: Header,
             main_image: ImageHDU | PrimaryHDU,
             config: StarBugMainConfig, full_width_half_max: float) -> (
-                Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]):
+                tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]):
         """
         Prepares and conditions image arrays for pipeline processing.
 
@@ -244,7 +245,7 @@ class Photometry:
     @staticmethod
     def create_psf_model_mask(
             psf: np.ndarray | None, config: StarBugMainConfig,
-            log: Callable[[str], None]) -> Tuple[np.ndarray, ImagePSF, int]:
+            log: Callable[[str], None]) -> tuple[np.ndarray, ImagePSF, int]:
         """
         Cleans the PSF array, wraps it in a model, and calculates fit size.
 
@@ -284,7 +285,7 @@ class Photometry:
     def determine_initial_guesses(
             config: StarBugMainConfig, detections: Table,
             main_image: ImageHDU | PrimaryHDU, filter_string: str) -> (
-                Tuple[float, Table]):
+                tuple[float, Table]):
         """
         Extracts starting positions and sets the target aperture radius.
 
@@ -338,7 +339,7 @@ class Photometry:
             < main_image.header[HeaderTags.NAXIS2]]
 
         # Allow tables that don't have the correct columns through
-        required: List[str] = [
+        required: list[str] = [
             TableColumn.X_INIT, TableColumn.Y_INIT, TableColumn.FLUX,
             filter_string, TableColumn.FLAG]
         for notfound in set(required) - set(init_guesses.colnames):
@@ -713,7 +714,7 @@ class Photometry:
             ap_file: str | None,
             background_file: str | None,
             out_dir: str | None,
-            b_name: str | None) -> Tuple[
+            b_name: str | None) -> tuple[
                 ExitStates, Table | None, np.ndarray | None]:
         """
         Executes the master PSF-fitting photometry processing pipeline.

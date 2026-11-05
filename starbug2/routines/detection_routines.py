@@ -13,7 +13,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
-from typing import Optional, cast
 from collections.abc import Callable
 
 import numpy as np
@@ -121,8 +120,7 @@ class DetectionRoutine(StarFinderBase):
         self.do_con_vl: bool | int = do_con_vl
 
     def detect(self, data: np.ndarray,
-               bkg_estimator: Optional[Callable[
-                   [np.ndarray], np.ndarray]] = None,
+               bkg_estimator: Callable[[np.ndarray], np.ndarray] | None = None,
                xy_coords: Table | None = None,
                use_find_peaks: bool = False) -> Table:
         """
@@ -214,7 +212,7 @@ class DetectionRoutine(StarFinderBase):
 
     def _clean_up_data(
             self, data: np.ndarray | None,
-            mask: Optional[np.ndarray] = None) -> np.ndarray | None:
+            mask: np.ndarray | None = None) -> np.ndarray | None:
         """
         sets up data for detections
         :param data: 2D image array to detect on
@@ -275,8 +273,8 @@ class DetectionRoutine(StarFinderBase):
 
         kernel: RickerWavelet2DKernel = (
             RickerWavelet2DKernel(self.ricker_r))
-        conv: np.ndarray = cast(np.ndarray, convolve(data, kernel.array))
-        corr: np.ndarray = cast(np.ndarray, match_template(
+        conv: np.ndarray = convolve(data, kernel.array)
+        corr: np.ndarray = np.asarray(match_template(
             conv / np.amax(conv), kernel.array))
         detections: Table = self.detect(corr, use_find_peaks=True)
         if detections:
@@ -344,7 +342,7 @@ class DetectionRoutine(StarFinderBase):
 
     def find_stars(
             self, data: np.ndarray | None,
-            mask: Optional[np.ndarray] = None) -> Table:
+            mask: np.ndarray | None = None) -> Table:
         """
         This routine runs source detection several times, but on a different
         form of the data array each time. Each form has been "skewed" somehow

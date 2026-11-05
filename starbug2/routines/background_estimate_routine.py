@@ -12,7 +12,6 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-from typing import List, Optional, Union
 
 import numpy as np
 from photutils.background import Background2D, BackgroundBase
@@ -29,7 +28,7 @@ class BackGroundEstimateRoutine(BackgroundBase):
             sig_sky: float = 2.0, bgd_r: float = -1.0,
             profile_scale: float = 1.0, profile_slope: float = 0.5,
             verbose: bool | int = 0,
-            bgd: Optional[Background2D] = None) -> None:
+            bgd: Background2D | None = None) -> None:
         """
         Diffuse background emission estimator run by starbug.
 
@@ -76,7 +75,7 @@ class BackGroundEstimateRoutine(BackgroundBase):
         assert self._source_list is not None
         x: Table = self._source_list[TableColumn.X_CENTROID]
         y: Table = self._source_list[TableColumn.Y_CENTROID]
-        apertures: List[ApertureMask] = CircularAperture(
+        apertures: list[ApertureMask] = CircularAperture(
             np.array((x, y)).T, 2).to_mask()
         peaks: np.ndarray = np.full(len(x), np.nan)
 
@@ -97,7 +96,7 @@ class BackGroundEstimateRoutine(BackgroundBase):
 
     def run(
             self, data: np.ndarray | None,
-            output: Optional[str] = None) -> Background2D | None:
+            output: str | None = None) -> Background2D | None:
         """
         does background estimation routine.
 
@@ -126,7 +125,7 @@ class BackGroundEstimateRoutine(BackgroundBase):
         else:
             if TableColumn.FLUX in self._source_list.colnames:
                 self.log("-> calculating source aperture mask radii\n")
-                sky: Union[np.ndarray, float] = (
+                sky: np.ndarray | float = (
                     self._source_list["sky"]
                     if "sky" in self._source_list.colnames else 1.0)
                 rlist = (
@@ -198,8 +197,8 @@ class BackGroundEstimateRoutine(BackgroundBase):
 
     def calc_background(
             self, data: np.ndarray,
-            axis: Optional[int] = None,
-            masked: Optional[bool] = None) -> np.ndarray:
+            axis: int | None = None,
+            masked: bool | None = None) -> np.ndarray:
         """
         Calculate the background value.
 

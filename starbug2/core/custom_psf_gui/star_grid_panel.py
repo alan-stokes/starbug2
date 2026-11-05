@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import math
 import os
-from typing import List, Tuple, cast, Any
+from typing import cast, Any
 
 import numpy as np
 from PyQt6 import QtCore
@@ -118,7 +118,7 @@ class StarGridPanel(QDialog):
                     f"We will continue.")
 
         # populate images from selected stars.
-        images: List[Tuple[str, np.ndarray]] = []
+        images: list[tuple[str, np.ndarray]] = []
         assert selected_stars is not None
 
         # get coords and iterate over them to build the images to display.
@@ -168,7 +168,7 @@ class StarGridPanel(QDialog):
         QWidget.mousePressEvent(window, event)
 
     def __init__(
-            self, images: List[Tuple[str, np.ndarray]], sole_ui: bool,
+            self, images: list[tuple[str, np.ndarray]], sole_ui: bool,
             scale_selected_row: int, scale_selected_mut_row: int,
             image_data: np.ndarray, config: StarBugMainConfig,
             detected_stars: Table, starbug_base: StarbugBase, parent=None,
@@ -206,10 +206,10 @@ class StarGridPanel(QDialog):
         self._max_cols: int = MAX_COL_ROW_OF_VIEWER
 
         # the images store.
-        self._images: List[Tuple[str, np.ndarray]] = images
+        self._images: list[tuple[str, np.ndarray]] = images
         self._original_selected_stars: list[str] | None = (
             original_selected_stars)
-        self._image_items: List[ImageItem] = list()
+        self._image_items: list[ImageItem] = list()
         self._solo: bool = sole_ui
         self._selected_stars: list[str] = list()
         self._starbug_base = starbug_base
@@ -229,7 +229,7 @@ class StarGridPanel(QDialog):
             MIN_STAR_WINDOW_SIZE + VIEWER_PADDING)
 
         # Track grid structures for dynamic reflowing
-        self._cell_widgets: List[QWidget] = []
+        self._cell_widgets: list[QWidget] = []
         self._grid_layout: QGridLayout | None = None
         self._current_cols: int = 3
         self._image_grid_area: QScrollArea | None = None
@@ -766,7 +766,7 @@ class StarGridPanel(QDialog):
         self.accept()
 
     @property
-    def selected_stars(self) -> List[str]:
+    def selected_stars(self) -> list[str]:
         """
         hands over the selected stars to parent if needed.
         NOTE: used with the main GUI.

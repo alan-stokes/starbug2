@@ -13,7 +13,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
-from typing import List, Final
+from typing import Final
 from enum import Enum
 from pathlib import Path
 import os
@@ -214,7 +214,7 @@ class TableColumn(str, Enum):
 
 
 # DEFAULT MATCHING COLS
-MATCH_COLS: List[str] = [
+MATCH_COLS: list[str] = [
     TableColumn.RA, TableColumn.DEC, TableColumn.FLAG, TableColumn.FLUX,
     TableColumn.E_FLUX, TableColumn.NUM]
 
@@ -344,7 +344,7 @@ class FileExtensions(str, Enum):
 
 
 # the column names of the rsult table used by artificial stars
-TEST_TABLE_COLUMN_NAMES: Final[List[str]] = [
+TEST_TABLE_COLUMN_NAMES: Final[list[str]] = [
     TableColumn.X_0, TableColumn.Y_0, TableColumn.MAG, TableColumn.FLUX,
     TableColumn.X_DET, TableColumn.Y_DET, TableColumn.FLUX_DET,
     TableColumn.FOUND]

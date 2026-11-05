@@ -12,7 +12,6 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-from typing import Tuple
 
 import numpy
 import os
@@ -164,7 +163,7 @@ class CustomPSF:
             nd_data, stars_tbl, size=config.custom_psf_size_pixels)
 
     @staticmethod
-    def execute_background_extraction(base: StarbugBase) -> Tuple[
+    def execute_background_extraction(base: StarbugBase) -> tuple[
                 ExitStates, numpy.ndarray | None]:
         result_state: ExitStates = base.bgd_estimate()
         if result_state != ExitStates.EXIT_SUCCESS:
