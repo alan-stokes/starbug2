@@ -49,9 +49,10 @@ class _Grouper(SourceGrouper):
         exceeded_mask: np.ndarray = np.atleast_1d(
             np.bincount(res) > self.CRITICAL_VAL)
         if n := int(np.sum(exceeded_mask)):
-            warn("Source grouper has %d groups larger than %d. Consider"
-                 " reducing \"CRIT_SEP=%g\" or fitting might take a long"
-                 " time.\n" % (n, self.CRITICAL_VAL, self.min_separation))
+            warn(f"Source grouper has {n} groups larger "
+                 f"than {self.CRITICAL_VAL}. Consider reducing "
+                 f"\"CRIT_SEP={self.min_separation:g}\" or fitting might "
+                 f"take a long time.\n")
         return res
 
 
@@ -102,7 +103,7 @@ class PSFPhotRoutine(PSFPhotometry):
             progress_bar=verbose, aperture_radius=app_hot_r, grouper=grouper)
 
         if self._verbose:
-            printf("-> source group separation: %g\n" % min_separation)
+            printf(f"-> source group separation: {min_separation:g}\n")
 
     def __call__(
             self, data: np.ndarray,
@@ -163,7 +164,7 @@ class PSFPhotRoutine(PSFPhotometry):
         if self._background is not None:
             image = image - self._background
         if self._verbose:
-            printf("-> fitting %d sources\n" % len(init_params))
+            printf(f"-> fitting {len(init_params)} sources\n")
         cat: QTable = super().__call__(
             image, mask=mask, init_params=init_params, error=error)
 

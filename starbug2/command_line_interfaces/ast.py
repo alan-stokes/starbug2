@@ -42,8 +42,10 @@ def load(loading_buffer: np.ndarray) -> None:
         sleep(1)
         p: np.ndarray = loading_buffer[0] / loading_buffer[1]
         msg: str = f"recovering:{loading_buffer[2]}%"
-        s: str = "\x1b[2K%s|%-40s|%d/%d\r" % (
-            msg, int(p*40)*'=', int(loading_buffer[0]), int(loading_buffer[1]))
+        s: str = (
+            f"\x1b[2K{msg}|{'=' * int(p * 40):<40}|"
+            f"{int(loading_buffer[0])}/{int(loading_buffer[1])}\r"
+        )
         printf(s)
         sys.stdout.flush()
     printf("\n")
@@ -80,14 +82,13 @@ def report_before_logs(config: StarBugMainConfig, f_name: str) -> None:
     :rtype: None
     """
     printf("Artificial Stars\n----------------\n")
-    printf("-> loading %s\n" % f_name)
+    printf(f"-> loading {f_name}\n")
     if config.param_file:
-        printf("-> parameters: %s\n" % config.param_file)
-    printf("-> running %d tests with %d injections per test\n" % (
-        config.artificial_star_tests_count, config.stars_per_artificial_test))
-    printf("-> magnitude range: %.1f - %.1f\n" % (
-        config.test_magnitude_bright_limit,
-        config.test_magnitude_faint_limit))
+        printf(f"-> parameters: {config.param_file}\n")
+    printf(f"-> running {config.artificial_star_tests_count} tests with "
+           f"{config.stars_per_artificial_test} injections per test\n")
+    printf(f"-> magnitude range: {config.test_magnitude_bright_limit:.1f} - "
+           f"{config.test_magnitude_faint_limit:.1f}\n")
     if config.ast_no_psf_phot:
         printf("-> skipping PSF photometry step\n")
     if config.ast_no_background:
@@ -219,10 +220,10 @@ def ast_main(
     config: StarBugMainConfig = ast_parse_argv(argv)
 
     exit_code: ExitStates
-    if config.use_ast_one_time_runs():
-        if exit_code := ast_one_time_runs(config):
-            share_memory.unlink()
-            return exit_code
+    if (config.use_ast_one_time_runs()
+            and (exit_code := ast_one_time_runs(config))):
+        share_memory.unlink()
+        return exit_code
 
     print(f"{config.fits_images}")
 

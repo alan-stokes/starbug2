@@ -19,7 +19,7 @@ import os
 import numpy as np
 from astropy.io.fits import Header, ImageHDU
 from astropy.nddata import NDData
-from astropy.stats import sigma_clipped_stats, SigmaClip
+from astropy.stats import SigmaClip
 from astropy.table import Table
 from scipy.ndimage import gaussian_filter
 from photutils.centroids import centroid_com
@@ -251,11 +251,6 @@ class CustomPSF:
             'roundness2', 'n_pixels', 'peak', 'flux', 'mag']
         :rtype: Table
         """
-        # determine threshold.
-        median_stat: float
-        std: float
-        _, median_stat, std = sigma_clipped_stats(data, sigma=config.sigma_sky)
-
         # locate stars in fits image
         detector: DetectionRoutine = DetectionRoutine(
             sig_src=config.sigma_source,

@@ -12,6 +12,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
+from typing import Final
+
 import numpy as np
 from PyQt6.QtWidgets import (
     QGroupBox, QListWidget, QFormLayout, QMainWindow, QDialog)
@@ -24,32 +26,15 @@ from astropy.visualization import (
 
 class ScaleElements:
     # the list of scale options
-    SCALE_LIST: list[str] = [
+    SCALE_LIST: Final[list[str]] = [
         "Linear", "Log", "Power", "Sqrt", "Squared", "AsinH", "SinH",
         "Histogram"]
-    DEFAULT_SCALE_LIST_SELECTED = SCALE_LIST.index("AsinH")
+    DEFAULT_SCALE_LIST_SELECTED: Final[int] = SCALE_LIST.index("AsinH")
 
     # list of scale options mut.
-    SCALE_MUT_LIST: list[str] = ["Min max", "Z scale"]
-    DEFAULT_SCALE_LIST_MUT_SELECTED = SCALE_MUT_LIST.index("Z scale")
-
-    # Mapping UI labels to Astropy stretch objects
-    STRETCH_MAP = {
-        "Linear": LinearStretch(),
-        "Log": LogStretch(a=1000.0),
-        "Power": PowerStretch(a=2.0),
-        "Sqrt": SqrtStretch(),
-        "Squared": SquaredStretch(),
-        "AsinH": AsinhStretch(a=0.1),
-        "SinH": SinhStretch(a=0.5),
-        "Histogram": None
-    }
-
-    # Mapping UI labels to Astropy interval objects
-    INTERVAL_MAP = {
-        "Min max": MinMaxInterval(),
-        "Z scale": ZScaleInterval(),
-    }
+    SCALE_MUT_LIST: Final[list[str]] = ["Min max", "Z scale"]
+    DEFAULT_SCALE_LIST_MUT_SELECTED: Final[int] = (
+        SCALE_MUT_LIST.index("Z scale"))
 
     def __init__(
             self, images: list[np.ndarray],

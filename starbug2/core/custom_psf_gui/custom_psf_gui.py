@@ -98,7 +98,7 @@ class CustomPSFGui(QMainWindow):
         # Data storage
         self._image_data: np.ndarray = starbug_base.main_image().data
         self._circles_for_psf_generation: (
-            dict[str, ClickableCircleOverlay]) = dict()
+            dict[str, ClickableCircleOverlay]) = {}
         self._selected_stars: list[str] = []
         detected_stars: Table | None = starbug_base.detections
         assert detected_stars is not None
@@ -617,7 +617,7 @@ class CustomPSFGui(QMainWindow):
         self._selected_list.clear()
 
         # Populate detected dropdown with stars that are not currently selected
-        for star_id in self._circles_for_psf_generation.keys():
+        for star_id in self._circles_for_psf_generation:
             if star_id not in self._selected_stars:
                 self._detected_list.addItem(star_id)
 
@@ -660,7 +660,7 @@ class CustomPSFGui(QMainWindow):
 
         # Populate detected stars list
         star_id: str
-        for star_id in self._circles_for_psf_generation.keys():
+        for star_id in self._circles_for_psf_generation:
             if star_id not in self._selected_stars:
                 self._detected_list.addItem(star_id)
 
@@ -939,8 +939,8 @@ class CustomPSFGui(QMainWindow):
             x_coord: float = float(matched_row[TableColumn.X_CENTROID][0])
             y_coord: float = float(matched_row[TableColumn.Y_CENTROID][0])
 
-            x_center: int = int(round(x_coord))
-            y_center: int = int(round(y_coord))
+            x_center: int = round(x_coord)
+            y_center: int = round(y_coord)
             img_height, img_width = self._image_data.shape
 
             x_min: int = max(0, x_center - STAR_IMAGE_SIZE)

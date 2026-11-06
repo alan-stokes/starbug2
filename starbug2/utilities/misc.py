@@ -15,7 +15,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
 import stat
 import numpy as np
-from typing import TextIO
 
 from starbug2.constants import (
     FileExtensions, FILE_NAME, HeaderTags, ImageHeaderTags)
@@ -46,41 +45,38 @@ def generate_runscript(
     runfile: str = "./run.sh"
     fits_files: list[fits.HDUList] = []
 
-    fp: TextIO = open(runfile, "w")
-    fp.write("#!/bin/bash\n")
-    fp.write("CMDS=\"-vf\"\n")
     for f_name in f_names:
         if os.path.exists(f_name):
-            d_name: str
-            name: str
-            ext: str
-            d_name, name, ext = split_file_name(f_name)
+            _, name, ext = split_file_name(f_name)
             if ext == FileExtensions.FITS:
                 fits_file: fits.HDUList = fits.open(f_name)
                 fits_file[0].header[FILE_NAME] = f_name
                 fits_files.append(fits_file)
             else:
-                p_error(
-                    "file %s must be type '.fits' not '%s'\n" % (name, ext))
+                p_error(f"file {name} must be type '.fits' not '{ext}'\n")
         else:
-            p_error("file \x1b[1;31m%s\x1b[0m not found\n" % f_name)
+            p_error(f"file \x1b[1;31m{f_name}\x1b[0m not found\n")
 
     sorted_exposures: ExposureMapping = sort_exposures(fits_files)
 
-    # print exps.
-    for _, obs in sorted_exposures.items():
-        for _, visits in obs.items():
-            for _, destinations in visits.items():
-                for _, exps in destinations.items():
-                    s = f"{args}${{CMDS}} -n{len(exps)} "
-                    for exp in exps:
-                        s += "%s " % exp[0].header[FILE_NAME]
-                    fp.write("%s\n" % s)
-    fp.close()
+    with open(runfile, "w") as fp:
+        fp.write("#!/bin/bash\n")
+        fp.write('CMDS="-vf"\n')
+
+        # print exps.
+        for obs in sorted_exposures.values():
+            for visits in obs.values():
+                for destinations in visits.values():
+                    for exps in destinations.values():
+                        s = f"{args}${{CMDS}} -n{len(exps)} "
+                        for exp in exps:
+                            s += f"{exp[0].header[FILE_NAME]} "
+                        fp.write(f"{s}\n")
+
     os.chmod(
         runfile, stat.S_IXUSR | stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP |
         stat.S_IROTH)
-    printf("->%s\n" % runfile)
+    printf(f"->{runfile}\n")
 
 
 def sort_exposures(catalogues: list[fits.HDUList]) -> ExposureMapping:
@@ -102,20 +98,20 @@ def sort_exposures(catalogues: list[fits.HDUList]) -> ExposureMapping:
     for cat in catalogues:
         info = exp_info(cat)
 
-        if info[HeaderTags.FILTER] not in out.keys():
+        if info[HeaderTags.FILTER] not in out:
             out[info[HeaderTags.FILTER]] = {}
 
-        if info[HeaderTags.OBS] not in out[info[HeaderTags.FILTER]].keys():
+        if info[HeaderTags.OBS] not in out[info[HeaderTags.FILTER]]:
             out[info[HeaderTags.FILTER]][info[HeaderTags.OBS]] = {}
 
         if (info[HeaderTags.VISIT] not in
-                out[info[HeaderTags.FILTER]][info[HeaderTags.OBS]].keys()):
+                out[info[HeaderTags.FILTER]][info[HeaderTags.OBS]]):
             out[info[HeaderTags.FILTER]][
                 info[HeaderTags.OBS]][info[HeaderTags.VISIT]] = {}
 
         if (info[ImageHeaderTags.DETECTOR] not in
             out[info[HeaderTags.FILTER]][info[HeaderTags.OBS]][
-                info[HeaderTags.VISIT]].keys()):
+                info[HeaderTags.VISIT]]):
             out[info[HeaderTags.FILTER]][
                 info[HeaderTags.OBS]][info[HeaderTags.VISIT]][
                 info[ImageHeaderTags.DETECTOR]] = []
@@ -141,15 +137,15 @@ def parse_mask(string, table) -> np.ndarray | None:
 
     col_name: str
     for col_name in table.colnames:
-        string: str = string.replace(col_name, "table[\"%s\"]" % col_name)
+        string: str = string.replace(col_name, f"table[\"{col_name}\"]")
 
     try:
         mask = eval(string)
         if not isinstance(mask, np.ndarray):
-            raise Exception
+            raise TypeError
     except NameError as e:
-        p_error("Unable to create mask: %s\n" % repr(e))
-    except Exception as e:
+        p_error(f"Unable to create mask: {e!r}\n")
+    except TypeError as e:
         p_error(repr(e))
 
     return mask

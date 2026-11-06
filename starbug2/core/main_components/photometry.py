@@ -13,6 +13,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
+import sys
 from typing import Any, cast
 from collections.abc import Callable
 
@@ -81,8 +82,7 @@ class Photometry:
                         dt_name = ""
                 if dt_name == MIRI_IMAGE:
                     dt_name = ""
-                f_name = "%s/%s%s.fits" % (
-                    get_data_path(), filter_string, dt_name)
+                f_name = f"{get_data_path()}/{filter_string}{dt_name}.fits"
             else:
                 f_name = None
         return f_name
@@ -121,13 +121,13 @@ class Photometry:
                         "There is a version mismatch between starbug and "
                         "webbpsf. Please reinitialise with: "
                         "starbug2 --init.\n")
-                    quit("Fatal error, quitting\n")
+                    sys.exit("Fatal error, quitting\n")
                 return status, psf
             psf = fp[0].data
             fp.close()
-            log("loaded PSF_FILE='%s'\n" % f_name)
+            log(f"loaded PSF_FILE='{f_name}'\n")
         else:
-            p_error("PSF_FILE='%s' does not exist\n" % f_name)
+            p_error(f"PSF_FILE='{f_name}' does not exist\n")
             status = ExitStates.EXIT_FAIL
         return status, psf
 
@@ -245,7 +245,7 @@ class Photometry:
     @staticmethod
     def create_psf_model_mask(
             psf: np.ndarray | None, config: StarBugMainConfig,
-            log: Callable[[str], None]) -> tuple[np.ndarray, ImagePSF, int]:
+            log: Callable[[str], None]) -> tuple[ImagePSF, int]:
         """
         Cleans the PSF array, wraps it in a model, and calculates fit size.
 
@@ -259,10 +259,9 @@ class Photometry:
         :type config: StarBugMainConfig
         :param log: Callable logging function for status tracking.
         :type log: Callable[[str], None]
-        :return: A tuple containing the updated boolean mask array, the
-                 initialized ImagePSF model object, and the computed odd-valued
-                 fitting bounding dimension size.
-        :rtype: Tuple[np.ndarray, ImagePSF, int]
+        :return: A tuple containing the initialized ImagePSF model object,
+                and the computed odd-valued fitting bounding dimension size.
+        :rtype: Tuple[ImagePSF, int]
         """
         psf_mask: np.ndarray = ~np.isfinite(psf)
         if psf_mask.sum():
@@ -278,8 +277,8 @@ class Photometry:
             size = psf_model.shape[0]
         if not size % 2:
             size -= 1
-        log("-> psf size: %d\n" % size)
-        return psf_mask, psf_model, size
+        log(f"-> psf size: {size}\n")
+        return psf_model, size
 
     @staticmethod
     def determine_initial_guesses(
@@ -350,7 +349,7 @@ class Photometry:
 
         init_guesses = init_guesses[required]
         init_guesses.remove_column(TableColumn.FLUX)
-        init_guesses.rename_column(filter_string, "ap_%s" % filter_string)
+        init_guesses.rename_column(filter_string, f"ap_{filter_string}")
 
         return app_hot_r, init_guesses
 
@@ -375,10 +374,10 @@ class Photometry:
         if not header.get(ImageHeaderTags.PIXAR_A2):
             # noinspection SpellCheckingInspection
             warn(
-                "MAX_XYDEV is units arcseconds, but starbug "
-                "cannot locate a pixel scale in the header."
-                " Please use syntax MAX_XYDEV=%sp to set "
-                "change to pixels\n" % max_y_dev)
+                f"MAX_XYDEV is units arcseconds, but starbug "
+                f"cannot locate a pixel scale in the header."
+                f" Please use syntax MAX_XYDEV={max_y_dev}p to set "
+                f"change to pixels\n")
         else:
             max_y_dev /= np.sqrt(
                 header.get(ImageHeaderTags.PIXAR_A2))
@@ -469,7 +468,7 @@ class Photometry:
         """
         if max_y_dev > 0:
             log(
-                "-> position fit threshold: %.2gpix\n" % max_y_dev)
+                f"-> position fit threshold: {max_y_dev:.2g}pix\n")
             phot = PSFPhotRoutine(
                 psf_model, size, min_separation=min_separation,
                 app_hot_r=app_hot_r, background=bgd, force_fit=1,
@@ -477,7 +476,7 @@ class Photometry:
             ii: np.ndarray = psf_cat[TableColumn.XY_DEV] > max_y_dev
             fixed_centres: Table = psf_cat[ii][
                 [TableColumn.X_INIT, TableColumn.Y_INIT,
-                 "ap_%s" % filter_string, TableColumn.FLAG]]
+                 f"ap_{filter_string}", TableColumn.FLAG]]
             if len(fixed_centres):
                 log("-> forcing positions for deviant sources\n")
                 fixed_cat: Table = phot(
@@ -608,7 +607,7 @@ class Photometry:
             filter_string if filter_string else TableColumn.MAG)
         psf_cat.add_column(
             mag + config.zero_point_magnitude, name=filter_string)
-        psf_cat.add_column(mag_err, name="e%s" % filter_string)
+        psf_cat.add_column(mag_err, name=f"e{filter_string}")
         psf_catalogue = psf_cat
 
         # verify catalogue isn't none
@@ -622,7 +621,7 @@ class Photometry:
 
         assert out_dir is not None
         file_name: str = os.path.join(out_dir, f"{b_name}{FileExtensions.PSF}")
-        log("--> %s\n" % file_name)
+        log(f"--> {file_name}\n")
         BinTableHDU(
             data=psf_catalogue,
             header=header).writeto(file_name, overwrite=True)
@@ -688,7 +687,6 @@ class Photometry:
             residual: np.ndarray = image_data - (bgd + stars)
             residuals = (
                 residual / get_mj_ysr2jy_scale_factor(main_image))
-            header: Header = header
             header.update(wcs.to_header())
             assert out_dir is not None
             ImageHDU(
@@ -787,10 +785,9 @@ class Photometry:
                 full_width_half_max))
 
         # Collect relevant files and data
-        psf_mask: np.ndarray
         psf_model: ImagePSF
         size: int
-        psf_mask, psf_model, size = Photometry.create_psf_model_mask(
+        psf_model, size = Photometry.create_psf_model_mask(
             psf, config, log)
 
         app_hot_r: float

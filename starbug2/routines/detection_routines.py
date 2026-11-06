@@ -166,7 +166,7 @@ class DetectionRoutine(StarFinderBase):
             col_names = [
                 TableColumn.ID, TableColumn.X_PEAK, TableColumn.Y_PEAK,
                 TableColumn.X_CENTROID, TableColumn.Y_CENTROID]
-            col_data = [list(), list(), list(), list(), list()]
+            col_data = [[], [], [], [], []]
             catalogue: Table = Table(col_data, names=col_names)
         return catalogue
 
@@ -241,7 +241,7 @@ class DetectionRoutine(StarFinderBase):
         """
         self.catalogue = self.detect(data)
         if self.verbose:
-            printf("-> [PLAIN] pass: %d sources\n" % len(self.catalogue))
+            printf(f"-> [PLAIN] pass: {len(self.catalogue)} sources\n")
 
     def _do_background_detection(self, data: np.ndarray) -> None:
         """
@@ -260,7 +260,7 @@ class DetectionRoutine(StarFinderBase):
         else:
             self.catalogue = self.match(self.catalogue, background_results)
         if self.verbose:
-            printf("-> [BGD2D] pass: %d sources\n" % len(self.catalogue))
+            printf(f"-> [BGD2D] pass: {len(self.catalogue)} sources\n")
 
     def _do_differential_detection(self, data: np.ndarray) -> None:
         """
@@ -289,7 +289,7 @@ class DetectionRoutine(StarFinderBase):
                 self.catalogue = self.match(self.catalogue, detections)
         if self.verbose:
             # noinspection SpellCheckingInspection
-            printf("-> [CONVL] pass: %d sources\n" % len(self.catalogue))
+            printf(f"-> [CONVL] pass: {len(self.catalogue)} sources\n")
 
     def _update_mask_for_cleaning_src(self, mask: np.ndarray) -> np.ndarray:
         if (TableColumn.SHARPNESS in self.catalogue.colnames and
@@ -331,11 +331,11 @@ class DetectionRoutine(StarFinderBase):
             self._update_mask_for_cleaning_src(mask)
 
         if self.verbose:
-            printf("-> cleaning %d unlikely point sources\n" % sum(~mask))
+            printf(f"-> cleaning {sum(~mask)} unlikely point sources\n")
         self.catalogue = self.catalogue[mask]
 
         if self.verbose:
-            printf("Total: %d sources\n" % len(self.catalogue))
+            printf(f"Total: {len(self.catalogue)} sources\n")
 
         self.catalogue.replace_column(
             "id", Column(range(1, 1 + len(self.catalogue))))

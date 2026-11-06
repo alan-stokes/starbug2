@@ -120,7 +120,7 @@ class BackGroundEstimateRoutine(BackgroundBase):
         rlist: np.ndarray
         if self._bgd_r and self._bgd_r > 0:
             self.log(
-                "-> using BGD_R=%g masking aperture radii\n" % self._bgd_r)
+                f"-> using BGD_R={self._bgd_r:g} masking aperture radii\n")
             rlist = self._bgd_r * np.ones(len(self._source_list))
         else:
             if TableColumn.FLUX in self._source_list.colnames:
@@ -144,13 +144,13 @@ class BackGroundEstimateRoutine(BackgroundBase):
                                 self._source_list[i][TableColumn.Y_CENTROID])
 
                             fp.write(
-                                "circle %f %f %f #color=green;" % (
-                                    1 + x_cen, 1 + y_cen, radius_val))
+                                f"circle {1 + x_cen:f} {1 + y_cen:f}"
+                                f" {radius_val:f} #color=green;")
                             fp.write(
-                                "annulus %f %f %f %f #color=white;" % (
-                                    1 + x_cen, 1 + y_cen, 1.5 * radius_val,
-                                    1.5 * radius_val + 1))
-                    self.log("-> exporting check file \"%s\"\n" % output)
+                                f"annulus {1 + x_cen:f} {1 + y_cen:f}"
+                                f" {1.5 * radius_val:f}"
+                                f" {1.5 * radius_val + 1:f} #color=white;")
+                    self.log(f"-> exporting check file \"{output}\"\n")
             else:
                 warn("Unable to calculate aperture mask sizes, "
                      "add '-A' to starbug command.\n")
@@ -167,8 +167,8 @@ class BackGroundEstimateRoutine(BackgroundBase):
             rin: float = 1.5 * r
             rout: float = rin + 1
 
-            x: int = int(round(src[TableColumn.X_CENTROID]))
-            y: int = int(round(src[TableColumn.Y_CENTROID]))
+            x: int = round(src[TableColumn.X_CENTROID])
+            y: int = round(src[TableColumn.Y_CENTROID])
             _X: np.ndarray = x_grid[
                 max(x - dimension, 0): min(x + dimension, data.shape[1])]
             _Y: np.ndarray = y_grid[
@@ -227,6 +227,6 @@ class BackGroundEstimateRoutine(BackgroundBase):
         if self._background is None:
             self.__call__(data)
         if self._background is None:
-            raise Exception(
+            raise RuntimeError(
                 "the background file didnt get created for some reason")
         return self._background.background

@@ -57,10 +57,9 @@ class Mask:
         opts_str: str
         coords: str
         opts: list[tuple[str, str]]
-        args: list[str]
 
         opts_str, coords = string.split(':')
-        opts, args = getopt.getopt(opts_str.split(' '), "c:l:x:y:")
+        opts, _ = getopt.getopt(opts_str.split(' '), "c:l:x:y:")
         for opt, opt_arg in opts:
             if opt == "-x":
                 keys[0] = opt_arg
@@ -91,7 +90,7 @@ class Mask:
         if len(keys) == 2:
             self._keys: list[str] = keys
         else:
-            raise Exception
+            raise ValueError("wrong amount of keys")
         self._label: str | None = label
 
         self._colour: str = colour

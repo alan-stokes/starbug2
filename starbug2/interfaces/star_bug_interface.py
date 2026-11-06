@@ -262,8 +262,8 @@ class StarBugInterface(ABC):
         if header.get(ImageHeaderTags.BUN_IT) == "MJy/sr":
             scale_factor = get_mj_ysr2jy_scale_factor(main_image)
             log(
-                "-> converting unit from MJy/sr to Jr with factor: %e\n"
-                % scale_factor)
+                f"-> converting unit from MJy/sr to Jr with factor: "
+                f"{scale_factor:e}\n")
         else:
             scale_factor = 1
 

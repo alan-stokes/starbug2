@@ -48,14 +48,14 @@ def execute_star_bug_main(
 
     # check file exists
     if not os.path.exists(f_name):
-        p_error("can't access %s\n" % f_name)
+        p_error(f"can't access {f_name}\n")
         return None
 
     folder, file_name, ext = split_file_name(f_name)
 
     # check correct extension
     if ext != FileExtensions.FITS:
-        p_error("file must be type '.fits' not %s\n" % ext)
+        p_error(f"file must be type '.fits' not {ext}\n")
         return None
 
     # extract output files
@@ -74,11 +74,11 @@ def execute_star_bug_main(
 
     # Sorting out the stdout
     if config.verbose_logs:
-        printf("-> showing starbug stdout for \"%s\"\n" % f_name)
+        printf(f"-> showing starbug stdout for \"{f_name}\"\n")
     elif config.n_cores > 1:
-        printf("-> hiding starbug stdout for \"%s\"\n" % f_name)
+        printf(f"-> hiding starbug stdout for \"{f_name}\"\n")
     else:
-        printf("-> %s\n" % f_name)
+        printf(f"-> {f_name}\n")
 
     # execute
     star_bug_base: StarbugBase | None = StarbugBase(

@@ -129,7 +129,7 @@ def register_desktop_entry(
     """
     try:
         desktop_file.write_text(content)
-    except Exception as e:
+    except (TypeError, OSError, UnicodeEncodeError, FileNotFoundError) as e:
         print(f"Warning: Could not write desktop entry: {e}")
 
 
@@ -150,9 +150,11 @@ def setup_gui(
         else:
             print(f"GUI closed with non-zero exit code: {return_code}")
             return ExitStates.EXIT_FAIL
-    except Exception as e:
+    except (RuntimeError, AttributeError, ImportError,
+            ModuleNotFoundError) as e:
         print(f" failed to run custom PFS GUI due to: {e}")
         return ExitStates.EXIT_FAIL
+
 
 def _get_icon_path() -> str | None:
     """Find starbug.png via package assets first, falling back to

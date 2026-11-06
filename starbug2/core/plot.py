@@ -49,7 +49,7 @@ def load_style(f_name: str) -> None:
     if os.path.exists(f_name):
         plt.style.use(f_name)
     else:
-        utils.p_error("Unable to load style sheet \"%s\"\n" % f_name)
+        utils.p_error(f"Unable to load style sheet \"{f_name}\"\n")
 
 
 def _generate_regular_grid_interpolator(
@@ -83,7 +83,7 @@ def plot_test(axes: Axes) -> Axes:
     """
     if not utils.wget(URL_DOCS, f_name="/tmp/sb.png"):
         axes.imshow(mpimg.imread("/tmp/sb.png"))
-        axes.set_title("starbug2 v%s" % utils.get_version())
+        axes.set_title(f"starbug2 v{utils.get_version()}")
         axes.set_axis_off()
     return axes
 

@@ -94,7 +94,7 @@ def match_full_band_match(
         mask: np.ndarray
         if bridge_col:
             mask = np.isnan(nir_cam_matched[bridge_col])
-            utils.printf("-> bridging catalogues with %s\n" % bridge_col)
+            utils.printf(f"-> bridging catalogues with {bridge_col}\n")
         else:
             mask = np.full(len(nir_cam_matched), False)
 
@@ -199,7 +199,7 @@ def match_main(argv: list[str]) -> ExitStates:
                 config.full_run = True
 
             if config.verbose_logs:
-                print("\n%s" % matcher)
+                print("\n{matcher}")
 
             output_table = matcher.match(tables, join_type="or", mask=masks)
             average_table = matcher.finish_matching(
@@ -218,20 +218,19 @@ def match_main(argv: list[str]) -> ExitStates:
 
         d_name: str
         f_name: str
-        ext: str
-        d_name, f_name, ext = utils.split_file_name(output)
+        d_name, f_name, _ = utils.split_file_name(output)
 
         suffix: str = ""
         if config.full_run and output_table is not None:
             utils.export_table(
-                output_table, f_name="%s/%sfull.fits" % (d_name, f_name))
-            utils.printf("-> %s/%sfull.fits\n" % (d_name, f_name))
+                output_table, f_name=f"{d_name}/{f_name}full.fits")
+            utils.printf(f"-> {d_name}/{f_name}full.fits\n")
             suffix = "match"
 
         if average_table:
             utils.export_table(
-                average_table, "%s/%s%s.fits" % (d_name, f_name, suffix))
-            utils.printf("-> %s/%s%s.fits\n" % (d_name, f_name, suffix))
+                average_table, f"{d_name}/{f_name}{suffix}.fits")
+            utils.printf(f"-> {d_name}/{f_name}{suffix}.fits\n")
 
         return ExitStates.EXIT_SUCCESS
 

@@ -129,8 +129,8 @@ class StarGridPanel(QDialog):
         y: float
         image_data: np.ndarray = starbug_base.main_image().data
         for x, y, inner_cat_id in zip(x_coords, y_coords, cat_id):
-            x_center: int = int(round(x))
-            y_center: int = int(round(y))
+            x_center: int = round(x)
+            y_center: int = round(y)
             img_height, img_width = image_data.shape
 
             x_min: int = max(0, x_center - STAR_IMAGE_SIZE)
@@ -209,9 +209,9 @@ class StarGridPanel(QDialog):
         self._images: list[tuple[str, np.ndarray]] = images
         self._original_selected_stars: list[str] | None = (
             original_selected_stars)
-        self._image_items: list[ImageItem] = list()
+        self._image_items: list[ImageItem] = []
         self._solo: bool = sole_ui
-        self._selected_stars: list[str] = list()
+        self._selected_stars: list[str] = []
         self._starbug_base = starbug_base
 
         # fix the window size to accommodate n stars.

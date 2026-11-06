@@ -64,5 +64,6 @@ class PSFWorker(QObject):
                 self._filtered_table, self._image_data, self._config)
             epsf: ImagePSF = result.epsf
             self.finished.emit(epsf)
-        except Exception as e:
+        except (ValueError, TypeError, FloatingPointError, RuntimeWarning,
+                AssertionError) as e:
             self.error.emit(str(e))

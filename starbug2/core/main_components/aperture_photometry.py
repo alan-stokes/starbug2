@@ -77,7 +77,7 @@ class AperturePhotometry:
         new_columns: tuple[str, str, str, str, str, str | None, str] = (
             TableColumn.SMOOTHNESS, TableColumn.FLUX, TableColumn.E_FLUX,
             TableColumn.SKY, TableColumn.FLAG, filter_string,
-            "e%s" % filter_string)
+            f"e{filter_string}")
         assert detections is not None
         detections.remove_columns(
             set(new_columns) & set(detections.colnames))
@@ -121,7 +121,7 @@ class AperturePhotometry:
                 get_data_path(), "apcorr_miri.fits")
 
         if ap_corr_f_name:
-            log("-> apcorr file: %s\n" % ap_corr_f_name)
+            log(f"-> apcorr file: {ap_corr_f_name}\n")
         else:
             warn("No apcorr file available for instrument\n")
 
@@ -210,8 +210,7 @@ class AperturePhotometry:
 
         image_data: np.ndarray
         error: np.ndarray
-        mask: np.ndarray
-        image_data, error, _, mask = StarBugInterface.prepare_image_arrays(
+        image_data, error, _, _ = StarBugInterface.prepare_image_arrays(
             image, log, background, header, main_image)
 
         # Aperture Correction
@@ -243,8 +242,7 @@ class AperturePhotometry:
         # Add columns to the catalogue
         ap_cat.add_column(Column(
             mag + config.zero_point_magnitude, filter_string))
-        ap_cat.add_column(Column(
-            mag_err, "e%s" % filter_string))
+        ap_cat.add_column(Column(mag_err, f"e{filter_string}"))
 
         # Update detections
         detections = hstack((detections, ap_cat))
@@ -262,15 +260,15 @@ class AperturePhotometry:
                 detections.remove_rows(
                     detections[TableColumn.SMOOTHNESS] > smooth_hi)
             if len(detections) != detections_length:
-                log("-> removing %d sources outside SMOOTH range\n"
-                    % (detections_length - len(detections)))
+                log(f"-> removing {detections_length - len(detections)} "
+                    f"sources outside SMOOTH range\n")
 
         reindex(detections)
         detections.meta[HeaderTags.FILTER] = filter_string
 
         assert out_dir is not None
         f_name = os.path.join(out_dir, f"{b_name}{FileExtensions.AP}")
-        log("--> %s\n" % f_name)
+        log(f"--> {f_name}\n")
         export_table(detections, f_name, header=header)
 
         return detections, ExitStates.EXIT_SUCCESS

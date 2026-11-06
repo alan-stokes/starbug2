@@ -40,7 +40,7 @@ class StarBugMainConfig:
     # Format: (short_flag, long_flag, type) -> property_name
     # None for short_flag means it only has a long version
     # noinspection SpellCheckingInspection
-    MAIN_FLAG_MAP: dict[tuple[str | None, str, Any, str], str] = {
+    MAIN_FLAG_MAP: Final[dict[tuple[str | None, str, Any, str], str]] = {
         ('A', 'apphot', bool,
          "run aperture photometry on a source list"): 'do_aperture_photometry',
         ('B', 'background', bool,
@@ -63,8 +63,8 @@ class StarBugMainConfig:
         ('b', 'bgdfile', str,
          "load background (-bgd.fits) file"): 'background_file',
         ('d', 'apfile', str,
-         "load a source detection (-ap.fits) file to skip the source "
-         "detection step"): 'ap_file',
+         ("load a source detection (-ap.fits) file to skip the source "
+          "detection step")): 'ap_file',
         ('n', 'ncores', int,
          "number of CPU cores to split process between"): 'n_cores',
         ('o', 'output', str, "output directory"): 'output_file',
@@ -104,15 +104,15 @@ class StarBugMainConfig:
     # Format: (short_flag, long_flag, type) -> property_name
     # None for short_flag means it only has a long version
     # noinspection SpellCheckingInspection
-    AST_FLAG_MAP: dict[tuple[str | None, str, Any, str], str] = {
+    AST_FLAG_MAP: Final[dict[tuple[str | None, str, Any, str], str]] = {
         ("h", "help", bool, "show help screen"): 'show_ast_help',
         ('v', 'verbose', bool, "show verbose stdout output"): 'verbose_logs',
         ('n', 'ncores', int,
          "number of cores to split the tests over"): 'n_cores',
         ('p', 'param', str, "load a parameter file"): 'param_file',
         ('s', 'set', str,
-         'set parameter at runtime with syntax '
-         '"-s KEY=VALUE"'): 'set_parameter',
+         ('set parameter at runtime with syntax '
+          '"-s KEY=VALUE"')): 'set_parameter',
         ('o', 'output', str,
          "output directory or filename to export results to"): 'output_file',
         ('N', 'ntests', int, "number of tests to run"):
@@ -142,7 +142,7 @@ class StarBugMainConfig:
     }
 
     # noinspection SpellCheckingInspection
-    MATCH_FLAG_MAP: dict[tuple[str | None, str, Any, str], str] = {
+    MATCH_FLAG_MAP: Final[dict[tuple[str | None, str, Any, str], str]] = {
         # Boolean Switches (No arguments)
         ('B', 'band', bool, ""): 'do_band_processing',
         ('C', 'cascade', bool, ""): 'do_cascade',
@@ -161,7 +161,7 @@ class StarBugMainConfig:
     }
 
     # noinspection SpellCheckingInspection
-    PLOT_FLAG_MAP: dict[tuple[str | None, str, Any, str], str] = {
+    PLOT_FLAG_MAP: Final[dict[tuple[str | None, str, Any, str], str]] = {
         # Boolean Switches (No arguments)
         ('h', 'help', bool, ""): 'show_plot_help',
         ('v', 'verbose', bool, ""): 'verbose_logs',
@@ -178,7 +178,7 @@ class StarBugMainConfig:
     # Comprehensive mapping configuration linking keys to internal
     # properties and types
     # noinspection SpellCheckingInspection
-    MAIN_PARAM_FILE_MAP: dict[str, tuple[str, type]] = {
+    MAIN_PARAM_FILE_MAP: Final[dict[str, tuple[str, type]]] = {
         # GENERIC
         "VERBOSE": ("verbose_logs", bool),
         "OUTPUT": ("output_file", str),
@@ -470,7 +470,7 @@ class StarBugMainConfig:
         short_opts_compiled = ""
         long_opts_compiled = []
 
-        for (short_flag, long_flag, data_type, _) in param_map.keys():
+        for (short_flag, long_flag, data_type, _) in param_map:
             suffix = "" if data_type is bool else "="
             long_opts_compiled.append(f"{long_flag}{suffix}")
 
@@ -587,7 +587,9 @@ class StarBugMainConfig:
                 value = os.path.expandvars(value)
 
             if value == "False":
-                raise Exception("")
+                raise ValueError(
+                    f"Param {key} was a boolean. "
+                    f"When only ints, floats, str's are allowed.")
             param[key] = value
 
         return param
@@ -611,8 +613,8 @@ class StarBugMainConfig:
                 for line in fp:
                     config.update(StarBugMainConfig.parse_param(line))
         else:
-            p_error("config file \"%s\" does not exist\n. Using "
-                    "default config instead" % f_name)
+            p_error(f"config file \"{f_name}\" does not exist\n. Using "
+                    "default config instead")
         return config
 
     def populate_params(
@@ -767,7 +769,7 @@ class StarBugMainConfig:
         :return: None
         """
         for key, raw_value in update_values.items():
-            if key not in self.MAIN_PARAM_FILE_MAP.keys():
+            if key not in self.MAIN_PARAM_FILE_MAP:
                 raise TypeError(
                     f"Param {key} no longer works within Starbug2. Please "
                     f"execute starbug2 --update-param")
@@ -884,7 +886,7 @@ class StarBugMainConfig:
         self._custom_psf_size_pixels = value
 
         if self._custom_psf_size_pixels % 2 == 0:
-            raise Exception("size in pixels needs to be a odd number.")
+            raise ValueError("size in pixels needs to be a odd number.")
 
     @property
     def show_help(self) -> bool:
@@ -1052,7 +1054,7 @@ class StarBugMainConfig:
         if value is None or os.path.exists(value):
             self._ap_file = value
         else:
-            p_error("AP_FILE \"%s\" does not exist\n" % value)
+            p_error(f"AP_FILE \"{value}\" does not exist\n")
 
     @property
     def background_file(self) -> str | None:
@@ -1063,7 +1065,7 @@ class StarBugMainConfig:
         if value is None or os.path.exists(value):
             self._background_file = value
         else:
-            p_error("BGD_FILE \"%s\" does not exist\n" % value)
+            p_error(f"BGD_FILE \"{value}\" does not exist\n")
 
     @property
     def find_file(self) -> bool:
@@ -1955,12 +1957,11 @@ class StarBugMainConfig:
         # noinspection SpellCheckingInspection
         lines = [
             "StarbugII Artificial Star Testing",
-            "usage: starbug2-ast [-vh] [-N ntests] [-n ncores] "
-            "[-p file.param] [-S nstars] [-s opt=val] image.fits",
+            ("usage: starbug2-ast [-vh] [-N ntests] [-n ncores] "
+             "[-p file.param] [-S nstars] [-s opt=val] image.fits"),
         ]
 
-        for (short_flag, long_flag, val_type, desc), _ in (
-                self.AST_FLAG_MAP.items()):
+        for (short_flag, long_flag, val_type, desc) in self.AST_FLAG_MAP:
             short_str = f"-{short_flag}" if short_flag else "  "
             long_str = f"--{long_flag}"
             type_hint = "" if val_type is bool else f" <{val_type.__name__}>"
@@ -1973,12 +1974,11 @@ class StarBugMainConfig:
         # noinspection SpellCheckingInspection
         lines = [
             "StarbugII - JWST PSF photometry",
-            "usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] "
-            "[-n ncores] [-o ouput] [-p file.param] [-s opt=val] "
-            "image.fits ..."
+            ("usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] "
+             "[-n ncores] [-o ouput] [-p file.param] [-s opt=val] "
+             "image.fits ...")
         ]
-        for (short_flag, long_flag, val_type, desc), _ in (
-                self.MAIN_FLAG_MAP.items()):
+        for (short_flag, long_flag, val_type, desc) in self.MAIN_FLAG_MAP:
             short_str = f"-{short_flag}" if short_flag else "  "
             long_str = f"--{long_flag}"
             type_hint = "" if val_type is bool else f" <{val_type.__name__}>"

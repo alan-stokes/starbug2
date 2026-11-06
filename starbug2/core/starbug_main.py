@@ -87,8 +87,9 @@ class StarbugBase(StarBugInterface):
                 if os.path.exists(out_dir) and os.path.isdir(out_dir):
                     out_dir = inner_out_dir
                 else:
-                    p_error("unable to locate output directory \"%s\"\n" %
-                            inner_out_dir)
+                    p_error(
+                        f"unable to locate output directory "
+                        f"\"{inner_out_dir}\"\n")
                 if inner_b_name:
                     b_name = inner_b_name
         return out_dir, b_name, extension
@@ -186,7 +187,7 @@ class StarbugBase(StarBugInterface):
 
             if extension == FileExtensions.FITS:
                 if os.path.exists(f_name):
-                    self.log("loaded: \"%s\"\n" % f_name)
+                    self.log(f"loaded: \"{f_name}\"\n")
                     self._image = open(f_name)
 
                     # Force assigning _nHDU
@@ -194,22 +195,22 @@ class StarbugBase(StarBugInterface):
                     self._header = main_image.header
 
                     self.log(
-                        "-> using image HDU: %d (%s)\n" % (
-                            self._n_hdu, main_image.name))
+                        f"-> using image HDU: {self._n_hdu}"
+                        f" ({main_image.name})\n")
 
                     if main_image.data is None:
                         warn("Image seems to be empty.\n")
 
-                    if ImageHeaderTags.TELESCOPE in self.info.keys():
+                    if ImageHeaderTags.TELESCOPE in self.info:
                         val = self.info.get(ImageHeaderTags.TELESCOPE)
                         if val is None or val.find(ImageHeaderTags.JWST) < 0:
                             warn("Telescope not JWST, "
                                  "there may be undefined behaviour.\n")
 
                     self._filter = self._config.custom_filter
-                    if ((HeaderTags.FILTER in self.info.keys()) and
+                    if ((HeaderTags.FILTER in self.info) and
                             (self.info[HeaderTags.FILTER] in
-                                STAR_BUG_FILTERS.keys())):
+                             STAR_BUG_FILTERS)):
                         self._filter = self.info[HeaderTags.FILTER]
                         assert self._filter is not None
                         if self._full_width_half_max < 0:
@@ -217,14 +218,14 @@ class StarbugBase(StarBugInterface):
                                 STAR_BUG_FILTERS[
                                     self._filter].full_width_half_max)
                     if self._filter:
-                        self.log("-> photometric band: %s\n" % self._filter)
+                        self.log(f"-> photometric band: {self._filter}\n")
                     else:
                         warn("Unable to determine image filter\n")
 
-                    if ImageHeaderTags.DETECTOR in self.info.keys():
+                    if ImageHeaderTags.DETECTOR in self.info:
                         self.log(
-                            "-> detector module: %s\n" %
-                            self.info[ImageHeaderTags.DETECTOR])
+                            f"-> detector module: "
+                            f"{self.info[ImageHeaderTags.DETECTOR]}\n")
                     else:
                         warn("Unable to determine Telescope DETECTOR.\n")
 
@@ -251,10 +252,10 @@ class StarbugBase(StarBugInterface):
                         warn("Unable to determine calibration level, "
                              "assuming stage 3\n")
                         self._stage = 3.0
-                    self.log("-> pipeline stage: %d\n" % self._stage)
+                    self.log(f"-> pipeline stage: {self._stage}\n")
 
                 else:
-                    warn("fits file \"%s\" does not exist\n" % f_name)
+                    warn(f"fits file \"{f_name}\" does not exist\n")
             else:
                 warn("included file must be FITS format\n")
 
@@ -274,11 +275,11 @@ class StarbugBase(StarBugInterface):
         if f_name and os.path.exists(f_name):
             self._detections = import_table(f_name)
             if self._detections is None or self._wcs is None:
-                raise Exception("could not read the ap file")
+                raise ValueError("could not read the ap file")
 
             column_names: set[str] = set(self._detections.colnames)
 
-            self.log("loaded AP_FILE='%s'\n" % f_name)
+            self.log(f"loaded AP_FILE='{f_name}'\n")
 
             if self._config.use_wcs_values:
                 if len(column_names & {TableColumn.RA, TableColumn.DEC}) == 2:
@@ -330,13 +331,13 @@ class StarbugBase(StarBugInterface):
                 # cant figure how to resolve this typing
                 self._detections.remove_rows((~mask).tolist())
                 self.log(
-                    "-> loaded %d sources from AP_FILE\n" %
-                    len(self._detections))
+                    f"-> loaded {len(self._detections)} "
+                    f"sources from AP_FILE\n")
             else:
                 warn("Unable to determine physical coordinates"
                      " from detections table\n")
         else:
-            p_error("AP_FILE='%s' does not exist\n" % f_name)
+            p_error(f"AP_FILE='{f_name}' does not exist\n")
 
     def load_bgd_file(self, f_name: str | None = None) -> None:
         """
@@ -353,9 +354,9 @@ class StarbugBase(StarBugInterface):
             return
         if os.path.exists(f_name):
             self._background = open(f_name)[1]
-            self.log("loaded BGD_FILE='%s'\n" % f_name)
+            self.log(f"loaded BGD_FILE='{f_name}'\n")
         else:
-            p_error("BGD_FILE='%s' does not exist\n" % f_name)
+            p_error(f"BGD_FILE='{f_name}' does not exist\n")
 
     def detect(self) -> ExitStates:
         """
@@ -479,7 +480,7 @@ class StarbugBase(StarBugInterface):
             assert self._out_dir is not None
             f_name = os.path.join(
                 self._out_dir, f"{self._b_name}{FileExtensions.BACKGROUND}")
-            self.log("--> %s\n" % f_name)
+            self.log(f"--> {f_name}\n")
             self._background.writeto(f_name, overwrite=True)
 
         else:
@@ -511,17 +512,14 @@ class StarbugBase(StarBugInterface):
 
         # Wrap array as Any to map properly to ImageHDU writer expectations
         hdu_output = ImageHDU(data=cast(Any, array), header=header, name="RES")
-        f_name = "%s/%s-res.fits" % (self._out_dir, self._b_name)
+        f_name = f"{self._out_dir}/{self._b_name}-res.fits"
 
         try:
             hdu_output.writeto(f_name, overwrite=True)
-            self.log(
-                "--> Background subtracted image written to %s\n" % f_name)
-        except Exception as e:
-            p_error(
-                "Failed to write background-subtracted file: %s\n" % str(e))
+            self.log(f"--> Background subtracted image written to {f_name}\n")
+        except OSError as e:
+            p_error(f"Failed to write background-subtracted file: {e!s}\n")
             return ExitStates.EXIT_FAIL
-
         return ExitStates.EXIT_SUCCESS
 
     # noinspection SpellCheckingInspection
@@ -575,8 +573,8 @@ class StarbugBase(StarBugInterface):
             do_crowd=self._config.calculate_crowding_metric)
 
         self._source_stats = hstack((slist, stat))
-        f_name: str = "%s/%s-stat.fits" % (self._out_dir, self._b_name)
-        self.log("--> %s\n" % f_name)
+        f_name: str = f"{self._out_dir}/{self._b_name}-stat.fits"
+        self.log(f"--> {f_name}\n")
         reindex(Table(self._source_stats))
         BinTableHDU(
             data=self._source_stats, header=self.header()).writeto(
@@ -604,10 +602,10 @@ class StarbugBase(StarBugInterface):
 
         d_name: str = os.path.expandvars(get_data_path())
         if not os.path.exists(d_name):
-            warn("Unable to locate STARBUG_DATDIR='%s'\n" % d_name)
+            warn(f"Unable to locate STARBUG_DATDIR='{d_name}'\n")
 
         if self._out_dir is not None and not os.path.exists(self._out_dir):
-            warn("Unable to locate OUTPUT='%s'\n" % self._out_dir)
+            warn(f"Unable to locate OUTPUT='{self._out_dir}'\n")
             status = ExitStates.EXIT_FAIL
 
         if self._image is None or self.main_image().data is None:
@@ -650,7 +648,7 @@ class StarbugBase(StarBugInterface):
         state: dict[str, Any] = self.__dict__.copy()
         if "_image" in state:
             # Sorry but we cant have that
-            del state["_image"]
+            state.pop("_image", None)
             # This currently doesnt get reloaded
         state.pop("_background", None)
 
@@ -778,8 +776,7 @@ class StarbugBase(StarBugInterface):
                 not test % self._config.ast_auto_save):
             # noinspection SpellCheckingInspection
             result_table.write(
-                "sbast-autosave%d.tmp" % test, overwrite=True,
-                format="fits")
+                f"sbast-autosave{test}.tmp", overwrite=True, format="fits")
         return passed
 
     def _do_artificial_star_test(self) -> ExitStates:
@@ -820,11 +817,15 @@ class StarbugBase(StarBugInterface):
         :return: the results data, and the exit state.
         :rtype: Tuple[Table, ExitStates]
         """
-        (result_state, self._ast_star_source_list, self._image) = (
+        end_state: ExitStates
+        (end_state, self._ast_star_source_list, self._image) = (
             ArtificialStars.add_stars(
                 self._image, self._config, 0, self.psf,
                 self.n_hdu))
         assert self._ast_star_source_list is not None
+        if end_state != ExitStates.EXIT_SUCCESS:
+            p_error("Failed to add stars")
+            return hstack((self._ast_star_source_list, self._image)), end_state
 
         test_result: Table = Table(
             np.full((len(self._ast_star_source_list), 4), np.nan),
@@ -833,7 +834,6 @@ class StarbugBase(StarBugInterface):
         threshold: Quantity = 2 * units.arcsec
 
         # Run detection on the image
-        end_state: ExitStates
         end_state = self.detect()
         if end_state != ExitStates.EXIT_SUCCESS:
             p_error("Failed to run detection successfully")
@@ -879,9 +879,10 @@ class StarbugBase(StarBugInterface):
                      TableColumn.XY_DEV),
                     (TableColumn.X_INIT, TableColumn.Y_INIT,
                      TableColumn.XY_DEV_))
-                matched: Table = GenericMatch(threshold=threshold)(
+                matched: Table | None = GenericMatch(threshold=threshold)(
                     [self._ast_star_source_list, psf_catalogue],
                     cartesian=True)
+                assert matched is not None
                 test_result[TableColumn.FLUX_DET] = (
                     matched[:len(test_result)][TableColumn.FLUX_2])
 
@@ -950,9 +951,10 @@ class StarbugBase(StarBugInterface):
         assert raw is not None
         if config.verbose_logs:
             printf("-> compiling results\n")
-            printf("-> flux recovery: %.2g\n" % (
-                np.nanmean(raw[TableColumn.FLUX] /
-                           raw[TableColumn.FLUX_DET])))
+
+            nan_mean: float = np.nanmean(
+                raw[TableColumn.FLUX] / raw[TableColumn.FLUX_DET])
+            printf(f"-> flux recovery: {nan_mean:.2g}\n")
 
         results: dict[str, HDUList]
         assert raw is not None
@@ -960,7 +962,7 @@ class StarbugBase(StarBugInterface):
                 raw, config, image=self.main_image().data,
                 filter_string=self.filter,
                 plot_ast=config.ast_plot_filename)):
-            for file_name in results.keys():
+            for file_name in results:
                 if config.verbose_logs:
                     printf(f"--> {self._out_dir}/{self._b_name}{file_name}")
                 results[file_name].writeto(

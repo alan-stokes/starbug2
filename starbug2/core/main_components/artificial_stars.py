@@ -56,7 +56,7 @@ class ArtificialStars:
         base_shape: np.ndarray = np.copy(main_image_shape)
         if any(base_shape < config.sub_image_crop_size):
             p_error("sub image size greater than image size, setting to "
-                    "'safe' value %d.\n" % config.sub_image_crop_size)
+                    f"'safe' value {config.sub_image_crop_size}.\n")
         return ExitStates.EXIT_SUCCESS
 
     @staticmethod
@@ -399,17 +399,17 @@ def plot_top_plot(
     ax.plot(completeness_raw[TableColumn.AST_MAG],
             scurve(completeness_raw[TableColumn.AST_MAG], *cfit),
             c='g',
-            label=r"$f(x)=\frac{%.2f}{1+e^{%.2f("r"x-%.2f)}}$" % (
-                cfit[0], cfit[1], cfit[2]))
+            label=rf"$f(x)=\frac{{{cfit[0]:.2f}}}"
+                  rf"{{1+e^{{{cfit[1]:.2f}(x-{cfit[2]:.2f})}}}}$")
     ax.axvline(
         completeness[0], c="seagreen", ls='--',
-        label=("90%%:%.2f" % completeness[0]), lw=0.75)
+        label=f"90%:{completeness[0]:.2f}", lw=0.75)
     ax.axvline(
         completeness[1], c="seagreen", ls='-.',
-        label=("70%%:%.2f" % completeness[1]), lw=0.75)
+        label=f"70%:{completeness[1]:.2f}", lw=0.75)
     ax.axvline(
         completeness[2], c="seagreen", ls=':',
-        label=("50%%:%.2f" % completeness[2]), lw=0.75)
+        label=f"50%:{completeness[2]:.2f}", lw=0.75)
     ax.scatter(completeness, (0.9, 0.7, 0.5), marker='*', c='teal', s=10)
     ax.tick_params(direction="in", top=True, right=True)
     ax.set_title("Artificial Star Test")
@@ -420,7 +420,7 @@ def plot_top_plot(
     ax.set_yticks([0, .25, .5, .75, 1])
     ax.legend(loc="lower left", frameon=False, fontsize=8)
     plt.tight_layout()
-    printf("--> %s\n" % plot_ast)
+    printf(f"--> {plot_ast}\n")
 
 
 def photometric_bias(
@@ -478,9 +478,9 @@ def _generate_head(
     for i, frac in enumerate((90, 70, 50)):
         if completeness[i] and not np.isnan(completeness[i]):
             printf(
-                "-> complete to %d%%: %s=%.2f\n" % (
-                    frac, filter_string, completeness[i]))
-            head["COMPLETE %d%%" % frac] = str(completeness[i])
+                f"-> complete to {frac}%%: "
+                f"{filter_string}={completeness[i]:.2f}\n")
+            head[f"COMPLETE {frac}%%"] = str(completeness[i])
     return head
 
 
@@ -558,9 +558,8 @@ def compile_results(
         fig: Figure
         ax1: Axes
         ax2: Axes
-        ax3: Axes
-        fig, (ax1, ax2, ax3) = plt.subplots(
-            3, figsize=(8, 10), dpi=300, sharex=True)
+        fig, (ax1, ax2) = plt.subplots(
+            2, figsize=(8, 10), dpi=300, sharex=True)
 
         plot_top_plot(
             ax1, completeness_raw, completeness, cfit, filter_string,

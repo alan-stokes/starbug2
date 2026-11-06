@@ -59,7 +59,7 @@ class SourceProperties:
             else:
                 p_error("no positional columns in source list\n")
         else:
-            p_error("bad source list type: %s\n" % type(source_list))
+            p_error(f"bad source list type: {type(source_list)}\n")
 
     def execute_source_props(
             self, do_crowd: int = 1, n_closest_sources: int = 10,
