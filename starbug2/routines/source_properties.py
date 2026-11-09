@@ -99,6 +99,11 @@ class SourceProperties:
             return None
 
         n_sources = len(self._source_list)
+
+        # handle 1 source.
+        if n_sources == 1 or n_sources == 0:
+            return np.zeros(n_sources)
+
         crowd: np.ndarray = np.zeros(n_sources)
         load: Loading = Loading(
             n_sources, msg="calculating crowding", res=10)

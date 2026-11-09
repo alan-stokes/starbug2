@@ -199,7 +199,7 @@ def match_main(argv: list[str]) -> ExitStates:
                 config.full_run = True
 
             if config.verbose_logs:
-                print("\n{matcher}")
+                print(f"\n{matcher}")
 
             output_table = matcher.match(tables, join_type="or", mask=masks)
             average_table = matcher.finish_matching(

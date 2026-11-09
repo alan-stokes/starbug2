@@ -200,7 +200,7 @@ def get_completeness(test_result: Table) -> Table:
 
     i_bins: np.ndarray = np.atleast_1d(np.digitize(
         test_result[TableColumn.MAG], bins=bins))
-    for i in range(1, int(max(bins)) + 1):
+    for i, _ in enumerate(bins, start=1):
         indices = np.where(i_bins == i)[0]
         # skip if no data.
         if len(indices) == 0:

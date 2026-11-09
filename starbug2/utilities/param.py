@@ -90,7 +90,7 @@ def update_param_file(f_name: str | None) -> ExitStates:
 
         with open("/tmp/starbug.param", 'w') as fpo:
             fpo.write(f"{output}\n")
-        subprocess.call(["mv", f"/tmp/starbug.param {f_name}"])
+        subprocess.call(["mv", "/tmp/starbug.param", f_name])
         return ExitStates.EXIT_SUCCESS
     else:
         p_error(f"local parameter file '{f_name}' does not exist\n")
