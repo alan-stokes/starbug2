@@ -269,4 +269,3 @@ class TestSystemResults:
         captured = capsys.readouterr()
         lines = captured.out.splitlines()
         self._assert_results(lines, 4461, 4508, 21854, 3433, 18421, 0.8, 1.2)
-
