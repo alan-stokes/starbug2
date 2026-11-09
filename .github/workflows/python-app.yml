@@ -27,7 +27,7 @@
         matrix:
           # Run across multiple modern versions to ensure starbug2 handles
           # updates smoothly
-          python-version: ["3.12", "3.13", "3.14.4"]
+          python-version: ["3.12", "3.13", "3.14"]
 
       steps:
         # Upgraded to v4 for speed and security
@@ -128,3 +128,46 @@
         - name: Test with pytest
           run: |
             python -m pytest
+
+        - name: Generate AI Review Diff
+          run: |
+            {
+              echo "# am_surfaces AI Code Review"
+              echo
+              echo "Project: ${{ github.repository }}"
+              echo "Pull request: #${{ github.event.pull_request.number }}"
+              echo "Source branch: ${{ github.head_ref }}"
+              echo "Target branch: ${{ github.base_ref }}"
+              echo "Commit: ${{ github.sha }}"
+              echo
+              echo "## Review instructions"
+              echo
+              echo "Review this Git diff for genuine defects introduced by the change."
+              echo
+              echo "Prioritise:"
+              echo "- incorrect logic"
+              echo "- crashes and exceptions"
+              echo "- numerical/scientific errors"
+              echo "- changed mathematical behaviour"
+              echo "- incorrect NumPy scalar/array behaviour"
+              echo "- units and boundary conditions"
+              echo "- input validation"
+              echo "- backwards compatibility"
+              echo "- error handling"
+              echo
+              echo "Do not report formatting, line length, import ordering,"
+              echo "spelling, or issues adequately covered by Ruff/Flake8."
+              echo
+              echo "## Git diff"
+              echo
+              echo '```diff'
+              git diff "origin/${{ github.base_ref }}...HEAD" -- . ':(exclude)*.ipynb'
+              echo '```'
+            } > ai_review.md
+
+        - name: Upload Review Artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: ai_review
+            path: ai_review.md
+            retention-days: 7
