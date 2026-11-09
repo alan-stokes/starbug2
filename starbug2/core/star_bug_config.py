@@ -18,7 +18,7 @@ import numpy as np
 from astropy import units
 from astropy.table import Table
 from astropy.units import Quantity
-from typing import Dict, Tuple, Final, Any
+from typing import Final, Any
 from parse import parse
 from pathlib import Path
 
@@ -40,12 +40,15 @@ class StarBugMainConfig:
     # Format: (short_flag, long_flag, type) -> property_name
     # None for short_flag means it only has a long version
     # noinspection SpellCheckingInspection
-    MAIN_FLAG_MAP: Dict[Tuple[str | None, str, Any, str], str] = {
+    MAIN_FLAG_MAP: Final[dict[tuple[str | None, str, Any, str], str]] = {
         ('A', 'apphot', bool,
          "run aperture photometry on a source list"): 'do_aperture_photometry',
         ('B', 'background', bool,
          "run background estimation"): 'do_bgd_estimate',
+        ('C', 'custom_psf', bool, "run creating custom psf"): 'do_custom_psf',
         ('D', 'detect', bool, "run source detection"): 'do_star_detection',
+        ('E', "custom_psf_gui", bool,
+         "will turn on the custom psf gui"): 'do_custom_psf_gui',
         ('f', 'find', bool,
          "attempt to find associated -ap -bgd files"): 'find_file',
         ('G', 'geom', bool,
@@ -60,8 +63,8 @@ class StarBugMainConfig:
         ('b', 'bgdfile', str,
          "load background (-bgd.fits) file"): 'background_file',
         ('d', 'apfile', str,
-         "load a source detection (-ap.fits) file to skip the source "
-         "detection step"): 'ap_file',
+         ("load a source detection (-ap.fits) file to skip the source "
+          "detection step")): 'ap_file',
         ('n', 'ncores', int,
          "number of CPU cores to split process between"): 'n_cores',
         ('o', 'output', str, "output directory"): 'output_file',
@@ -92,6 +95,8 @@ class StarBugMainConfig:
          "Update an out-of-date local parameter file"): 'update_param',
         (None, 'debug', bool, "turn on debug mode"): 'debug_mode',
         (None, 'dev', bool, "turn on dev mode"): 'dev_mode',
+        (None, 'pick', bool,
+         "generate custom psf generator"): 'run_custom_psf_generator'
     }
 
     # A single master map linking (Short Flag, Long Flag) to the internal
@@ -99,15 +104,15 @@ class StarBugMainConfig:
     # Format: (short_flag, long_flag, type) -> property_name
     # None for short_flag means it only has a long version
     # noinspection SpellCheckingInspection
-    AST_FLAG_MAP: Dict[Tuple[str | None, str, Any, str], str] = {
+    AST_FLAG_MAP: Final[dict[tuple[str | None, str, Any, str], str]] = {
         ("h", "help", bool, "show help screen"): 'show_ast_help',
         ('v', 'verbose', bool, "show verbose stdout output"): 'verbose_logs',
         ('n', 'ncores', int,
          "number of cores to split the tests over"): 'n_cores',
         ('p', 'param', str, "load a parameter file"): 'param_file',
         ('s', 'set', str,
-         'set parameter at runtime with syntax '
-         '"-s KEY=VALUE"'): 'set_parameter',
+         ('set parameter at runtime with syntax '
+          '"-s KEY=VALUE"')): 'set_parameter',
         ('o', 'output', str,
          "output directory or filename to export results to"): 'output_file',
         ('N', 'ntests', int, "number of tests to run"):
@@ -137,7 +142,7 @@ class StarBugMainConfig:
     }
 
     # noinspection SpellCheckingInspection
-    MATCH_FLAG_MAP: Dict[Tuple[str | None, str, Any, str], str] = {
+    MATCH_FLAG_MAP: Final[dict[tuple[str | None, str, Any, str], str]] = {
         # Boolean Switches (No arguments)
         ('B', 'band', bool, ""): 'do_band_processing',
         ('C', 'cascade', bool, ""): 'do_cascade',
@@ -156,7 +161,7 @@ class StarBugMainConfig:
     }
 
     # noinspection SpellCheckingInspection
-    PLOT_FLAG_MAP: Dict[Tuple[str | None, str, Any, str], str] = {
+    PLOT_FLAG_MAP: Final[dict[tuple[str | None, str, Any, str], str]] = {
         # Boolean Switches (No arguments)
         ('h', 'help', bool, ""): 'show_plot_help',
         ('v', 'verbose', bool, ""): 'verbose_logs',
@@ -173,7 +178,7 @@ class StarBugMainConfig:
     # Comprehensive mapping configuration linking keys to internal
     # properties and types
     # noinspection SpellCheckingInspection
-    MAIN_PARAM_FILE_MAP: Dict[str, Tuple[str, type]] = {
+    MAIN_PARAM_FILE_MAP: Final[dict[str, tuple[str, type]]] = {
         # GENERIC
         "VERBOSE": ("verbose_logs", bool),
         "OUTPUT": ("output_file", str),
@@ -244,6 +249,22 @@ class StarBugMainConfig:
         # generation of region tables
         "REGION_TAB": ("region_file", str),
         "PARAM_TAG": ("param_tag", str),
+        # custom PSF generator params.
+        "STARS_TO_DETECT": ("psf_generator_stars_to_select", int),
+        "PSF_MIN_SEP": ("psf_generator_min_separation", float),
+        "PSF_SIZE_PIXELS": ("custom_psf_size_pixels", int),
+        "PSF_SATURATION_LIMIT": ("psf_generator_saturation_limit", int),
+        "PSF_GRID_BIN_X": ("psf_generator_grid_bin_x", int),
+        "PSF_GRID_BIN_Y": ("psf_generator_grid_bin_y", int),
+        "PSF_EDGE_BUFFER": ("psf_generator_edge_buffer", int),
+        "PSF_MIN_ALLOWED_STARS": ("psf_min_allowed_stars", int),
+        "PSF_OVERSAMPLE_LEVEL": ("epsf_oversampling", int),
+        "PSF_ITERATIONS": ("epsf_iterations", int),
+        "PSF_CENTERING_ITERATIONS": ("epsf_centering_iterations", int),
+        "PSF_CLIPPING_ITERATIONS": ("epsf_clipping_iterations", int),
+        "PSF_CLIPPING_SIGMA": ("epsf_clipping_sigma", int),
+        "PSF_EXECUTE_POST_SMOOTHING": (
+            "epsf_execute_post_smoothing", bool),
 
         # --- NEW PARAM FILE SHORT-CIRCUITS FOR STEPS & FLOW CONTROLS ---
         "RUN_APPHOT": ("do_aperture_photometry", bool),
@@ -295,6 +316,9 @@ class StarBugMainConfig:
         self._do_matching: bool = False
         self._do_photometry_routine: bool = False
         self._do_bgd_subtraction: bool = False
+        self._do_custom_psf: bool = False
+        self._do_custom_psf_gui: bool = False
+        self._run_custom_psf_generator: bool = False
 
         # other actions
         self._generate_psf: bool = False
@@ -335,6 +359,22 @@ class StarBugMainConfig:
         self._ast_psf: np.ndarray | None = None
         self._ast_load_psf: bool = True
         self._ast_add_stars: bool = False
+
+        # parameters for custom psf generation.
+        self._custom_psf_size_pixels: int = 25
+        self._psf_generator_stars_to_select: int = 100
+        self._psf_generator_min_separation: float = 20.0
+        self._psf_generator_saturation_limit: int = 10000000
+        self._psf_generator_grid_bin_x: int = 3
+        self._psf_generator_grid_bin_y: int = 3
+        self._psf_generator_edge_buffer: int = 20
+        self._psf_min_allowed_stars: int = 5
+        self._epsf_oversampling: int = 2
+        self._epsf_iterations: int = 10
+        self._epsf_centering_iterations = 5
+        self._epsf_clipping_iterations = 5
+        self._epsf_clipping_sigma = 3
+        self._epsf_execute_post_smoothing = True
 
         # matching params
         self._do_band_processing: bool = False
@@ -418,7 +458,7 @@ class StarBugMainConfig:
         self._fits_images: list[str] = []
 
     @classmethod
-    def _generate_get_opt_definitions(cls, param_map) -> Tuple[str, list[str]]:
+    def _generate_get_opt_definitions(cls, param_map) -> tuple[str, list[str]]:
         # noinspection SpellCheckingInspection
         """
         Natively inspects the configuration structure to construct perfectly
@@ -430,7 +470,7 @@ class StarBugMainConfig:
         short_opts_compiled = ""
         long_opts_compiled = []
 
-        for (short_flag, long_flag, data_type, _) in param_map.keys():
+        for (short_flag, long_flag, data_type, _) in param_map:
             suffix = "" if data_type is bool else "="
             long_opts_compiled.append(f"{long_flag}{suffix}")
 
@@ -441,7 +481,7 @@ class StarBugMainConfig:
         return short_opts_compiled, long_opts_compiled
 
     @classmethod
-    def generate_main_get_opt_definitions(cls) -> Tuple[str, list[str]]:
+    def generate_main_get_opt_definitions(cls) -> tuple[str, list[str]]:
         # noinspection SpellCheckingInspection
         """
         Natively inspects the configuration structure to construct perfectly
@@ -453,7 +493,7 @@ class StarBugMainConfig:
         return cls._generate_get_opt_definitions(cls.MAIN_FLAG_MAP)
 
     @classmethod
-    def generate_ast_get_opt_definitions(cls) -> Tuple[str, list[str]]:
+    def generate_ast_get_opt_definitions(cls) -> tuple[str, list[str]]:
         # noinspection SpellCheckingInspection
         """
         Natively inspects the configuration structure to construct perfectly
@@ -465,7 +505,7 @@ class StarBugMainConfig:
         return cls._generate_get_opt_definitions(cls.AST_FLAG_MAP)
 
     @classmethod
-    def generate_match_get_opt_definitions(cls) -> Tuple[str, list[str]]:
+    def generate_match_get_opt_definitions(cls) -> tuple[str, list[str]]:
         # noinspection SpellCheckingInspection
         """
         Natively inspects the configuration structure to construct perfectly
@@ -477,7 +517,7 @@ class StarBugMainConfig:
         return cls._generate_get_opt_definitions(cls.MATCH_FLAG_MAP)
 
     @classmethod
-    def generate_plot_get_opt_definitions(cls) -> Tuple[str, list[str]]:
+    def generate_plot_get_opt_definitions(cls) -> tuple[str, list[str]]:
         # noinspection SpellCheckingInspection
         """
         Natively inspects the configuration structure to construct perfectly
@@ -509,7 +549,7 @@ class StarBugMainConfig:
         return value
 
     @staticmethod
-    def parse_param(line: str) -> Dict[str, int | float | str]:
+    def parse_param(line: str) -> dict[str, int | float | str]:
         """
         Parse a parameter line
         :param line: the line to parse
@@ -517,7 +557,7 @@ class StarBugMainConfig:
         :return: the parsed params from the line
         :rtype: Dict[str, int | float | str]
         """
-        param: Dict[str, int | float | str] = {}
+        param: dict[str, int | float | str] = {}
 
         # Guard against empty lines or comment lines
         if line and line[0] not in StarBugMainConfig.EXCLUDES:
@@ -547,7 +587,9 @@ class StarBugMainConfig:
                 value = os.path.expandvars(value)
 
             if value == "False":
-                raise Exception("")
+                raise ValueError(
+                    f"Param {key} was a boolean. "
+                    f"When only ints, floats, str's are allowed.")
             param[key] = value
 
         return param
@@ -568,11 +610,11 @@ class StarBugMainConfig:
 
         if os.path.exists(f_name):
             with open(f_name, "r") as fp:
-                for line in fp.readlines():
+                for line in fp:
                     config.update(StarBugMainConfig.parse_param(line))
         else:
-            p_error("config file \"%s\" does not exist\n. Using "
-                    "default config instead" % f_name)
+            p_error(f"config file \"{f_name}\" does not exist\n. Using "
+                    "default config instead")
         return config
 
     def populate_params(
@@ -611,9 +653,15 @@ class StarBugMainConfig:
         self.fits_images = args
 
         # check for param file being set
+
         if self._param_file is None:
-            if os.path.exists(f"./{DEFAULT_PARAM_FILE_NAME}"):
-                self._param_file = DEFAULT_PARAM_FILE_NAME
+            path = f"./{DEFAULT_PARAM_FILE_NAME}"
+            param_file = DEFAULT_PARAM_FILE_NAME
+            if self._output_file is not None:
+                path = os.path.join(self._output_file, DEFAULT_PARAM_FILE_NAME)
+                param_file = path
+            if os.path.exists(path):
+                self._param_file = param_file
 
         if self._param_file is not None:
             config = self.load_params(self._param_file)
@@ -663,7 +711,9 @@ class StarBugMainConfig:
             self._show_help or self._update_param or
             self._execute_jwst_initialisation or self._generate_psf or
             self._generate_run or self._generate_region or
-            self._generate_local_param_file or self._show_version)
+            self._generate_local_param_file or self._show_version or
+            self._do_custom_psf or self._do_custom_psf_gui or
+            self._run_custom_psf_generator)
 
     def use_ast_one_time_runs(self) -> bool:
         """
@@ -719,7 +769,7 @@ class StarBugMainConfig:
         :return: None
         """
         for key, raw_value in update_values.items():
-            if key not in self.MAIN_PARAM_FILE_MAP.keys():
+            if key not in self.MAIN_PARAM_FILE_MAP:
                 raise TypeError(
                     f"Param {key} no longer works within Starbug2. Please "
                     f"execute starbug2 --update-param")
@@ -742,7 +792,7 @@ class StarBugMainConfig:
                 setattr(self, property_name, target_type(raw_value))
 
     def _normalize_threshold(
-            self, threshold: float | int | np.ndarray | list | Quantity) -> (
+            self, threshold: float | np.ndarray | list | Quantity) -> (
             None | np.ndarray | Quantity):
         # noinspection SpellCheckingInspection
         """
@@ -752,8 +802,6 @@ class StarBugMainConfig:
         - Lists/Arrays of floats -> converted to an object array of arcsec
                                     Quantities
         """
-        if threshold is None:
-            return None
 
         # Handle standard Lists or NumPy arrays
         if isinstance(threshold, (list, np.ndarray)):
@@ -830,6 +878,17 @@ class StarBugMainConfig:
     # ==========================================
 
     @property
+    def custom_psf_size_pixels(self) -> int:
+        return self._custom_psf_size_pixels
+
+    @custom_psf_size_pixels.setter
+    def custom_psf_size_pixels(self, value: int) -> None:
+        self._custom_psf_size_pixels = value
+
+        if self._custom_psf_size_pixels % 2 == 0:
+            raise ValueError("size in pixels needs to be a odd number.")
+
+    @property
     def show_help(self) -> bool:
         return self._show_help
 
@@ -856,6 +915,22 @@ class StarBugMainConfig:
     # ==========================================
     # MAIN ACTIONS
     # ==========================================
+
+    @property
+    def do_custom_psf(self) -> bool:
+        return self._do_custom_psf
+
+    @do_custom_psf.setter
+    def do_custom_psf(self, value: bool) -> None:
+        self._do_custom_psf = value
+
+    @property
+    def do_custom_psf_gui(self) -> bool:
+        return self._do_custom_psf_gui
+
+    @do_custom_psf_gui.setter
+    def do_custom_psf_gui(self, value: bool) -> None:
+        self._do_custom_psf_gui = value
 
     @property
     def do_aperture_photometry(self) -> bool:
@@ -979,7 +1054,7 @@ class StarBugMainConfig:
         if value is None or os.path.exists(value):
             self._ap_file = value
         else:
-            p_error("AP_FILE \"%s\" does not exist\n" % value)
+            p_error(f"AP_FILE \"{value}\" does not exist\n")
 
     @property
     def background_file(self) -> str | None:
@@ -990,7 +1065,7 @@ class StarBugMainConfig:
         if value is None or os.path.exists(value):
             self._background_file = value
         else:
-            p_error("BGD_FILE \"%s\" does not exist\n" % value)
+            p_error(f"BGD_FILE \"{value}\" does not exist\n")
 
     @property
     def find_file(self) -> bool:
@@ -1757,17 +1832,136 @@ class StarBugMainConfig:
     def plot_style(self, value: str | None) -> None:
         self._plot_style = value
 
+    # =============
+    # custom psf generator params.
+    # =============
+
+    @property
+    def psf_generator_stars_to_select(self) -> int:
+        return self._psf_generator_stars_to_select
+
+    @psf_generator_stars_to_select.setter
+    def psf_generator_stars_to_select(self, value: int) -> None:
+        self._psf_generator_stars_to_select = value
+
+    @property
+    def psf_generator_min_separation(self) -> float:
+        return self._psf_generator_min_separation
+
+    @psf_generator_min_separation.setter
+    def psf_generator_min_separation(self, value: float) -> None:
+        self._psf_generator_min_separation = value
+
+    @property
+    def psf_generator_saturation_limit(self) -> int:
+        return self._psf_generator_saturation_limit
+
+    @psf_generator_saturation_limit.setter
+    def psf_generator_saturation_limit(self, value: int) -> None:
+        self._psf_generator_saturation_limit = value
+
+    @property
+    def psf_generator_grid_bin_x(self) -> int:
+        return self._psf_generator_grid_bin_x
+
+    @psf_generator_grid_bin_x.setter
+    def psf_generator_grid_bin_x(self, value: int) -> None:
+        self._psf_generator_grid_bin_x = value
+
+    @property
+    def psf_generator_grid_bin_y(self) -> int:
+        return self._psf_generator_grid_bin_y
+
+    @psf_generator_grid_bin_y.setter
+    def psf_generator_grid_bin_y(self, value: int) -> None:
+        self._psf_generator_grid_bin_y = value
+
+    @property
+    def psf_generator_edge_buffer(self) -> int:
+        return self._psf_generator_edge_buffer
+
+    @psf_generator_edge_buffer.setter
+    def psf_generator_edge_buffer(self, value: int) -> None:
+        self._psf_generator_edge_buffer = value
+
+    @property
+    def psf_min_allowed_stars(self) -> int:
+        return self._psf_min_allowed_stars
+
+    @psf_min_allowed_stars.setter
+    def psf_min_allowed_stars(self, value: int) -> None:
+        self._psf_min_allowed_stars = value
+
+    @property
+    def run_custom_psf_generator(self) -> bool:
+        return self._run_custom_psf_generator
+
+    @run_custom_psf_generator.setter
+    def run_custom_psf_generator(self, value: bool) -> None:
+        self._run_custom_psf_generator = value
+
+    @property
+    def epsf_oversampling(self) -> int:
+        return self._epsf_oversampling
+
+    @epsf_oversampling.setter
+    def epsf_oversampling(self, value: int) -> None:
+        self._epsf_oversampling = value
+
+    @property
+    def epsf_iterations(self) -> int:
+        return self._epsf_iterations
+
+    @epsf_iterations.setter
+    def epsf_iterations(self, value: int) -> None:
+        self._epsf_iterations = value
+
+    @property
+    def epsf_centering_iterations(self) -> int:
+        return self._epsf_centering_iterations
+
+    @epsf_centering_iterations.setter
+    def epsf_centering_iterations(self, value: int) -> None:
+        self._epsf_centering_iterations = value
+
+    @property
+    def epsf_clipping_iterations(self) -> int:
+        return self._epsf_clipping_iterations
+
+    @epsf_clipping_iterations.setter
+    def epsf_clipping_iterations(self, value: int) -> None:
+        self._epsf_clipping_iterations = value
+
+    @property
+    def epsf_clipping_sigma(self) -> int:
+        return self._epsf_clipping_sigma
+
+    @epsf_clipping_sigma.setter
+    def epsf_clipping_sigma(self, value: int) -> None:
+        self._epsf_clipping_sigma = value
+
+    @property
+    def epsf_execute_post_smoothing(self) -> bool:
+        return self._epsf_execute_post_smoothing
+
+    @epsf_execute_post_smoothing.setter
+    def epsf_execute_post_smoothing(self, value: bool) -> None:
+        self._epsf_execute_post_smoothing = value
+
+    # =============
+    # help strings.
+    # =============
+
     def generate_ast_help_string(self) -> str:
         """Dynamically constructs the CLI usage text from AST_FLAG_MAP."""
         # noinspection SpellCheckingInspection
         lines = [
             "StarbugII Artificial Star Testing",
-            "usage: starbug2-ast [-vh] [-N ntests] [-n ncores] "
-            "[-p file.param] [-S nstars] [-s opt=val] image.fits",
+            ("usage: starbug2-ast [-vh] [-N ntests] [-n ncores] "
+             "[-p file.param] [-S nstars] [-s opt=val] image.fits"),
         ]
 
-        for (short_flag, long_flag, val_type, desc), _ in (
-                self.AST_FLAG_MAP.items()):
+        for (short_flag, long_flag, val_type, desc) in self.AST_FLAG_MAP:
             short_str = f"-{short_flag}" if short_flag else "  "
             long_str = f"--{long_flag}"
             type_hint = "" if val_type is bool else f" <{val_type.__name__}>"
@@ -1780,12 +1974,11 @@ class StarBugMainConfig:
         # noinspection SpellCheckingInspection
         lines = [
             "StarbugII - JWST PSF photometry",
-            "usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] "
-            "[-n ncores] [-o ouput] [-p file.param] [-s opt=val] "
-            "image.fits ..."
+            ("usage: starbug2 [-ABDfGhMPSv] [-b bgdfile] [-d apfile] "
+             "[-n ncores] [-o ouput] [-p file.param] [-s opt=val] "
+             "image.fits ...")
         ]
-        for (short_flag, long_flag, val_type, desc), _ in (
-                self.MAIN_FLAG_MAP.items()):
+        for (short_flag, long_flag, val_type, desc) in self.MAIN_FLAG_MAP:
             short_str = f"-{short_flag}" if short_flag else "  "
             long_str = f"--{long_flag}"
             type_hint = "" if val_type is bool else f" <{val_type.__name__}>"
@@ -1837,12 +2030,12 @@ class StarBugMainConfig:
            configuration."""
 
         # Helper to format array shapes or lengths instead of full objects
-        def _fmt(val: object) -> str:
+        def _fmt(val: Any) -> str:
             if isinstance(val, list):
                 return f"list(len={len(val)})"
             if hasattr(val, "shape"):  # NumPy arrays / Astropy tables
-                return f"array(shape={getattr(val, 'shape')})"
-            return repr(val)
+                return f"array(shape={val.shape})"
+            return str(val)
 
         return (
             f"<{self.__class__.__name__} (\n"

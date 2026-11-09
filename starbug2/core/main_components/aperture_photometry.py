@@ -13,7 +13,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
-from typing import Callable, Tuple
+from collections.abc import Callable
 
 import numpy as np
 from astropy.io.fits import ImageHDU, PrimaryHDU, Header, HDUList
@@ -77,7 +77,7 @@ class AperturePhotometry:
         new_columns: tuple[str, str, str, str, str, str | None, str] = (
             TableColumn.SMOOTHNESS, TableColumn.FLUX, TableColumn.E_FLUX,
             TableColumn.SKY, TableColumn.FLAG, filter_string,
-            "e%s" % filter_string)
+            f"e{filter_string}")
         assert detections is not None
         detections.remove_columns(
             set(new_columns) & set(detections.colnames))
@@ -87,7 +87,7 @@ class AperturePhotometry:
     def aperture_correction(
             config: StarBugMainConfig, info: dict[str, str],
             log: Callable[[str], None], filter_string: str,
-            full_width_half_max: float) -> Tuple[float, float, float, float]:
+            full_width_half_max: float) -> tuple[float, float, float, float]:
         """
         Determines the aperture radii and calculates the aperture correction.
 
@@ -121,7 +121,7 @@ class AperturePhotometry:
                 get_data_path(), "apcorr_miri.fits")
 
         if ap_corr_f_name:
-            log("-> apcorr file: %s\n" % ap_corr_f_name)
+            log(f"-> apcorr file: {ap_corr_f_name}\n")
         else:
             warn("No apcorr file available for instrument\n")
 
@@ -160,7 +160,7 @@ class AperturePhotometry:
             full_width_half_max: float, out_dir: str | None,
             b_name: str | None, header: Header,
             background: ImageHDU | PrimaryHDU | None,
-            main_image: ImageHDU | PrimaryHDU) -> Tuple[Table, ExitStates]:
+            main_image: ImageHDU | PrimaryHDU) -> tuple[Table, ExitStates]:
         """
          Executes aperture photometry processing steps.
 
@@ -210,8 +210,7 @@ class AperturePhotometry:
 
         image_data: np.ndarray
         error: np.ndarray
-        mask: np.ndarray
-        image_data, error, _, mask = StarBugInterface.prepare_image_arrays(
+        image_data, error, _, _ = StarBugInterface.prepare_image_arrays(
             image, log, background, header, main_image)
 
         # Aperture Correction
@@ -235,16 +234,15 @@ class AperturePhotometry:
         filter_string: str = filter_string if filter_string else "mag"
 
         # Extract magnitudes
-        mag: float
-        mag_err: float
+        mag: np.ndarray
+        mag_err: np.ndarray
         mag, mag_err = flux_to_pogson_mag(
             ap_cat[TableColumn.FLUX], ap_cat[TableColumn.E_FLUX])
 
         # Add columns to the catalogue
         ap_cat.add_column(Column(
             mag + config.zero_point_magnitude, filter_string))
-        ap_cat.add_column(Column(
-            mag_err, "e%s" % filter_string))
+        ap_cat.add_column(Column(mag_err, f"e{filter_string}"))
 
         # Update detections
         detections = hstack((detections, ap_cat))
@@ -262,15 +260,15 @@ class AperturePhotometry:
                 detections.remove_rows(
                     detections[TableColumn.SMOOTHNESS] > smooth_hi)
             if len(detections) != detections_length:
-                log("-> removing %d sources outside SMOOTH range\n"
-                    % (detections_length - len(detections)))
+                log(f"-> removing {detections_length - len(detections)} "
+                    f"sources outside SMOOTH range\n")
 
         reindex(detections)
         detections.meta[HeaderTags.FILTER] = filter_string
 
         assert out_dir is not None
         f_name = os.path.join(out_dir, f"{b_name}{FileExtensions.AP}")
-        log("--> %s\n" % f_name)
+        log(f"--> {f_name}\n")
         export_table(detections, f_name, header=header)
 
         return detections, ExitStates.EXIT_SUCCESS

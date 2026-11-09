@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 from abc import ABC, abstractmethod
-from typing import Tuple, Callable
+from collections.abc import Callable
 
 from astropy.table import Table
 from astropy.io.fits import PrimaryHDU, ImageHDU, HDUList, Header
@@ -37,7 +37,6 @@ class StarBugInterface(ABC):
         :type msg: str
         :return: None
         """
-        pass
 
     @abstractmethod
     def load_image(self, f_name: str) -> None:
@@ -50,7 +49,6 @@ class StarBugInterface(ABC):
         :type f_name: str
         :return: None
         """
-        pass
 
     @abstractmethod
     def load_ap_file(self, f_name: str | None = None) -> None:
@@ -64,7 +62,6 @@ class StarBugInterface(ABC):
         :type f_name: str or None
         :return: None
         """
-        pass
 
     @abstractmethod
     def load_bgd_file(self, f_name: str | None = None) -> None:
@@ -76,7 +73,6 @@ class StarBugInterface(ABC):
         :type f_name: str or None
         :return: None
         """
-        pass
 
     @abstractmethod
     def detect(self) -> ExitStates:
@@ -87,7 +83,6 @@ class StarBugInterface(ABC):
         :return: The execution status (0 for success, non-zero for failure)
         :rtype: ExitStates
         """
-        pass
 
     @abstractmethod
     def aperture_photometry(self) -> ExitStates:
@@ -97,7 +92,6 @@ class StarBugInterface(ABC):
         :return: 0 for success, 1 for failure
         :rtype: ExitStates
         """
-        pass
 
     @abstractmethod
     def bgd_estimate(self) -> ExitStates:
@@ -108,7 +102,6 @@ class StarBugInterface(ABC):
         :return: The execution status (0 for success, non-zero for failure)
         :rtype: ExitStates
         """
-        pass
 
     @abstractmethod
     def bgd_subtraction(self) -> ExitStates:
@@ -118,7 +111,6 @@ class StarBugInterface(ABC):
         :return: 0 for success, 1 otherwise
         :rtype: ExitStates
         """
-        pass
 
     @abstractmethod
     def psf_photometry_routine(self) -> ExitStates:
@@ -131,16 +123,14 @@ class StarBugInterface(ABC):
         :return: 0 for success, 1 otherwise
         :rtype: ExitStates
         """
-        pass
 
     @abstractmethod
-    def source_geometry(self) -> None:
+    def source_geometry(self) -> ExitStates:
         """
         Calculate source geometry stats for a given image and source list
 
         :return: None
         """
-        pass
 
     @abstractmethod
     def verify(self) -> ExitStates:
@@ -151,7 +141,6 @@ class StarBugInterface(ABC):
         :return: 0 on success, 1 on failure
         :rtype: ExitStates
         """
-        pass
 
     @abstractmethod
     def header(self) -> Header:
@@ -161,7 +150,6 @@ class StarBugInterface(ABC):
         :return: Header file containing a series of relevant information
         :rtype: Header
         """
-        pass
 
     @property
     @abstractmethod
@@ -172,7 +160,6 @@ class StarBugInterface(ABC):
         :return: Extracted keys and elements from the image header.
         :rtype: dict of str to str
         """
-        pass
 
     @abstractmethod
     def main_image(self) -> ImageHDU | PrimaryHDU:
@@ -189,7 +176,6 @@ class StarBugInterface(ABC):
         :return: The main image array extension
         :rtype: ImageHDU or PrimaryHDU
         """
-        pass
 
     @property
     @abstractmethod
@@ -251,7 +237,7 @@ class StarBugInterface(ABC):
             image: HDUList | None, log: Callable[[str], None],
             background: ImageHDU | PrimaryHDU | None,
             header: Header, main_image: ImageHDU | PrimaryHDU) -> (
-            Tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray]):
+            tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray]):
         """
         Make a copy of the original image, and prepare the other image arrays
 
@@ -276,8 +262,8 @@ class StarBugInterface(ABC):
         if header.get(ImageHeaderTags.BUN_IT) == "MJy/sr":
             scale_factor = get_mj_ysr2jy_scale_factor(main_image)
             log(
-                "-> converting unit from MJy/sr to Jr with factor: %e\n"
-                % scale_factor)
+                f"-> converting unit from MJy/sr to Jr with factor: "
+                f"{scale_factor:e}\n")
         else:
             scale_factor = 1
 

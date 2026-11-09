@@ -13,7 +13,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 from __future__ import annotations
-from typing import List, Optional, Tuple
 import getopt
 import numpy as np
 from matplotlib.path import Path
@@ -23,7 +22,7 @@ from astropy.table import Table
 from starbug2.utilities.utils import tab2array, colour_index, fill_nan
 
 
-class Mask(object):
+class Mask:
 
     @staticmethod
     def from_file(f_name: str) -> Mask:
@@ -50,18 +49,17 @@ class Mask(object):
         :param string: the string to create the mask of.
         :return: the constructed mask.
         """
-        label: Optional[str] = None
-        keys: List[Optional[str]] = [None, None]
+        label: str | None = None
+        keys: list[str | None] = [None, None]
         colour: str = 'k'
 
         # type definitions
         opts_str: str
         coords: str
-        opts: List[Tuple[str, str]]
-        args: List[str]
+        opts: list[tuple[str, str]]
 
         opts_str, coords = string.split(':')
-        opts, args = getopt.getopt(opts_str.split(' '), "c:l:x:y:")
+        opts, _ = getopt.getopt(opts_str.split(' '), "c:l:x:y:")
         for opt, opt_arg in opts:
             if opt == "-x":
                 keys[0] = opt_arg
@@ -71,7 +69,7 @@ class Mask(object):
                 label = opt_arg.replace('_', ' ')
             if opt == "-c":
                 colour = opt_arg
-        strip_coords: List[str] = coords.strip().rstrip().split(' ')
+        strip_coords: list[str] = coords.strip().rstrip().split(' ')
         points: np.ndarray = (
             np.array(strip_coords, dtype=float).reshape(
                 (int(len(strip_coords) / 2), 2)))
@@ -90,10 +88,10 @@ class Mask(object):
 
         self._path: Path = Path(bounds)
         if len(keys) == 2:
-            self._keys: List[str] = keys
+            self._keys: list[str] = keys
         else:
-            raise Exception
-        self._label: Optional[str] = label
+            raise ValueError("wrong amount of keys")
+        self._label: str | None = label
 
         self._colour: str = colour
 

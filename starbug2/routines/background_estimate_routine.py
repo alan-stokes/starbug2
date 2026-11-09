@@ -12,10 +12,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-from typing import List, Optional, Union
 
 import numpy as np
-from matplotlib.axis import Axis
 from photutils.background import Background2D, BackgroundBase
 from photutils.aperture import CircularAperture, ApertureMask
 from astropy.table import Table
@@ -30,7 +28,7 @@ class BackGroundEstimateRoutine(BackgroundBase):
             sig_sky: float = 2.0, bgd_r: float = -1.0,
             profile_scale: float = 1.0, profile_slope: float = 0.5,
             verbose: bool | int = 0,
-            bgd: Optional[Background2D] = None) -> None:
+            bgd: Background2D | None = None) -> None:
         """
         Diffuse background emission estimator run by starbug.
 
@@ -77,7 +75,7 @@ class BackGroundEstimateRoutine(BackgroundBase):
         assert self._source_list is not None
         x: Table = self._source_list[TableColumn.X_CENTROID]
         y: Table = self._source_list[TableColumn.Y_CENTROID]
-        apertures: List[ApertureMask] = CircularAperture(
+        apertures: list[ApertureMask] = CircularAperture(
             np.array((x, y)).T, 2).to_mask()
         peaks: np.ndarray = np.full(len(x), np.nan)
 
@@ -96,19 +94,14 @@ class BackGroundEstimateRoutine(BackgroundBase):
         if self._verbose:
             printf(msg)
 
-    def __call__(
+    def run(
             self, data: np.ndarray | None,
-            axis: Optional[Axis] = None, masked: bool = False,
-            output: Optional[str] = None) -> Background2D | None:
+            output: str | None = None) -> Background2D | None:
         """
         does background estimation routine.
 
         :param data: the data to process
         :type data: np.ndarray
-        :param axis: the axis
-        :type axis: matplotlib.axis.Axis or None
-        :param masked: if the data is masked
-        :type masked: bool
         :param output: if the data should be outputted
         :type output: str
         :return: the new background 2D object.
@@ -127,12 +120,12 @@ class BackGroundEstimateRoutine(BackgroundBase):
         rlist: np.ndarray
         if self._bgd_r and self._bgd_r > 0:
             self.log(
-                "-> using BGD_R=%g masking aperture radii\n" % self._bgd_r)
+                f"-> using BGD_R={self._bgd_r:g} masking aperture radii\n")
             rlist = self._bgd_r * np.ones(len(self._source_list))
         else:
             if TableColumn.FLUX in self._source_list.colnames:
                 self.log("-> calculating source aperture mask radii\n")
-                sky: Union[np.ndarray, float] = (
+                sky: np.ndarray | float = (
                     self._source_list["sky"]
                     if "sky" in self._source_list.colnames else 1.0)
                 rlist = (
@@ -151,13 +144,13 @@ class BackGroundEstimateRoutine(BackgroundBase):
                                 self._source_list[i][TableColumn.Y_CENTROID])
 
                             fp.write(
-                                "circle %f %f %f #color=green;" % (
-                                    1 + x_cen, 1 + y_cen, radius_val))
+                                f"circle {1 + x_cen:f} {1 + y_cen:f}"
+                                f" {radius_val:f} #color=green;")
                             fp.write(
-                                "annulus %f %f %f %f #color=white;" % (
-                                    1 + x_cen, 1 + y_cen, 1.5 * radius_val,
-                                    1.5 * radius_val + 1))
-                    self.log("-> exporting check file \"%s\"\n" % output)
+                                f"annulus {1 + x_cen:f} {1 + y_cen:f}"
+                                f" {1.5 * radius_val:f}"
+                                f" {1.5 * radius_val + 1:f} #color=white;")
+                    self.log(f"-> exporting check file \"{output}\"\n")
             else:
                 warn("Unable to calculate aperture mask sizes, "
                      "add '-A' to starbug command.\n")
@@ -174,8 +167,8 @@ class BackGroundEstimateRoutine(BackgroundBase):
             rin: float = 1.5 * r
             rout: float = rin + 1
 
-            x: int = int(round(src[TableColumn.X_CENTROID]))
-            y: int = int(round(src[TableColumn.Y_CENTROID]))
+            x: int = round(src[TableColumn.X_CENTROID])
+            y: int = round(src[TableColumn.Y_CENTROID])
             _X: np.ndarray = x_grid[
                 max(x - dimension, 0): min(x + dimension, data.shape[1])]
             _Y: np.ndarray = y_grid[
@@ -204,8 +197,8 @@ class BackGroundEstimateRoutine(BackgroundBase):
 
     def calc_background(
             self, data: np.ndarray,
-            axis: Optional[int] = None,
-            masked: Optional[bool] = None) -> np.ndarray:
+            axis: int | None = None,
+            masked: bool | None = None) -> np.ndarray:
         """
         Calculate the background value.
 
@@ -234,6 +227,6 @@ class BackGroundEstimateRoutine(BackgroundBase):
         if self._background is None:
             self.__call__(data)
         if self._background is None:
-            raise Exception(
+            raise RuntimeError(
                 "the background file didnt get created for some reason")
         return self._background.background

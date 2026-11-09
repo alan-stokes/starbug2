@@ -44,7 +44,7 @@ class ExactValueMatch(GenericMatch):
         # noinspection SpellCheckingInspection
         if "colnames" in kwargs:
             # noinspection SpellCheckingInspection
-            p_error("Colnames not implemented in %s\n" % self.method)
+            p_error(f"Colnames not implemented in {self.method}\n")
 
     def __str__(self) -> str:
         # noinspection SpellCheckingInspection
@@ -99,12 +99,25 @@ class ExactValueMatch(GenericMatch):
         return tmp
 
     @override
-    def match(self, catalogues: list[Table], **kwargs: Any) -> Table | None:
+    def match(self, catalogues: list[Table], join_type: str = "or",
+              mask: (
+                  list[np.ndarray | list[Any] | None]
+                  | np.ndarray | None) = None,
+              cartesian: bool = False,
+              **kwargs: Any) -> Table | None:
         """
         Core matching function
 
         :param catalogues: List of astropy Tables to match together
         :type catalogues: list of astropy.Table
+        :param join_type: Joining method ("or" to include sources in any
+                          catalogue, "and" to only include sources in all
+                          catalogues)
+        :type join_type: str
+        :param mask: In preparation
+        :type mask: list
+        :param cartesian: if we should use cartesian coordinates
+        :type cartesian: bool
         :param kwargs:
         :return: Full matched catalogue
         :rtype: astropy.Table
@@ -113,11 +126,11 @@ class ExactValueMatch(GenericMatch):
         base: Table = self.build_meta(catalogues)
 
         if self._col_names is None or self.value not in self._col_names:
-            p_error("Exact value '%s' not in column names.\n" % self.value)
+            p_error(f"Exact value '{self.value}' not in column names.\n")
             return None
 
         for n, cat in enumerate(catalogues, 1):
-            self._load.msg = "matching: %d" % n
+            self._load.msg = f"matching: {n}"
             tmp: Table = self.inner_match(base, cat)
             tmp.rename_columns(
                 tmp.colnames, [f"{name}_{n}" for name in tmp.colnames]

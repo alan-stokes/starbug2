@@ -18,7 +18,7 @@ import sys
 import time
 from importlib import metadata
 from importlib.metadata import PackageNotFoundError
-from typing import Any, Dict, List, Tuple
+from typing import Any, TypeVar
 
 from astropy.io import fits
 from astropy.table import Column, MaskedColumn, Table, hstack, vstack
@@ -48,15 +48,15 @@ def p_error(s: str) -> int:
 
 
 def puts(s: str) -> int:
-    return printf("%s\n" % s)
+    return printf(f"{s}\n")
 
 
 def s_bold(s: str) -> str:
-    return "\x1b[1m%s\x1b[0m" % s
+    return f"\x1b[1m{s}\x1b[0m"
 
 
 def warn(s: str) -> int:
-    return p_error("%s%s" % (s_bold("Warning: "), s))
+    return p_error(f"{s_bold('Warning: ')}{s}")
 
 
 def append_chars(s: str, n: int, c: str) -> str:
@@ -90,7 +90,7 @@ def repeat_print(n: int, c: str) -> None:
     printf(append_chars("", n, c))
 
 
-def split_file_name(file_path: str | None) -> Tuple[str, str, str]:
+def split_file_name(file_path: str | None) -> tuple[str, str, str]:
     """Breaks apart a path into folder, filename and extension.
 
     :param file_path: the path to split
@@ -98,7 +98,7 @@ def split_file_name(file_path: str | None) -> Tuple[str, str, str]:
     :rtype: tuple of str, str, str
     """
     if file_path is None:
-        raise Exception("failed as path is None")
+        raise ValueError("failed as path is None")
 
     folder, file = os.path.split(file_path)
     file_name, ext = os.path.splitext(file)
@@ -107,7 +107,7 @@ def split_file_name(file_path: str | None) -> Tuple[str, str, str]:
     return folder, file_name, ext
 
 
-class Loading(object):
+class Loading:
     # how long the bar is
     bar = 40
 
@@ -137,10 +137,10 @@ class Loading(object):
         dec: int = int(self.n / self.length)
         # only show once per self.res loads
         if (dec == 1) or (not self.n % self.res):
-            out: str = "%s|" % self.msg
+            out: str = f"{self.msg}|"
             for i in range(self.bar + 0):
                 out += "=" if (i < (self.bar * dec)) else " "
-            out += "|%.0f%%" % (100 * dec)
+            out += f"|{(100 * dec)}%"
 
             if self.n:
                 etc: float = (
@@ -153,14 +153,14 @@ class Loading(object):
                 n_secs: float = etc - (n_hrs * 3600) - (n_minutes * 60)
                 stime: str = ""
                 if n_hrs:
-                    stime += "%dh" % int(n_hrs)
+                    stime += f"{int(n_hrs)}h"
                 if n_minutes:
-                    stime += "%dm" % int(n_minutes)
+                    stime += f"{int(n_minutes)}m"
 
-                stime += "%ds" % int(n_secs)
-                out += " ETC:%s" % stime
+                stime += f"{int(n_secs)}s"
+                out += f" ETC:{stime}"
 
-            printf("\x1b[2K%s\r" % out)
+            printf(f"\x1b[2K{out}\r")
             sys.stdout.flush()
         if dec == 1:
             printf("\n")
@@ -208,14 +208,14 @@ def export_region(
         x_cols = list(filter(lambda s: "x" == s[0], tab.colnames))
         if x_cols:
             x_col = x_cols[0]
-            printf("Using '%s' as x position column\n" % s_bold(x_col))
+            printf(f"Using '{s_bold(x_col)}' as x position column\n")
             wcs = 0
 
     if y_col not in tab.colnames:
         y_cols = list(filter(lambda s: "y" == s[0], tab.colnames))
         if y_cols:
             y_col = y_cols[0]
-            printf("Using '%s' as y position column\n" % s_bold(y_col))
+            printf(f"Using '{s_bold(y_col)}' as y position column\n")
             wcs = 0
 
     r: np.ndarray
@@ -229,24 +229,22 @@ def export_region(
     prefix: str = "fk5;" if wcs else ""
 
     with open(f_name, "w") as fp:
-        fp.write("global color=%s width=2\n" % colour)
+        fp.write(f"global color={colour} width=2\n")
         if tab:
-            for src, ri in zip([tab], r[r > 0]):
-                fp.write(
-                    "%scircle %f %f %fi\n" % (
-                        prefix, src[x_col], src[y_col], ri)
-                )
+            fp.writelines(
+                f"{prefix}circle {src[x_col]} {src[y_col]} {ri}i\n"
+                for src, ri in zip([tab], r[r > 0]))
         else:
-            p_error("unable to open %f\n" % f_name)
+            p_error(f"unable to open {f_name}\n")
 
 
 def translate_param_float(
     opt: str,
     opt_arg: str,
-    set_opt: Dict[str, float],
+    set_opt: dict[str, float],
     options: int,
     kill_option: int,
-) -> Tuple[int, Dict[str, float]]:
+) -> tuple[int, dict[str, float]]:
     """Converts an opt param into a float.
 
     :param opt: the opt string
@@ -265,20 +263,21 @@ def translate_param_float(
     if opt in ("-s", "--set"):
         if "=" in opt_arg:
             key: str
-            val: float
+            val: str
             key, val = opt_arg.split("=")
+            val_float: float = -1
             try:
-                val = float(val)
+                val_float = float(val)
             except ValueError:
                 pass
-            set_opt[key] = val
+            set_opt[key] = val_float
         else:
             p_error("unable to set parameter, use syntax -s KEY=VALUE\n")
             options |= kill_option
     return options, set_opt
 
 
-def parse_unit(raw: str) -> Tuple[float | None, int | None]:
+def parse_unit(raw: str) -> tuple[float | None, int | None]:
     """Take a value with the ability to be cast into several units and
     parse it.
 
@@ -295,7 +294,7 @@ def parse_unit(raw: str) -> Tuple[float | None, int | None]:
     :return: Numerical value of unit
     :rtype float
     """
-    recognised: Dict[str, int] = {
+    recognised: dict[str, int] = {
         "p": Units.PIX,
         "s": Units.ARCSEC,
         "m": Units.ARCMIN,
@@ -312,11 +311,11 @@ def parse_unit(raw: str) -> Tuple[float | None, int | None]:
                 value = float(raw[:-1])
                 unit = recognised.get(raw[-1])
             except ValueError:
-                p_error("unable to parse '%s'\n" % raw)
+                p_error(f"unable to parse '{raw}'\n")
     return value, unit
 
 
-def tab2array(tab: Table, col_names: List[str] | None = None) -> np.ndarray:
+def tab2array(tab: Table, col_names: list[str] | None = None) -> np.ndarray:
     """Returns the contents of the table as a normal 2D numpy array.
 
     NB: this is different from Table.asarray(), which returns an array of
@@ -377,7 +376,7 @@ def export_table(
     :type header: dict, fits.Header
     :return: None
     """
-    dtypes: List[Any] = []
+    dtypes: list[Any] = []
     if TableColumn.CAT_NUM not in table.colnames:
         table = reindex(table)
     for name in table.colnames:
@@ -411,14 +410,6 @@ def import_table(f_name: str, verbose: bool | int = 0) -> Table | None:
     :return: Loading table
     :rtype: atrophy.Table | None
     """
-    printf(f"trying to load file {f_name}\n")
-    printf(f" file exists in correct location {os.path.exists(f_name)}\n")
-    new_f_name = os.path.join(
-        str(os.environ.get("STARBUG_DATDIR")), os.path.basename(f_name))
-    printf(f"new location path is {new_f_name}\n")
-    printf(f"the file exists in datadir instead {
-        os.path.exists(new_f_name)}\n")
-
     tab: Table | None = None
     if os.path.exists(f_name):
         if os.path.splitext(f_name)[1] == FileExtensions.FITS:
@@ -426,18 +417,17 @@ def import_table(f_name: str, verbose: bool | int = 0) -> Table | None:
             if tab is None:
                 printf(f"table at {f_name} failed to read")
                 return None
-            if not tab.meta.get(HeaderTags.FILTER):
-                if filter_string := find_filter(tab):
-                    tab.meta[HeaderTags.FILTER] = filter_string
+            if (not tab.meta.get(HeaderTags.FILTER) and
+                    (filter_string := find_filter(tab))):
+                tab.meta[HeaderTags.FILTER] = filter_string
             if verbose:
                 printf(
-                    "-> loaded %s (%s:%d)\n"
-                    % (f_name, tab.meta.get(HeaderTags.FILTER), len(tab))
-                )
+                    f"-> loaded {f_name} ({tab.meta.get(HeaderTags.FILTER)}"
+                    f":{len(tab)})\n")
         else:
             p_error("Table must fits format\n")
     else:
-        p_error("Unable to locate \"%s\"\n" % f_name)
+        p_error(f"Unable to locate \"{f_name}\"\n")
     return tab
 
 
@@ -467,7 +457,7 @@ def fill_nan(table: Table) -> Table:
     return table
 
 
-def find_col_names(tab: Table, basename: str) -> List[str]:
+def find_col_names(tab: Table, basename: str) -> list[str]:
     """Find substring (basename) within the table colnames.
 
     Searches for substring at the beginning of the word I.E search for "flux"
@@ -488,7 +478,7 @@ def find_col_names(tab: Table, basename: str) -> List[str]:
 
 
 def combine_file_names(
-    f_names: List[str | None], n_mismatch: int = N_MIS_MATCHES
+    f_names: list[str | None], n_mismatch: int = N_MIS_MATCHES
 ) -> str | None:
     """When matching catalogues, combines the file names.
 
@@ -506,30 +496,28 @@ def combine_file_names(
     d_name: str
     ext: str
 
-    if f_names is None:
-        return None
-
     d_name, _, ext = split_file_name(f_names[0])
-    f_names_split: List[str] = [split_file_name(name)[1] for name in f_names]
+    f_names_split: list[str] = [split_file_name(name)[1] for name in f_names]
 
     for i in range(len(f_names_split[0])):
-        chars: List[str] = [
+        chars: list[str] = [
             name[i] for name in f_names_split if len(name) > i
         ]
         if len(set(chars)) == 1:
             f_name += chars[0]
         else:
-            f_name += "(%s)" % "".join(sorted(set(chars)))
+            joined_chars: str = "".join(sorted(set(chars)))
+            f_name += f"({joined_chars})"
             trys += 1
         if trys > n_mismatch:
             return None
     while ")(" in f_name:
         f_name = f_name.replace(")(", "")
-    return "%s/%s%s" % (d_name, f_name, ext)
+    return f"{d_name}/{f_name}{ext}"
 
 
 def h_cascade(
-    tables: List[Table], col_names: List[str] | None = None
+    tables: list[Table], col_names: list[str] | None = None
 ) -> Table:
     """Similar use as hstack.
 
@@ -549,7 +537,7 @@ def h_cascade(
     if not col_names:
         col_names = tables[0].colnames
     for name in col_names:
-        cols: List[str] = find_col_names(tab, name)
+        cols: list[str] = find_col_names(tab, name)
         if not cols:
             continue
         move: int = 1
@@ -568,7 +556,7 @@ def h_cascade(
         cols = find_col_names(tab, name)
         if cols:
             tab.rename_columns(
-                cols, ["%s_%d" % (name, i + 1) for i in range(len(cols))]
+                cols, [f"{name}_{i + 1}" for i in range(len(cols))]
             )
 
     for name in tab.colnames:
@@ -579,7 +567,7 @@ def h_cascade(
     return tab
 
 
-def ext_names(hdu_list: fits.HDUList | None) -> List[str]:
+def ext_names(hdu_list: fits.HDUList | None) -> list[str]:
     """Return list of HDU extension names.
 
     :param hdu_list: fits hdu_list to operate on
@@ -596,8 +584,8 @@ def ext_names(hdu_list: fits.HDUList | None) -> List[str]:
 # noinspection SpellCheckingInspection
 def flux_to_pogson_mag(
     raw_flux: np.ndarray | float,
-    flux_err: Column | None | np.ndarray | int | float = None
-) -> Tuple[np.ndarray, np.ndarray]:
+    flux_err: Column | None | np.ndarray | float = None
+) -> tuple[np.ndarray, np.ndarray]:
     """Convert flux to magnitude in an arbitrary system.
 
     Uses the Pogsons relation.
@@ -644,11 +632,10 @@ def wget(address: str, f_name: str | None = None) -> ExitStates:
     if r.status_code == REST_SUCCESS_CODE:
         f_name = f_name if f_name else os.path.basename(address)
         with open(f_name, "wb") as fp:
-            for chunk in r.iter_content(chunk_size=128):
-                fp.write(chunk)
+            fp.writelines(r.iter_content(chunk_size=128))
         return ExitStates.EXIT_SUCCESS
     else:
-        p_error("Unable to download \"%s\"\n" % address)
+        p_error(f"Unable to download \"{address}\"\n")
         return ExitStates.EXIT_FAIL
 
 
@@ -663,13 +650,13 @@ def reindex(table: Table) -> Table:
     if TableColumn.CAT_NUM in table.colnames:
         table.remove_column(TableColumn.CAT_NUM)
     column = Column(
-        ["CN%d" % i for i in range(len(table))], name=TableColumn.CAT_NUM
+        [f"CN{i}" for i in range(len(table))], name=TableColumn.CAT_NUM
     )
     table.add_column(column, index=0)
     return table
 
 
-def colour_index(table: Table, keys: List[str]) -> Table:
+def colour_index(table: Table, keys: list[str]) -> Table:
     """Allow table indexing with A-B.
 
     :param table: table to colour index.
@@ -704,9 +691,9 @@ def get_mj_ysr2jy_scale_factor(
     :rtype float
     """
     scale_factor: float = 1.0
-    if ext.header.get(ImageHeaderTags.BUN_IT) == DEFAULT_BUNIT:
-        if ImageHeaderTags.PIXAR_SR in ext.header:
-            scale_factor = 1e6 * float(ext.header[ImageHeaderTags.PIXAR_SR])
+    if (ext.header.get(ImageHeaderTags.BUN_IT) == DEFAULT_BUNIT and
+            ImageHeaderTags.PIXAR_SR in ext.header):
+        scale_factor = 1e6 * float(ext.header[ImageHeaderTags.PIXAR_SR])
     return scale_factor
 
 
@@ -745,7 +732,11 @@ def get_version() -> str:
     return version
 
 
-def remove_duplicates[T](seq: List[T]) -> List[T]:
+# needed to ensure ruff is happy for python version 3.10
+T = TypeVar("T")
+
+
+def remove_duplicates(seq: list[T]) -> list[T]:
     """Take a sequence and rm its duplicates while preserving order.
 
     :param seq: Input list to work on
@@ -766,8 +757,8 @@ def remove_duplicates[T](seq: List[T]) -> List[T]:
 
 def crop_hdu(
     hdu: fits.HDUList,
-    x_limit: Tuple[int, int] | None = None,
-    y_limit: Tuple[int, int] | None = None,
+    x_limit: tuple[int, int] | None = None,
+    y_limit: tuple[int, int] | None = None,
 ) -> fits.HDUList | None:
     """Crop an image with multiple extensions. Retaining the extensions.
 
@@ -791,7 +782,7 @@ def crop_hdu(
             continue
 
         ctype: str = ext.header.get(HeaderTags.C_TYPE)
-        ext.header[HeaderTags.C_TYPE] = "%s-SIP" % ctype
+        ext.header[HeaderTags.C_TYPE] = f"{ctype}-SIP"
 
         w: WCS = WCS(ext.header, relax=False)
         ext.data = ext.data[x_limit[0]: x_limit[1], y_limit[0]: y_limit[1]]
@@ -815,11 +806,12 @@ def usage(docstring: str | None, verbose: bool | int = 0) -> int:
     if verbose:
         p_error(docstring)
     else:
-        p_error("%s\n" % docstring.split("\n")[1])
+        second_bit_of_doc_string: str = docstring.split('\n')[1]
+        p_error(f"{second_bit_of_doc_string}\n")
     return 1
 
 
-def parse_cmd(args: List[str]) -> Tuple[str, List[str]]:
+def parse_cmd(args: list[str]) -> tuple[str, list[str]]:
     """Parses an args command.
 
     :param args: the args array.
@@ -838,8 +830,9 @@ def get_data_path() -> str:
     :rtype: str
     """
     env_path: str | None = os.getenv(STARBUG_DATA_DIR)
-    return (env_path if env_path else
-            "%s/.local/share/starbug" % (os.getenv("HOME")))
+    home_env: str | None = os.getenv("HOME")
+    return (
+        env_path if env_path else f"{home_env}/.local/share/starbug")
 
 
 if __name__ == "__main__":

@@ -14,7 +14,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
 import sys
-from typing import Tuple
 
 import numpy as np
 
@@ -70,14 +69,14 @@ class APPhotRoutine:
             radius, t_ap_corr[TableColumn.RADIUS],
             t_ap_corr[TableColumn.AP_CORR]))
         if verbose:
-            printf("-> estimating aperture correction: %.3g\n" % ap_corr)
+            printf(f"-> estimating aperture correction: {ap_corr:.3g}\n")
         return ap_corr
 
     @staticmethod
     def ap_corr_from_enc_energy(
             filter_string: str, encircled_energy: np.ndarray,
             table_f_name: str | None = None, verbose: int | bool = 0) -> (
-                Tuple[np.ndarray, np.ndarray]):
+                tuple[np.ndarray, np.ndarray]):
         """
         Rather than fitting radius to the AP_CORR CRDS, use the closes
         Encircled energy value
@@ -108,12 +107,12 @@ class APPhotRoutine:
             t_ap_corr[TableColumn.EE_FRACTION] - encircled_energy)).argmin()]
         if verbose:
             printf(
-                "-> best matching encircled energy %.1f,"
-                " with radius %g pixels\n" % (
-                    line[TableColumn.EE_FRACTION], line[TableColumn.RADIUS]))
+                f"-> best matching encircled energy"
+                f" {line[TableColumn.EE_FRACTION]:.1f},"
+                f" with radius {line[TableColumn.RADIUS]:g} pixels\n")
             printf(
-                "-> using aperture correction: %f\n" %
-                line[TableColumn.AP_CORR])
+                f"-> using aperture correction:"
+                f" {line[TableColumn.AP_CORR]:f}\n")
 
         return line[TableColumn.AP_CORR], line[TableColumn.RADIUS]
 
@@ -122,6 +121,14 @@ class APPhotRoutine:
             filter_string: str, ee_frac: float,
             table_f_name: str | None) -> float:
         """
+        :param filter_string: the filter string
+        :type filter_string: str
+        :param ee_frac: the encircled energy
+        :type ee_frac: float
+        :param table_f_name: the table file name
+        :type table_f_name: str
+        :return: the radius value
+        :rtype: float
         """
         if not table_f_name or not os.path.exists(table_f_name):
             raise FileNotFoundError("cannot find table f name")
@@ -129,7 +136,7 @@ class APPhotRoutine:
 
         if (len({TableColumn.EE_FRACTION, TableColumn.RADIUS} &
                 set(t_ap_corr.col_names)) != 2):
-            raise Exception("invalid col_names size.")
+            raise ValueError("invalid col_names size.")
 
         # Crop down table
         if HeaderTags.FILTER_LOWER in t_ap_corr.col_names:
@@ -254,7 +261,7 @@ class APPhotRoutine:
             p_error(
                 "Cannot identify position in detection catalogue ("
                 "x_0/x_centroid)\n")
-            raise Exception(
+            raise ValueError(
                 "Cannot identify position in detection catalogue ("
                 "x_0/x_centroid)\n")
 
@@ -269,8 +276,8 @@ class APPhotRoutine:
             pos, r_in=self.sky_in, r_out=self.sky_out)
 
         self.log(
-            "-> apertures: %.2g (%.2g - %.2g)\n" % (
-                self.radius, self.sky_in, self.sky_out))
+            f"-> apertures: {self.radius:.2g} ("
+            f"{self.sky_in:.2g} - {self.sky_out:.2g})\n")
         phot: QTable = aperture_photometry(
             image, (apertures, smooth_apertures), error=error, mask=mask)
         self.catalogue = (
@@ -286,8 +293,7 @@ class APPhotRoutine:
             masks_raw if isinstance(masks_raw, list) else [masks_raw])
 
         # generate dat_list.
-        dat_list: list[np.ndarray | None] = list(
-            map(lambda a: a.multiply(image), masks))
+        dat_list: list[np.ndarray | None] = [a.multiply(image) for a in masks]
         dat: np.ndarray
 
         try:

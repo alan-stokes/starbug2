@@ -27,7 +27,7 @@
         matrix:
           # Run across multiple modern versions to ensure starbug2 handles
           # updates smoothly
-          python-version: ["3.12", "3.13"]
+          python-version: ["3.12", "3.13", "3.14"]
 
       steps:
         # Upgraded to v4 for speed and security
@@ -51,7 +51,7 @@
         - name: Install dependencies
           run: |
             python -m pip install --upgrade pip
-            pip install flake8 pytest
+            pip install flake8 pytest ruff
             # Install your core pipeline dependencies from the 
             # requirements.txt file
             if [ -f requirements.txt ]; then \
@@ -59,6 +59,12 @@
             
             # Install starbug2 itself in editable mode
             pip install -e .
+
+        # allows the gui to be tested once real GUI tets are built.
+        - name: Install Qt6 System Dependencies
+          run: |
+            sudo apt-get update
+            sudo apt-get install -y libegl1 libgl1 libglx0 libxcb-cursor0 libdbus-1-3
 
         - name: Cache FITS test data
           id: cache-fits
@@ -86,6 +92,7 @@
             # 127 chars wide
             flake8 . --count --exit-zero --max-complexity=10 \
               --max-line-length=127 --statistics
+            ruff check --line-length 79 --ignore I001 starbug2
 
         # --- LIGHTWEIGHT RAT LICENSE HEADER CHECK ---
         - name: Verify License Headers (RAT Check)
@@ -121,3 +128,51 @@
         - name: Test with pytest
           run: |
             python -m pytest
+
+        - name: Generate AI Review Diff
+          run: |
+            git fetch origin ${{ github.base_ref }} || true
+            
+            {
+              echo "# am_surfaces AI Code Review"
+              echo
+              echo "Project: ${{ github.repository }}"
+              echo "Pull request: #${{ github.event.pull_request.number }}"
+              echo "Source branch: ${{ github.head_ref }}"
+              echo "Target branch: ${{ github.base_ref }}"
+              echo "Commit: ${{ github.sha }}"
+              echo
+              echo "## Review instructions"
+              echo
+              echo "Review this Git diff for genuine defects introduced by the change."
+              echo
+              echo "Prioritise:"
+              echo "- incorrect logic"
+              echo "- crashes and exceptions"
+              echo "- numerical/scientific errors"
+              echo "- changed mathematical behaviour"
+              echo "- incorrect NumPy scalar/array behaviour"
+              echo "- units and boundary conditions"
+              echo "- input validation"
+              echo "- backwards compatibility"
+              echo "- error handling"
+              echo
+              echo "Do not report formatting, line length, import ordering,"
+              echo "spelling, or issues adequately covered by Ruff/Flake8."
+              echo
+              echo "## Git diff"
+              echo
+              echo '```diff'
+              # Try a standard merge-base diff; fallback to direct diff or HEAD~1 if no merge base exists
+              if ! git diff "origin/${{ github.base_ref }}...HEAD" -- . ':(exclude)*.ipynb' 2>/dev/null; then
+                git diff "origin/${{ github.base_ref }}" HEAD -- . ':(exclude)*.ipynb' || git diff HEAD~1 HEAD -- . ':(exclude)*.ipynb'
+              fi
+              echo '```'
+            } > ai_review.md
+
+        - name: Upload Review Artifact
+          uses: actions/upload-artifact@v5
+          with:
+            name: ai_review
+            path: ai_review.md
+            retention-days: 7

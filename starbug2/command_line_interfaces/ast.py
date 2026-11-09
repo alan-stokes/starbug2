@@ -15,20 +15,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import sys
 from multiprocessing.shared_memory import SharedMemory
 from multiprocessing import Process, shared_memory
-from typing import Tuple
 
 import numpy as np
 from time import sleep
-
-from astropy.io.fits.verify import VerifyWarning
 from astropy.table import Table
-import warnings
-
-import logging
-from astropy import log
-from astropy.utils.exceptions import (
-    AstropyDeprecationWarning, AstropyWarning, AstropyUserWarning)
-from astropy.utils.metadata import MergeConflictWarning
 
 from starbug2.core.main_components.multi_treading_execution import (
     execute_one_core_run_ast, execute_multicore_ast)
@@ -37,50 +27,9 @@ from starbug2.constants import ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.core.starbug_main import StarbugBase
 from starbug2.utilities.utils import printf, p_error, parse_cmd
+from starbug2.utilities.enviroment_config import configure_environment
 
-import photutils
-
-# Force photutils to strictly return standard QTables globally
-photutils.future_column_names = True
-
-# Target-silence only the specific Photutils/Astropy deprecation noise
-# without masking generic Runtime math errors globally.
-warnings.filterwarnings(
-    "ignore", category=AstropyDeprecationWarning)
-warnings.filterwarnings(
-    "ignore", message=".*contains deprecated section.*",
-    category=AstropyWarning)
-warnings.filterwarnings(
-    "ignore", category=AstropyWarning,
-    message=".*Input data contains invalid values*"
-)
-warnings.filterwarnings("ignore", message=".*invalid values.*")
-warnings.filterwarnings("ignore", message=".*sigma_clipping.*")
-warnings.filterwarnings("ignore", message=".*Cannot merge meta key*")
-
-# Handle RuntimeWarnings elegantly: Ignore expected ones (like NaN comparisons
-# during clipping), but let actual mathematical issues surface.
-warnings.filterwarnings(
-    "ignore", message=".*invalid value encountered.*", category=RuntimeWarning)
-warnings.filterwarnings(
-    "ignore", message=".*divide by zero.*", category=RuntimeWarning)
-# Ignore all metadata merge conflict warnings
-warnings.filterwarnings("ignore", category=MergeConflictWarning)
-
-# --- FITS IO FORMATTING NOISE ---
-# These suppress warnings about FITS header compliance
-# (e.g., truncated comments) that do not affect scientific output.
-warnings.filterwarnings(
-    "ignore",
-    category=VerifyWarning,
-    message=".*Card is too long.*"
-)
-warnings.filterwarnings(
-    "ignore",
-    category=AstropyUserWarning,
-    message=".*cannot be added to FITS Header.*",
-)
-log.setLevel(logging.ERROR)
+configure_environment()
 
 
 def load(loading_buffer: np.ndarray) -> None:
@@ -93,8 +42,10 @@ def load(loading_buffer: np.ndarray) -> None:
         sleep(1)
         p: np.ndarray = loading_buffer[0] / loading_buffer[1]
         msg: str = f"recovering:{loading_buffer[2]}%"
-        s: str = "\x1b[2K%s|%-40s|%d/%d\r" % (
-            msg, int(p*40)*'=', int(loading_buffer[0]), int(loading_buffer[1]))
+        s: str = (
+            f"\x1b[2K{msg}|{'=' * int(p * 40):<40}|"
+            f"{int(loading_buffer[0])}/{int(loading_buffer[1])}\r"
+        )
         printf(s)
         sys.stdout.flush()
     printf("\n")
@@ -131,14 +82,13 @@ def report_before_logs(config: StarBugMainConfig, f_name: str) -> None:
     :rtype: None
     """
     printf("Artificial Stars\n----------------\n")
-    printf("-> loading %s\n" % f_name)
+    printf(f"-> loading {f_name}\n")
     if config.param_file:
-        printf("-> parameters: %s\n" % config.param_file)
-    printf("-> running %d tests with %d injections per test\n" % (
-        config.artificial_star_tests_count, config.stars_per_artificial_test))
-    printf("-> magnitude range: %.1f - %.1f\n" % (
-        config.test_magnitude_bright_limit,
-        config.test_magnitude_faint_limit))
+        printf(f"-> parameters: {config.param_file}\n")
+    printf(f"-> running {config.artificial_star_tests_count} tests with "
+           f"{config.stars_per_artificial_test} injections per test\n")
+    printf(f"-> magnitude range: {config.test_magnitude_bright_limit:.1f} - "
+           f"{config.test_magnitude_faint_limit:.1f}\n")
     if config.ast_no_psf_phot:
         printf("-> skipping PSF photometry step\n")
     if config.ast_no_background:
@@ -164,7 +114,7 @@ def start_buffer(loading_buffer: np.ndarray, n_tests: int) -> Process:
 
 def execute_ast(
         config: StarBugMainConfig, f_name: str,
-        loading_buffer: np.ndarray) -> Tuple[list[Table | None], ExitStates]:
+        loading_buffer: np.ndarray) -> tuple[list[Table | None], ExitStates]:
     """
     determine execution state in terms of processors available and execute.
     :param config: the main config
@@ -196,7 +146,7 @@ def execute_ast(
     # Initialise output container tracking tables
     outs: list[Table | None]
     exit_state: ExitStates
-    results: list[Tuple[list[Table] | None, ExitStates]]
+    results: list[tuple[list[Table] | None, ExitStates]]
     if (n_cores := config.n_cores) is None or n_cores == 1:
         results = execute_one_core_run_ast(config, loading_buffer)
     else:
@@ -221,7 +171,16 @@ def execute_ast(
 
     # force finish
     loading_buffer[0] = loading_buffer[1]
-    loading.join()
+
+    # give the close process a grace period to shut down nicely before we
+    # murder it.
+    loading.join(timeout=2.0)
+
+    # If it still hasn't exited due to the 3.14 block, force-terminate it
+    # safely
+    if loading.is_alive():
+        loading.terminate()
+        loading.join()
 
     return outs, exit_state
 
@@ -261,10 +220,10 @@ def ast_main(
     config: StarBugMainConfig = ast_parse_argv(argv)
 
     exit_code: ExitStates
-    if config.use_ast_one_time_runs():
-        if exit_code := ast_one_time_runs(config):
-            share_memory.unlink()
-            return exit_code
+    if (config.use_ast_one_time_runs()
+            and (exit_code := ast_one_time_runs(config))):
+        share_memory.unlink()
+        return exit_code
 
     print(f"{config.fits_images}")
 

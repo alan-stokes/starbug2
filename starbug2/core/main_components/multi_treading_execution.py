@@ -16,7 +16,6 @@ import copy
 import os
 from multiprocessing import Pool
 from multiprocessing.pool import Pool as PoolType
-from typing import Tuple
 
 import numpy as np
 from astropy.table import Table
@@ -41,19 +40,22 @@ def execute_star_bug_main(
              if validation fails
     :rtype: starbug2.StarbugBase or None
     """
+    import photutils
+    photutils.future_column_names = True
+
     # I've put this here because it takes some time
     from starbug2.core.starbug_main import StarbugBase
 
     # check file exists
     if not os.path.exists(f_name):
-        p_error("can't access %s\n" % f_name)
+        p_error(f"can't access {f_name}\n")
         return None
 
     folder, file_name, ext = split_file_name(f_name)
 
     # check correct extension
     if ext != FileExtensions.FITS:
-        p_error("file must be type '.fits' not %s\n" % ext)
+        p_error(f"file must be type '.fits' not {ext}\n")
         return None
 
     # extract output files
@@ -72,11 +74,11 @@ def execute_star_bug_main(
 
     # Sorting out the stdout
     if config.verbose_logs:
-        printf("-> showing starbug stdout for \"%s\"\n" % f_name)
+        printf(f"-> showing starbug stdout for \"{f_name}\"\n")
     elif config.n_cores > 1:
-        printf("-> hiding starbug stdout for \"%s\"\n" % f_name)
+        printf(f"-> hiding starbug stdout for \"{f_name}\"\n")
     else:
-        printf("-> %s\n" % f_name)
+        printf(f"-> {f_name}\n")
 
     # execute
     star_bug_base: StarbugBase | None = StarbugBase(
@@ -93,7 +95,7 @@ def execute_star_bug_main(
 
 def execute_artificial_stars(
         f_name: str,
-        config: StarBugMainConfig) -> Tuple[list[Table] | None, ExitStates]:
+        config: StarBugMainConfig) -> tuple[list[Table] | None, ExitStates]:
     """
     Multiprocessing worker function to run artificial star tests on a given
     file.
@@ -105,6 +107,9 @@ def execute_artificial_stars(
              None if the file doesn't exist.
     :rtype: Tuple[list[astropy.table.Table] or None., ExitState]
     """
+    import photutils
+    photutils.future_column_names = True
+
     out: list[Table] | None = None
     exit_state: ExitStates = ExitStates.EXIT_FAIL
     if os.path.exists(f_name):
@@ -119,7 +124,7 @@ def execute_artificial_stars(
 
 def execute_multicore_ast(
         config: StarBugMainConfig, loading_buffer: np.ndarray,
-        n_cores: int) -> list[Tuple[list[Table] | None, ExitStates]]:
+        n_cores: int) -> list[tuple[list[Table] | None, ExitStates]]:
     """
     executes tests utilising multicore functionality.
     :param config: the main starbug config
@@ -199,7 +204,7 @@ def execute_multi_core_main(
 def execute_one_core_run_ast(
         config: StarBugMainConfig,
         loading_buffer: np.ndarray) -> (
-            list[Tuple[list[Table] | None, ExitStates]]):
+            list[tuple[list[Table] | None, ExitStates]]):
     """
     executes tests utilising 1 core.
     :param config: the main starbug config

@@ -14,18 +14,9 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
 import sys
-import warnings
 
-import logging
-from astropy import log
-
-from astropy.io.fits.verify import VerifyWarning
 from astropy.io.fits.header import Header
 from astropy.table import Table
-from astropy.utils.exceptions import (
-    AstropyDeprecationWarning, AstropyWarning, AstropyUserWarning)
-import photutils
-from astropy.utils.metadata import MergeConflictWarning
 
 from starbug2.core.main_components.multi_treading_execution import (
     execute_multi_core_main, execute_one_core_run_main)
@@ -38,50 +29,10 @@ from starbug2.core.starbug_main import StarbugBase
 from starbug2.utilities.utils import (
     combine_file_names, export_table, parse_cmd, p_error, printf, puts,
     split_file_name)
+from starbug2.utilities.enviroment_config import configure_environment
 
-# Target-silence only the specific Photutils/Astropy deprecation noise
-# without masking generic Runtime math errors globally.
-# Target-silence only the specific Photutils/Astropy deprecation noise
-# without masking generic Runtime math errors globally.
-warnings.filterwarnings(
-    "ignore", category=AstropyDeprecationWarning)
-warnings.filterwarnings(
-    "ignore", message=".*contains deprecated section.*",
-    category=AstropyWarning)
-warnings.filterwarnings(
-    "ignore", category=AstropyWarning,
-    message=".*Input data contains invalid values*"
-)
-warnings.filterwarnings("ignore", message=".*invalid values.*")
-warnings.filterwarnings("ignore", message=".*sigma_clipping.*")
-warnings.filterwarnings("ignore", message=".*Cannot merge meta key*")
+configure_environment()
 
-# Handle RuntimeWarnings elegantly: Ignore expected ones (like NaN comparisons
-# during clipping), but let actual mathematical issues surface.
-warnings.filterwarnings(
-    "ignore", message=".*invalid value encountered.*", category=RuntimeWarning)
-warnings.filterwarnings(
-    "ignore", message=".*divide by zero.*", category=RuntimeWarning)
-# Ignore all metadata merge conflict warnings
-warnings.filterwarnings("ignore", category=MergeConflictWarning)
-
-# --- FITS IO FORMATTING NOISE ---
-# These suppress warnings about FITS header compliance
-# (e.g., truncated comments) that do not affect scientific output.
-warnings.filterwarnings(
-    "ignore",
-    category=VerifyWarning,
-    message=".*Card is too long.*"
-)
-warnings.filterwarnings(
-    "ignore",
-    category=AstropyUserWarning,
-    message=".*cannot be added to FITS Header.*",
-)
-log.setLevel(logging.ERROR)
-
-# Force photutils to strictly return standard QTables globally
-photutils.future_column_names = True
 
 # noinspection SpellCheckingInspection
 """StarbugII - JWST PSF photometry
@@ -192,7 +143,7 @@ def starbug_match_outputs(
     if f_name := combine_file_names([sb.f_name for sb in valid_bugs]):
         _, name, _ = split_file_name(os.path.basename(f_name))
         name: str
-        f_name = "%s/%s" % (valid_bugs[0].out_dir, name)
+        f_name = f"{valid_bugs[0].out_dir}/{name}"
     else:
         f_name = "out"
 
@@ -204,34 +155,36 @@ def starbug_match_outputs(
         p_file=config.param_file)
 
     if config.do_star_detection or config.do_aperture_photometry:
-        full: Table = match(
+        full: Table | None = match(
             [sb.detections for sb in valid_bugs], join_type="or")
+        assert full is not None
         av: Table = match.finish_matching(
             full, num_thresh=config.exposure_count_threshold,
             zp_mag=config.zero_point_magnitude)
 
-        printf("-> %s-ap*...\n" % f_name)
+        printf(f"-> {f_name}-ap*...\n")
 
         # noinspection SpellCheckingInspection
-        export_table(full, f_name="%s-apfull.fits" % f_name, header=header)
+        export_table(full, f_name=f"{f_name}-apfull.fits", header=header)
 
         # noinspection SpellCheckingInspection
-        export_table(av, f_name="%s-apmatch.fits" % f_name, header=header)
+        export_table(av, f_name=f"{f_name}-apmatch.fits", header=header)
 
     if config.do_photometry_routine:
-        full: Table = match(
+        full: Table | None = match(
             [sb.psf_catalogue for sb in valid_bugs], join_type="or")
+        assert full is not None
         av: Table = match.finish_matching(
             full, num_thresh=config.exposure_count_threshold,
             zp_mag=config.zero_point_magnitude)
 
-        printf("-> %s-psf*...\n" % f_name)
+        printf(f"-> {f_name}-psf*...\n")
 
         # noinspection SpellCheckingInspection
-        export_table(full, f_name="%s-psffull.fits" % f_name, header=header)
+        export_table(full, f_name=f"{f_name}-psffull.fits", header=header)
 
         # noinspection SpellCheckingInspection
-        export_table(av, f_name="%s-psfmatch.fits" % f_name, header=header)
+        export_table(av, f_name=f"{f_name}-psfmatch.fits", header=header)
 
 
 def starbug_main(argv: list[str]) -> ExitStates:
@@ -278,7 +231,7 @@ def starbug_internal_main(config: StarBugMainConfig) -> ExitStates:
         sb: StarbugBase | None
         for n, sb in enumerate(starbugs):
             if not sb:
-                p_error("FAILED: %s\n" % config.fits_images[n])
+                p_error(f"FAILED: {config.fits_images[n]}\n")
                 to_remove.append(sb)
                 exit_code = ExitStates.EXIT_MIXED
         for sb in to_remove:

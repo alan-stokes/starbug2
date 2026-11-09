@@ -13,14 +13,14 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
-from typing import Dict
+import subprocess
 
 from starbug2.constants import ExitStates
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.utilities.utils import printf, p_error, get_version
 
 
-def _load_params_old(f_name: str | None) -> Dict[str, int | float | str]:
+def _load_params_old(f_name: str | None) -> dict[str, int | float | str]:
     """
     Convert a parameter file into a dictionary of options
 
@@ -32,13 +32,13 @@ def _load_params_old(f_name: str | None) -> Dict[str, int | float | str]:
     if f_name is None:
         return {}
 
-    config: Dict[str, int | float | str] = {}
+    config: dict[str, int | float | str] = {}
     if os.path.exists(f_name):
         with open(f_name, "r") as fp:
-            for line in fp.readlines():
+            for line in fp:
                 config.update(StarBugMainConfig.parse_param(line))
     else:
-        p_error("config file \"%s\" does not exist\n" % f_name)
+        p_error(f"config file \"{f_name}\" does not exist\n")
     return config
 
 
@@ -60,9 +60,7 @@ def update_param_file(f_name: str | None) -> ExitStates:
     current_param = _load_params_old(f_name)
 
     if os.path.exists(f_name):
-        printf("Updating \"%s\"\n" % f_name)
-        fpo = open("/tmp/starbug.param", 'w')
-
+        printf(f"Updating \"{f_name}\"\n")
         add_keys = (
             set(default_param.MAIN_PARAM_FILE_MAP.keys()) -
             set(current_param.keys()))
@@ -70,9 +68,11 @@ def update_param_file(f_name: str | None) -> ExitStates:
             set(current_param.keys()) -
             set(default_param.MAIN_PARAM_FILE_MAP.keys()))
         if add_keys:
-            printf("-> adding: %s  \n" % (', '.join(add_keys)))
+            keys_joined: str = ', '.join(add_keys)
+            printf(f"-> adding: {keys_joined}  \n")
         if del_keys:
-            printf("-> removing: %s\n" % (', '.join(del_keys)))
+            del_keys_joined: str = ', '.join(del_keys)
+            printf(f"-> removing: {del_keys_joined}\n")
 
         if not len(add_keys | del_keys):
             printf("-> No updates needed\n")
@@ -87,10 +87,11 @@ def update_param_file(f_name: str | None) -> ExitStates:
         # generate the new output and write to file.
         output: str = default_param.generate_default_param_file_text(
             get_version())
-        fpo.write("%s\n" % output)
-        fpo.close()
-        os.system("mv /tmp/starbug.param %s" % f_name)
+
+        with open("/tmp/starbug.param", 'w') as fpo:
+            fpo.write(f"{output}\n")
+        subprocess.call(["mv", "/tmp/starbug.param", f_name])
         return ExitStates.EXIT_SUCCESS
     else:
-        p_error("local parameter file '%s' does not exist\n" % f_name)
+        p_error(f"local parameter file '{f_name}' does not exist\n")
         return ExitStates.EXIT_FAIL

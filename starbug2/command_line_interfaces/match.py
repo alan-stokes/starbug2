@@ -12,20 +12,13 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-import logging
 import os
 import sys
-import warnings
 from typing import Any
 
 import numpy as np
-from astropy import log
-from astropy.io.fits.verify import VerifyWarning
 from astropy.table import Table, vstack
 from astropy.units import Quantity
-from astropy.utils.exceptions import (
-    AstropyUserWarning, AstropyDeprecationWarning, AstropyWarning)
-from astropy.utils.metadata import MergeConflictWarning
 
 from starbug2.utilities import utils
 from starbug2.constants import (
@@ -38,49 +31,9 @@ from starbug2.matching.generic_match import GenericMatch
 from starbug2.utilities.misc import parse_mask
 from starbug2.core.star_bug_config import StarBugMainConfig
 from starbug2.utilities.utils import parse_cmd, usage
-import photutils
+from starbug2.utilities.enviroment_config import configure_environment
 
-# Force photutils to strictly return standard QTables globally
-photutils.future_column_names = True
-
-# Target-silence only the specific Photutils/Astropy deprecation noise
-# without masking generic Runtime math errors globally.
-warnings.filterwarnings(
-    "ignore", category=AstropyDeprecationWarning)
-warnings.filterwarnings(
-    "ignore", message=".*contains deprecated section.*",
-    category=AstropyWarning)
-warnings.filterwarnings(
-    "ignore", category=AstropyWarning,
-    message=".*Input data contains invalid values*"
-)
-warnings.filterwarnings("ignore", message=".*invalid values.*")
-warnings.filterwarnings("ignore", message=".*sigma_clipping.*")
-warnings.filterwarnings("ignore", message=".*Cannot merge meta key*")
-
-# Handle RuntimeWarnings elegantly: Ignore expected ones (like NaN comparisons
-# during clipping), but let actual mathematical issues surface.
-warnings.filterwarnings(
-    "ignore", message=".*invalid value encountered.*", category=RuntimeWarning)
-warnings.filterwarnings(
-    "ignore", message=".*divide by zero.*", category=RuntimeWarning)
-# Ignore all metadata merge conflict warnings
-warnings.filterwarnings("ignore", category=MergeConflictWarning)
-
-# --- FITS IO FORMATTING NOISE ---
-# These suppress warnings about FITS header compliance
-# (e.g., truncated comments) that do not affect scientific output.
-warnings.filterwarnings(
-    "ignore",
-    category=VerifyWarning,
-    message=".*Card is too long.*"
-)
-warnings.filterwarnings(
-    "ignore",
-    category=AstropyUserWarning,
-    message=".*cannot be added to FITS Header.*",
-)
-log.setLevel(logging.ERROR)
+configure_environment()
 
 
 def starbug_parse_argv(argv: list[str]) -> StarBugMainConfig:
@@ -141,7 +94,7 @@ def match_full_band_match(
         mask: np.ndarray
         if bridge_col:
             mask = np.isnan(nir_cam_matched[bridge_col])
-            utils.printf("-> bridging catalogues with %s\n" % bridge_col)
+            utils.printf(f"-> bridging catalogues with {bridge_col}\n")
         else:
             mask = np.full(len(nir_cam_matched), False)
 
@@ -164,7 +117,7 @@ def match_main(argv: list[str]) -> ExitStates:
     config: StarBugMainConfig = starbug_parse_argv(argv)
 
     if config.show_match_help:
-        usage(__doc__, verbose=config.verbose_logs) # noqa
+        usage(__doc__, verbose=config.verbose_logs)
         return ExitStates.EXIT_SUCCESS
 
     p_file: str | None = config.param_file
@@ -182,10 +135,11 @@ def match_main(argv: list[str]) -> ExitStates:
     if raw := config.mask_eval:
         masks = [parse_mask(raw, t) for t in tables]
         for m in masks:
+            assert m is not None
             try:
-                print(str(m), sum(m), len(m)) # noqa
+                print(str(m), sum(m), len(m))
             except (TypeError, NameError, ImportError):
-                print(m) # noqa
+                print(m)
 
     if len(tables) > 1:
         col_names: list[str] = list(MATCH_COLS)
@@ -245,7 +199,7 @@ def match_main(argv: list[str]) -> ExitStates:
                 config.full_run = True
 
             if config.verbose_logs:
-                print("\n%s" % matcher)
+                print(f"\n{matcher}")
 
             output_table = matcher.match(tables, join_type="or", mask=masks)
             average_table = matcher.finish_matching(
@@ -264,20 +218,19 @@ def match_main(argv: list[str]) -> ExitStates:
 
         d_name: str
         f_name: str
-        ext: str
-        d_name, f_name, ext = utils.split_file_name(output)
+        d_name, f_name, _ = utils.split_file_name(output)
 
         suffix: str = ""
         if config.full_run and output_table is not None:
             utils.export_table(
-                output_table, f_name="%s/%sfull.fits" % (d_name, f_name))
-            utils.printf("-> %s/%sfull.fits\n" % (d_name, f_name))
+                output_table, f_name=f"{d_name}/{f_name}full.fits")
+            utils.printf(f"-> {d_name}/{f_name}full.fits\n")
             suffix = "match"
 
         if average_table:
             utils.export_table(
-                average_table, "%s/%s%s.fits" % (d_name, f_name, suffix))
-            utils.printf("-> %s/%s%s.fits\n" % (d_name, f_name, suffix))
+                average_table, f"{d_name}/{f_name}{suffix}.fits")
+            utils.printf(f"-> {d_name}/{f_name}{suffix}.fits\n")
 
         return ExitStates.EXIT_SUCCESS
 
