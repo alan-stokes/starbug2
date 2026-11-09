@@ -166,7 +166,7 @@
             } > ai_review.md
 
         - name: Upload Review Artifact
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@v5
           with:
             name: ai_review
             path: ai_review.md
