@@ -131,6 +131,9 @@
 
         - name: Generate AI Review Diff
           run: |
+            # Explicitly fetch the target branch so git diff has a valid revision to compare against
+            git fetch origin ${{ github.base_ref }}:${{ github.base_ref }} || true
+            
             {
               echo "# am_surfaces AI Code Review"
               echo
