@@ -156,7 +156,7 @@ def _generate_psf_single(
 
     det: str
     for det in detectors:
-        load.msg = f"{filter_string:6s} {det:5s}"
+        load.msg = f"{filter_string:6s} {det}"
         load.show()
         psf: fits.PrimaryHDU | None = generate_jwst_psf(
             filter_string, det, None)
