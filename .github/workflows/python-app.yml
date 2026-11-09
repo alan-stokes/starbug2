@@ -131,8 +131,7 @@
 
         - name: Generate AI Review Diff
           run: |
-            # Explicitly fetch the target branch so git diff has a valid revision to compare against
-            git fetch origin ${{ github.base_ref }}:${{ github.base_ref }} || true
+            git fetch origin ${{ github.base_ref }} || true
             
             {
               echo "# am_surfaces AI Code Review"
@@ -164,7 +163,10 @@
               echo "## Git diff"
               echo
               echo '```diff'
-              git diff "origin/${{ github.base_ref }}...HEAD" -- . ':(exclude)*.ipynb'
+              # Try a standard merge-base diff; fallback to direct diff or HEAD~1 if no merge base exists
+              if ! git diff "origin/${{ github.base_ref }}...HEAD" -- . ':(exclude)*.ipynb' 2>/dev/null; then
+                git diff "origin/${{ github.base_ref }}" HEAD -- . ':(exclude)*.ipynb' || git diff HEAD~1 HEAD -- . ':(exclude)*.ipynb'
+              fi
               echo '```'
             } > ai_review.md
 
