@@ -13,6 +13,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 from typing import override, Any
+
+import numpy as np
 from astropy.table import Table
 from starbug2.constants import TableColumn
 from starbug2.matching.generic_match import GenericMatch
@@ -30,12 +32,25 @@ class CascadeMatch(GenericMatch):
         super().__init__(**kwargs, method="Cascade Matching")
 
     @override
-    def match(self, catalogues: list[Table], **kwargs: Any) -> Table:
+    def match(self, catalogues: list[Table], join_type: str = "or",
+              mask: (
+                  list[np.ndarray | list[Any] | None]
+                  | np.ndarray | None) = None,
+              cartesian: bool = False,
+              **kwargs: Any) -> Table:
         """
         Match a list of catalogues with RA and DEC columns.
 
         :param catalogues: The input catalogues to work on
         :type catalogues: list (astropy.Tables)
+        :param join_type: Joining method ("or" to include sources in any
+                          catalogue, "and" to only include sources in all
+                          catalogues)
+        :type join_type: str
+        :param mask: In preparation
+        :type mask: list
+        :param cartesian: if we should use cartesian coordinates
+        :type cartesian: bool
         :param kwargs: Keyword arguments passed to GenericMatch.match
         :return: A left aligned catalogue of all the matched values
         :rtype: astropy.table.Table
@@ -47,7 +62,7 @@ class CascadeMatch(GenericMatch):
         base: Table = self.build_meta(catalogues)
 
         for n, cat in enumerate(catalogues, 1):
-            self._load.msg = "matching: %d" % n
+            self._load.msg = f"matching: {n}"
             tmp: Table = self.inner_match(base, cat, join_type="or")
             tmp.rename_columns(
                 tmp.colnames, [f"{name}_{n}" for name in tmp.colnames]

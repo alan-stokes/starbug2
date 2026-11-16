@@ -12,11 +12,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
-from typing import Optional
 
 import numpy as np
 from astropy.table import Table, QTable, hstack
 from photutils.detection import DAOStarFinder
+from photutils.detection.daofinder import _DAOStarFinderCatalog
 
 from starbug2.constants import TableColumn
 from starbug2.utilities.utils import Loading, printf, p_error
@@ -26,8 +26,8 @@ class SourceProperties:
     status: int = 0
 
     def __init__(
-            self, image: Optional[np.ndarray],
-            source_list: Optional[Table], verbose: int | bool = 1) -> None:
+            self, image: np.ndarray | None,
+            source_list: Table | None, verbose: int | bool = 1) -> None:
         """
         source properties.
 
@@ -38,8 +38,8 @@ class SourceProperties:
         :param verbose: int for verbose
         :type verbose: int
         """
-        self._image: Optional[np.ndarray] = image
-        self._source_list: Optional[Table] = None
+        self._image: np.ndarray | None = image
+        self._source_list: Table | None = None
         self._verbose: int | bool = verbose
 
         if source_list and type(source_list) in (Table, QTable):
@@ -59,7 +59,7 @@ class SourceProperties:
             else:
                 p_error("no positional columns in source list\n")
         else:
-            p_error("bad source list type: %s\n" % type(source_list))
+            p_error(f"bad source list type: {type(source_list)}\n")
 
     def execute_source_props(
             self, do_crowd: int = 1, n_closest_sources: int = 10,
@@ -98,20 +98,23 @@ class SourceProperties:
             p_error("no source list\n")
             return None
 
-        crowd: np.ndarray = np.zeros(len(self._source_list))
-        load: Loading = Loading(
-            len(self._source_list), msg="calculating crowding", res=10)
+        n_sources = len(self._source_list)
 
-        for i, src in enumerate([self._source_list]):
-            i: int
-            src: Table
-            dist: np.ndarray = np.sqrt(
-                (src[TableColumn.X_CENTROID] -
-                 self._source_list[TableColumn.X_CENTROID]) ** 2
-                + (src[TableColumn.Y_CENTROID] -
-                   self._source_list[TableColumn.Y_CENTROID]) ** 2)
+        # handle 1 source.
+        if n_sources == 1 or n_sources == 0:
+            return np.zeros(n_sources)
+
+        crowd: np.ndarray = np.zeros(n_sources)
+        load: Loading = Loading(
+            n_sources, msg="calculating crowding", res=10)
+
+        x = self._source_list[TableColumn.X_CENTROID]
+        y = self._source_list[TableColumn.Y_CENTROID]
+
+        for i in range(n_sources):
+            dist: np.ndarray = np.sqrt((x - x[i]) ** 2 + (y - y[i]) ** 2)
             dist.sort()
-            crowd[i] = sum(dist[1: n_closest_sources])
+            crowd[i] = sum(dist[1:min(n_closest_sources + 1, n_sources)])
             load()
             if self._verbose:
                 load.show()
@@ -142,4 +145,7 @@ class SourceProperties:
             peak_max=np.inf)
 
         # ABS protected access. yuck
-        return dao_find._get_raw_catalog(self._image).to_table()
+        catalogue: _DAOStarFinderCatalog | None = (
+            dao_find._get_raw_catalog(self._image))
+        assert catalogue is not None
+        return catalogue.to_table()

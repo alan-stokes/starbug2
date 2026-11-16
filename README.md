@@ -65,9 +65,12 @@ instead of:
 I used the following command to ensure live development.
 - ```./star_bug_env/bin/python -m pip install -e . --no-deps```
 
-For generating the doc images. graphviz is needed. To isntall that , run 
+For generating the doc images, graphviz is needed. To install graphviz, run 
 the following commands:
-``` pip isntall graphviz```
+``` pip install graphviz```
+
+For the custom PSF GUI, the following is required. 
+```pip install PyQt6 PyQt6-Qt6 PyQt6-sip pytest-qt```
 
 > [!IMPORTANT]
 > If you make use of *StarbugII* in any published or presented work,

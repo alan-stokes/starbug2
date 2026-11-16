@@ -14,6 +14,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 import os
+import subprocess
 from typing import Final
 
 import pytest
@@ -55,7 +56,7 @@ def test_param():
     assert (run(
         f"starbug2 --local-param --output={TEST_PATH}") ==
             ExitStates.EXIT_SUCCESS)
-    assert run("starbug2 --update-param") == ExitStates.EXIT_FAIL
+    assert run("starbug2 --update-param") == ExitStates.EXIT_SUCCESS
     param_file_path = os.path.join(TEST_PATH_STR, 'starbug.param')
     assert (run(f"starbug2 --update-param -Sp{param_file_path}") ==
             ExitStates.EXIT_SUCCESS)
@@ -164,7 +165,7 @@ def test_residual():
 
 def test_n_cores():
     clean()
-    os.system(f"cp {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}")
+    subprocess.run(["cp", f"{TEST_IMAGE_FITS}", f"{TEST_IMAGE_2_FITS}"])
     assert (run(
         f"starbug2 {TEST_IMAGE_FITS} {TEST_IMAGE_2_FITS}"
         f" {TEST_FILTER_STRING_NO_G} -sPSF_FILE={TEST_PSF_FITS} ") ==

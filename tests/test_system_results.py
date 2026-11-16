@@ -1,6 +1,6 @@
 from multiprocessing import shared_memory
 from multiprocessing.shared_memory import SharedMemory
-from typing import Final
+from typing import Final, LiteralString
 
 import numpy as np
 
@@ -21,7 +21,7 @@ class TestSystemResults:
 
     @staticmethod
     def _assert_results(
-            lines: list[str],
+            lines: list[str] | list[LiteralString] | list[bytes],
             expected_plain: int | None = None,
             expected_background: int | None = None,
             expected_con_vol: int | None = None,
@@ -96,7 +96,12 @@ class TestSystemResults:
             assert ((expected_total * ratio_low) <= total_line_count
                     <= (expected_total * ratio_high))
 
-    def test_detection_on_proper_fits_file(self, capsys):
+    def test_detection_on_proper_fits_file(self, capsys) -> None:
+        """
+        tests if detection runs on proper fits file
+        :param capsys: allows capture of terminal output
+        :return: None
+        """
         config: StarBugMainConfig = create_default_config()
         config.unfreeze()
         config.custom_filter = 'F770W'
@@ -114,7 +119,12 @@ class TestSystemResults:
         lines = captured.out.splitlines()
         self._assert_results(lines, 4461, 4508, 21854, 3433, 18421, 0.8, 1.2)
 
-    def test_detection_on_artificial_stars(self, capsys):
+    def test_detection_on_artificial_stars(self, capsys) -> None:
+        """
+        tests detection on artificial stars
+        :param capsys: allows capture of terminal output.
+        :return: None
+        """
         generic.clean()
         c: np.ndarray = np.array([0, 0, 0], dtype=np.int64)
         share_memory: SharedMemory = (
@@ -182,6 +192,11 @@ class TestSystemResults:
         generic.clean()
 
     def test_artificial_star_residual(self, capsys) -> None:
+        """
+        allows testing of artificial star residual
+        :param capsys: allows capture of terminal output.
+        :return: None
+        """
         generic.clean()
         c: np.ndarray = np.array([0, 0, 0], dtype=np.int64)
         share_memory: SharedMemory = (
@@ -228,3 +243,29 @@ class TestSystemResults:
         self._assert_results(
             lines, expected_total=15, ratio_low=-1, ratio_high=2)
         generic.clean()
+
+    def test_psf_on_fits_file(self, capsys) -> None:
+        """
+        tests if detection and psf and aperture runs on proper fits file.
+        mainly to test that the ap_corr works correctly.
+        :param capsys: allows capture of terminal output
+        :return: None
+        """
+        config: StarBugMainConfig = create_default_config()
+        config.unfreeze()
+        config.custom_filter = 'F770W'
+        config.fits_images = [TEST_NGC_FITS]
+        config.psf_file_override = TEST_PSF_FITS
+        config.do_star_detection = True
+        config.do_aperture_photometry = True
+        config.do_photometry_routine = True
+        config.verbose_logs = True
+        config.output_file = TEST_PATH_STR
+        config.freeze()
+        exit_state: int = starbug_internal_main(config)
+        assert exit_state == ExitStates.EXIT_SUCCESS
+        generic.clean()
+
+        captured = capsys.readouterr()
+        lines = captured.out.splitlines()
+        self._assert_results(lines, 4461, 4508, 21854, 3433, 18421, 0.8, 1.2)

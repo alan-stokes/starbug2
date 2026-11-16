@@ -85,10 +85,10 @@ class GenericMatch:
         :return: a sky coords sing base values.
         :rtype: SkyCoord.
         """
-        ra_cols: list[str] = list(
-            name for name in base.colnames if TableColumn.RA in name)
-        dec_cols: list[str] = list(
-            name for name in base.colnames if TableColumn.DEC in name)
+        ra_cols: list[str] = [
+            name for name in base.colnames if TableColumn.RA in name]
+        dec_cols: list[str] = [
+            name for name in base.colnames if TableColumn.DEC in name]
         ra: np.ndarray = np.nanmean(
             tab2array(base, col_names=ra_cols), axis=1)
         dec: np.ndarray = np.nanmean(
@@ -105,10 +105,8 @@ class GenericMatch:
         :return: a sky coords sing base values.
         :rtype: SkyCoord.
         """
-        x_cols: list[str] = list(
-            name for name in base.colnames if name[0] == "x")
-        y_cols: list[str] = list(
-            name for name in base.colnames if name[0] == "y")
+        x_cols: list[str] = [name for name in base.colnames if name[0] == "x"]
+        y_cols: list[str] = [name for name in base.colnames if name[0] == "y"]
         x: np.ndarray = np.nanmean(tab2array(base, col_names=x_cols), axis=1)
         y: np.ndarray = np.nanmean(tab2array(base, col_names=y_cols), axis=1)
         return SkyCoord(
@@ -122,7 +120,7 @@ class GenericMatch:
         verbose: int | None = None,
         p_file: str | None = None,
         method: str = "Generic Matching",
-        load: Loading = Loading(1)
+        load: Loading | None = None
     ) -> None:
         """
         constructor for the generic match.
@@ -141,6 +139,9 @@ class GenericMatch:
         :param load: the loading object
         :type load: Loading
         """
+        if load is None:
+            load = Loading(1)
+
         config = StarBugMainConfig.load_params(p_file)
 
         self._threshold: Quantity | np.ndarray | None = threshold
@@ -184,7 +185,7 @@ class GenericMatch:
         ]
         return "\n".join(s)
 
-    def __call__(self, *args: Any, **kwargs: Any) -> Table:
+    def __call__(self, *args: Any, **kwargs: Any) -> Table | None:
         """
         main entrance method.
 
@@ -256,7 +257,7 @@ class GenericMatch:
                 list[np.ndarray | list[Any] | None]
                 | np.ndarray | None) = None,
             cartesian: bool = False,
-            **kwargs: Any) -> Table:
+            **kwargs: Any) -> Table | None:
         """
         This matching works as a basic match. Everything is included and the
         column names have _N appended to the end.
@@ -288,7 +289,7 @@ class GenericMatch:
 
         # Bulk matching processes (column naming)
         for n, cat in enumerate(catalogues, 1):
-            self._load.msg = "matching: %d" % n
+            self._load.msg = f"matching: {n}"
             tmp: Table = self.inner_match(
                 base, cat, join_type=join_type, cartesian=cartesian)
 

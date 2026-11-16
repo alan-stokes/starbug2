@@ -13,7 +13,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 import os
-from typing import List, Optional, Any, Final
+from typing import Any, Final
 
 from starbug2.constants import (
     JWST_MIRI_APCORR_0010_FITS_URL, JWST_NIRCAM_APCORR_0004_FITS_URL,
@@ -55,9 +55,9 @@ def init_starbug_for_jwst(config: StarBugMainConfig) -> ExitStates:
     data_name: str = get_data_path()
 
     # noinspection SpellCheckingInspection
-    printf("-> using %s=%s\n" % (
-        STARBUG_DATA_DIR if os.getenv(STARBUG_DATA_DIR) else "DEFAULT_DIR",
-        data_name))
+    star_bug_dir: str = (
+        STARBUG_DATA_DIR if os.getenv(STARBUG_DATA_DIR) else "DEFAULT_DIR")
+    printf(f"-> using {star_bug_dir}={data_name}\n")
     _generate_psfs(config)
     download_ap_corr_files(data_name)
     return ExitStates.EXIT_SUCCESS
@@ -77,25 +77,24 @@ def download_ap_corr_files(data_name: str) -> None:
     # noinspection SpellCheckingInspection
     printf("Downloading APPCORR CRDS files. NB: "
            "\x1b[1mTHESE MAY NOT BE THE LATEST!\x1b[0m\n")
-    printf("-> %s\n" % _miri_ap_corr)
-    printf("-> %s\n" % _nircam_ap_corr)
+    printf(f"-> {_miri_ap_corr}\n")
+    printf(f"-> {_nircam_ap_corr}\n")
 
     # noinspection SpellCheckingInspection
-    wget(_miri_ap_corr, "%s/apcorr_miri.fits" % data_name)
+    wget(_miri_ap_corr, f"{data_name}/apcorr_miri.fits")
 
     # noinspection SpellCheckingInspection
-    wget(_nircam_ap_corr, "%s/apcorr_nircam.fits" % data_name)
+    wget(_nircam_ap_corr, f"{data_name}/apcorr_nircam.fits")
 
     # noinspection SpellCheckingInspection
     printf("Downloading ABVEGA offsets.\n")
 
     # noinspection SpellCheckingInspection
-    wget(JWST_MIRI_ABVEGA_OFFSET_URL,
-         "%s/abvegaoffset_miri.asdf" % data_name)
+    wget(JWST_MIRI_ABVEGA_OFFSET_URL, f"{data_name}/abvegaoffset_miri.asdf")
 
     # noinspection SpellCheckingInspection
     wget(JWST_NIRCAM_ABVEGA_OFFSET_URL,
-         "%s/abvegaoffset_nircam.asdf" % data_name)
+         f"{data_name}/abvegaoffset_nircam.asdf")
     puts("Downloading The Junior Colour Encyclopedia of Space\n")
 
 
@@ -113,7 +112,7 @@ def _generate_psfs(config: StarBugMainConfig) -> None:
         if not os.path.exists(d_name):
             os.makedirs(d_name)
 
-        printf("Generating PSFs --> %s\n" % d_name)
+        printf(f"Generating PSFs --> {d_name}\n")
 
         load: Loading = Loading(145, msg="initialising")
         load.show()
@@ -127,7 +126,7 @@ def _generate_psfs(config: StarBugMainConfig) -> None:
             for filter_string, filter_data in STAR_BUG_FILTERS.items():
                 _generate_psf_single(filter_string, filter_data, load, d_name)
         else:
-            if config.custom_filter in STAR_BUG_FILTERS.keys():
+            if config.custom_filter in STAR_BUG_FILTERS:
                 filter_data: FilterStruct | None = (
                     STAR_BUG_FILTERS.get(filter_string))
                 assert filter_data is not None
@@ -149,7 +148,7 @@ def _generate_psf_single(
         d_name: str) -> None:
     if filter_data.instr == NIRCAM:
         if filter_data.length == DetectorLengths.SHORT:
-            detectors: List[Optional[str]] = NIRCAM_SHORT_DETECTORS
+            detectors: list[str | None] = NIRCAM_SHORT_DETECTORS
         else:
             detectors = NIRCAM_LONG_DETECTORS
     else:
@@ -157,14 +156,14 @@ def _generate_psf_single(
 
     det: str
     for det in detectors:
-        load.msg = "%6s %5s" % (filter_string, det)
+        load.msg = f"{filter_string:6s} {det}"
         load.show()
         psf: fits.PrimaryHDU | None = generate_jwst_psf(
             filter_string, det, None)
         if psf:
+            dat_str = "" if det is None else det
             psf.writeto(
-                "%s/%s%s.fits" % (
-                    d_name, filter_string, "" if det is None else det),
+                f"{d_name}/{filter_string}{dat_str}.fits",
                 overwrite=True)
         load()
         load.show()
@@ -173,8 +172,8 @@ def _generate_psf_single(
 # noinspection SpellCheckingInspection
 def generate_jwst_psf(
         filter_string: str,
-        detector: Optional[str] = None,
-        fov_pixels: Optional[int] = None) -> fits.PrimaryHDU | None:
+        detector: str | None = None,
+        fov_pixels: int | None = None) -> fits.PrimaryHDU | None:
     # noinspection SpellCheckingInspection
     """
     Generate a single PSF for JWST
@@ -191,8 +190,8 @@ def generate_jwst_psf(
     """
 
     # define types
-    psf: Optional[fits.PrimaryHDU] = None
-    model: Optional[stpsf.JWInstrument] = None
+    psf: fits.PrimaryHDU | None = None
+    model: stpsf.JWInstrument | None = None
 
     # ensure fov pixels is greater than 0
     if fov_pixels is not None and fov_pixels <= 0:
@@ -215,9 +214,9 @@ def generate_jwst_psf(
 
         # need to use getattr as these are not found by the IDE automatically.
         if the_filter.instr == NIRCAM:
-            model = getattr(stpsf, "NIRCam")()
+            model = stpsf.NIRCam()
         elif the_filter.instr == STAR_BUG_MIRI:
-            model = getattr(stpsf, "MIRI")()
+            model = stpsf.MIRI()
 
         if model:
             model.filter = filter_string
@@ -236,17 +235,18 @@ def generate_jwst_psf(
                     fits.PrimaryHDU(
                         data=image_hdu.data, header=image_hdu.header))
             except (KeyError, AttributeError, ValueError) as e:
-                p_error("\x1b[2KSomething went wrong with: %s %s with "
-                        "error %s\n" % (filter_string, detector, str(e)))
+                p_error(
+                    f"\x1b[2KSomething went wrong with: {filter_string} "
+                    f"{detector} with error {e!s}\n")
             except RuntimeError as e:
                 import traceback
                 traceback.format_exc()
                 p_error(f"during detector on {the_filter.instr} with wave"
-                        f" length {filter_string}. something failed. {str(e)}")
+                        f" length {filter_string}. something failed. {e!s}")
         else:
             p_error(
-                "Unable to determine instrument from filter_string '%s'\n" %
-                filter_string)
+                f"Unable to determine instrument from filter_string "
+                f"'{filter_string}'\n")
     else:
-        p_error("Unable to locate '%s' in JWST filter list\n" % filter_string)
+        p_error(f"Unable to locate '{filter_string}' in JWST filter list\n")
     return psf

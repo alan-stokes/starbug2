@@ -18,6 +18,9 @@ import os
 from astropy.io.fits import PrimaryHDU, HDUList
 from astropy.table import Table
 
+from starbug2.core.custom_psf_gui.star_grid_panel import StarGridPanel
+from starbug2.core.custom_psf_gui.custom_psf_gui import CustomPSFGui
+from starbug2.core.main_components.custom_psf import CustomPSF
 from starbug2.core.main_components.artificial_stars import compile_results
 from starbug2.constants import ExitStates, HELP_STRINGS, Modes
 from starbug2.core.star_bug_config import StarBugMainConfig
@@ -57,8 +60,8 @@ def generate_region(config: StarBugMainConfig) -> ExitStates:
             x_col=config.region_x_column_name,
             y_col=config.region_y_column_name,
             wcs=config.region_uses_wcs,
-            f_name="%s/%s.reg" % (output, name))
-        printf("generating region --> %s/%s.reg\n" % (output, name))
+            f_name=f"{output}/{name}.reg")
+        printf(f"generating region --> {output}/{name}.reg\n")
         return ExitStates.EXIT_SUCCESS
     return ExitStates.EXIT_FAIL
 
@@ -78,19 +81,13 @@ def generate_a_jwst_psf(config: StarBugMainConfig) -> ExitStates:
         psf_size: int = config.psf_fit_size
         if psf_size is not None:
             printf(
-                "Generating PSF: %s %s (%d)\n" %
-                (filter_string, detector, psf_size))
-        else:
-            printf(
-                "Generating PSF: %s %s\n" %
-                (filter_string, detector))
+                f"Generating PSF: {filter_string} {detector} ({psf_size})\n")
         psf: PrimaryHDU | None = generate_jwst_psf(
             filter_string, detector=detector, fov_pixels=psf_size)
         if psf:
             name: str = (
-                "%s%s.fits" %
-                (filter_string, "" if detector is None else detector))
-            printf("--> %s\n" % name)
+                f"{filter_string}{'' if detector is None else detector}.fits")
+            printf(f"--> {name}\n")
             d_name: str = get_data_path()
             psf.writeto(os.path.join(d_name, name), overwrite=True)
             return ExitStates.EXIT_SUCCESS
@@ -163,7 +160,8 @@ def load_param(config: StarBugMainConfig) -> ExitStates:
     return ExitStates.EXIT_SUCCESS
 
 
-def starbug_one_time_runs(config: StarBugMainConfig) -> ExitStates:
+def starbug_one_time_runs(
+        config: StarBugMainConfig) -> ExitStates:
     """
     executes any one time runs as required by the config
     :param config: the main config
@@ -205,6 +203,15 @@ def starbug_one_time_runs(config: StarBugMainConfig) -> ExitStates:
     if config.generate_local_param_file:
         return config.do_generate_local_param_file()
 
+    if config.do_custom_psf:
+        return CustomPSF.execute_custom_e_psf(config)
+
+    if config.do_custom_psf_gui:
+        return CustomPSFGui.execute_gui(config)
+
+    if config.run_custom_psf_generator:
+        return StarGridPanel.boot_up(config)
+
     return ExitStates.EXIT_FAIL
 
 
@@ -228,7 +235,8 @@ def ast_one_time_runs(config: StarBugMainConfig) -> ExitStates:
         else:
             f_names = [a for a in config.fits_images if os.path.exists(a)]
         if f_names:
-            printf("Recovery Mode:\n-> %s\n" % ("\n-> ".join(f_names)))
+            joined_f_names: str = "\n-> ".join(f_names)
+            printf(f"Recovery Mode:\n-> {joined_f_names}\n")
             raw: Table | None = Table()
             for f_name in f_names:
                 f_name: str
@@ -243,7 +251,7 @@ def ast_one_time_runs(config: StarBugMainConfig) -> ExitStates:
                     fill_nan(raw), config, plot_ast="recovered.pdf")):
                 printf("-> successful recovery!\n--> %s\n" % (
                     f_name := "recovered.fits"))
-                for result_file_name in results.keys():
+                for result_file_name in results:
                     results[result_file_name].writeto(
                         f"{result_file_name}{f_name}", overwrite=True)
             else:

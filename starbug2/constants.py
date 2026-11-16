@@ -13,7 +13,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
-from typing import List, Final
+from typing import Final
 from enum import Enum
 from pathlib import Path
 import os
@@ -40,6 +40,10 @@ DEFAULT_COLOUR: Final[str] = "green"
 DEFAULT_MIN_MAG: Final[int] = 28
 DEFAULT_MAX_MAG: Final[int] = 18
 DEFAULT_BUNIT = "MJy/sr"
+
+# soft pink for nans in custom psf generaot
+DEFAULT_GUI_NAN_COLOUR = [255, 192, 203, 255]
+DEFAULT_TRANSPARENT_FOR_NON_NANS = [0, 0, 0, 0]
 
 # how many characters we will allow by default.
 N_MIS_MATCHES: Final[int] = 10
@@ -198,6 +202,7 @@ class TableColumn(str, Enum):
     TOTAL_FLUX_ADDED = "TOTAL_FLUX_ADDED"
     TOTAL_MAG = "TOTAL_MAG"
     TOTAL_DIFF_MAG = "TOTAL_DIFF_MAG"
+    PEAK = "peak"
 
     # needed as the table system doenst seem to handle enums properly
     def __str__(self) -> str:
@@ -209,7 +214,7 @@ class TableColumn(str, Enum):
 
 
 # DEFAULT MATCHING COLS
-MATCH_COLS: List[str] = [
+MATCH_COLS: list[str] = [
     TableColumn.RA, TableColumn.DEC, TableColumn.FLAG, TableColumn.FLUX,
     TableColumn.E_FLUX, TableColumn.NUM]
 
@@ -327,6 +332,7 @@ class FileExtensions(str, Enum):
     RESIDUE = "-res.fits"
     PSF = "-psf.fits"
     CUSTOM_PSF = "-c-psf.fits"
+    CUSTOM_LIST_PSF = "-psf-lst.fits"
 
     # needed as the table system doenst seem to handle enums properly
     def __str__(self) -> str:
@@ -338,7 +344,7 @@ class FileExtensions(str, Enum):
 
 
 # the column names of the rsult table used by artificial stars
-TEST_TABLE_COLUMN_NAMES: Final[List[str]] = [
+TEST_TABLE_COLUMN_NAMES: Final[list[str]] = [
     TableColumn.X_0, TableColumn.Y_0, TableColumn.MAG, TableColumn.FLUX,
     TableColumn.X_DET, TableColumn.Y_DET, TableColumn.FLUX_DET,
     TableColumn.FOUND]

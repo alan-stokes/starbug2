@@ -118,10 +118,12 @@ def test_tab_append() -> None:
     out = utils.combine_tables(base, tab)
 
     # Safely compare tables via their underlying numpy structures
+    assert out is not None
     assert np.all(out.as_array() == exp.as_array())
 
     tab1 = tab.copy()
     out = utils.combine_tables(None, tab1)
+    assert out is not None
     assert np.all(out.as_array() == tab.as_array())
 
 

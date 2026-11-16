@@ -13,7 +13,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
-from typing import Final, Dict
+from typing import Final
 from starbug2.constants import NIRCAM, DetectorLengths, STAR_BUG_MIRI
 
 
@@ -56,7 +56,7 @@ class FilterStruct:
 
 
 # as of 08/06/2023
-STAR_BUG_FILTERS: Final[Dict[str, FilterStruct]] = {
+STAR_BUG_FILTERS: Final[dict[str, FilterStruct]] = {
     "F070W": FilterStruct(0.742, NIRCAM, DetectorLengths.SHORT),
     "F090W": FilterStruct(0.968, NIRCAM, DetectorLengths.SHORT),
     "F115W": FilterStruct(1.194, NIRCAM, DetectorLengths.SHORT),
