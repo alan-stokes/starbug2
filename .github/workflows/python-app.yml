@@ -130,6 +130,8 @@
             python -m pytest
 
         - name: Generate AI Review Diff
+          # use 3.12 to avoid making an AI review for every version of python
+          if: matrix.python-version == '3.12'
           run: |
             git fetch origin ${{ github.base_ref }} || true
             
@@ -171,6 +173,8 @@
             } > ai_review.md
 
         - name: Upload Review Artifact
+          # use 3.12 to avoid making an AI review for every version of python
+          if: matrix.python-version == '3.12'
           uses: actions/upload-artifact@v5
           with:
             name: ai_review
