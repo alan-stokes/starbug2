@@ -32,7 +32,7 @@ class APPhotRoutine:
 
     @staticmethod
     def calc_ap_corr(
-            filter_string: str, radius: float,
+            filter_string: str, radius: float, sub_array_label: str | None,
             table_f_name: str | None = None,
             verbose: int | bool = 0) -> float:
         """
@@ -43,6 +43,8 @@ class APPhotRoutine:
         :type filter_string: str
         :param radius: the radius
         :type radius: float
+        :param sub_array_label: the sub array label
+        :type sub_array_label: str | None
         :param table_f_name: the table file name
         :type table_f_name: str
         :param verbose: int for verbose.
@@ -64,6 +66,11 @@ class APPhotRoutine:
 
         if TableColumn.PUPIL in t_ap_corr.colnames:
             t_ap_corr = t_ap_corr[t_ap_corr[TableColumn.PUPIL] == Modes.CLEAR]
+
+        if (sub_array_label is not None
+                and TableColumn.SUBARRAY in t_ap_corr.colnames):
+            t_ap_corr = t_ap_corr[
+                t_ap_corr[TableColumn.SUBARRAY] == sub_array_label]
 
         ap_corr: float = float(np.interp(
             radius, t_ap_corr[TableColumn.RADIUS],

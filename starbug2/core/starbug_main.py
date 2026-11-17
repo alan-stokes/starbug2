@@ -390,9 +390,24 @@ class StarbugBase(StarBugInterface):
         (detections, result) = main_aperture_photometry.aperture_photometry(
             self.detections, self.image, self._filter, self.log, self._config,
             self.info, self._full_width_half_max, self.out_dir, self._b_name,
-            self.header(), self._background, self.main_image())
+            self.header(), self._background, self.main_image(),
+            self._get_sub_array_label())
         self._detections = detections
         return result
+
+    def _get_sub_array_label(self) -> str | None:
+        assert self._image is not None
+        hdu: ImageHDU | PrimaryHDU | BinTableHDU
+        index: int
+        sub_array_label: str | None = None
+        for index, hdu in enumerate(self._image):
+            sub_array_label = hdu.header.get("SUBARRAY")
+            if sub_array_label is not None:
+                print(
+                    f"located a subarray label in index"
+                    f" {index} with value {sub_array_label}")
+                return sub_array_label
+        return sub_array_label
 
     def bgd_estimate(self) -> ExitStates:
         """

@@ -87,7 +87,8 @@ class AperturePhotometry:
     def aperture_correction(
             config: StarBugMainConfig, info: dict[str, str],
             log: Callable[[str], None], filter_string: str,
-            full_width_half_max: float) -> tuple[float, float, float, float]:
+            full_width_half_max: float, sub_array_label: str | None) -> (
+               tuple[float, float, float, float]):
         """
         Determines the aperture radii and calculates the aperture correction.
 
@@ -105,6 +106,8 @@ class AperturePhotometry:
         :type filter_string: str
         :param full_width_half_max: FWHM value for stellar profiles.
         :type full_width_half_max: float
+        :param sub_array_label: Sub-array label for ap correction.
+        :type sub_array_label: str | None
         :return: A tuple containing the calculated parameters: (aperture
                  radius, sky inner radius, sky outer radius, aperture
                  correction factor).
@@ -147,8 +150,8 @@ class AperturePhotometry:
                 radius = 2.0
 
         ap_corr: float = APPhotRoutine.calc_ap_corr(
-            filter_string, radius, table_f_name=ap_corr_f_name,
-            verbose=config.verbose_logs)
+            filter_string, radius, sub_array_label,
+            table_f_name=ap_corr_f_name, verbose=config.verbose_logs)
         return radius, sky_in, sky_out, ap_corr
 
     # noinspection SpellCheckingInspection
@@ -160,7 +163,8 @@ class AperturePhotometry:
             full_width_half_max: float, out_dir: str | None,
             b_name: str | None, header: Header,
             background: ImageHDU | PrimaryHDU | None,
-            main_image: ImageHDU | PrimaryHDU) -> tuple[Table, ExitStates]:
+            main_image: ImageHDU | PrimaryHDU,
+            sub_array_label: str | None) -> tuple[Table, ExitStates]:
         """
          Executes aperture photometry processing steps.
 
@@ -191,6 +195,8 @@ class AperturePhotometry:
          :type background: ImageHDU | PrimaryHDU | None
          :param main_image: Primary target image array used for measurements.
          :type main_image: ImageHDU | PrimaryHDU
+         :param sub_array_label: Sub-array label used for extracting ap corr.
+         :type sub_array_label: str | None
          :return: Extracted source table and the resulting status state.
          :rtype: Tuple[Table, ExitStates]
          """
@@ -216,7 +222,8 @@ class AperturePhotometry:
         # Aperture Correction
         radius, sky_in, sky_out, ap_corr = (
             AperturePhotometry.aperture_correction(
-                config, info, log, filter_string, full_width_half_max))
+                config, info, log, filter_string, full_width_half_max,
+                sub_array_label))
 
         # Run Photometry
         app_hot: APPhotRoutine = APPhotRoutine(

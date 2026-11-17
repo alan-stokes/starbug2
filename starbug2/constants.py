@@ -203,6 +203,7 @@ class TableColumn(str, Enum):
     TOTAL_MAG = "TOTAL_MAG"
     TOTAL_DIFF_MAG = "TOTAL_DIFF_MAG"
     PEAK = "peak"
+    SUBARRAY = "subarray"
 
     # needed as the table system doenst seem to handle enums properly
     def __str__(self) -> str:
